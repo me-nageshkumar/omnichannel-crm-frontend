@@ -1,28 +1,37 @@
-import { describe, expect, it } from 'vitest';
+import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { screen } from '@testing-library/react';
 import { renderApp } from '../test/renderApp';
+import { mockFetch } from '../test/fetchMock';
+import { meRoute, storeSession } from '../test/session';
 
 describe('App shell', () => {
-  it('shows the app name in the masthead', () => {
+  beforeEach(() => {
+    localStorage.clear();
+    storeSession();
+    mockFetch({ ...meRoute() });
+  });
+  afterEach(() => vi.unstubAllGlobals());
+
+  it('shows the app name in the masthead', async () => {
     renderApp('/');
-    expect(screen.getByText('Omnichannel CRM')).toBeVisible();
+    expect(await screen.findByText('Omnichannel CRM')).toBeVisible();
   });
 
   // jsdom has no viewport width, so the managed sidebar starts collapsed (hidden)
-  it('nav lists Dashboard and Profile only', () => {
+  it('nav lists Dashboard and Profile only', async () => {
     renderApp('/');
-    expect(screen.getByRole('link', { name: 'Dashboard', hidden: true })).toBeInTheDocument();
+    expect(await screen.findByRole('link', { name: 'Dashboard', hidden: true })).toBeInTheDocument();
     expect(screen.getByRole('link', { name: 'Profile', hidden: true })).toBeInTheDocument();
     expect(screen.queryByRole('link', { name: 'Support', hidden: true })).toBeNull();
   });
 
-  it('unknown path shows not found', () => {
+  it('unknown path shows not found', async () => {
     renderApp('/nope');
-    expect(screen.getByText('404 Page not found')).toBeVisible();
+    expect(await screen.findByText('404 Page not found')).toBeVisible();
   });
 
-  it('profile route renders', () => {
+  it('profile route renders', async () => {
     renderApp('/profile');
-    expect(screen.getByRole('heading', { name: 'Profile' })).toBeVisible();
+    expect(await screen.findByRole('heading', { name: 'Profile' })).toBeVisible();
   });
 });
