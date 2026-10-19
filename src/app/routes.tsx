@@ -3,13 +3,13 @@ import { Route, Routes } from 'react-router-dom';
 import { Dashboard } from '@app/Dashboard/Dashboard';
 import { ProfilePage } from '@app/Profile/ProfilePage';
 import { NotFound } from '@app/NotFound/NotFound';
-import { PageShell } from '@app/admin/PageShell';
 import { PlatformUsersPage } from '@app/PlatformUsers/PlatformUsersPage';
 import { RolesPage } from '@app/Roles/RolesPage';
 import { CustomersPage } from '@app/Customers/CustomersPage';
 import { CustomerDetailPage } from '@app/Customers/CustomerDetailPage';
 import { BrandsPage } from '@app/Brands/BrandsPage';
 import { UsersPage } from '@app/Users/UsersPage';
+import { TeamsPage } from '@app/Teams/TeamsPage';
 import { Access, useAccess } from '@app/session/useAccess';
 
 export type NavGroup = 'Platform' | 'Company' | 'Brand';
@@ -69,7 +69,7 @@ const routes: IAppRoute[] = [
     requires: (a) => a.hasInWorkspace('user:view'),
   },
   {
-    element: <PageShell title="Teams" />,
+    element: <TeamsPage />,
     label: 'Teams',
     path: '/teams',
     group: 'Brand',

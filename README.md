@@ -4,8 +4,23 @@ Browser console for the Omnichannel CRM backend (`omnichannel-crm-backend`, Spri
 TypeScript, PatternFly 6, React Router, Webpack, Vitest. Started from
 [patternfly-react-seed](https://github.com/patternfly/patternfly-react-seed) (MIT).
 
-This first slice is for the super admin only: log in (with a 6-digit code when two-factor is on),
-dashboard, profile with two-factor setup, log out.
+Everyone with a login can use it: log in (with a 6-digit code when two-factor is on, and a new
+password on first login), dashboard, profile with two-factor setup, log out. What else a person sees
+comes from the authorities the server returns in `/api/users/me`; on screen a workspace is a
+**brand**, and the masthead switcher picks the current one (remembered in `localStorage` under
+`omnichannel.workspace`).
+
+| Page | Shown when | What it does |
+|---|---|---|
+| Platform users | `platform-user:manage` | Account Managers and other staff: add, edit, reset password, deactivate |
+| Roles | Super Admin | Which authorities each role holds; custom roles; warns before an edit changes who can assign what; history |
+| Customers | `customer:view` | Search and page customers; add one with its first brand and owner; owners, rename, deactivate (`customer:manage`) |
+| Brands | `workspace:create` | The company's brands: add, rename |
+| Users | `user:view` in the current brand | People with access to the brand; add (new or from another brand), edit role, reset password, remove (`user:manage`); deactivate (`company-user:manage`) |
+| Teams | `user:view` in the current brand | Teams and members; add, rename, choose members (`team:manage`) |
+
+Temporary passwords are typed by whoever creates the person, shown once with a copy button, and must
+be changed at first login. Hiding a menu is only convenience: the server checks every request.
 
 ## Develop
 
