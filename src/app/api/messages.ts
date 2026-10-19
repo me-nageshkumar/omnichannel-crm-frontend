@@ -11,6 +11,7 @@ const BY_CODE: Record<string, string> = {
   account_inactive: 'This account is inactive.',
   invalid_otp: 'That code is not valid. Try again.',
   invalid_token: 'Your sign-in took too long. Please log in again.',
+  weak_password: 'Use at least 10 characters, different from your temporary password.',
 };
 
 /** The user-facing sentence for an error from the API layer. */

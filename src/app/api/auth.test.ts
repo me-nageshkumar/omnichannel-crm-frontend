@@ -1,5 +1,5 @@
 import { afterEach, describe, expect, it, vi } from 'vitest';
-import { login, logout, verifyOtp } from '@app/api/auth';
+import { login, logout, setInitialPassword, verifyOtp } from '@app/api/auth';
 import { messageFor } from '@app/api/messages';
 import { ApiError } from '@app/api/client';
 import { mockFetch, rejectionOf, requestTo } from '../../test/fetchMock';
@@ -47,7 +47,11 @@ describe('auth api', () => {
     const fetch = mockFetch({
       'POST /api/auth/verify-otp': { status: 200, body: { token: 't2', expiresAt: '2026-10-20T00:00:00Z' } },
     });
-    await expect(verifyOtp('p1', '123456')).resolves.toEqual({ token: 't2', expiresAt: '2026-10-20T00:00:00Z' });
+    await expect(verifyOtp('p1', '123456')).resolves.toEqual({
+      kind: 'signedIn',
+      token: 't2',
+      expiresAt: '2026-10-20T00:00:00Z',
+    });
     const req = requestTo(fetch, 'POST /api/auth/verify-otp');
     expect(req?.headers.get('Authorization')).toBe('Bearer p1');
     expect(req?.body).toEqual({ otp: '123456' });
@@ -57,5 +61,31 @@ describe('auth api', () => {
     const fetch = mockFetch({ 'POST /api/auth/logout': { status: 204 } });
     await expect(logout('t1')).resolves.toBeUndefined();
     expect(requestTo(fetch, 'POST /api/auth/logout')?.headers.get('Authorization')).toBe('Bearer t1');
+  });
+});
+
+describe('first-login password change API', () => {
+  afterEach(() => vi.unstubAllGlobals());
+
+  it('login reports passwordChangeRequired', async () => {
+    mockFetch({
+      'POST /api/auth/login': { status: 200, body: { passwordChangeRequired: true, passwordChangeToken: 'pc' } },
+    });
+    expect(await login('u', 'p')).toEqual({ kind: 'passwordChangeRequired', passwordChangeToken: 'pc' });
+  });
+
+  it('verifyOtp reports passwordChangeRequired', async () => {
+    mockFetch({
+      'POST /api/auth/verify-otp': { status: 200, body: { passwordChangeRequired: true, passwordChangeToken: 'pc' } },
+    });
+    expect(await verifyOtp('p', '123456')).toEqual({ kind: 'passwordChangeRequired', passwordChangeToken: 'pc' });
+  });
+
+  it('setInitialPassword posts with the change token', async () => {
+    const fetch = mockFetch({
+      'POST /api/auth/initial-password': { status: 200, body: { token: 't', expiresAt: '2030-01-01T00:00:00Z' } },
+    });
+    expect(await setInitialPassword('pc', 'new-password-1')).toEqual({ token: 't', expiresAt: '2030-01-01T00:00:00Z' });
+    expect(requestTo(fetch, 'POST /api/auth/initial-password')?.headers.get('Authorization')).toBe('Bearer pc');
   });
 });

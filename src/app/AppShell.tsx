@@ -4,6 +4,7 @@ import { AppLayout } from '@app/AppLayout/AppLayout';
 import { AppRoutes } from '@app/routes';
 import { LoginPage } from '@app/Login/LoginPage';
 import { VerifyCodePage } from '@app/Login/VerifyCodePage';
+import { NewPasswordPage } from '@app/Login/NewPasswordPage';
 import { RequireSession } from '@app/session/RequireSession';
 import { SessionProvider } from '@app/session/SessionContext';
 
@@ -14,6 +15,7 @@ const AppShell: React.FunctionComponent<{ children?: React.ReactNode }> = ({ chi
     <Routes>
       <Route path="/login" element={<LoginPage />} />
       <Route path="/login/verify" element={<VerifyCodePage />} />
+      <Route path="/login/new-password" element={<NewPasswordPage />} />
       <Route
         path="*"
         element={

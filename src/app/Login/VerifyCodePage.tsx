@@ -47,8 +47,13 @@ export const VerifyCodePage: React.FunctionComponent = () => {
     setError(null);
     setBusy(true);
     try {
-      const issued = await verifyOtp(pending, code.trim());
-      await session.signIn(issued.token, issued.expiresAt);
+      const result = await verifyOtp(pending, code.trim());
+      if (result.kind === 'passwordChangeRequired') {
+        session.startPasswordChange(result.passwordChangeToken);
+        navigate('/login/new-password', { state: { from } });
+        return;
+      }
+      await session.signIn(result.token, result.expiresAt);
     } catch (e) {
       if (e instanceof ApiError && e.code === 'invalid_token') {
         backToLogin(messageFor(e));

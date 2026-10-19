@@ -40,6 +40,9 @@ const ConsoleLoginPage: React.FunctionComponent = () => {
       if (result.kind === 'twoFactorRequired') {
         session.startTwoFactor(result.twoFactorToken);
         navigate('/login/verify', { state: { from } });
+      } else if (result.kind === 'passwordChangeRequired') {
+        session.startPasswordChange(result.passwordChangeToken);
+        navigate('/login/new-password', { state: { from } });
       } else {
         await session.signIn(result.token, result.expiresAt);
       }

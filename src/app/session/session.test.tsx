@@ -6,15 +6,7 @@ import { SESSION_KEY } from '@app/session/sessionStore';
 import { useSession } from '@app/session/SessionContext';
 import { renderApp } from '../../test/renderApp';
 import { callsTo, mockFetch, requestTo } from '../../test/fetchMock';
-import {
-  AGENT_NO_BRANDS,
-  CUSTOMER_ADMIN,
-  SUPER_ADMIN,
-  inMs,
-  meAs,
-  meRoute,
-  storeSession,
-} from '../../test/session';
+import { AGENT_NO_BRANDS, CUSTOMER_ADMIN, SUPER_ADMIN, inMs, meAs, meRoute, storeSession } from '../../test/session';
 import { WORKSPACE_KEY } from '@app/session/workspaceStore';
 
 const LOGIN_HEADING = 'Log in to your account';

@@ -15,6 +15,9 @@ export interface Session {
   /** A message for the login page: why the user is signed out, or why sign-in failed. */
   notice: string | null;
   pendingTwoFactorToken: string | null;
+  /** Held only in memory, like the two-factor token. */
+  pendingPasswordChangeToken: string | null;
+  startPasswordChange(passwordChangeToken: string): void;
   /** The brand the user is working in; null when they have none. */
   workspace: WorkspaceAccess | null;
   selectWorkspace(id: string): void;
@@ -40,12 +43,19 @@ interface State {
   token: string | null;
   notice: string | null;
   pendingTwoFactorToken: string | null;
+  pendingPasswordChangeToken: string | null;
 }
 
 /** The largest delay setTimeout honours (2^31 - 1 ms); longer ones fire immediately. */
 const MAX_TIMER_DELAY_MS = 2 ** 31 - 1;
 
-const SIGNED_OUT: Omit<State, 'notice'> = { status: 'signedOut', user: null, token: null, pendingTwoFactorToken: null };
+const SIGNED_OUT: Omit<State, 'notice'> = {
+  status: 'signedOut',
+  user: null,
+  token: null,
+  pendingTwoFactorToken: null,
+  pendingPasswordChangeToken: null,
+};
 
 function failureNotice(error: unknown): string {
   return error instanceof ApiError && error.status === 401 ? MESSAGES.sessionExpired : messageFor(error);
@@ -68,7 +78,14 @@ export const SessionProvider: React.FunctionComponent<{ children: React.ReactNod
         const user = await getCurrentUser(token);
         writeSession({ token, expiresAt });
         setExpiresAt(expiresAt);
-        setState({ status: 'signedIn', user, token, notice: null, pendingTwoFactorToken: null });
+        setState({
+          status: 'signedIn',
+          user,
+          token,
+          notice: null,
+          pendingTwoFactorToken: null,
+          pendingPasswordChangeToken: null,
+        });
         return true;
       } catch (error) {
         signedOut(failureNotice(error));
@@ -152,6 +169,8 @@ export const SessionProvider: React.FunctionComponent<{ children: React.ReactNod
       setWorkspaceId(id);
     },
     startTwoFactor: (pendingTwoFactorToken) => setState((s) => ({ ...s, pendingTwoFactorToken, notice: null })),
+    startPasswordChange: (pendingPasswordChangeToken) =>
+      setState((s) => ({ ...s, pendingPasswordChangeToken, notice: null })),
     signIn: establish,
     signOut,
     refreshUser,

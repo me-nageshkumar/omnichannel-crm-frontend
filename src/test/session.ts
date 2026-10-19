@@ -2,7 +2,13 @@ import type { CurrentUser, WorkspaceAccess } from '@app/api/users';
 import { SESSION_KEY } from '@app/session/sessionStore';
 import type { MockRoute } from './fetchMock';
 
-const PLATFORM_CODES = ['platform-user:manage', 'customer:view', 'customer:create', 'customer:manage', 'whatsapp:bridge'];
+const PLATFORM_CODES = [
+  'platform-user:manage',
+  'customer:view',
+  'customer:create',
+  'customer:manage',
+  'whatsapp:bridge',
+];
 export const BRAND_CODES = ['workspace:settings', 'user:view', 'user:manage', 'team:manage'];
 
 const base = {
