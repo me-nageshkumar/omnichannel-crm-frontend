@@ -9,6 +9,7 @@ import { RolesPage } from '@app/Roles/RolesPage';
 import { CustomersPage } from '@app/Customers/CustomersPage';
 import { CustomerDetailPage } from '@app/Customers/CustomerDetailPage';
 import { BrandsPage } from '@app/Brands/BrandsPage';
+import { UsersPage } from '@app/Users/UsersPage';
 import { Access, useAccess } from '@app/session/useAccess';
 
 export type NavGroup = 'Platform' | 'Company' | 'Brand';
@@ -61,7 +62,7 @@ const routes: IAppRoute[] = [
     requires: (a) => a.has('workspace:create'),
   },
   {
-    element: <PageShell title="Users" />,
+    element: <UsersPage />,
     label: 'Users',
     path: '/users',
     group: 'Brand',
