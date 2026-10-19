@@ -5,6 +5,7 @@ import { ProfilePage } from '@app/Profile/ProfilePage';
 import { NotFound } from '@app/NotFound/NotFound';
 import { PageShell } from '@app/admin/PageShell';
 import { PlatformUsersPage } from '@app/PlatformUsers/PlatformUsersPage';
+import { RolesPage } from '@app/Roles/RolesPage';
 import { Access, useAccess } from '@app/session/useAccess';
 
 export type NavGroup = 'Platform' | 'Company' | 'Brand';
@@ -31,7 +32,7 @@ const routes: IAppRoute[] = [
     requires: (a) => a.has('platform-user:manage'),
   },
   {
-    element: <PageShell title="Roles" />,
+    element: <RolesPage />,
     label: 'Roles',
     path: '/roles',
     group: 'Platform',
