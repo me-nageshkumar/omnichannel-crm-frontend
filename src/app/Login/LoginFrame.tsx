@@ -24,8 +24,12 @@ export const LoginFrame: React.FunctionComponent<{
   </LoginPage>
 );
 
-/** Where to go after signing in: the page that sent the user to /login, else the dashboard. */
+/**
+ * Where to go after signing in: the page that sent the user to /login, else the dashboard. Only a
+ * same-origin path is accepted; "//host" and "/\\host" would leave the site.
+ */
 export function fromOf(state: unknown): string {
   const from = (state as { from?: unknown } | null)?.from;
-  return typeof from === 'string' && from.startsWith('/') && !from.startsWith('/login') ? from : '/';
+  if (typeof from !== 'string' || !from.startsWith('/') || from.startsWith('//') || from.includes('\\')) return '/';
+  return from.startsWith('/login') ? '/' : from;
 }

@@ -104,6 +104,27 @@ describe('session lifecycle', () => {
     expect(localStorage.getItem(SESSION_KEY)).toBeNull();
   });
 
+  it('a session longer than the timer limit (~24.8 days) is not signed out early', async () => {
+    vi.useFakeTimers({ shouldAdvanceTime: true });
+    const day = 24 * 3600_000;
+    storeSession('t1', inMs(30 * day));
+    mockFetch({ ...meRoute() });
+    renderApp('/');
+    expect(await screen.findByText('Welcome, Nagesh Kumar')).toBeVisible();
+    await act(async () => {
+      vi.advanceTimersByTime(1000);
+    });
+    expect(screen.getByText('Welcome, Nagesh Kumar')).toBeVisible();
+    await act(async () => {
+      vi.advanceTimersByTime(29 * day);
+    });
+    expect(screen.getByText('Welcome, Nagesh Kumar')).toBeVisible();
+    await act(async () => {
+      vi.advanceTimersByTime(day + 1000);
+    });
+    expect(await screen.findByText(EXPIRED)).toBeVisible();
+  });
+
   it('already-expired stored session goes to login without asking the server', async () => {
     storeSession('t1', inMs(-60_000));
     const fetch = mockFetch({ ...meRoute() });

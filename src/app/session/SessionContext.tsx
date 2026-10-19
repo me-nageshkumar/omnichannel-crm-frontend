@@ -38,6 +38,9 @@ interface State {
   pendingTwoFactorToken: string | null;
 }
 
+/** The largest delay setTimeout honours (2^31 - 1 ms); longer ones fire immediately. */
+const MAX_TIMER_DELAY_MS = 2 ** 31 - 1;
+
 const SIGNED_OUT: Omit<State, 'notice'> = { status: 'signedOut', user: null, token: null, pendingTwoFactorToken: null };
 
 function failureNotice(error: unknown): string {
@@ -93,10 +96,20 @@ export const SessionProvider: React.FunctionComponent<{ children: React.ReactNod
     return () => setUnauthorizedHandler(null);
   }, [signedIn, signedOut]);
 
-  // The token's own expiry.
+  // The token's own expiry. setTimeout overflows past ~24.8 days, so wait in capped steps.
   React.useEffect(() => {
     if (!signedIn || !expiresAt) return undefined;
-    const timer = setTimeout(() => signedOut(MESSAGES.sessionExpired), new Date(expiresAt).getTime() - Date.now());
+    const deadline = new Date(expiresAt).getTime();
+    let timer: ReturnType<typeof setTimeout>;
+    const wait = () => {
+      const remaining = deadline - Date.now();
+      if (remaining <= 0) {
+        signedOut(MESSAGES.sessionExpired);
+        return;
+      }
+      timer = setTimeout(wait, Math.min(remaining, MAX_TIMER_DELAY_MS));
+    };
+    wait();
     return () => clearTimeout(timer);
   }, [signedIn, expiresAt, signedOut]);
 
