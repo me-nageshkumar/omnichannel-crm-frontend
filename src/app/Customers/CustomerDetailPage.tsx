@@ -9,18 +9,11 @@ import {
   CardTitle,
   Flex,
   FlexItem,
-  Form,
-  FormGroup,
   List,
   ListItem,
-  Modal,
-  ModalBody,
-  ModalFooter,
-  ModalHeader,
   Spinner,
   Stack,
   StackItem,
-  TextInput,
 } from '@patternfly/react-core';
 import { ActionsColumn, Table, Tbody, Td, Th, Thead, Tr } from '@patternfly/react-table';
 import {
@@ -34,6 +27,7 @@ import {
 } from '@app/api/customers';
 import { UserSummary, WithTemporaryPassword } from '@app/api/users';
 import { ConfirmModal } from '@app/admin/ConfirmModal';
+import { NameModal } from '@app/admin/NameModal';
 import { PageShell } from '@app/admin/PageShell';
 import { PersonModal } from '@app/admin/PersonModal';
 import { ResetPasswordModal } from '@app/admin/ResetPasswordModal';
@@ -51,41 +45,6 @@ type Dialog =
   | { kind: 'resetOwner'; owner: UserSummary }
   | { kind: 'toggleOwner'; owner: UserSummary }
   | { kind: 'password'; username: string; password: string };
-
-const RenameModal: React.FunctionComponent<{
-  current: string;
-  save(name: string): Promise<unknown>;
-  onCancel(): void;
-}> = ({ current, save, onCancel }) => {
-  const [name, setName] = React.useState(current);
-  const action = useAction();
-  const onSubmit = async (event?: React.FormEvent) => {
-    event?.preventDefault();
-    if (!name.trim()) return;
-    await action.run(() => save(name));
-  };
-  return (
-    <Modal isOpen variant="small" onClose={onCancel} aria-labelledby="rename-title">
-      <ModalHeader title="Edit name" labelId="rename-title" />
-      <ModalBody>
-        {action.error && <Alert variant="danger" isInline isPlain title={action.error} />}
-        <Form id="rename-form" onSubmit={onSubmit}>
-          <FormGroup label="Company name" fieldId="rename-name" isRequired>
-            <TextInput id="rename-name" value={name} onChange={(_e, v) => setName(v)} isRequired />
-          </FormGroup>
-        </Form>
-      </ModalBody>
-      <ModalFooter>
-        <Button variant="primary" type="submit" form="rename-form" isDisabled={action.busy || !name.trim()}>
-          Save
-        </Button>
-        <Button variant="link" onClick={onCancel}>
-          Cancel
-        </Button>
-      </ModalFooter>
-    </Modal>
-  );
-};
 
 /** One customer: its brands and owners, and the platform-side actions on them. */
 export const CustomerDetailPage: React.FunctionComponent = () => {
@@ -239,10 +198,13 @@ export const CustomerDetailPage: React.FunctionComponent = () => {
       </Stack>
 
       {dialog?.kind === 'rename' && (
-        <RenameModal
+        <NameModal
+          title="Edit name"
+          label="Company name"
           current={customer.name}
-          save={async (name) => {
-            const updated = await renameCustomer(t, customer.id, name);
+          submitLabel="Save"
+          save={(name) => renameCustomer(t, customer.id, name)}
+          onSaved={(updated) => {
             update((d) => ({ ...d, customer: updated }));
             setDialog(null);
           }}

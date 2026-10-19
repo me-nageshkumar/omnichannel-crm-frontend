@@ -8,6 +8,7 @@ import { PlatformUsersPage } from '@app/PlatformUsers/PlatformUsersPage';
 import { RolesPage } from '@app/Roles/RolesPage';
 import { CustomersPage } from '@app/Customers/CustomersPage';
 import { CustomerDetailPage } from '@app/Customers/CustomerDetailPage';
+import { BrandsPage } from '@app/Brands/BrandsPage';
 import { Access, useAccess } from '@app/session/useAccess';
 
 export type NavGroup = 'Platform' | 'Company' | 'Brand';
@@ -53,7 +54,7 @@ const routes: IAppRoute[] = [
     requires: (a) => a.has('customer:view'),
   },
   {
-    element: <PageShell title="Brands" />,
+    element: <BrandsPage />,
     label: 'Brands',
     path: '/brands',
     group: 'Company',
