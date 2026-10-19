@@ -28,6 +28,17 @@ describe('sign-in', () => {
     expect(await screen.findByRole('heading', { name: LOGIN_HEADING })).toBeVisible();
   });
 
+  it('password can be shown and hidden', async () => {
+    mockFetch({});
+    const { user } = renderApp('/login');
+    const password = await screen.findByLabelText(/Password/);
+    expect(password).toHaveAttribute('type', 'password');
+    await user.click(screen.getByRole('button', { name: 'Show password' }));
+    expect(password).toHaveAttribute('type', 'text');
+    await user.click(screen.getByRole('button', { name: 'Hide password' }));
+    expect(password).toHaveAttribute('type', 'password');
+  });
+
   it('signs in without two-factor', async () => {
     mockFetch({
       'POST /api/auth/login': { status: 200, body: { token: 't1', expiresAt: inMs(3600_000) } },

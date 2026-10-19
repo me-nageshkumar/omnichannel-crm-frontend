@@ -64,6 +64,9 @@ const ConsoleLoginPage: React.FunctionComponent = () => {
         passwordValue={password}
         onChangePassword={(_e, v) => setPassword(v)}
         isValidPassword={error === null}
+        isShowPasswordEnabled
+        showPasswordAriaLabel="Show password"
+        hidePasswordAriaLabel="Hide password"
         isLoginButtonDisabled={busy}
         loginButtonLabel="Log in"
         onLoginButtonClick={onSubmit}
