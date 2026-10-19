@@ -2,6 +2,15 @@ import { apiFetch } from '@app/api/client';
 
 export type UserRole = 'SUPER_ADMIN' | 'APP_ADMIN' | 'ADMIN' | 'USER';
 
+const ROLE_LABELS: Record<UserRole, string> = {
+  SUPER_ADMIN: 'Super admin',
+  APP_ADMIN: 'App admin',
+  ADMIN: 'Admin',
+  USER: 'User',
+};
+
+export const roleLabel = (role: UserRole): string => ROLE_LABELS[role] ?? role;
+
 export interface CurrentUser {
   id: string;
   name: string;

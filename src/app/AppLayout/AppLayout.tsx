@@ -29,18 +29,12 @@ import {
 } from '@patternfly/react-core';
 import { IAppRoute, routes } from '@app/routes';
 import { BarsIcon, UserIcon } from '@patternfly/react-icons';
+import { roleLabel } from '@app/api/users';
 import { useSession } from '@app/session/SessionContext';
 
 interface IAppLayout {
   children: React.ReactNode;
 }
-
-const ROLE_LABELS: Record<string, string> = {
-  SUPER_ADMIN: 'Super admin',
-  APP_ADMIN: 'App admin',
-  ADMIN: 'Admin',
-  USER: 'User',
-};
 
 const UserMenu: React.FunctionComponent = () => {
   const { user, signOut } = useSession();
@@ -59,7 +53,7 @@ const UserMenu: React.FunctionComponent = () => {
         </MenuToggle>
       )}
     >
-      <DropdownGroup label={`${user.name} · ${ROLE_LABELS[user.role] ?? user.role}`}>
+      <DropdownGroup label={`${user.name} · ${roleLabel(user.role)}`}>
         <DropdownList>
           <DropdownItem key="profile" onClick={() => navigate('/profile')}>
             Profile
