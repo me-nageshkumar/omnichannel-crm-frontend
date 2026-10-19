@@ -14,6 +14,7 @@ import {
   MastheadToggle,
   MenuToggle,
   Nav,
+  NavGroup,
   NavItem,
   NavList,
   Page,
@@ -27,7 +28,7 @@ import {
   ToolbarGroup,
   ToolbarItem,
 } from '@patternfly/react-core';
-import { IAppRoute, routes } from '@app/routes';
+import { IAppRoute, NAV_GROUPS, useAllowedRoutes } from '@app/routes';
 import { BarsIcon, UserIcon } from '@patternfly/react-icons';
 import { userRoleLabel } from '@app/api/users';
 import { WorkspaceSwitcher } from '@app/AppLayout/WorkspaceSwitcher';
@@ -117,11 +118,20 @@ const AppLayout: React.FunctionComponent<IAppLayout> = ({ children }) => {
     </NavItem>
   );
 
+  const allowed = useAllowedRoutes().filter((route) => route.label);
+  const ungrouped = allowed.filter((route) => !route.group);
+
   const Navigation = (
     <Nav id="nav-primary-simple">
-      <NavList id="nav-list-simple">
-        {routes.map((route, idx) => route.label && renderNavItem(route, idx))}
-      </NavList>
+      <NavList id="nav-list-simple">{ungrouped.map(renderNavItem)}</NavList>
+      {NAV_GROUPS.map((group) => {
+        const items = allowed.filter((route) => route.group === group);
+        return items.length === 0 ? null : (
+          <NavGroup key={group} title={group}>
+            {items.map(renderNavItem)}
+          </NavGroup>
+        );
+      })}
     </Nav>
   );
 

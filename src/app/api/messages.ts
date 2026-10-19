@@ -12,6 +12,14 @@ const BY_CODE: Record<string, string> = {
   invalid_otp: 'That code is not valid. Try again.',
   invalid_token: 'Your sign-in took too long. Please log in again.',
   weak_password: 'Use at least 10 characters, different from your temporary password.',
+  forbidden: "You don't have permission to do that.",
+  not_found: "That item no longer exists or you can't see it.",
+  role_in_use: 'This role is assigned to users. Move them to another role first.',
+  already_all_brands: 'This person already has access to every brand.',
+  already_in_workspace: 'This person already has a role in this brand.',
+  last_access: "This is the person's only brand. Deactivate them instead.",
+  not_in_workspace: 'Everyone in a team must have access to this brand.',
+  conflict: 'Someone else changed this at the same time. Reload and try again.',
 };
 
 /** The user-facing sentence for an error from the API layer. */

@@ -4,6 +4,10 @@ export class ApiError extends Error {
     public readonly status: number,
     public readonly code?: string,
     public readonly retryAfterSeconds?: number,
+    /** The field a DUPLICATE refers to. */
+    public readonly field?: string,
+    /** Per-field messages of a VALIDATION error. */
+    public readonly fields?: Record<string, string>,
   ) {
     super(code ?? `HTTP ${status}`);
     this.name = 'ApiError';
@@ -46,7 +50,10 @@ export async function apiFetch<T>(path: string, init: ApiFetchInit = {}): Promis
     if (res.status === 401 && !path.startsWith('/api/auth/')) onUnauthorized?.();
     const code = (data?.error ?? data?.code) as string | undefined;
     const retry = typeof data?.retryAfterSeconds === 'number' ? data.retryAfterSeconds : undefined;
-    throw new ApiError(res.status, code, retry);
+    const field = typeof data?.field === 'string' ? data.field : undefined;
+    const fields =
+      data?.fields && typeof data.fields === 'object' ? (data.fields as Record<string, string>) : undefined;
+    throw new ApiError(res.status, code, retry, field, fields);
   }
   return data as T;
 }
