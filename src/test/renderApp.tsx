@@ -4,12 +4,15 @@ import userEvent from '@testing-library/user-event';
 import { MemoryRouter } from 'react-router-dom';
 import { AppShell } from '@app/AppShell';
 
-/** Renders the whole app at {@code path}, as the browser would after navigating there. */
-export function renderApp(path = '/') {
+/**
+ * Renders the whole app at {@code path}, as the browser would after navigating there. {@code extra}
+ * is rendered inside the session provider (e.g. a probe component that reads the session).
+ */
+export function renderApp(path = '/', extra?: React.ReactNode) {
   const user = userEvent.setup();
   const result = render(
     <MemoryRouter initialEntries={[path]}>
-      <AppShell />
+      <AppShell>{extra}</AppShell>
     </MemoryRouter>,
   );
   return { user, ...result };

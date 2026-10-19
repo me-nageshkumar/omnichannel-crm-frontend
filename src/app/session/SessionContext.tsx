@@ -1,9 +1,9 @@
 import * as React from 'react';
-import { ApiError } from '@app/api/client';
+import { ApiError, setUnauthorizedHandler } from '@app/api/client';
 import { logout } from '@app/api/auth';
 import { MESSAGES, messageFor } from '@app/api/messages';
 import { CurrentUser, getCurrentUser } from '@app/api/users';
-import { clearSession, hasStoredValue, readSession, writeSession } from '@app/session/sessionStore';
+import { SESSION_KEY, clearSession, hasStoredValue, readSession, writeSession } from '@app/session/sessionStore';
 
 export type SessionStatus = 'loading' | 'signedOut' | 'signedIn';
 
@@ -46,6 +46,7 @@ function failureNotice(error: unknown): string {
 
 export const SessionProvider: React.FunctionComponent<{ children: React.ReactNode }> = ({ children }) => {
   const [state, setState] = React.useState<State>({ ...SIGNED_OUT, status: 'loading', notice: null });
+  const [expiresAt, setExpiresAt] = React.useState<string | null>(null);
 
   const signedOut = React.useCallback((notice: string | null) => {
     clearSession();
@@ -63,6 +64,7 @@ export const SessionProvider: React.FunctionComponent<{ children: React.ReactNod
           return false;
         }
         writeSession({ token, expiresAt });
+        setExpiresAt(expiresAt);
         setState({ status: 'signedIn', user, token, notice: null, pendingTwoFactorToken: null });
         return true;
       } catch (error) {
@@ -81,6 +83,34 @@ export const SessionProvider: React.FunctionComponent<{ children: React.ReactNod
       signedOut(hasStoredValue() ? MESSAGES.sessionExpired : null);
     }
   }, [establish, signedOut]);
+
+  const signedIn = state.status === 'signedIn';
+
+  // A 401 from any non-auth call means this session is dead: sign out locally, no server call.
+  React.useEffect(() => {
+    if (!signedIn) return undefined;
+    setUnauthorizedHandler(() => signedOut(MESSAGES.sessionExpired));
+    return () => setUnauthorizedHandler(null);
+  }, [signedIn, signedOut]);
+
+  // The token's own expiry.
+  React.useEffect(() => {
+    if (!signedIn || !expiresAt) return undefined;
+    const timer = setTimeout(() => signedOut(MESSAGES.sessionExpired), new Date(expiresAt).getTime() - Date.now());
+    return () => clearTimeout(timer);
+  }, [signedIn, expiresAt, signedOut]);
+
+  // Another tab logged out (it removed the shared session).
+  React.useEffect(() => {
+    if (!signedIn) return undefined;
+    const onStorage = (event: StorageEvent) => {
+      if (event.key === SESSION_KEY && event.newValue === null) {
+        setState({ ...SIGNED_OUT, notice: MESSAGES.loggedOutElsewhere });
+      }
+    };
+    window.addEventListener('storage', onStorage);
+    return () => window.removeEventListener('storage', onStorage);
+  }, [signedIn]);
 
   const signOut = React.useCallback(
     async (notice?: string) => {

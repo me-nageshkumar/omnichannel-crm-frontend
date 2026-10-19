@@ -1,11 +1,18 @@
 import * as React from 'react';
-import { NavLink, useLocation } from 'react-router-dom';
+import { NavLink, useLocation, useNavigate } from 'react-router-dom';
 import {
+  Divider,
+  Dropdown,
+  DropdownGroup,
+  DropdownItem,
+  DropdownList,
   Masthead,
   MastheadBrand,
+  MastheadContent,
   MastheadLogo,
   MastheadMain,
   MastheadToggle,
+  MenuToggle,
   Nav,
   NavItem,
   NavList,
@@ -15,13 +22,59 @@ import {
   PageToggleButton,
   SkipToContent,
   Title,
+  Toolbar,
+  ToolbarContent,
+  ToolbarGroup,
+  ToolbarItem,
 } from '@patternfly/react-core';
 import { IAppRoute, routes } from '@app/routes';
-import { BarsIcon } from '@patternfly/react-icons';
+import { BarsIcon, UserIcon } from '@patternfly/react-icons';
+import { useSession } from '@app/session/SessionContext';
 
 interface IAppLayout {
   children: React.ReactNode;
 }
+
+const ROLE_LABELS: Record<string, string> = {
+  SUPER_ADMIN: 'Super admin',
+  APP_ADMIN: 'App admin',
+  ADMIN: 'Admin',
+  USER: 'User',
+};
+
+const UserMenu: React.FunctionComponent = () => {
+  const { user, signOut } = useSession();
+  const navigate = useNavigate();
+  const [isOpen, setIsOpen] = React.useState(false);
+  if (!user) return null;
+  return (
+    <Dropdown
+      isOpen={isOpen}
+      onOpenChange={setIsOpen}
+      onSelect={() => setIsOpen(false)}
+      popperProps={{ position: 'right' }}
+      toggle={(ref) => (
+        <MenuToggle ref={ref} variant="plainText" icon={<UserIcon />} isExpanded={isOpen} onClick={() => setIsOpen(!isOpen)}>
+          {user.name}
+        </MenuToggle>
+      )}
+    >
+      <DropdownGroup label={`${user.name} · ${ROLE_LABELS[user.role] ?? user.role}`}>
+        <DropdownList>
+          <DropdownItem key="profile" onClick={() => navigate('/profile')}>
+            Profile
+          </DropdownItem>
+        </DropdownList>
+      </DropdownGroup>
+      <Divider component="li" />
+      <DropdownList>
+        <DropdownItem key="logout" onClick={() => signOut()}>
+          Log out
+        </DropdownItem>
+      </DropdownList>
+    </Dropdown>
+  );
+};
 
 const AppLayout: React.FunctionComponent<IAppLayout> = ({ children }) => {
   const masthead = (
@@ -40,6 +93,17 @@ const AppLayout: React.FunctionComponent<IAppLayout> = ({ children }) => {
           </MastheadLogo>
         </MastheadBrand>
       </MastheadMain>
+      <MastheadContent>
+        <Toolbar isFullHeight isStatic>
+          <ToolbarContent>
+            <ToolbarGroup align={{ default: 'alignEnd' }}>
+              <ToolbarItem>
+                <UserMenu />
+              </ToolbarItem>
+            </ToolbarGroup>
+          </ToolbarContent>
+        </Toolbar>
+      </MastheadContent>
     </Masthead>
   );
 

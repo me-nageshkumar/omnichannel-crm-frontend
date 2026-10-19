@@ -8,8 +8,9 @@ import { RequireSession } from '@app/session/RequireSession';
 import { SessionProvider } from '@app/session/SessionContext';
 
 /** Everything inside the router; tests render it in a MemoryRouter. */
-const AppShell: React.FunctionComponent = () => (
+const AppShell: React.FunctionComponent<{ children?: React.ReactNode }> = ({ children }) => (
   <SessionProvider>
+    {children}
     <Routes>
       <Route path="/login" element={<LoginPage />} />
       <Route path="/login/verify" element={<VerifyCodePage />} />
