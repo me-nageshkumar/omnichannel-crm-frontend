@@ -37,3 +37,15 @@ export async function fill(user: User, label: string, value: string): Promise<vo
   await user.clear(input);
   if (value) await user.type(input, value);
 }
+
+/** Every URL (path and query) a mocked fetch was called with for "METHOD /path". */
+export function urlsOf(fn: { mock: { calls: unknown[][] } }, key: string): string[] {
+  const [method, path] = key.split(' ');
+  return fn.mock.calls
+    .map(([input, init]) => ({
+      url: typeof input === 'string' ? input : String(input),
+      method: ((init as RequestInit | undefined)?.method ?? 'GET').toUpperCase(),
+    }))
+    .filter((c) => c.method === method && new URL(c.url, 'http://localhost').pathname === path)
+    .map((c) => c.url);
+}

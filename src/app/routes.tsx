@@ -6,6 +6,8 @@ import { NotFound } from '@app/NotFound/NotFound';
 import { PageShell } from '@app/admin/PageShell';
 import { PlatformUsersPage } from '@app/PlatformUsers/PlatformUsersPage';
 import { RolesPage } from '@app/Roles/RolesPage';
+import { CustomersPage } from '@app/Customers/CustomersPage';
+import { CustomerDetailPage } from '@app/Customers/CustomerDetailPage';
 import { Access, useAccess } from '@app/session/useAccess';
 
 export type NavGroup = 'Platform' | 'Company' | 'Brand';
@@ -39,14 +41,14 @@ const routes: IAppRoute[] = [
     requires: (a) => a.superAdmin,
   },
   {
-    element: <PageShell title="Customers" />,
+    element: <CustomersPage />,
     label: 'Customers',
     path: '/customers',
     group: 'Platform',
     requires: (a) => a.has('customer:view'),
   },
   {
-    element: <PageShell title="Customer" />,
+    element: <CustomerDetailPage />,
     path: '/customers/:id',
     requires: (a) => a.has('customer:view'),
   },
