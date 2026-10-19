@@ -68,3 +68,22 @@ export function confirmTwoFactor(token: string, secret: string, otp: string): Pr
 export function disableTwoFactor(token: string, otp: string): Promise<void> {
   return apiFetch<void>('/api/users/me/two-factor/disable', { method: 'POST', token, body: { otp } });
 }
+
+/** A user as management pages see them; never carries secrets. */
+export interface UserSummary {
+  id: string;
+  name: string;
+  username: string;
+  email: string | null;
+  mobileNumber: string | null;
+  active: boolean;
+  role: RoleRef | null;
+  workspaceRoles: Array<{ workspaceId: string; workspaceName: string; role: RoleRef }>;
+  mustChangePassword: boolean;
+}
+
+/** The reply to creating a user or resetting their password. */
+export interface WithTemporaryPassword {
+  user: UserSummary;
+  temporaryPassword: string;
+}

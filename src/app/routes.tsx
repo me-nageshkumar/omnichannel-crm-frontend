@@ -4,6 +4,7 @@ import { Dashboard } from '@app/Dashboard/Dashboard';
 import { ProfilePage } from '@app/Profile/ProfilePage';
 import { NotFound } from '@app/NotFound/NotFound';
 import { PageShell } from '@app/admin/PageShell';
+import { PlatformUsersPage } from '@app/PlatformUsers/PlatformUsersPage';
 import { Access, useAccess } from '@app/session/useAccess';
 
 export type NavGroup = 'Platform' | 'Company' | 'Brand';
@@ -23,7 +24,7 @@ const routes: IAppRoute[] = [
   { element: <Dashboard />, label: 'Dashboard', path: '/' },
   { element: <ProfilePage />, label: 'Profile', path: '/profile' },
   {
-    element: <PageShell title="Platform users" />,
+    element: <PlatformUsersPage />,
     label: 'Platform users',
     path: '/platform-users',
     group: 'Platform',

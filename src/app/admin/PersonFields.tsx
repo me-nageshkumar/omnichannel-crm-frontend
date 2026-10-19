@@ -22,7 +22,8 @@ export interface Person {
 
 export const EMPTY_PERSON: Person = { name: '', username: '', email: '', mobileNumber: '', temporaryPassword: '' };
 
-export type PersonMode = 'create' | 'edit';
+/** 'password' shows only the temporary password (for resets). */
+export type PersonMode = 'create' | 'edit' | 'password';
 
 /** Client-side checks; the server checks again. */
 export function validatePerson(p: Person, mode: PersonMode): Record<string, string> {
@@ -71,11 +72,11 @@ export const PersonFields: React.FunctionComponent<{
   );
   return (
     <>
-      {text('name', 'Name', true)}
+      {mode !== 'password' && text('name', 'Name', true)}
       {mode === 'create' && text('username', 'Username', true)}
-      {text('email', 'Email', false, 'email')}
-      {text('mobileNumber', 'Mobile', false, 'tel')}
-      {mode === 'create' && (
+      {mode !== 'password' && text('email', 'Email', false, 'email')}
+      {mode !== 'password' && text('mobileNumber', 'Mobile', false, 'tel')}
+      {mode !== 'edit' && (
         <FormGroup label="Temporary password" fieldId={`${idPrefix}-temporaryPassword`} isRequired>
           <InputGroup>
             <InputGroupItem isFill>
