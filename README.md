@@ -1,6 +1,6 @@
 # Omnichannel CRM — console
 
-Browser console for the Omnichannel CRM backend (`omnichannel_crm_backend`, Spring Boot). React 18,
+Browser console for the Omnichannel CRM backend (`omnichannel-crm-backend`, Spring Boot). React 18,
 TypeScript, PatternFly 6, React Router, Webpack, Vitest. Started from
 [patternfly-react-seed](https://github.com/patternfly/patternfly-react-seed) (MIT).
 
@@ -27,5 +27,5 @@ The backend serves the built console from its jar, on one port:
 
 ```bash
 npm run build                                   # -> dist/
-cd ../omnichannel_crm_backend && ./mvnw clean -Pwith-frontend package
+cd ../omnichannel-crm-backend && ./mvnw clean -Pwith-frontend package
 ```

@@ -2,7 +2,7 @@
   "name": "omnichannel-crm-frontend",
   "version": "0.1.0",
   "description": "Omnichannel CRM admin console (React + PatternFly).",
-  "repository": "https://github.com/me-nageshkumar/omnichannel_crm_frontend.git",
+  "repository": "https://github.com/me-nageshkumar/omnichannel-crm-frontend.git",
   "license": "MIT",
   "private": true,
   "scripts": {
