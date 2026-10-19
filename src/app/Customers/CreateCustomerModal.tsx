@@ -30,7 +30,7 @@ export const CreateCustomerModal: React.FunctionComponent<{
   const [brand, setBrand] = React.useState('');
   const [owner, setOwner] = React.useState<Person>(EMPTY_PERSON);
   const [errors, setErrors] = React.useState<Record<string, string>>({});
-  const action = useAction();
+  const action = useAction(['username', 'email', 'mobileNumber', 'temporaryPassword']);
 
   const onSubmit = async (event?: React.FormEvent) => {
     event?.preventDefault();

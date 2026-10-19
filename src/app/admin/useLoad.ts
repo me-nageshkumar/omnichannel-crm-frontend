@@ -20,6 +20,15 @@ export function useLoad<T>(fetcher: (token: string) => Promise<T>, key: unknown[
   const [tick, setTick] = React.useState(0);
   const fetcherRef = React.useRef(fetcher);
   fetcherRef.current = fetcher;
+  const keyId = JSON.stringify(key);
+  const shownKey = React.useRef(keyId);
+
+  // Data loaded for another key (e.g. the previous brand) must not be shown or acted on.
+  if (shownKey.current !== keyId) {
+    shownKey.current = keyId;
+    setDataState(undefined);
+    setLoading(true);
+  }
 
   React.useEffect(() => {
     if (!token) return undefined;

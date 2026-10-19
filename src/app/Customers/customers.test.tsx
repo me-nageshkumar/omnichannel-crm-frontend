@@ -128,7 +128,7 @@ describe('customers', () => {
       'GET /api/customers/c1': { status: 200, body: DETAIL },
       'POST /api/customers/c1/admins/u3/reset-password': {
         status: 200,
-        body: { user: RAVI, temporaryPassword: 'reset-pass-77' },
+        body: { temporaryPassword: 'reset-pass-77' },
       },
     });
     const { user } = renderApp('/customers/c1');

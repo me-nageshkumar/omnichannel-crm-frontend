@@ -1,5 +1,5 @@
 import { apiFetch } from '@app/api/client';
-import type { UserSummary, WithTemporaryPassword } from '@app/api/users';
+import type { TemporaryPassword, UserSummary, WithTemporaryPassword } from '@app/api/users';
 
 export const CUSTOMER_PAGE_SIZE = 50;
 
@@ -68,7 +68,7 @@ export const addOwner = (token: string, id: string, body: OwnerInput) =>
   apiFetch<WithTemporaryPassword>(`/api/customers/${id}/admins`, { method: 'POST', token, body });
 
 export const resetOwnerPassword = (token: string, id: string, userId: string, temporaryPassword: string) =>
-  apiFetch<WithTemporaryPassword>(`/api/customers/${id}/admins/${userId}/reset-password`, {
+  apiFetch<TemporaryPassword>(`/api/customers/${id}/admins/${userId}/reset-password`, {
     method: 'POST',
     token,
     body: { temporaryPassword },

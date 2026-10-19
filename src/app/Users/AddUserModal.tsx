@@ -72,7 +72,7 @@ export const AddUserModal: React.FunctionComponent<{
   const [roleId, setRoleId] = React.useState('');
   const [errors, setErrors] = React.useState<Record<string, string>>({});
   const candidates = useCandidates(workspaceId, present);
-  const action = useAction();
+  const action = useAction(['name', 'username', 'email', 'mobileNumber', 'temporaryPassword', 'roleId']);
 
   const onSubmit = async (event?: React.FormEvent) => {
     event?.preventDefault();

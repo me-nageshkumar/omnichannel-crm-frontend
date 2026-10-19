@@ -162,6 +162,55 @@ describe('brand users page', () => {
     expect(await screen.findByText("You don't have permission to do that.")).toBeVisible();
   });
 
+  it('a reset shows the temporary password (server replies with the password only)', async () => {
+    mockFetch({
+      ...meAs(WORKSPACE_MANAGER),
+      ...routes({
+        'POST /api/workspaces/w1/users/u5/reset-password': {
+          status: 200,
+          body: { temporaryPassword: 'reset-pass-12' },
+        },
+      }),
+    });
+    const { user } = renderApp('/users');
+    await rowAction(user, 'Arun Agent', 'Reset password');
+    await fill(user, 'Temporary password', 'reset-pass-12');
+    await user.click(screen.getByRole('button', { name: 'Reset password' }));
+    expect(await screen.findByText('Temporary password for arun')).toBeVisible();
+    await user.click(screen.getByRole('button', { name: 'Done' }));
+    expect(await rowWith('Arun Agent')).toBeVisible();
+  });
+
+  it('editing an all-brands person has no role picker and keeps their role', async () => {
+    const lesser = {
+      ...RAVI,
+      id: 'u10',
+      name: 'Sita Deputy',
+      username: 'sita',
+      role: { id: 'r-dep', name: 'DEPUTY' },
+      manageable: true,
+    };
+    const fetch = mockFetch({
+      ...meAs(CUSTOMER_ADMIN),
+      ...routes({
+        'GET /api/workspaces/w1/users': { status: 200, body: [RAVI, ARUN, lesser] },
+        'PUT /api/workspaces/w1/users/u10': { status: 200, body: { ...lesser, name: 'Sita D' } },
+      }),
+    });
+    const { user } = renderApp('/users');
+    await rowAction(user, 'Sita Deputy', 'Edit');
+    await fill(user, 'Name', 'Sita D');
+    expect(screen.queryByLabelText(/^Role/)).toBeNull();
+    await user.click(screen.getByRole('button', { name: 'Save' }));
+    expect(await rowWith('Sita D')).toBeVisible();
+    expect(requestTo(fetch, 'PUT /api/workspaces/w1/users/u10')?.body).toEqual({
+      name: 'Sita D',
+      email: '',
+      mobileNumber: '',
+      roleId: null,
+    });
+  });
+
   it('switching brand refetches', async () => {
     const fetch = mockFetch({
       ...meAs(CUSTOMER_ADMIN),

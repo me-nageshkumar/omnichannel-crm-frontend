@@ -143,7 +143,7 @@ export const PlatformUsersPage: React.FunctionComponent = () => {
         <ResetPasswordModal
           name={dialog.user.name}
           reset={(pw) => resetPlatformUserPassword(token as string, dialog.user.id, pw)}
-          onDone={showPassword}
+          onDone={(password) => setDialog({ kind: 'password', username: dialog.user.username, password })}
           onCancel={() => setDialog(null)}
         />
       )}

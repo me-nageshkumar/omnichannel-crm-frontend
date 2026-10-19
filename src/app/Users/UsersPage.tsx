@@ -1,7 +1,7 @@
 import * as React from 'react';
 import { Alert, Button, Label, Spinner } from '@patternfly/react-core';
 import { ActionsColumn, IAction, Table, Tbody, Td, Th, Thead, Tr } from '@patternfly/react-table';
-import { UserSummary, WithTemporaryPassword, roleLabel } from '@app/api/users';
+import { UserSummary, roleLabel } from '@app/api/users';
 import {
   WorkspaceUser,
   listWorkspaceUsers,
@@ -61,11 +61,6 @@ export const UsersPage: React.FunctionComponent = () => {
       const next = { ...(old ?? flags), ...u } as WorkspaceUser;
       return old ? current.map((x) => (x.id === u.id ? next : x)) : [...current, next];
     });
-  const showPassword = (reply: WithTemporaryPassword) => {
-    put(reply.user);
-    setDialog({ kind: 'password', username: reply.user.username, password: reply.temporaryPassword });
-  };
-
   const onRemove = async (u: WorkspaceUser) => {
     const done = await confirm.run(async () => {
       await removeWorkspaceUser(t, workspaceId, u.id);
@@ -179,14 +174,15 @@ export const UsersPage: React.FunctionComponent = () => {
           mode="edit"
           initial={personOf(dialog.user)}
           initialRoleId={roleHere(dialog.user, workspaceId)?.id ?? ''}
-          roles={roles.data ?? []}
+          roles={dialog.user.allBrands ? undefined : (roles.data ?? [])}
           submitLabel="Save"
           submit={(p) =>
             updateWorkspaceUser(t, workspaceId, dialog.user.id, {
               name: p.name,
               email: p.email,
               mobileNumber: p.mobileNumber,
-              roleId: p.roleId,
+              // all-brands people have no role here to change
+              roleId: dialog.user.allBrands ? null : p.roleId,
             })
           }
           onSaved={(u) => {
@@ -200,7 +196,7 @@ export const UsersPage: React.FunctionComponent = () => {
         <ResetPasswordModal
           name={dialog.user.name}
           reset={(pw) => resetWorkspaceUserPassword(t, workspaceId, dialog.user.id, pw)}
-          onDone={showPassword}
+          onDone={(password) => setDialog({ kind: 'password', username: dialog.user.username, password })}
           onCancel={() => setDialog(null)}
         />
       )}

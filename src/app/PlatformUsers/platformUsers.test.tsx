@@ -96,7 +96,7 @@ describe('platform users page', () => {
       routes({
         'POST /api/platform-users/p1/reset-password': {
           status: 200,
-          body: { user: { ...ASHA, mustChangePassword: true }, temporaryPassword: 'reset-pass-99' },
+          body: { temporaryPassword: 'reset-pass-99' },
         },
       }),
     );

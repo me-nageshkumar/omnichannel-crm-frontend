@@ -1,5 +1,5 @@
 import { apiFetch } from '@app/api/client';
-import type { RoleRef, UserSummary, WithTemporaryPassword } from '@app/api/users';
+import type { RoleRef, TemporaryPassword, UserSummary, WithTemporaryPassword } from '@app/api/users';
 
 const BASE = '/api/platform-users';
 
@@ -25,7 +25,7 @@ export const updatePlatformUser = (token: string, id: string, body: PlatformUser
   apiFetch<UserSummary>(`${BASE}/${id}`, { method: 'PUT', token, body });
 
 export const resetPlatformUserPassword = (token: string, id: string, temporaryPassword: string) =>
-  apiFetch<WithTemporaryPassword>(`${BASE}/${id}/reset-password`, {
+  apiFetch<TemporaryPassword>(`${BASE}/${id}/reset-password`, {
     method: 'POST',
     token,
     body: { temporaryPassword },

@@ -184,6 +184,51 @@ describe('roles page', () => {
     expect(await screen.findByText('This role is assigned to users. Move them to another role first.')).toBeVisible();
   });
 
+  it('the editor will not save without the authority catalogue', async () => {
+    const fetch = mockFetch(
+      routes({ 'GET /api/authorities': { status: 500, body: { code: 'INTERNAL', message: 'x' } } }),
+    );
+    const { user } = renderApp('/roles');
+    expect(await screen.findByText('Something went wrong. Please try again.')).toBeVisible();
+    await rowAction(user, 'Senior agent', 'Edit');
+    expect(await screen.findByRole('button', { name: 'Save' })).toBeDisabled();
+    expect(callsTo(fetch, 'PUT /api/roles/r-sr')).toBe(0);
+  });
+
+  it('a server error on a field the form lacks still shows', async () => {
+    mockFetch(
+      routes({
+        'POST /api/roles/r-sr/preview': {
+          status: 400,
+          body: { code: 'VALIDATION', message: 'x', fields: { description: 'size must be between 0 and 500' } },
+        },
+      }),
+    );
+    const { user } = renderApp('/roles');
+    await rowAction(user, 'Senior agent', 'Edit');
+    await user.click(await screen.findByRole('button', { name: 'Save' }));
+    expect(await screen.findByText(/description: size must be between 0 and 500/)).toBeVisible();
+  });
+
+  it('a duplicate name after the warning returns to the editor with the field error', async () => {
+    mockFetch(
+      routes({
+        'POST /api/roles/r-sr/preview': {
+          status: 200,
+          body: { changes: [{ assigner: 'WORKSPACE_MANAGER', assigned: 'SENIOR_AGENT', nowAssignable: false }] },
+        },
+        'PUT /api/roles/r-sr': { status: 409, body: { code: 'DUPLICATE', message: 'x', field: 'name' } },
+      }),
+    );
+    const { user } = renderApp('/roles');
+    await rowAction(user, 'Senior agent', 'Edit');
+    await fill(user, 'Name', 'VIEWER');
+    await user.click(screen.getByRole('button', { name: 'Save' }));
+    await user.click(await screen.findByRole('button', { name: 'Save anyway' }));
+    expect(await screen.findByText('Name is already in use.')).toBeVisible();
+    expect(screen.getByLabelText(/^Name/)).toBeVisible();
+  });
+
   it('history lists changes', async () => {
     mockFetch(
       routes({

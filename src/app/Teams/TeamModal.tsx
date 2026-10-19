@@ -27,7 +27,7 @@ export const TeamModal: React.FunctionComponent<{
   const { token } = useSession();
   const [name, setName] = React.useState(team.name);
   const [memberIds, setMemberIds] = React.useState<string[]>(team.members.map((m) => m.id));
-  const action = useAction();
+  const action = useAction(['name']);
   const error = action.fieldErrors.name;
 
   const toggle = (id: string, on: boolean) =>

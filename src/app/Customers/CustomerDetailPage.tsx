@@ -248,7 +248,7 @@ export const CustomerDetailPage: React.FunctionComponent = () => {
         <ResetPasswordModal
           name={dialog.owner.name}
           reset={(pw) => resetOwnerPassword(t, customer.id, dialog.owner.id, pw)}
-          onDone={showPassword}
+          onDone={(password) => setDialog({ kind: 'password', username: dialog.owner.username, password })}
           onCancel={() => setDialog(null)}
         />
       )}

@@ -34,7 +34,7 @@ export function NameModal<T>({
   onCancel(): void;
 }): React.ReactElement {
   const [name, setName] = React.useState(current);
-  const action = useAction();
+  const action = useAction(['name']);
   const error = action.fieldErrors.name;
 
   const onSubmit = async (event?: React.FormEvent) => {

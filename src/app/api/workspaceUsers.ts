@@ -1,5 +1,5 @@
 import { apiFetch } from '@app/api/client';
-import type { RoleRef, UserSummary, WithTemporaryPassword } from '@app/api/users';
+import type { RoleRef, TemporaryPassword, UserSummary } from '@app/api/users';
 
 export interface WorkspaceUser extends UserSummary {
   /** Has every brand through a company-wide role (e.g. the Customer Admin). */
@@ -42,7 +42,8 @@ export const updateWorkspaceUser = (
   token: string,
   workspaceId: string,
   userId: string,
-  body: { name: string; email: string; mobileNumber: string; roleId: string },
+  /** {@code roleId} null leaves the role in this brand unchanged. */
+  body: { name: string; email: string; mobileNumber: string; roleId: string | null },
 ) => apiFetch<UserSummary>(`${base(workspaceId)}/users/${userId}`, { method: 'PUT', token, body });
 
 export const removeWorkspaceUser = (token: string, workspaceId: string, userId: string) =>
@@ -54,7 +55,7 @@ export const resetWorkspaceUserPassword = (
   userId: string,
   temporaryPassword: string,
 ) =>
-  apiFetch<WithTemporaryPassword>(`${base(workspaceId)}/users/${userId}/reset-password`, {
+  apiFetch<TemporaryPassword>(`${base(workspaceId)}/users/${userId}/reset-password`, {
     method: 'POST',
     token,
     body: { temporaryPassword },

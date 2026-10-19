@@ -38,7 +38,7 @@ export function PersonModal<R>({
   const [values, setValues] = React.useState<Person>(initial);
   const [roleId, setRoleId] = React.useState(initialRoleId);
   const [errors, setErrors] = React.useState<Record<string, string>>({});
-  const action = useAction();
+  const action = useAction(['name', 'username', 'email', 'mobileNumber', 'temporaryPassword', 'roleId']);
 
   const onSubmit = async (event?: React.FormEvent) => {
     event?.preventDefault();

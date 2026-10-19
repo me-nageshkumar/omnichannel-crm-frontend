@@ -51,7 +51,8 @@ function describeChange(c: RoleChangePreview): string {
 /** Create a role, or edit one; an edit first previews who gains or loses the power to assign what. */
 export const RoleEditor: React.FunctionComponent<{
   role: Role | null;
-  authorities: Authority[];
+  /** Undefined until the catalogue loads; saving is disabled until then so no authority is dropped. */
+  authorities: Authority[] | undefined;
   onSaved(role: Role): void;
   onCancel(): void;
 }> = ({ role, authorities, onSaved, onCancel }) => {
@@ -62,10 +63,10 @@ export const RoleEditor: React.FunctionComponent<{
   const [selected, setSelected] = React.useState<string[]>(role?.authorities ?? []);
   const [nameError, setNameError] = React.useState<string | undefined>(undefined);
   const [changes, setChanges] = React.useState<RoleChangePreview[] | null>(null);
-  const action = useAction();
+  const action = useAction(['name']);
 
   const held = level ? levelsHeldBy(level) : [];
-  const offered = authorities.filter((a) => held.includes(a.level));
+  const offered = (authorities ?? []).filter((a) => held.includes(a.level));
   const chosen = selected.filter((code) => offered.some((a) => a.code === code));
 
   const toggle = (code: string, on: boolean) =>
@@ -79,6 +80,8 @@ export const RoleEditor: React.FunctionComponent<{
         : createRole(token as string, { ...body, level: level as RoleLevel }),
     );
     if (saved) onSaved(saved);
+    // back to the form, where the error is shown next to (or above) what caused it
+    else setChanges(null);
   };
 
   const onSubmit = async (event?: React.FormEvent) => {
@@ -162,7 +165,12 @@ export const RoleEditor: React.FunctionComponent<{
             </FormSelect>
           </FormGroup>
           <FormGroup label="Description" fieldId="role-description">
-            <TextArea id="role-description" value={description} onChange={(_e, v) => setDescription(v)} />
+            <TextArea
+              id="role-description"
+              value={description}
+              maxLength={500}
+              onChange={(_e, v) => setDescription(v)}
+            />
           </FormGroup>
           {held.map((l) => (
             <FormFieldGroup
@@ -186,7 +194,7 @@ export const RoleEditor: React.FunctionComponent<{
         </Form>
       </ModalBody>
       <ModalFooter>
-        <Button variant="primary" type="submit" form="role-form" isDisabled={action.busy || !level}>
+        <Button variant="primary" type="submit" form="role-form" isDisabled={action.busy || !level || !authorities}>
           {role ? 'Save' : 'Create'}
         </Button>
         <Button variant="link" onClick={onCancel}>

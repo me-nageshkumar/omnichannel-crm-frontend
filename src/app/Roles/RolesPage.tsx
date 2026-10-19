@@ -74,6 +74,7 @@ export const RolesPage: React.FunctionComponent = () => {
       }
     >
       {roles.error && <Alert variant="danger" isInline title={roles.error} />}
+      {authorities.error && <Alert variant="danger" isInline title={authorities.error} />}
       {roles.loading && !roles.data ? (
         <Spinner aria-label="Loading roles" />
       ) : (
@@ -123,7 +124,7 @@ export const RolesPage: React.FunctionComponent = () => {
       {(dialog?.kind === 'create' || dialog?.kind === 'edit') && (
         <RoleEditor
           role={dialog.kind === 'edit' ? dialog.role : null}
-          authorities={authorities.data ?? []}
+          authorities={authorities.data}
           onSaved={(saved) => {
             roles.setData((list) => upsert(list ?? [], saved));
             setDialog(null);

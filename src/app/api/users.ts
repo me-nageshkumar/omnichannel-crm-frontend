@@ -82,7 +82,12 @@ export interface UserSummary {
   mustChangePassword: boolean;
 }
 
-/** The reply to creating a user or resetting their password. */
+/** The reply to resetting a password: the password only. */
+export interface TemporaryPassword {
+  temporaryPassword: string;
+}
+
+/** The reply to creating a user. */
 export interface WithTemporaryPassword {
   user: UserSummary;
   temporaryPassword: string;

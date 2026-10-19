@@ -9,7 +9,7 @@ import { EMPTY_PERSON, PersonFields, validatePerson } from '@app/admin/PersonFie
 
 describe('useAction', () => {
   it('maps DUPLICATE to the field', async () => {
-    const { result } = renderHook(() => useAction());
+    const { result } = renderHook(() => useAction(['username']));
     await act(async () => {
       await result.current.run(() => Promise.reject(new ApiError(409, 'DUPLICATE', undefined, 'username')));
     });
@@ -17,8 +17,16 @@ describe('useAction', () => {
     expect(result.current.error).toBeNull();
   });
 
+  it('puts an error on a field the form does not show in the banner', async () => {
+    const { result } = renderHook(() => useAction(['name']));
+    await act(async () => {
+      await result.current.run(() => Promise.reject(new ApiError(409, 'DUPLICATE', undefined, 'username')));
+    });
+    expect(result.current.error).toBe('username: Username is already in use.');
+  });
+
   it('maps VALIDATION fields', async () => {
-    const { result } = renderHook(() => useAction());
+    const { result } = renderHook(() => useAction(['name']));
     await act(async () => {
       await result.current.run(() =>
         Promise.reject(new ApiError(400, 'VALIDATION', undefined, undefined, { name: 'must not be blank' })),

@@ -3,18 +3,19 @@ import { Alert, Button, Form, Modal, ModalBody, ModalFooter, ModalHeader } from 
 import { EMPTY_PERSON, PersonFields } from '@app/admin/PersonFields';
 import { MIN_PASSWORD_LENGTH } from '@app/Login/NewPasswordPage';
 import { useAction } from '@app/admin/useAction';
-import type { WithTemporaryPassword } from '@app/api/users';
+import type { TemporaryPassword } from '@app/api/users';
 
-/** Asks for a new temporary password for {@code name}; hands the reply to {@code onDone}. */
+/** Asks for a new temporary password for {@code name}; hands the one the server set to {@code onDone}. */
 export const ResetPasswordModal: React.FunctionComponent<{
   name: string;
-  reset(temporaryPassword: string): Promise<WithTemporaryPassword>;
-  onDone(reply: WithTemporaryPassword): void;
+  reset(temporaryPassword: string): Promise<TemporaryPassword>;
+  /** Gets the password the server set. */
+  onDone(temporaryPassword: string): void;
   onCancel(): void;
 }> = ({ name, reset, onDone, onCancel }) => {
   const [password, setPassword] = React.useState('');
   const [error, setError] = React.useState<string | undefined>(undefined);
-  const action = useAction();
+  const action = useAction(['temporaryPassword']);
 
   const submit = async (event?: React.FormEvent) => {
     event?.preventDefault();
@@ -24,7 +25,7 @@ export const ResetPasswordModal: React.FunctionComponent<{
     }
     setError(undefined);
     const reply = await action.run(() => reset(password));
-    if (reply) onDone(reply);
+    if (reply) onDone(reply.temporaryPassword);
   };
 
   return (
