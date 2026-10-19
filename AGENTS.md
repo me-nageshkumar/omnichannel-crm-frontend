@@ -1,4 +1,4 @@
-# Agent instructions (PatternFly React Seed)
+# Agent instructions (Omnichannel CRM console)
 
 This file helps humans and coding agents work safely in this repository. It summarizes how the app is built, how to validate changes, and where code lives.
 
@@ -34,12 +34,14 @@ Local development:
 
 ## Repository layout
 
-- `src/app/` — Application shell: routes, layout, feature pages (Dashboard, Settings, Support, NotFound)
-- `src/app/AppLayout/` — Chrome (header/sidebar)
-- `src/component/` — Shared or prototype components
-- `src/index.tsx` — Entry; dev-only `react-axe` wiring when not in production
-- `webpack.common.js` — Shared Webpack config (aliases, loaders)
-- `vitest.config.ts` — Test runner and `@app` alias for tests
+- `src/app/AppShell.tsx` — everything inside the router (tests render it in a `MemoryRouter`)
+- `src/app/routes.tsx` — routes and sidebar nav labels
+- `src/app/AppLayout/` — masthead and sidebar
+- `src/app/Dashboard/`, `src/app/Profile/`, `src/app/Login/`, `src/app/NotFound/` — pages
+- `src/app/session/` — session store (`localStorage`) and session context
+- `src/app/api/` — `fetch` client and backend calls
+- `src/test/` — test setup and helpers (`renderApp`, `mockFetch`)
+- `webpack.dev.js` — dev server on 9000 proxying `/api` and `/ws` to `BACKEND_URL`
 
 ## Path aliases
 

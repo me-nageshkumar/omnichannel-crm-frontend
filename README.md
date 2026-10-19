@@ -1,109 +1,31 @@
-# Patternfly Seed
+# Omnichannel CRM — console
 
-Patternfly Seed is an open source build scaffolding utility for web apps. The primary purpose of this project is to give developers a jump start when creating new projects that will use patternfly. A secondary purpose of this project is to serve as a reference for how to configure various aspects of an application that uses patternfly, webpack, react, typescript, etc.
+Browser console for the Omnichannel CRM backend (`whatsapp-backend`, Spring Boot). React 18,
+TypeScript, PatternFly 6, React Router, Webpack, Vitest. Started from
+[patternfly-react-seed](https://github.com/patternfly/patternfly-react-seed) (MIT).
 
-Out of the box you'll get an app layout with chrome (header/sidebar), routing, build pipeline, test suite, and some code quality tools. Basically, all the essentials.
+This first slice is for the super admin only: log in (with a 6-digit code when two-factor is on),
+dashboard, profile with two-factor setup, log out.
 
-<img width="1058" alt="Out of box dashboard view of patternfly seed" src="https://github.com/user-attachments/assets/0227b366-67f1-4df8-8d92-e8e95d6e08b3" />
-
-## Quick-start
+## Develop
 
 ```bash
-git clone https://github.com/patternfly/patternfly-react-seed
-cd patternfly-react-seed
-npm install && npm run start:dev
-```
-## Development scripts
-```sh
-# Install development/build dependencies
 npm install
-
-# Start the development server
-npm run start:dev
-
-# Run a production build (outputs to "dist" dir)
-npm run build
-
-# Run the test suite
-npm run test
-
-# Run the test suite with coverage
-npm run test:coverage
-
-# Run the linter
-npm run lint
-
-# Run the code formatter
-npm run format
-
-# Launch a tool to inspect the bundle size
-npm run bundle-profile:analyze
-
-# Serve the production build with sirv (run npm run build first)
-npm run start
+# backend running on 8080 (or point BACKEND_URL elsewhere)
+BACKEND_URL=http://localhost:8080 npm run start:dev   # http://localhost:9000, proxies /api and /ws
 ```
 
-## Configurations
-* [TypeScript Config](./tsconfig.json)
-* [Webpack Config](./webpack.common.js)
-* [Vitest Config](./vitest.config.ts)
-* [Editor Config](./.editorconfig)
+## Check
 
-For coding agents and automation, see [AGENTS.md](./AGENTS.md) (validation commands, layout, and conventions).
-
-## Raster image support
-
-To use an image asset that's shipped with PatternFly core, you'll prefix the paths with "@assets". `@assets` is an alias for the PatternFly assets directory in node_modules.
-
-For example:
-```js
-import imgSrc from '@assets/images/g_sizing.png';
-<img src={imgSrc} alt="Some image" />
+```bash
+npm run ci-checks   # type-check + lint + tests with coverage
 ```
 
-You can use a similar technique to import assets from your local app, just prefix the paths with "@app". `@app` is an alias for the main src/app directory.
+## Ship
 
-```js
-import loader from '@app/assets/images/loader.gif';
-<img src={loader} alt="Content loading" />
+The backend serves the built console from its jar, on one port:
+
+```bash
+npm run build                                   # -> dist/
+cd ../whatsapp-backend && ./mvnw clean -Pwith-frontend package
 ```
-
-## Vector image support
-Inlining SVG in the app's markup is also possible.
-
-```js
-import logo from '@app/assets/images/logo.svg';
-<span dangerouslySetInnerHTML={{__html: logo}} />
-```
-
-You can also use SVG when applying background images with CSS. To do this, your SVG's must live under a `bgimages` directory (this directory name is configurable in [webpack.common.js](./webpack.common.js#L5)). This is necessary because you may need to use SVG's in several other context (inline images, fonts, icons, etc.) and so we need to be able to differentiate between these usages so the appropriate loader is invoked.
-```css
-body {
-  background: url(./assets/bgimages/img_avatar.svg);
-}
-```
-
-## PatternFly CSS
-For applications using Patternfly React, styles should be imported at the base level of the application with the following: `import '@patternfly/react-core/dist/styles/base.css';`.
-This step has already been done for you by the PatternFly Seed application, in the `src/app/index.tsx` file.
-
-## Adding custom CSS
-When importing CSS from a third-party package for the first time, you may encounter the error `Module parse failed: Unexpected token... You may need an appropriate loader to handle this file typ...`. You need to register the path to the stylesheet directory in [stylePaths.js](./stylePaths.js). We specify these explicitly for performance reasons to avoid webpack needing to crawl through the entire node_modules directory when parsing CSS modules.
-
-## Code quality tools
-* For accessibility compliance, we use [react-axe](https://github.com/dequelabs/react-axe)
-* To keep our bundle size in check, we use [webpack-bundle-analyzer](https://github.com/webpack-contrib/webpack-bundle-analyzer)
-* To keep our code formatting in check, we use [prettier](https://github.com/prettier/prettier)
-* To keep our code logic and test coverage in check, we use [Vitest](https://vitest.dev/)
-* To ensure code styles remain consistent, we use [eslint](https://eslint.org/)
-
-## Multi environment configuration
-This project uses [dotenv-webpack](https://www.npmjs.com/package/dotenv-webpack) for exposing environment variables to your code. Either export them at the system level like `export MY_ENV_VAR=http://dev.myendpoint.com && npm run start:dev` or simply drop a `.env` file in the root that contains your key-value pairs like below:
-
-```sh
-ENV_1=http://1.myendpoint.com
-ENV_2=http://2.myendpoint.com
-```
-
-
-With that in place, you can use the values in your code like `console.log(process.env.ENV_1);`

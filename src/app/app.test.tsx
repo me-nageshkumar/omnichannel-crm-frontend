@@ -1,32 +1,28 @@
-import * as React from 'react';
-import App from '@app/index';
-import { render, screen } from '@testing-library/react';
-import userEvent from '@testing-library/user-event';
-import { describe, expect, it, test } from 'vitest';
+import { describe, expect, it } from 'vitest';
+import { screen } from '@testing-library/react';
+import { renderApp } from '../test/renderApp';
 
-describe('App tests', () => {
-  test('should render default App component', () => {
-    const { asFragment } = render(<App />);
-
-    expect(asFragment()).toMatchSnapshot();
+describe('App shell', () => {
+  it('shows the app name in the masthead', () => {
+    renderApp('/');
+    expect(screen.getByText('Omnichannel CRM')).toBeVisible();
   });
 
-  it('should render a nav-toggle button', () => {
-    render(<App />);
-
-    expect(screen.getByRole('button', { name: 'Global navigation' })).toBeVisible();
+  // jsdom has no viewport width, so the managed sidebar starts collapsed (hidden)
+  it('nav lists Dashboard and Profile only', () => {
+    renderApp('/');
+    expect(screen.getByRole('link', { name: 'Dashboard', hidden: true })).toBeInTheDocument();
+    expect(screen.getByRole('link', { name: 'Profile', hidden: true })).toBeInTheDocument();
+    expect(screen.queryByRole('link', { name: 'Support', hidden: true })).toBeNull();
   });
 
-  it('should toggle the sidebar when clicking the nav-toggle button', async () => {
-    const user = userEvent.setup();
+  it('unknown path shows not found', () => {
+    renderApp('/nope');
+    expect(screen.getByText('404 Page not found')).toBeVisible();
+  });
 
-    render(<App />);
-
-    const button = screen.getByRole('button', { name: 'Global navigation' });
-    const initialExpanded = button.getAttribute('aria-expanded');
-
-    await user.click(button);
-
-    expect(button.getAttribute('aria-expanded')).not.toBe(initialExpanded);
+  it('profile route renders', () => {
+    renderApp('/profile');
+    expect(screen.getByRole('heading', { name: 'Profile' })).toBeVisible();
   });
 });

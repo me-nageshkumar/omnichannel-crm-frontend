@@ -14,6 +14,14 @@ module.exports = merge(common('development'), {
     host: HOST,
     port: PORT,
     historyApiFallback: true,
+    // the Spring Boot backend; the browser sees one origin, as in production
+    proxy: [
+      {
+        context: ['/api', '/ws'],
+        target: process.env.BACKEND_URL || 'http://localhost:8080',
+        ws: true,
+      },
+    ],
     open: true,
     static: {
       directory: path.resolve(__dirname, 'dist'),
