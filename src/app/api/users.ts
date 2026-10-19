@@ -1,15 +1,29 @@
 import { apiFetch } from '@app/api/client';
 
-export type UserRole = 'SUPER_ADMIN' | 'APP_ADMIN' | 'ADMIN' | 'USER';
-
-const ROLE_LABELS: Record<UserRole, string> = {
-  SUPER_ADMIN: 'Super admin',
-  APP_ADMIN: 'App admin',
-  ADMIN: 'Admin',
-  USER: 'User',
+/** "WORKSPACE_MANAGER" → "Workspace manager". */
+export const roleLabel = (name: string): string => {
+  const words = name.toLowerCase().split('_');
+  const text = words.join(' ');
+  return text.charAt(0).toUpperCase() + text.slice(1);
 };
 
-export const roleLabel = (role: UserRole): string => ROLE_LABELS[role] ?? role;
+export interface RoleRef {
+  id: string;
+  name: string;
+}
+
+export interface CustomerRef {
+  id: string;
+  name: string;
+}
+
+export interface WorkspaceAccess {
+  id: string;
+  name: string;
+  /** Null when access comes from the user's company-wide role. */
+  role: RoleRef | null;
+  authorities: string[];
+}
 
 export interface CurrentUser {
   id: string;
@@ -17,8 +31,19 @@ export interface CurrentUser {
   username: string;
   email: string | null;
   mobileNumber: string | null;
-  role: UserRole;
   twoFactorEnabled: boolean;
+  superAdmin: boolean;
+  customer: CustomerRef | null;
+  role: RoleRef | null;
+  authorities: string[];
+  workspaces: WorkspaceAccess[];
+  mustChangePassword: boolean;
+}
+
+/** The role to show for {@code user}: their own role, else their role in {@code workspace}. */
+export function userRoleLabel(user: CurrentUser, workspace: WorkspaceAccess | null): string | null {
+  const role = user.role ?? workspace?.role ?? null;
+  return role ? roleLabel(role.name) : null;
 }
 
 export interface TwoFactorSetup {

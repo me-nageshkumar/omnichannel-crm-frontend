@@ -1,7 +1,6 @@
 import { ApiError } from '@app/api/client';
 
 export const MESSAGES = {
-  notSuperAdmin: 'This console is only available to the super admin.',
   sessionExpired: 'Your session has expired. Please log in again.',
   loggedOutElsewhere: 'You were logged out in another tab.',
   generic: 'Something went wrong. Please try again.',

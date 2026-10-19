@@ -2,8 +2,9 @@ import * as React from 'react';
 import { ApiError, setUnauthorizedHandler } from '@app/api/client';
 import { logout } from '@app/api/auth';
 import { MESSAGES, messageFor } from '@app/api/messages';
-import { CurrentUser, getCurrentUser } from '@app/api/users';
+import { CurrentUser, WorkspaceAccess, getCurrentUser } from '@app/api/users';
 import { SESSION_KEY, clearSession, hasStoredValue, readSession, writeSession } from '@app/session/sessionStore';
+import { readWorkspaceId, writeWorkspaceId } from '@app/session/workspaceStore';
 
 export type SessionStatus = 'loading' | 'signedOut' | 'signedIn';
 
@@ -14,6 +15,9 @@ export interface Session {
   /** A message for the login page: why the user is signed out, or why sign-in failed. */
   notice: string | null;
   pendingTwoFactorToken: string | null;
+  /** The brand the user is working in; null when they have none. */
+  workspace: WorkspaceAccess | null;
+  selectWorkspace(id: string): void;
   startTwoFactor(twoFactorToken: string): void;
   /** Fetches the user for a fresh token; true when signed in. Failures land in {@link notice}. */
   signIn(token: string, expiresAt: string): Promise<boolean>;
@@ -50,6 +54,7 @@ function failureNotice(error: unknown): string {
 export const SessionProvider: React.FunctionComponent<{ children: React.ReactNode }> = ({ children }) => {
   const [state, setState] = React.useState<State>({ ...SIGNED_OUT, status: 'loading', notice: null });
   const [expiresAt, setExpiresAt] = React.useState<string | null>(null);
+  const [workspaceId, setWorkspaceId] = React.useState<string | null>(() => readWorkspaceId());
 
   const signedOut = React.useCallback((notice: string | null) => {
     clearSession();
@@ -61,11 +66,6 @@ export const SessionProvider: React.FunctionComponent<{ children: React.ReactNod
     async (token: string, expiresAt: string): Promise<boolean> => {
       try {
         const user = await getCurrentUser(token);
-        if (user.role !== 'SUPER_ADMIN') {
-          logout(token).catch(() => undefined);
-          signedOut(MESSAGES.notSuperAdmin);
-          return false;
-        }
         writeSession({ token, expiresAt });
         setExpiresAt(expiresAt);
         setState({ status: 'signedIn', user, token, notice: null, pendingTwoFactorToken: null });
@@ -140,8 +140,17 @@ export const SessionProvider: React.FunctionComponent<{ children: React.ReactNod
     setState((s) => ({ ...s, user }));
   }, [state.token]);
 
+  // A stored brand the user no longer has falls back to their first.
+  const workspaces = state.user?.workspaces ?? [];
+  const workspace = workspaces.find((w) => w.id === workspaceId) ?? workspaces[0] ?? null;
+
   const value: Session = {
     ...state,
+    workspace,
+    selectWorkspace: (id) => {
+      writeWorkspaceId(id);
+      setWorkspaceId(id);
+    },
     startTwoFactor: (pendingTwoFactorToken) => setState((s) => ({ ...s, pendingTwoFactorToken, notice: null })),
     signIn: establish,
     signOut,

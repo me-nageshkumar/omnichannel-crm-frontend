@@ -6,7 +6,16 @@ import { SESSION_KEY } from '@app/session/sessionStore';
 import { useSession } from '@app/session/SessionContext';
 import { renderApp } from '../../test/renderApp';
 import { callsTo, mockFetch, requestTo } from '../../test/fetchMock';
-import { SUPER_ADMIN, inMs, meRoute, storeSession } from '../../test/session';
+import {
+  AGENT_NO_BRANDS,
+  CUSTOMER_ADMIN,
+  SUPER_ADMIN,
+  inMs,
+  meAs,
+  meRoute,
+  storeSession,
+} from '../../test/session';
+import { WORKSPACE_KEY } from '@app/session/workspaceStore';
 
 const LOGIN_HEADING = 'Log in to your account';
 const EXPIRED = 'Your session has expired. Please log in again.';
@@ -145,5 +154,57 @@ describe('session lifecycle', () => {
     });
     expect(await screen.findByText('You were logged out in another tab.')).toBeVisible();
     await waitFor(() => expect(screen.getByRole('heading', { name: LOGIN_HEADING })).toBeVisible());
+  });
+});
+
+const WorkspaceProbe: React.FunctionComponent = () => {
+  const { workspace } = useSession();
+  return <div data-testid="workspace">{workspace ? workspace.id : 'none'}</div>;
+};
+
+describe('current workspace', () => {
+  beforeEach(() => localStorage.clear());
+  afterEach(() => vi.unstubAllGlobals());
+
+  it('customer admin can sign in', async () => {
+    storeSession();
+    mockFetch(meAs(CUSTOMER_ADMIN));
+    renderApp('/');
+    expect(await screen.findByText('Welcome, Ravi Owner')).toBeVisible();
+    expect(screen.queryByText(/only available to the super admin/)).toBeNull();
+  });
+
+  it('defaults to the first workspace', async () => {
+    storeSession();
+    mockFetch(meAs(CUSTOMER_ADMIN));
+    renderApp('/', <WorkspaceProbe />);
+    await screen.findByText('Welcome, Ravi Owner');
+    expect(screen.getByTestId('workspace')).toHaveTextContent('w1');
+  });
+
+  it('restores the stored workspace', async () => {
+    storeSession();
+    localStorage.setItem(WORKSPACE_KEY, 'w2');
+    mockFetch(meAs(CUSTOMER_ADMIN));
+    renderApp('/', <WorkspaceProbe />);
+    await screen.findByText('Welcome, Ravi Owner');
+    expect(screen.getByTestId('workspace')).toHaveTextContent('w2');
+  });
+
+  it('falls back to the first workspace when the stored one is gone', async () => {
+    storeSession();
+    localStorage.setItem(WORKSPACE_KEY, 'w-removed');
+    mockFetch(meAs(CUSTOMER_ADMIN));
+    renderApp('/', <WorkspaceProbe />);
+    await screen.findByText('Welcome, Ravi Owner');
+    expect(screen.getByTestId('workspace')).toHaveTextContent('w1');
+  });
+
+  it('is null without workspaces', async () => {
+    storeSession();
+    mockFetch(meAs(AGENT_NO_BRANDS));
+    renderApp('/', <WorkspaceProbe />);
+    await screen.findByText('Welcome, Arun Agent');
+    expect(screen.getByTestId('workspace')).toHaveTextContent('none');
   });
 });

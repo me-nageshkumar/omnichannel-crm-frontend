@@ -117,20 +117,6 @@ describe('sign-in', () => {
     expect(await screen.findByText('Too many attempts. Try again in 30 minutes.')).toBeVisible();
   });
 
-  it('rejects non super admin', async () => {
-    const fetch = mockFetch({
-      'POST /api/auth/login': { status: 200, body: { token: 'tu', expiresAt: inMs(3600_000) } },
-      'POST /api/auth/logout': { status: 204 },
-      ...meRoute({ role: 'USER', name: 'WhatsApp Bridge' }),
-    });
-    const { user } = renderApp('/login');
-    await submitLogin(user);
-    expect(await screen.findByText('This console is only available to the super admin.')).toBeVisible();
-    expect(screen.getByRole('heading', { name: LOGIN_HEADING })).toBeVisible();
-    expect(requestTo(fetch, 'POST /api/auth/logout')?.headers.get('Authorization')).toBe('Bearer tu');
-    expect(stored()).toBeNull();
-  });
-
   it('me 401 during sign-in leaves no session', async () => {
     mockFetch({
       'POST /api/auth/login': { status: 200, body: { token: 't1', expiresAt: inMs(3600_000) } },

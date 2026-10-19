@@ -1,15 +1,79 @@
-import type { CurrentUser } from '@app/api/users';
+import type { CurrentUser, WorkspaceAccess } from '@app/api/users';
 import { SESSION_KEY } from '@app/session/sessionStore';
 import type { MockRoute } from './fetchMock';
 
+const PLATFORM_CODES = ['platform-user:manage', 'customer:view', 'customer:create', 'customer:manage', 'whatsapp:bridge'];
+export const BRAND_CODES = ['workspace:settings', 'user:view', 'user:manage', 'team:manage'];
+
+const base = {
+  email: 'me@example.in',
+  mobileNumber: '9928088743',
+  twoFactorEnabled: false,
+  superAdmin: false,
+  customer: null,
+  role: null,
+  authorities: [] as string[],
+  workspaces: [] as WorkspaceAccess[],
+  mustChangePassword: false,
+};
+
 export const SUPER_ADMIN: CurrentUser = {
+  ...base,
   id: 'u1',
   name: 'Nagesh Kumar',
   username: 'nageshk',
-  email: 'me@example.in',
-  mobileNumber: '9928088743',
-  role: 'SUPER_ADMIN',
-  twoFactorEnabled: false,
+  superAdmin: true,
+  role: { id: 'r-sa', name: 'SUPER_ADMIN' },
+  authorities: PLATFORM_CODES,
+};
+
+export const ACCOUNT_MANAGER: CurrentUser = {
+  ...base,
+  id: 'u2',
+  name: 'Asha Manager',
+  username: 'asha',
+  role: { id: 'r-am', name: 'ACCOUNT_MANAGER' },
+  authorities: ['customer:view', 'customer:create', 'customer:manage'],
+};
+
+export const BRAND_A: WorkspaceAccess = { id: 'w1', name: 'Brand A', role: null, authorities: BRAND_CODES };
+export const BRAND_B: WorkspaceAccess = { id: 'w2', name: 'Brand B', role: null, authorities: BRAND_CODES };
+
+export const CUSTOMER_ADMIN: CurrentUser = {
+  ...base,
+  id: 'u3',
+  name: 'Ravi Owner',
+  username: 'ravi',
+  customer: { id: 'c1', name: 'Acme' },
+  role: { id: 'r-ca', name: 'CUSTOMER_ADMIN' },
+  authorities: ['workspace:create', 'company-user:manage'],
+  workspaces: [BRAND_A, BRAND_B],
+};
+
+export const WORKSPACE_MANAGER: CurrentUser = {
+  ...base,
+  id: 'u4',
+  name: 'Meera Manager',
+  username: 'meera',
+  customer: { id: 'c1', name: 'Acme' },
+  workspaces: [{ ...BRAND_A, role: { id: 'r-wm', name: 'WORKSPACE_MANAGER' } }],
+};
+
+export const TEAM_LEAD: CurrentUser = {
+  ...base,
+  id: 'u6',
+  name: 'Tara Lead',
+  username: 'tara',
+  customer: { id: 'c1', name: 'Acme' },
+  workspaces: [{ ...BRAND_A, role: { id: 'r-tl', name: 'TEAM_LEAD' }, authorities: ['user:view'] }],
+};
+
+export const AGENT_NO_BRANDS: CurrentUser = {
+  ...base,
+  id: 'u5',
+  name: 'Arun Agent',
+  username: 'arun',
+  customer: { id: 'c1', name: 'Acme' },
 };
 
 export const inMs = (ms: number) => new Date(Date.now() + ms).toISOString();
@@ -23,4 +87,9 @@ export function storeSession(token = 'stored-token', expiresAt = inMs(3600_000))
 /** The GET /api/users/me route answering with {@code user} (default: the super admin). */
 export function meRoute(user: Partial<CurrentUser> = {}): Record<string, MockRoute> {
   return { 'GET /api/users/me': { status: 200, body: { ...SUPER_ADMIN, ...user } } };
+}
+
+/** The GET /api/users/me route answering with exactly {@code user}. */
+export function meAs(user: CurrentUser): Record<string, MockRoute> {
+  return { 'GET /api/users/me': { status: 200, body: user } };
 }

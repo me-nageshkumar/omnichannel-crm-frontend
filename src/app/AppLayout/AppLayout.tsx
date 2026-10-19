@@ -29,7 +29,8 @@ import {
 } from '@patternfly/react-core';
 import { IAppRoute, routes } from '@app/routes';
 import { BarsIcon, UserIcon } from '@patternfly/react-icons';
-import { roleLabel } from '@app/api/users';
+import { userRoleLabel } from '@app/api/users';
+import { WorkspaceSwitcher } from '@app/AppLayout/WorkspaceSwitcher';
 import { useSession } from '@app/session/SessionContext';
 
 interface IAppLayout {
@@ -37,7 +38,7 @@ interface IAppLayout {
 }
 
 const UserMenu: React.FunctionComponent = () => {
-  const { user, signOut } = useSession();
+  const { user, workspace, signOut } = useSession();
   const navigate = useNavigate();
   const [isOpen, setIsOpen] = React.useState(false);
   if (!user) return null;
@@ -53,7 +54,7 @@ const UserMenu: React.FunctionComponent = () => {
         </MenuToggle>
       )}
     >
-      <DropdownGroup label={`${user.name} · ${roleLabel(user.role)}`}>
+      <DropdownGroup label={[user.name, userRoleLabel(user, workspace)].filter(Boolean).join(' · ')}>
         <DropdownList>
           <DropdownItem key="profile" onClick={() => navigate('/profile')}>
             Profile
@@ -91,6 +92,9 @@ const AppLayout: React.FunctionComponent<IAppLayout> = ({ children }) => {
         <Toolbar isFullHeight isStatic>
           <ToolbarContent>
             <ToolbarGroup align={{ default: 'alignEnd' }}>
+              <ToolbarItem>
+                <WorkspaceSwitcher />
+              </ToolbarItem>
               <ToolbarItem>
                 <UserMenu />
               </ToolbarItem>
