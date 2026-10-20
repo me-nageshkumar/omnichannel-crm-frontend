@@ -85,6 +85,7 @@ export function useChatList(phoneNumberId: string, filters: ChatListFilters): Ch
     if (!token || !more || busy || !before) return;
     const mine = epoch.current;
     setLoading(true);
+    setError(null);
     listChats(token, ws, phoneNumberId, { scope, status, q, unread, before }).then(
       (res) => {
         if (epoch.current !== mine) return;

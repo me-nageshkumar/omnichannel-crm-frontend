@@ -252,6 +252,26 @@ describe('chat list', () => {
     expect(screen.queryByRole('button', { name: 'Load more' })).toBeNull();
   });
 
+  it('clears the error when a retried load more succeeds', async () => {
+    let n = 0;
+    mockFetch({
+      ...meAs(MANAGER),
+      [`GET ${LIST}`]: () => {
+        n++;
+        if (n === 1) return page([ASHA, MEENA], true);
+        return n === 2 ? { status: 500, body: {} } : page([PHONE_ONLY]);
+      },
+    });
+    const { user } = renderList();
+    await rows();
+    await user.click(screen.getByRole('button', { name: 'Load more' }));
+    expect(await screen.findByText(/went wrong|try again|error/i)).toBeVisible();
+    expect(await rows()).toHaveLength(2);
+    await user.click(await screen.findByRole('button', { name: 'Load more' }));
+    await waitFor(async () => expect(await rows()).toHaveLength(3));
+    expect(document.querySelector('.pf-v6-c-alert')).toBeNull();
+  });
+
   it('refetches from the top when a filter changes', async () => {
     const fetch = mockFetch({ ...meAs(MANAGER), [`GET ${LIST}`]: page([ASHA]) });
     const { user } = renderList();
