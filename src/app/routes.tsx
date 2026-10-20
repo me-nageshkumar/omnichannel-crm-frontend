@@ -4,6 +4,7 @@ import { Dashboard } from '@app/Dashboard/Dashboard';
 import { ProfilePage } from '@app/Profile/ProfilePage';
 import { NotFound } from '@app/NotFound/NotFound';
 import { PlatformUsersPage } from '@app/PlatformUsers/PlatformUsersPage';
+import { AuthoritiesPage } from '@app/Authorities/AuthoritiesPage';
 import { RolesPage } from '@app/Roles/RolesPage';
 import { CustomersPage } from '@app/Customers/CustomersPage';
 import { CustomerDetailPage } from '@app/Customers/CustomerDetailPage';
@@ -39,6 +40,13 @@ const routes: IAppRoute[] = [
     element: <RolesPage />,
     label: 'Roles',
     path: '/roles',
+    group: 'Platform',
+    requires: (a) => a.superAdmin,
+  },
+  {
+    element: <AuthoritiesPage />,
+    label: 'Authorities',
+    path: '/authorities',
     group: 'Platform',
     requires: (a) => a.superAdmin,
   },
