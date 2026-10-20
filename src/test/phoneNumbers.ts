@@ -4,6 +4,7 @@ import type { PhoneNumber } from '@app/api/phoneNumbers';
 export function phoneNumber(over: Partial<PhoneNumber> & Pick<PhoneNumber, 'id' | 'number'>): PhoneNumber {
   return {
     label: null,
+    connectionType: 'WHATSAPP_WEB',
     customerId: 'c1',
     customerName: 'Acme',
     workspaceId: 'w1',

@@ -44,6 +44,13 @@ describe('brand phone numbers page', () => {
     expect(within(await rowWith('+910000000006')).getByText('Disabled (brand)')).toBeVisible();
   });
 
+  it('showsConnectionType', async () => {
+    mockFetch(routes([MAIN, phoneNumber({ id: 'p9', number: '910000000009', connectionType: 'WHATSAPP_CLOUD_API' })]));
+    renderApp('/phone-numbers');
+    expect(within(await rowWith('+919928088743')).getByText('WhatsApp Web')).toBeVisible();
+    expect(within(await rowWith('+910000000009')).getByText('Cloud API')).toBeVisible();
+  });
+
   it('addNumberValidates', async () => {
     mockFetch(routes([]));
     const { user } = renderApp('/phone-numbers');

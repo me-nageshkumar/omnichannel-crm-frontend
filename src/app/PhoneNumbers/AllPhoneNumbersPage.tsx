@@ -14,6 +14,7 @@ import {
 } from '@patternfly/react-core';
 import { ActionsColumn, Table, Tbody, Td, Th, Thead, Tr } from '@patternfly/react-table';
 import {
+  CONNECTION_LABELS,
   PLATFORM_PAGE_SIZE,
   PhoneNumber,
   PhoneNumberStatus,
@@ -159,6 +160,7 @@ export const AllPhoneNumbersPage: React.FunctionComponent = () => {
               <Th>Company</Th>
               <Th>Brand</Th>
               <Th>Label</Th>
+              <Th>Type</Th>
               <Th>Status</Th>
               <Th>Last seen</Th>
               <Th screenReaderText="Actions" />
@@ -171,6 +173,7 @@ export const AllPhoneNumbersPage: React.FunctionComponent = () => {
                 <Td dataLabel="Company">{n.customerName ?? '—'}</Td>
                 <Td dataLabel="Brand">{n.workspaceName ?? '—'}</Td>
                 <Td dataLabel="Label">{n.label ?? '—'}</Td>
+                <Td dataLabel="Type">{CONNECTION_LABELS[n.connectionType] ?? n.connectionType}</Td>
                 <Td dataLabel="Status">
                   <PhoneNumberStatusLabel number={n} />
                 </Td>

@@ -31,6 +31,7 @@ describe('all phone numbers page', () => {
     expect(within(row).getByText('Globex')).toBeVisible();
     expect(within(row).getByText('Globex Shop')).toBeVisible();
     expect(within(await rowWith('+919928088743')).getByText('Connected')).toBeVisible();
+    expect(within(row).getByText('WhatsApp Web')).toBeVisible();
   });
 
   it('searchSendsQ', async () => {

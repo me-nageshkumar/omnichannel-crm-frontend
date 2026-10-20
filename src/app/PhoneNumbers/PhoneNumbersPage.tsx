@@ -2,6 +2,7 @@ import * as React from 'react';
 import { Alert, Button, Spinner } from '@patternfly/react-core';
 import { ActionsColumn, IAction, Table, Tbody, Td, Th, Thead, Tr } from '@patternfly/react-table';
 import {
+  CONNECTION_LABELS,
   PhoneNumber,
   addNumber,
   deleteNumber,
@@ -93,6 +94,7 @@ export const PhoneNumbersPage: React.FunctionComponent = () => {
             <Tr>
               <Th>Number</Th>
               <Th>Label</Th>
+              <Th>Type</Th>
               <Th>Status</Th>
               <Th>Last seen</Th>
               <Th screenReaderText="Actions" />
@@ -103,6 +105,7 @@ export const PhoneNumbersPage: React.FunctionComponent = () => {
               <Tr key={n.id}>
                 <Td dataLabel="Number">{shown(n.number)}</Td>
                 <Td dataLabel="Label">{n.label ?? '—'}</Td>
+                <Td dataLabel="Type">{CONNECTION_LABELS[n.connectionType] ?? n.connectionType}</Td>
                 <Td dataLabel="Status">
                   <PhoneNumberStatusLabel number={n} />
                 </Td>

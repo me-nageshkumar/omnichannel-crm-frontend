@@ -18,11 +18,20 @@ export const STATUSES: PhoneNumberStatus[] = [
   'DISABLED',
 ];
 
+/** How the number reaches WhatsApp: WhatsApp Web through the extension today, Cloud API later. */
+export type ConnectionType = 'WHATSAPP_WEB' | 'WHATSAPP_CLOUD_API';
+
+export const CONNECTION_LABELS: Record<ConnectionType, string> = {
+  WHATSAPP_WEB: 'WhatsApp Web',
+  WHATSAPP_CLOUD_API: 'Cloud API',
+};
+
 /** A brand's WhatsApp number as the console shows it; never carries the device key. */
 export interface PhoneNumber {
   id: string;
   number: string;
   label: string | null;
+  connectionType: ConnectionType;
   customerId: string;
   customerName: string | null;
   workspaceId: string;
