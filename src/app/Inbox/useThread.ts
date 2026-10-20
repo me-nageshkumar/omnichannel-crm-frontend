@@ -45,9 +45,9 @@ export function useThread(chatId: string | null): ThreadState {
 
   // Items of another chat must not be shown while the new one loads.
   const keyId = JSON.stringify([ws, chatId]);
-  const shownKey = React.useRef(keyId);
-  if (shownKey.current !== keyId) {
-    shownKey.current = keyId;
+  const [shownKey, setShownKey] = React.useState(keyId);
+  if (shownKey !== keyId) {
+    setShownKey(keyId);
     setItems([]);
     setHasMore(false);
     setError(null);

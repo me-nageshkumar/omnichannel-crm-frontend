@@ -79,16 +79,32 @@ const Open: React.FunctionComponent<{ chatId: string | null }> = ({ chatId }) =>
   );
 };
 
+const tree = (chatId: string | null) => (
+  <ThemeProvider>
+    <SessionProvider>
+      <Host chatId={chatId} />
+    </SessionProvider>
+  </ThemeProvider>
+);
+
 function renderThread(chatId: string | null = 'c1') {
   const user = userEvent.setup();
-  const view = render(
-    <ThemeProvider>
-      <SessionProvider>
-        <Host chatId={chatId} />
-      </SessionProvider>
-    </ThemeProvider>,
-  );
+  const view = render(tree(chatId));
   return { user, ...view };
+}
+
+/** Holds back the thread reply of chat c1 until {@code release()}; everything else answers at once. */
+function gateThreadOfC1(fetch: ReturnType<typeof mockFetch>) {
+  const answer = fetch.getMockImplementation() as NonNullable<ReturnType<typeof fetch.getMockImplementation>>;
+  let release: () => void = () => undefined;
+  const gate = new Promise<void>((resolve) => {
+    release = resolve;
+  });
+  fetch.mockImplementation(async (input, init) => {
+    if (new URL(String(input), 'http://localhost').pathname === THREAD) await gate;
+    return answer(input, init);
+  });
+  return release;
 }
 
 const messageEvent = (item: ThreadItem, chatId = 'c1'): InboxEvent => ({
@@ -378,6 +394,79 @@ describe('thread', () => {
     expect(screen.queryByRole('button', { name: 'Load earlier' })).toBeNull();
     expect(screen.getAllByText(/Older|Newer/).map((e) => e.textContent)).toEqual(['Older', 'Newer']);
     expect(calls).toBe(2);
+  });
+
+  it('asks for the page before the oldest item shown', async () => {
+    let calls = 0;
+    const fetch = mockFetch({
+      ...meAs(AGENT_IN_BRAND),
+      [`GET ${THREAD}`]: () =>
+        ++calls === 1
+          ? page([message({ id: 'm2', body: 'Newer', timestamp: '2026-10-20T10:00:00Z' })], true)
+          : page([message({ id: 'm1', body: 'Older', timestamp: '2026-10-19T10:00:00Z' })]),
+    });
+    const { user } = renderThread();
+
+    await user.click(await screen.findByRole('button', { name: 'Load earlier' }));
+    await screen.findByText('Older');
+    const requests = fetch.mock.calls.map(([input]) => String(input)).filter((u) => u.includes('/thread'));
+    expect(requests[0]).not.toContain('before=');
+    expect(requests[1]).toContain('before=2026-10-20T10%3A00%3A00Z');
+  });
+
+  it('drops the reply of a chat that was left while it loaded', async () => {
+    const fetch = mockFetch({
+      ...meAs(AGENT_IN_BRAND),
+      [`GET ${THREAD}`]: page([message({ id: 'm1', body: 'Old chat message' })]),
+      'GET /api/workspaces/w1/inbox/chats/c2/thread': page([message({ id: 'm2', body: 'New chat message' })]),
+    });
+    const release = gateThreadOfC1(fetch);
+    const { rerender } = renderThread('c1');
+    await waitFor(() => expect(callsTo(fetch, `GET ${THREAD}`)).toBe(1));
+
+    rerender(tree('c2'));
+    expect(await screen.findByText('New chat message')).toBeInTheDocument();
+    await act(async () => {
+      release();
+    });
+    expect(screen.getByText('New chat message')).toBeInTheDocument();
+    expect(screen.queryByText('Old chat message')).toBeNull();
+  });
+
+  it('merges an event that arrives while the first page loads', async () => {
+    const fetch = mockFetch({
+      ...meAs(AGENT_IN_BRAND),
+      [`GET ${THREAD}`]: page([message({ id: 'm1', body: 'From the page', timestamp: hoursAgo(3) })]),
+    });
+    const release = gateThreadOfC1(fetch);
+    renderThread();
+    await waitFor(() => expect(callsTo(fetch, `GET ${THREAD}`)).toBe(1));
+
+    act(() => apply(messageEvent(message({ id: 'm2', body: 'Live one', timestamp: hoursAgo(1) }))));
+    expect(await screen.findByText('Live one')).toBeInTheDocument();
+    await act(async () => {
+      release();
+    });
+    await screen.findByText('From the page');
+    expect(screen.getAllByText(/From the page|Live one/).map((e) => e.textContent)).toEqual([
+      'From the page',
+      'Live one',
+    ]);
+  });
+
+  it('inserts a late event between existing items by time', async () => {
+    mockFetch({
+      ...meAs(AGENT_IN_BRAND),
+      [`GET ${THREAD}`]: page([
+        message({ id: 'm1', body: 'Early', timestamp: hoursAgo(3) }),
+        message({ id: 'm3', body: 'Late', timestamp: hoursAgo(1) }),
+      ]),
+    });
+    renderThread();
+    await screen.findByText('Late');
+
+    act(() => apply(messageEvent(message({ id: 'm2', body: 'Middle', timestamp: hoursAgo(2) }))));
+    expect(screen.getAllByText(/Early|Middle|Late/).map((e) => e.textContent)).toEqual(['Early', 'Middle', 'Late']);
   });
 
   it('day separators', async () => {
