@@ -4,6 +4,15 @@ body,
   height: 100%;
 }
 
+/*
+ * PatternFly 6 sizes the main container from its content (align-self: start), so a page that fills the
+ * content height and scrolls inside, like the inbox, collapses to nothing. Let the container take the
+ * page's main grid row instead, as the sidebar already does.
+ */
+.pf-v6-c-page__main-container {
+  --pf-v6-c-page__main-container--AlignSelf: stretch;
+}
+
 .pf-v6-c-content {
   --pf-v6-c-content--small--Color: var(--pf-t--global--color--status--danger--default); /* changes all <small> color to the semantic token for danger */
   --pf-v6-c-content--blockquote--BorderLeftColor: var(--pf-t--global--color--nonstatus--purple--default); /* changes all <blockquote> left border color to the semantic token for non-status (purple) */
