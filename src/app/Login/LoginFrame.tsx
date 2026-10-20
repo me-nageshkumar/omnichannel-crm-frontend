@@ -1,6 +1,7 @@
 import * as React from 'react';
 import { Alert, LoginPage } from '@patternfly/react-core';
 import { MESSAGES } from '@app/api/messages';
+import { ThemeSwitcher } from '@app/theme/ThemeSwitcher';
 
 const INFO_NOTICES = [MESSAGES.sessionExpired, MESSAGES.loggedOutElsewhere];
 
@@ -10,7 +11,7 @@ export const LoginFrame: React.FunctionComponent<{
   notice: string | null;
   children: React.ReactNode;
 }> = ({ title, notice, children }) => (
-  <LoginPage loginTitle={title} textContent="Omnichannel CRM">
+  <LoginPage loginTitle={title} textContent="Omnichannel CRM" headerUtilities={<ThemeSwitcher />}>
     {notice && (
       <Alert
         variant={INFO_NOTICES.includes(notice) ? 'info' : 'danger'}

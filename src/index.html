@@ -8,6 +8,17 @@
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <link rel="icon" type="image/svg+xml" href="/images/favicon.png">
   <base href="/">
+  <script>
+    // Applies the saved theme before the first paint, so dark mode never flashes white.
+    // Mirrors src/app/theme/themeStore.ts (key, values, class); React keeps it in step after load.
+    (function () {
+      try {
+        var choice = localStorage.getItem('omnichannel.theme');
+        var dark = choice === 'dark' || (choice !== 'light' && window.matchMedia('(prefers-color-scheme: dark)').matches);
+        if (dark) document.documentElement.classList.add('pf-v6-theme-dark');
+      } catch (e) {}
+    })();
+  </script>
 </head>
 
 <body>

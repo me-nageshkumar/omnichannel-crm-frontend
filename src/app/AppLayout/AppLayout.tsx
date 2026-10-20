@@ -32,6 +32,7 @@ import { IAppRoute, NAV_GROUPS, useAllowedRoutes } from '@app/routes';
 import { BarsIcon, UserIcon } from '@patternfly/react-icons';
 import { userRoleLabel } from '@app/api/users';
 import { WorkspaceSwitcher } from '@app/AppLayout/WorkspaceSwitcher';
+import { ThemeSwitcher } from '@app/theme/ThemeSwitcher';
 import { useSession } from '@app/session/SessionContext';
 
 interface IAppLayout {
@@ -95,6 +96,9 @@ const AppLayout: React.FunctionComponent<IAppLayout> = ({ children }) => {
             <ToolbarGroup align={{ default: 'alignEnd' }}>
               <ToolbarItem>
                 <WorkspaceSwitcher />
+              </ToolbarItem>
+              <ToolbarItem>
+                <ThemeSwitcher />
               </ToolbarItem>
               <ToolbarItem>
                 <UserMenu />
