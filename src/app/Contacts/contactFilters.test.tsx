@@ -69,6 +69,40 @@ describe('contact filters and bulk actions', () => {
     );
   });
 
+  const attributeConditionsSent = (fetch: ReturnType<typeof mockFetch>) =>
+    Array.from({ length: callsTo(fetch, SEARCH) }, (_v, n) => requestTo(fetch, SEARCH, n)?.body.filter?.attributes);
+
+  it('incompleteAttributeRowIsNotSent', async () => {
+    const fetch = mockFetch(routes());
+    const { user } = renderApp('/contacts');
+    await openFilters(user);
+    const before = callsTo(fetch, SEARCH);
+    await user.click(screen.getByRole('button', { name: 'Add attribute condition' }));
+    await user.selectOptions(screen.getByLabelText('Attribute'), 'City');
+    await new Promise((r) => setTimeout(r, 500));
+    expect(attributeConditionsSent(fetch).every((a) => a === undefined)).toBe(true);
+    expect(callsTo(fetch, SEARCH)).toBe(before);
+    // "has a value" needs no value, so the row is complete.
+    await user.selectOptions(screen.getByLabelText('Condition'), 'EXISTS');
+    await waitFor(() =>
+      expect(lastSearch(fetch).filter).toEqual({ attributes: [{ attributeId: 'a1', op: 'EXISTS' }] }),
+    );
+  });
+
+  it('attributeValueIsDebounced', async () => {
+    const fetch = mockFetch(routes());
+    const { user } = renderApp('/contacts');
+    await openFilters(user);
+    await user.click(screen.getByRole('button', { name: 'Add attribute condition' }));
+    await user.selectOptions(screen.getByLabelText('Attribute'), 'City');
+    await user.type(screen.getByLabelText('Value'), 'Jaipur');
+    await waitFor(() =>
+      expect(lastSearch(fetch).filter).toEqual({ attributes: [{ attributeId: 'a1', op: 'EQUALS', value: 'Jaipur' }] }),
+    );
+    const sent = attributeConditionsSent(fetch).filter((a) => a !== undefined);
+    expect(sent).toHaveLength(1);
+  });
+
   it('savedFilterApplies', async () => {
     const fetch = mockFetch(routes());
     const { user } = renderApp('/contacts');

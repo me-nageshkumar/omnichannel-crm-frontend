@@ -33,6 +33,9 @@ const OPS: Record<AttributeOp, string> = {
   NOT_EXISTS: 'is empty',
 };
 
+const isComplete = (r: AttributeCondition) =>
+  !!r.attributeId && (r.op === 'EXISTS' || r.op === 'NOT_EXISTS' || !!r.value?.trim());
+
 type LabelKey = 'labelsAny' | 'labelsAll' | 'labelsNone';
 
 const LabelPicker: React.FunctionComponent<{
@@ -78,12 +81,29 @@ export const FilterPanel: React.FunctionComponent<{
   const conditions = spec.attributes ?? [];
   // A row that was just added has no attribute yet; keep it in the panel but out of the sent filter.
   const [draft, setDraft] = React.useState<AttributeCondition[]>(conditions);
-  const setRows = (rows: AttributeCondition[]) => {
+  // Only complete rows are sent; typing a value waits 300 ms like the search box.
+  const latestSet = React.useRef(set);
+  latestSet.current = set;
+  const sentRef = React.useRef(conditions);
+  sentRef.current = conditions;
+  const timer = React.useRef<ReturnType<typeof setTimeout>>();
+  React.useEffect(() => () => clearTimeout(timer.current), []);
+  const setRows = (rows: AttributeCondition[], debounce = false) => {
     setDraft(rows);
-    set({ attributes: rows.filter((r) => r.attributeId) });
+    clearTimeout(timer.current);
+    const send = () => {
+      const complete = rows.filter(isComplete);
+      // Nothing the server would see has changed, so do not trigger another search.
+      if (JSON.stringify(complete) !== JSON.stringify(sentRef.current)) latestSet.current({ attributes: complete });
+    };
+    if (debounce) timer.current = setTimeout(send, 300);
+    else send();
   };
   const patchRow = (i: number, patch: Partial<AttributeCondition>) =>
-    setRows(draft.map((r, j) => (j === i ? { ...r, ...patch } : r)));
+    setRows(
+      draft.map((r, j) => (j === i ? { ...r, ...patch } : r)),
+      'value' in patch && patch.value !== undefined,
+    );
   const toggleSource = (s: ContactSource, on: boolean) =>
     set({ source: on ? [...(spec.source ?? []), s] : (spec.source ?? []).filter((x) => x !== s) });
 
