@@ -224,6 +224,28 @@ describe('template preview', () => {
     );
   });
 
+  it('renderValidationErrorShowsServerMessage', async () => {
+    serve(order, {
+      [`POST ${B}/templates/t1/render`]: {
+        status: 400,
+        body: {
+          code: 'VALIDATION',
+          message: 'content.body is longer than 4096 characters after filling placeholders',
+          fields: { 'content.body': 'is longer than 4096 characters after filling placeholders' },
+        },
+      },
+    });
+    const { user } = renderApp('/templates/t1');
+    await screen.findByRole('region', { name: 'Message preview' });
+    await user.click(screen.getByRole('button', { name: 'Preview with a contact' }));
+    const dialog = await screen.findByRole('dialog');
+    await user.click(within(dialog).getByRole('button', { name: 'Preview' }));
+    expect(
+      await within(dialog).findByText('content.body is longer than 4096 characters after filling placeholders'),
+    ).toBeVisible();
+    expect(within(dialog).queryByText('Something went wrong. Please try again.')).toBeNull();
+  });
+
   it('missingAndWarningsShown', async () => {
     serve(order, {
       [`POST ${B}/templates/t1/render`]: {

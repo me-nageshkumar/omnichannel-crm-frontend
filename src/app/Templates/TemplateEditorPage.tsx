@@ -114,6 +114,8 @@ const EditorBody: React.FunctionComponent<BodyProps> = ({ type, template }) => {
   const [conflict, setConflict] = React.useState(false);
   const [notice, setNotice] = React.useState<string | null>(null);
   const [busy, setBusy] = React.useState(false);
+  /** Set synchronously, so a second submit (Enter) before the first re-render is still ignored. */
+  const inFlight = React.useRef(false);
 
   const attributes = useLoad((tk) => (canManage ? listAttributes(tk, ws) : Promise.resolve([])), [ws, canManage]);
   const categories = useLoad((tk) => (canManage ? getCategories(tk, ws) : Promise.resolve([])), [ws, canManage]);
@@ -129,11 +131,11 @@ const EditorBody: React.FunctionComponent<BodyProps> = ({ type, template }) => {
   };
   const knownNames = React.useMemo(() => {
     const out: Record<string, string> = {};
-    (template?.placeholders ?? []).forEach((p) => {
+    (saved?.placeholders ?? []).forEach((p) => {
       if (p.attributeName) out[p.name] = p.attributeName;
     });
     return out;
-  }, [template]);
+  }, [saved]);
 
   const patchContent = (patch: Partial<TemplateContent>) => setContent((c) => ({ ...c, ...patch }));
   const patchSetting = (ref: PlaceholderRef, patch: Partial<Setting>) =>
@@ -146,18 +148,26 @@ const EditorBody: React.FunctionComponent<BodyProps> = ({ type, template }) => {
   };
 
   const onSave = async () => {
+    if (inFlight.current) return;
     setAttempted(true);
     setNotice(null);
     setConflict(false);
     setBanner(null);
     setServerErrors({});
     if (blocked) return;
+    inFlight.current = true;
     setBusy(true);
     try {
       const request = buildRequest(type, name, category, content, media, refs, settings, saved?.version);
       if (saved) {
         const result = await updateTemplate(t, ws, saved.id, request);
+        // The server normalises what it stores ({{ x }} becomes {{x}}, values are trimmed): adopt that.
         setSaved(result);
+        setName(result.name);
+        setCategory(result.category ?? '');
+        setContent(loadedContent(type, result.content));
+        setMedia(result.media);
+        setSettings((all) => ({ ...all, ...loadedSettings(result.placeholders) }));
         setNotice('Saved');
       } else {
         const created = await createTemplate(t, ws, request);
@@ -175,6 +185,7 @@ const EditorBody: React.FunctionComponent<BodyProps> = ({ type, template }) => {
         setBanner(messageFor(e));
       }
     } finally {
+      inFlight.current = false;
       setBusy(false);
     }
   };

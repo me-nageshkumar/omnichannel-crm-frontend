@@ -197,6 +197,133 @@ describe('template editor', () => {
     expect(screen.getByText(/type: not supported yet/)).toBeVisible();
   });
 
+  it.each([
+    ['linkPreview', 'TEXT', async () => setValue('Message', 'Hi')],
+    [
+      'allowMultiple',
+      'POLL',
+      async () => {
+        await setValue('Question', 'Q?');
+        await setValue('Option 1', 'a');
+        await setValue('Option 2', 'b');
+      },
+    ],
+  ])('toggleFieldErrorShown_%s', async (field, type, fillContent) => {
+    mockFetch(
+      routes({
+        [`POST ${B}/templates`]: {
+          status: 400,
+          body: { code: 'VALIDATION', fields: { [`content.${field}`]: `cannot use ${field} here` } },
+        },
+      }),
+    );
+    const { user } = open(`/templates/new?type=${type}`);
+    await fill(user, 'Name', 'Welcome');
+    await fillContent();
+    await save(user);
+    expect(await screen.findByText(new RegExp(`cannot use ${field} here`))).toBeVisible();
+  });
+
+  it('toggleFieldErrorShown_voiceNote', async () => {
+    const audio = template({
+      id: 't7',
+      type: 'AUDIO',
+      content: content({ voiceNote: true }),
+      media: { mediaId: 'm1', fileName: 'a.ogg', mimeType: 'audio/ogg', size: 10 },
+    });
+    mockFetch(
+      routes({
+        [`GET ${B}/templates/t7`]: { status: 200, body: audio },
+        [`PUT ${B}/templates/t7`]: {
+          status: 400,
+          body: { code: 'VALIDATION', fields: { 'content.voiceNote': 'needs OGG Opus audio' } },
+        },
+      }),
+    );
+    const { user } = open('/templates/t7');
+    await screen.findByRole('switch', { name: 'Send as voice note' });
+    await save(user);
+    expect(await screen.findByText(/needs OGG Opus audio/)).toBeVisible();
+  });
+
+  it('bareAttributeErrorShownOnPlaceholderRow', async () => {
+    mockFetch(
+      routes({
+        [`POST ${B}/templates`]: {
+          status: 400,
+          body: {
+            code: 'VALIDATION',
+            fields: { 'placeholders.contact.attributes.siez': 'Unknown contact attribute "siez"' },
+          },
+        },
+      }),
+    );
+    const { user } = open('/templates/new?type=TEXT');
+    await fill(user, 'Name', 'Welcome');
+    await setValue('Message', 'Size {{contact.attributes.siez}}');
+    await user.type(await screen.findByLabelText('Fallback for contact.attributes.siez'), 'M');
+    await save(user);
+    const message = await screen.findByText('Unknown contact attribute "siez"');
+    expect(message).toBeVisible();
+    expect(screen.queryByText(/placeholders\.contact\.attributes\.siez:/)).toBeNull();
+    expect(message.closest('.pf-v6-c-card')).toHaveTextContent('Placeholders');
+  });
+
+  it('savedTemplateAdoptedSoPreviewEnables', async () => {
+    const existing = template({
+      id: 't1',
+      version: 2,
+      content: content({ body: 'Hi' }),
+    });
+    const normalised = {
+      ...existing,
+      version: 3,
+      content: content({ body: 'Hi {{order_id}}' }),
+      placeholders: [placeholderView({ name: 'order_id', label: 'Order ID', required: true })],
+    };
+    mockFetch(
+      routes({
+        [`GET ${B}/templates/t1`]: { status: 200, body: existing },
+        [`PUT ${B}/templates/t1`]: { status: 200, body: normalised },
+      }),
+    );
+    const { user } = open('/templates/t1');
+    await setValue('Message', 'Hi {{ order_id }}');
+    await user.type(await screen.findByLabelText('Label for order_id'), 'Order ID ');
+    await save(user);
+    expect(await screen.findByText('Saved')).toBeVisible();
+    expect(screen.getByLabelText('Message')).toHaveValue('Hi {{order_id}}');
+    expect(screen.getByLabelText('Label for order_id')).toHaveValue('Order ID');
+    expect(screen.getByRole('button', { name: 'Preview with a contact' })).not.toHaveAttribute('aria-disabled', 'true');
+  });
+
+  it('secondSaveIgnoredWhileInFlight', async () => {
+    const existing = template({ id: 't1', version: 2, content: content({ body: 'Hi' }) });
+    let release: () => void = () => undefined;
+    const gate = new Promise<void>((resolve) => {
+      release = resolve;
+    });
+    const fetch = mockFetch(
+      routes({
+        [`GET ${B}/templates/t1`]: { status: 200, body: existing },
+        [`PUT ${B}/templates/t1`]: { status: 200, body: { ...existing, version: 3 } },
+      }),
+    );
+    const real = globalThis.fetch;
+    vi.stubGlobal('fetch', async (...args: Parameters<typeof fetch>) => {
+      if (String(args[0]).endsWith('/templates/t1') && args[1]?.method === 'PUT') await gate;
+      return real(...args);
+    });
+    open('/templates/t1');
+    await setValue('Message', 'Hello');
+    const box = screen.getByLabelText(/^Name/);
+    fireEvent.submit(box.closest('form') as HTMLFormElement);
+    fireEvent.submit(box.closest('form') as HTMLFormElement);
+    release();
+    expect(await screen.findByText('Saved')).toBeVisible();
+    expect(callsTo(fetch, `PUT ${B}/templates/t1`)).toBe(1);
+  });
+
   it('duplicateNameShownOnName', async () => {
     mockFetch(
       routes({
@@ -284,6 +411,30 @@ describe('template editor', () => {
     await user.upload(input, file);
     expect(await screen.findByText('That file is larger than 16 MB.')).toBeVisible();
     expect(posts(fetch, `POST ${B}/template-media`)).toBe(0);
+  });
+
+  it('uploadValidationErrorShowsServerMessage', async () => {
+    mockFetch(
+      routes({
+        [`POST ${B}/template-media`]: {
+          status: 400,
+          body: {
+            code: 'VALIDATION',
+            message: 'file is not a PNG, JPEG or WebP image',
+            fields: { file: 'is not a PNG, JPEG or WebP image' },
+          },
+        },
+      }),
+    );
+    const { user } = open('/templates/new?type=IMAGE');
+    const input = await waitFor(() => {
+      const el = document.querySelector('input[type=file]');
+      if (!el) throw new Error('no file input');
+      return el as HTMLInputElement;
+    });
+    await user.upload(input, new File(['x'], 'shot.jpg', { type: 'image/jpeg' }));
+    expect(await screen.findByText('file is not a PNG, JPEG or WebP image')).toBeVisible();
+    expect(screen.queryByText('Something went wrong. Please try again.')).toBeNull();
   });
 
   it('voiceNoteOnlyForOgg', async () => {

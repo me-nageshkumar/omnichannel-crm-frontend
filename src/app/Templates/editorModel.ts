@@ -279,7 +279,7 @@ export function isShownKey(key: string, type: TemplateType, refs: PlaceholderRef
     const field = key.slice('content.'.length).split('.')[0] as keyof TemplateContent;
     return CONTENT_FIELDS[type].includes(field);
   }
-  return refs.some((r) => key.startsWith(`placeholders.${r.name}.`));
+  return refs.some((r) => key === `placeholders.${r.name}` || key.startsWith(`placeholders.${r.name}.`));
 }
 
 /**

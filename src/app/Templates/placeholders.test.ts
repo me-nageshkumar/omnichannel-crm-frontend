@@ -72,6 +72,23 @@ describe('parsePlaceholders', () => {
     expect(errorOf('{{contact.name.x}}')).toBe('"{{contact.name.x}}" is not a contact field');
   });
 
+  it('quotesTrimmedNameInNotAContactField', () => {
+    expect(errorOf('{{ contact.x }}')).toBe('"{{contact.x}}" is not a contact field');
+    expect(errorOf('{{contact.Name}}')).toBe('"{{contact.Name}}" is not a contact field');
+    expect(errorOf('{{contact..x}}')).toBe('"{{contact..x}}" is not a contact field');
+    expect(errorOf('{{contact.attributes.}}')).toBe('"{{contact.attributes.}}" is not a contact field');
+  });
+
+  it('quotesRawTextInInvalidPlaceholder', () => {
+    expect(errorOf('{{ Order }}')).toBe('invalid placeholder "{{ Order }}"');
+    expect(errorOf('{{contact.attributes.a.b}}')).toBe('invalid placeholder "{{contact.attributes.a.b}}"');
+  });
+
+  it('onlySpacesPrecedeASigil', () => {
+    expect(errorOf('{{  #x}}')).toBe('"{{#" is not allowed — only {{name}} placeholders are supported');
+    expect(errorOf('{{\t#x}}')).toBe('invalid placeholder "{{\t#x}}"');
+  });
+
   it('rejectsLongName', () => {
     const forty = 'a' + 'b'.repeat(39);
     expect(errorOf(`{{${forty}}}`)).toBeNull();

@@ -71,6 +71,7 @@ export const PlaceholdersPanel: React.FunctionComponent<{
               <GridItem span={12}>
                 <code>{`{{${ref.name}}}`}</code>{' '}
                 {agent ? 'Filled in by the agent' : describe(ref, attributes, knownNames)}
+                <FieldError text={errors[`placeholders.${ref.name}`]} />
               </GridItem>
               {agent && (
                 <>

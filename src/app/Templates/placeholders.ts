@@ -10,11 +10,13 @@ export interface PlaceholderRef {
   attributeKey: string | null;
 }
 
-const IDENT = '[a-z][a-z0-9_]{0,39}';
-const PATH = new RegExp(`^${IDENT}(\\.${IDENT})*$`);
-const ATTRIBUTE = new RegExp(`^contact\\.attributes\\.(${IDENT})$`);
+const NAME = /^[a-z][a-z0-9_]{0,39}$/;
+const PATH_CHARS = /^[A-Za-z0-9_.]+$/;
+const CONTACT_ATTRIBUTES = 'contact.attributes.';
 const SECTION_CHARS = '#^/>!{&=';
 const SPACES = /^\s+|\s+$/g;
+
+const invalid = (raw: string) => `invalid placeholder "{{${raw}}}"`;
 
 /** Every distinct placeholder in order of first appearance, or the first syntax error. */
 export function parsePlaceholders(text: string): { refs: PlaceholderRef[]; error: string | null } {
@@ -25,34 +27,40 @@ export function parsePlaceholders(text: string): { refs: PlaceholderRef[]; error
     const open = text.indexOf('{{', from);
     if (open < 0) return { refs, error: null };
     const inner = open + 2;
-    const first = text.slice(inner).replace(/^\s+/, '')[0];
-    if (first !== undefined && SECTION_CHARS.includes(first)) {
-      return { refs: [], error: `"{{${first}" is not allowed — only {{name}} placeholders are supported` };
+    // Like the backend, only spaces (not other whitespace) may precede a sigil.
+    let i = inner;
+    while (text[i] === ' ') i++;
+    if (i < text.length && SECTION_CHARS.includes(text[i])) {
+      return { refs: [], error: `"{{${text[i]}" is not allowed — only {{name}} placeholders are supported` };
     }
     const close = text.indexOf('}}', inner);
     if (close < 0) return { refs: [], error: 'unclosed "{{"' };
     const raw = text.slice(inner, close);
-    const name = raw.replace(SPACES, '');
-    if (!PATH.test(name)) return { refs: [], error: `invalid placeholder "{{${raw}}}"` };
-    if (!name.startsWith('contact') && name.includes('.'))
-      return { refs: [], error: `invalid placeholder "{{${raw}}}"` };
-    const ref = refOf(name);
-    if (!ref) return { refs: [], error: `"{{${raw}}}" is not a contact field` };
-    if (!seen.has(ref.name)) {
-      seen.add(ref.name);
-      refs.push(ref);
+    const result = classify(raw.replace(SPACES, ''), raw);
+    if (typeof result === 'string') return { refs: [], error: result };
+    if (!seen.has(result.name)) {
+      seen.add(result.name);
+      refs.push(result);
     }
     from = close + 2;
   }
 }
 
-function refOf(name: string): PlaceholderRef | null {
-  if (name === 'contact.name' || name === 'contact.phone') {
-    return { name, kind: 'CONTACT_FIELD', attributeKey: null };
+/** The same decision tree as the backend's `PlaceholderParser.classify`, with the same messages. */
+function classify(name: string, raw: string): PlaceholderRef | string {
+  if (!PATH_CHARS.test(name)) return invalid(raw);
+  if (name === 'contact' || name.startsWith('contact.')) {
+    if (name === 'contact.name' || name === 'contact.phone') {
+      return { name, kind: 'CONTACT_FIELD', attributeKey: null };
+    }
+    if (name.startsWith(CONTACT_ATTRIBUTES) && name.length > CONTACT_ATTRIBUTES.length) {
+      const key = name.slice(CONTACT_ATTRIBUTES.length);
+      if (!NAME.test(key)) return invalid(raw);
+      return { name, kind: 'CONTACT_ATTRIBUTE', attributeKey: key };
+    }
+    return `"{{${name}}}" is not a contact field`;
   }
-  const attribute = ATTRIBUTE.exec(name);
-  if (attribute) return { name, kind: 'CONTACT_ATTRIBUTE', attributeKey: attribute[1] };
-  if (name === 'contact' || name.startsWith('contact.')) return null;
+  if (!NAME.test(name)) return invalid(raw);
   return { name, kind: 'AGENT', attributeKey: null };
 }
 

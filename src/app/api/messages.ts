@@ -42,5 +42,10 @@ export function messageFor(error: unknown): string {
   if (code === 'disabled_at_higher_level') {
     return error.serverMessage ?? 'This was disabled at a higher level. You cannot enable it.';
   }
+  if (code === 'validation') {
+    // The server names the field(s) in a readable sentence; show it rather than "try again".
+    const fields = Object.entries(error.fields ?? {}).map(([k, v]) => `${k} ${v}`);
+    return error.serverMessage ?? (fields.length > 0 ? fields.join('; ') : MESSAGES.generic);
+  }
   return BY_CODE[code] ?? MESSAGES.generic;
 }

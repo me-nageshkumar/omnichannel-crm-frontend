@@ -218,6 +218,7 @@ export const ContentForm: React.FunctionComponent<ContentFormProps> = ({
         isDisabled={readOnly || off}
         onChange={(_e, checked) => onChange({ [field]: checked })}
       />
+      {helper(`content.${field}`)}
     </FormGroup>
   );
 
