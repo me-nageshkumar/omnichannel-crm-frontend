@@ -22,6 +22,7 @@ const ALL = [
   'Users',
   'Teams',
   'Phone numbers',
+  'Contacts',
   'Contact fields',
   'All phone numbers',
 ];
@@ -43,11 +44,18 @@ describe('authority-driven navigation', () => {
   });
 
   it('customer admin sees brands, users and teams', async () => {
-    expect(await navFor(CUSTOMER_ADMIN)).toEqual(['Brands', 'Users', 'Teams', 'Phone numbers', 'Contact fields']);
+    expect(await navFor(CUSTOMER_ADMIN)).toEqual([
+      'Brands',
+      'Users',
+      'Teams',
+      'Phone numbers',
+      'Contacts',
+      'Contact fields',
+    ]);
   });
 
   it('workspace manager sees users and teams', async () => {
-    expect(await navFor(WORKSPACE_MANAGER)).toEqual(['Users', 'Teams', 'Phone numbers', 'Contact fields']);
+    expect(await navFor(WORKSPACE_MANAGER)).toEqual(['Users', 'Teams', 'Phone numbers', 'Contacts', 'Contact fields']);
   });
 
   it('account manager sees customers only', async () => {

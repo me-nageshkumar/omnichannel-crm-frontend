@@ -2,10 +2,13 @@ import * as React from 'react';
 import { ApiError } from '@app/api/client';
 import { messageFor } from '@app/api/messages';
 
-const FIELD_LABELS: Record<string, string> = { username: 'Username', name: 'Name', code: 'Code' };
+const FIELD_LABELS: Record<string, string> = { username: 'Username', name: 'Name', code: 'Code', phone: 'Phone' };
 
 /** Duplicates whose sentence reads better than "<Field> is already in use." */
-const DUPLICATE_MESSAGES: Record<string, string> = { number: 'This number is already onboarded.' };
+const DUPLICATE_MESSAGES: Record<string, string> = {
+  number: 'This number is already onboarded.',
+  phone: 'A contact with this number already exists.',
+};
 
 export interface Action {
   /** Runs {@code fn}; on failure records the message (or field errors) and resolves undefined. */

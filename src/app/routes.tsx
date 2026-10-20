@@ -13,6 +13,8 @@ import { UsersPage } from '@app/Users/UsersPage';
 import { TeamsPage } from '@app/Teams/TeamsPage';
 import { PhoneNumbersPage } from '@app/PhoneNumbers/PhoneNumbersPage';
 import { AllPhoneNumbersPage } from '@app/PhoneNumbers/AllPhoneNumbersPage';
+import { ContactsPage } from '@app/Contacts/ContactsPage';
+import { ContactDetailPage } from '@app/Contacts/ContactDetailPage';
 import { ContactFieldsPage } from '@app/Contacts/ContactFieldsPage';
 import { Access, useAccess } from '@app/session/useAccess';
 
@@ -99,6 +101,18 @@ const routes: IAppRoute[] = [
     path: '/phone-numbers',
     group: 'Brand',
     requires: (a) => a.hasInWorkspace('phone-number:view'),
+  },
+  {
+    element: <ContactsPage />,
+    label: 'Contacts',
+    path: '/contacts',
+    group: 'Brand',
+    requires: (a) => a.hasInWorkspace('contact:view'),
+  },
+  {
+    element: <ContactDetailPage />,
+    path: '/contacts/:id',
+    requires: (a) => a.hasInWorkspace('contact:view'),
   },
   {
     element: <ContactFieldsPage />,
