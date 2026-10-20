@@ -18,6 +18,8 @@ import { ContactDetailPage } from '@app/Contacts/ContactDetailPage';
 import { ContactFieldsPage } from '@app/Contacts/ContactFieldsPage';
 import { TemplatesPage } from '@app/Templates/TemplatesPage';
 import { TemplateEditorPage } from '@app/Templates/TemplateEditorPage';
+import { InboxNumbersPage } from '@app/Inbox/InboxNumbersPage';
+import { InboxPage } from '@app/Inbox/InboxPage';
 import { Access, useAccess } from '@app/session/useAccess';
 
 export type NavGroup = 'Platform' | 'Company' | 'Brand';
@@ -82,6 +84,23 @@ const routes: IAppRoute[] = [
     path: '/brands',
     group: 'Company',
     requires: (a) => a.has('workspace:create'),
+  },
+  {
+    element: <InboxNumbersPage />,
+    label: 'Inbox',
+    path: '/inbox',
+    group: 'Brand',
+    requires: (a) => a.hasInWorkspace('inbox:view'),
+  },
+  {
+    element: <InboxPage />,
+    path: '/inbox/:phoneNumberId',
+    requires: (a) => a.hasInWorkspace('inbox:view'),
+  },
+  {
+    element: <InboxPage />,
+    path: '/inbox/:phoneNumberId/:chatId',
+    requires: (a) => a.hasInWorkspace('inbox:view'),
   },
   {
     element: <UsersPage />,

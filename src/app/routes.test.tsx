@@ -19,6 +19,7 @@ const ALL = [
   'Authorities',
   'Customers',
   'Brands',
+  'Inbox',
   'Users',
   'Teams',
   'Phone numbers',
@@ -47,6 +48,7 @@ describe('authority-driven navigation', () => {
   it('customer admin sees brands, users and teams', async () => {
     expect(await navFor(CUSTOMER_ADMIN)).toEqual([
       'Brands',
+      'Inbox',
       'Users',
       'Teams',
       'Phone numbers',
@@ -58,6 +60,7 @@ describe('authority-driven navigation', () => {
 
   it('workspace manager sees users and teams', async () => {
     expect(await navFor(WORKSPACE_MANAGER)).toEqual([
+      'Inbox',
       'Users',
       'Teams',
       'Phone numbers',
