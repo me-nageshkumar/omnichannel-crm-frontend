@@ -175,6 +175,17 @@ describe('templates list', () => {
     expect(await screen.findByText('Name is already in use.')).toBeVisible();
   });
 
+  it.each([
+    [403, 'FORBIDDEN'],
+    [404, 'NOT_FOUND'],
+  ])('duplicateToUnavailableBrandShowsMessageOn%i', async (status, code) => {
+    mockFetch(routes({ [`POST ${B}/templates/t1/duplicate`]: { status, body: { code } } }));
+    const { user } = renderApp('/templates');
+    await rowAction(user, 'Welcome', 'Duplicate');
+    await user.click(within(await dialog()).getByRole('button', { name: 'Duplicate' }));
+    expect(await screen.findByText("You can't copy templates to that brand.")).toBeVisible();
+  });
+
   it('deleteConfirmAndInUseMessage', async () => {
     let n = 0;
     const inUse = 'This template has been used; archive it instead';

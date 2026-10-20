@@ -15,6 +15,7 @@ import {
   ModalHeader,
   TextInput,
 } from '@patternfly/react-core';
+import { ApiError } from '@app/api/client';
 import type { TemplateView } from '@app/api/templates';
 import type { WorkspaceAccess } from '@app/api/users';
 import { useAction } from '@app/admin/useAction';
@@ -34,6 +35,7 @@ export const DuplicateModal: React.FunctionComponent<{
 }> = ({ source, targets, currentId, save, onSaved, onCancel }) => {
   const [target, setTarget] = React.useState((targets.find((w) => w.id === currentId) ?? targets[0])?.id ?? '');
   const [name, setName] = React.useState(copyName(source.name));
+  const [unavailable, setUnavailable] = React.useState(false);
   const action = useAction(['name']);
   const error = action.fieldErrors.name;
 
@@ -41,7 +43,19 @@ export const DuplicateModal: React.FunctionComponent<{
     event?.preventDefault();
     const brand = targets.find((w) => w.id === target);
     if (!brand || !name.trim()) return;
-    const copy = await action.run(() => save(brand.id, name.trim()));
+    setUnavailable(false);
+    const copy = await action.run(async () => {
+      try {
+        return await save(brand.id, name.trim());
+      } catch (e) {
+        // The server answers 403 or 404 when the target brand is unavailable to the caller.
+        if (e instanceof ApiError && (e.status === 403 || e.status === 404)) {
+          setUnavailable(true);
+          return undefined;
+        }
+        throw e;
+      }
+    });
     if (copy !== undefined) onSaved(copy, brand);
   };
 
@@ -49,6 +63,7 @@ export const DuplicateModal: React.FunctionComponent<{
     <Modal isOpen variant="small" onClose={onCancel} aria-labelledby="duplicate-title">
       <ModalHeader title="Duplicate template" labelId="duplicate-title" />
       <ModalBody>
+        {unavailable && <Alert variant="danger" isInline isPlain title="You can't copy templates to that brand." />}
         {action.error && <Alert variant="danger" isInline isPlain title={action.error} />}
         <Form id="duplicate-form" onSubmit={onSubmit}>
           <FormGroup label="Brand" fieldId="duplicate-brand" isRequired>

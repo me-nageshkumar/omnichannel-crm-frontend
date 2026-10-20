@@ -14,9 +14,12 @@ const NAME = /^[a-z][a-z0-9_]{0,39}$/;
 const PATH_CHARS = /^[A-Za-z0-9_.]+$/;
 const CONTACT_ATTRIBUTES = 'contact.attributes.';
 const SECTION_CHARS = '#^/>!{&=';
-const SPACES = /^\s+|\s+$/g;
+/** Like the backend, only ASCII spaces are trimmed inside braces; tab, U+00A0 and U+FEFF are not. */
+const SPACES = /^ +| +$/g;
+const RESERVED = 'this';
 
 const invalid = (raw: string) => `invalid placeholder "{{${raw}}}"`;
+const reserved = (name: string) => `"{{${name}}}" is reserved`;
 
 /** Every distinct placeholder in order of first appearance, or the first syntax error. */
 export function parsePlaceholders(text: string): { refs: PlaceholderRef[]; error: string | null } {
@@ -56,17 +59,19 @@ function classify(name: string, raw: string): PlaceholderRef | string {
     if (name.startsWith(CONTACT_ATTRIBUTES) && name.length > CONTACT_ATTRIBUTES.length) {
       const key = name.slice(CONTACT_ATTRIBUTES.length);
       if (!NAME.test(key)) return invalid(raw);
+      if (key === RESERVED) return reserved(name);
       return { name, kind: 'CONTACT_ATTRIBUTE', attributeKey: key };
     }
     return `"{{${name}}}" is not a contact field`;
   }
   if (!NAME.test(name)) return invalid(raw);
+  if (name === RESERVED) return reserved(name);
   return { name, kind: 'AGENT', attributeKey: null };
 }
 
 /** Replaces every `{{ name }}` with its value; a name without a value shows as `[name]`. */
 export function fillPreview(text: string, values: Record<string, string>): string {
-  return text.replace(/\{\{\s*([a-z][a-z0-9_.]*)\s*\}\}/g, (_m, name: string) =>
+  return text.replace(/\{\{ *([a-z][a-z0-9_.]*) *\}\}/g, (_m, name: string) =>
     Object.prototype.hasOwnProperty.call(values, name) ? values[name] : `[${name}]`,
   );
 }

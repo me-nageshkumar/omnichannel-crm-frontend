@@ -1,6 +1,7 @@
 import { describe, expect, it } from 'vitest';
 import * as React from 'react';
 import { render } from '@testing-library/react';
+import { newFieldError } from '@app/Templates/InsertPlaceholderMenu';
 import { PLACEHOLDER_FIELDS, fillPreview, formatWhatsApp, parsePlaceholders } from '@app/Templates/placeholders';
 
 const errorOf = (text: string) => parsePlaceholders(text).error;
@@ -87,6 +88,33 @@ describe('parsePlaceholders', () => {
   it('onlySpacesPrecedeASigil', () => {
     expect(errorOf('{{  #x}}')).toBe('"{{#" is not allowed — only {{name}} placeholders are supported');
     expect(errorOf('{{\t#x}}')).toBe('invalid placeholder "{{\t#x}}"');
+  });
+
+  it('rejectsReservedThis', () => {
+    expect(errorOf('{{this}}')).toBe('"{{this}}" is reserved');
+    expect(errorOf('{{  this  }}')).toBe('"{{this}}" is reserved');
+    expect(errorOf('{{contact.attributes.this}}')).toBe('"{{contact.attributes.this}}" is reserved');
+    expect(errorOf('{{ contact.attributes.this }}')).toBe('"{{contact.attributes.this}}" is reserved');
+    expect(errorOf('{{thisx}}')).toBeNull();
+    expect(errorOf('{{contact.attributes.that}}')).toBeNull();
+  });
+
+  it('newFieldNameRejectsThis', () => {
+    expect(newFieldError('this')).toBe('"{{this}}" is reserved');
+    expect(newFieldError('that')).toBeNull();
+  });
+
+  it('trimsOnlyAsciiSpaces', () => {
+    expect(parsePlaceholders('{{ x }}').refs.map((r) => r.name)).toEqual(['x']);
+    for (const ws of ['\t', '\u00a0', '\ufeff', '\n']) {
+      expect(errorOf(`{{${ws}x}}`)).toBe(`invalid placeholder "{{${ws}x}}"`);
+      expect(errorOf(`{{x${ws}}}`)).toBe(`invalid placeholder "{{x${ws}}}"`);
+      expect(errorOf(`{{contact.name${ws}}}`)).toBe(`invalid placeholder "{{contact.name${ws}}}"`);
+    }
+  });
+
+  it('fillPreviewIgnoresNonSpaceWhitespace', () => {
+    expect(fillPreview('{{ x }} {{\u00a0x}} {{\tx}}', { x: '1' })).toBe('1 {{\u00a0x}} {{\tx}}');
   });
 
   it('rejectsLongName', () => {
