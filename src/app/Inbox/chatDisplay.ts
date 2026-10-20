@@ -53,3 +53,15 @@ export const STATUS_TICK: Record<MessageStatus, { label: string; glyph: string }
   PLAYED: { label: 'Played', glyph: '✓✓' },
   FAILED: { label: 'Failed', glyph: '!' },
 };
+
+const MONTHS = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'];
+const startOfDay = (d: Date) => new Date(d.getFullYear(), d.getMonth(), d.getDate());
+
+/** The separator above a day of the thread: "Today", "Yesterday", else `d MMM yyyy` (local days). */
+export function dayLabel(iso: string, now: Date = new Date()): string {
+  const d = new Date(iso);
+  const ago = Math.round((startOfDay(now).getTime() - startOfDay(d).getTime()) / 86_400_000);
+  if (ago === 0) return 'Today';
+  if (ago === 1) return 'Yesterday';
+  return `${d.getDate()} ${MONTHS[d.getMonth()]} ${d.getFullYear()}`;
+}
