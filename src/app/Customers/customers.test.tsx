@@ -5,8 +5,10 @@ import { mockFetch, requestTo } from '../../test/fetchMock';
 import { ACCOUNT_MANAGER, meAs, storeSession } from '../../test/session';
 import { fill, rowAction, rowWith, summary, urlsOf } from '../../test/admin';
 
-const ACME = { id: 'c1', name: 'Acme', active: true, creationTime: '2026-10-20T10:00:00Z' };
-const GLOBEX = { id: 'c2', name: 'Globex', active: false, creationTime: '2026-10-19T10:00:00Z' };
+const OFF = { by: 'am', level: 'PLATFORM', at: '2026-10-20T10:00:00Z' };
+
+const ACME = { id: 'c1', name: 'Acme', active: true, disabled: null, creationTime: '2026-10-20T10:00:00Z' };
+const GLOBEX = { id: 'c2', name: 'Globex', active: false, disabled: OFF, creationTime: '2026-10-19T10:00:00Z' };
 const CA_ROLE = { id: 'r-ca', name: 'CUSTOMER_ADMIN' };
 const RAVI = summary({ id: 'u3', name: 'Ravi Owner', username: 'ravi', role: CA_ROLE });
 const DETAIL = { customer: ACME, workspaces: [{ id: 'w1', name: 'Acme Retail' }], admins: [RAVI] };
@@ -26,7 +28,7 @@ describe('customers', () => {
     expect(await rowWith('Acme')).toBeVisible();
     await user.type(screen.getByRole('textbox', { name: 'Search customers' }), 'acm');
     await waitFor(() => expect(urlsOf(fetch, 'GET /api/customers').some((u) => u.includes('q=acm'))).toBe(true));
-    await user.click(screen.getByRole('button', { name: 'Inactive' }));
+    await user.click(screen.getByRole('button', { name: 'Disabled' }));
     await waitFor(() =>
       expect(urlsOf(fetch, 'GET /api/customers').some((u) => u.includes('active=false') && u.includes('q=acm'))).toBe(
         true,
@@ -94,14 +96,14 @@ describe('customers', () => {
     const fetch = mockFetch({
       ...meAs(ACCOUNT_MANAGER),
       'GET /api/customers/c1': { status: 200, body: DETAIL },
-      'POST /api/customers/c1/deactivate': { status: 200, body: { ...ACME, active: false } },
+      'POST /api/customers/c1/disable': { status: 200, body: { ...ACME, active: false, disabled: OFF } },
     });
     const { user } = renderApp('/customers/c1');
-    await user.click(await screen.findByRole('button', { name: 'Deactivate' }));
+    await user.click(await screen.findByRole('button', { name: 'Disable' }));
     expect(screen.getByText("All of Acme's users will be logged out and unable to log in.")).toBeVisible();
-    await user.click(within(screen.getByRole('dialog')).getByRole('button', { name: 'Deactivate' }));
-    expect(await screen.findByText('Inactive')).toBeVisible();
-    expect(requestTo(fetch, 'POST /api/customers/c1/deactivate')).toBeDefined();
+    await user.click(within(screen.getByRole('dialog')).getByRole('button', { name: 'Disable' }));
+    expect(await screen.findByText('Disabled')).toBeVisible();
+    expect(requestTo(fetch, 'POST /api/customers/c1/disable')).toBeDefined();
   });
 
   it('adds an owner', async () => {
@@ -150,7 +152,7 @@ describe('customers', () => {
     renderApp('/customers/c1');
     await screen.findByRole('heading', { name: 'Acme' });
     expect(screen.queryByRole('button', { name: 'Add owner' })).toBeNull();
-    expect(screen.queryByRole('button', { name: 'Deactivate' })).toBeNull();
+    expect(screen.queryByRole('button', { name: 'Disable' })).toBeNull();
     expect(screen.queryByRole('button', { name: 'Edit name' })).toBeNull();
     expect(within(await rowWith('Ravi Owner')).queryByRole('button', { name: 'Kebab toggle' })).toBeNull();
   });

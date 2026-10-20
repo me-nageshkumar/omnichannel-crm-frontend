@@ -22,8 +22,8 @@ import {
   getCustomer,
   renameCustomer,
   resetOwnerPassword,
-  setCustomerActive,
-  setOwnerActive,
+  setCustomerEnabled,
+  setCustomerUserEnabled,
 } from '@app/api/customers';
 import { UserSummary, WithTemporaryPassword } from '@app/api/users';
 import { ConfirmModal } from '@app/admin/ConfirmModal';
@@ -31,7 +31,7 @@ import { NameModal } from '@app/admin/NameModal';
 import { PageShell } from '@app/admin/PageShell';
 import { PersonModal } from '@app/admin/PersonModal';
 import { ResetPasswordModal } from '@app/admin/ResetPasswordModal';
-import { StatusLabel } from '@app/admin/StatusLabel';
+import { EnabledLabel } from '@app/admin/EnabledLabel';
 import { TemporaryPasswordModal } from '@app/admin/TemporaryPasswordModal';
 import { useAction } from '@app/admin/useAction';
 import { upsert, useLoad } from '@app/admin/useLoad';
@@ -80,14 +80,14 @@ export const CustomerDetailPage: React.FunctionComponent = () => {
   const t = token as string;
 
   const onToggleCustomer = async () => {
-    const updated = await toggle.run(() => setCustomerActive(t, customer.id, !customer.active));
+    const updated = await toggle.run(() => setCustomerEnabled(t, customer.id, !customer.active));
     if (updated) {
       update((d) => ({ ...d, customer: updated }));
       setDialog(null);
     }
   };
   const onToggleOwner = async (owner: UserSummary) => {
-    const updated = await toggle.run(() => setOwnerActive(t, customer.id, owner.id, !owner.active));
+    const updated = await toggle.run(() => setCustomerUserEnabled(t, customer.id, owner.id, !owner.active));
     if (updated) {
       putOwner(updated);
       setDialog(null);
@@ -101,7 +101,7 @@ export const CustomerDetailPage: React.FunctionComponent = () => {
         canManage && (
           <Flex>
             <FlexItem>
-              <StatusLabel active={customer.active} />
+              <EnabledLabel disabled={customer.disabled} />
             </FlexItem>
             <FlexItem>
               <Button variant="secondary" onClick={() => setDialog({ kind: 'rename' })}>
@@ -116,7 +116,7 @@ export const CustomerDetailPage: React.FunctionComponent = () => {
                   setDialog({ kind: 'toggle' });
                 }}
               >
-                {customer.active ? 'Deactivate' : 'Reactivate'}
+                {customer.active ? 'Disable' : 'Enable'}
               </Button>
             </FlexItem>
           </Flex>
@@ -126,7 +126,7 @@ export const CustomerDetailPage: React.FunctionComponent = () => {
       <Stack hasGutter>
         {!canManage && (
           <StackItem>
-            <StatusLabel active={customer.active} />
+            <EnabledLabel disabled={customer.disabled} />
           </StackItem>
         )}
         <StackItem>
@@ -170,7 +170,7 @@ export const CustomerDetailPage: React.FunctionComponent = () => {
                       <Td dataLabel="Name">{o.name}</Td>
                       <Td dataLabel="Username">{o.username}</Td>
                       <Td dataLabel="Status">
-                        <StatusLabel active={o.active} />
+                        <EnabledLabel disabled={o.disabled} />
                       </Td>
                       <Td isActionCell>
                         {canManage && (
@@ -178,7 +178,7 @@ export const CustomerDetailPage: React.FunctionComponent = () => {
                             items={[
                               { title: 'Reset password', onClick: () => setDialog({ kind: 'resetOwner', owner: o }) },
                               {
-                                title: o.active ? 'Deactivate' : 'Reactivate',
+                                title: o.active ? 'Disable' : 'Enable',
                                 onClick: () => {
                                   toggle.reset();
                                   setDialog({ kind: 'toggleOwner', owner: o });
@@ -213,8 +213,8 @@ export const CustomerDetailPage: React.FunctionComponent = () => {
       )}
       {dialog?.kind === 'toggle' && (
         <ConfirmModal
-          title={`${customer.active ? 'Deactivate' : 'Reactivate'} ${customer.name}?`}
-          confirmLabel={customer.active ? 'Deactivate' : 'Reactivate'}
+          title={`${customer.active ? 'Disable' : 'Enable'} ${customer.name}?`}
+          confirmLabel={customer.active ? 'Disable' : 'Enable'}
           variant={customer.active ? 'danger' : 'primary'}
           busy={toggle.busy}
           error={toggle.error}
@@ -254,8 +254,8 @@ export const CustomerDetailPage: React.FunctionComponent = () => {
       )}
       {dialog?.kind === 'toggleOwner' && (
         <ConfirmModal
-          title={`${dialog.owner.active ? 'Deactivate' : 'Reactivate'} ${dialog.owner.name}?`}
-          confirmLabel={dialog.owner.active ? 'Deactivate' : 'Reactivate'}
+          title={`${dialog.owner.active ? 'Disable' : 'Enable'} ${dialog.owner.name}?`}
+          confirmLabel={dialog.owner.active ? 'Disable' : 'Enable'}
           variant={dialog.owner.active ? 'danger' : 'primary'}
           busy={toggle.busy}
           error={toggle.error}
@@ -263,7 +263,7 @@ export const CustomerDetailPage: React.FunctionComponent = () => {
           onCancel={() => setDialog(null)}
         >
           {dialog.owner.active
-            ? 'They will be logged out and unable to log in until reactivated.'
+            ? 'They will be logged out and unable to log in until enabled again.'
             : 'They will be able to log in again.'}
         </ConfirmModal>
       )}

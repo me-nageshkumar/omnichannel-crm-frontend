@@ -61,5 +61,5 @@ export const resetWorkspaceUserPassword = (
     body: { temporaryPassword },
   });
 
-export const setCompanyUserActive = (token: string, userId: string, active: boolean) =>
-  apiFetch<UserSummary>(`/api/users/${userId}/${active ? 'reactivate' : 'deactivate'}`, { method: 'POST', token });
+export const setCompanyUserEnabled = (token: string, userId: string, enabled: boolean) =>
+  apiFetch<UserSummary>(`/api/users/${userId}/${enabled ? 'enable' : 'disable'}`, { method: 'POST', token });

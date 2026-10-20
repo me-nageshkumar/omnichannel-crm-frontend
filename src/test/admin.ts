@@ -9,6 +9,7 @@ export function summary(over: Partial<UserSummary> & Pick<UserSummary, 'id' | 'n
     email: null,
     mobileNumber: null,
     active: true,
+    disabled: null,
     role: null,
     workspaceRoles: [],
     mustChangePassword: false,

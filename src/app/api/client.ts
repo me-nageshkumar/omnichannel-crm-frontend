@@ -10,6 +10,8 @@ export class ApiError extends Error {
     public readonly fields?: Record<string, string>,
     /** The roles holding an authority, on AUTHORITY_IN_USE. */
     public readonly roles?: string[],
+    /** The server's own sentence, for errors whose wording only the server knows. */
+    public readonly serverMessage?: string,
   ) {
     super(code ?? `HTTP ${status}`);
     this.name = 'ApiError';
@@ -56,7 +58,8 @@ export async function apiFetch<T>(path: string, init: ApiFetchInit = {}): Promis
     const fields =
       data?.fields && typeof data.fields === 'object' ? (data.fields as Record<string, string>) : undefined;
     const roles = Array.isArray(data?.roles) ? (data.roles as string[]) : undefined;
-    throw new ApiError(res.status, code, retry, field, fields, roles);
+    const serverMessage = typeof data?.message === 'string' ? data.message : undefined;
+    throw new ApiError(res.status, code, retry, field, fields, roles, serverMessage);
   }
   return data as T;
 }

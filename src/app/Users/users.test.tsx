@@ -5,6 +5,8 @@ import { callsTo, mockFetch, requestTo } from '../../test/fetchMock';
 import { CUSTOMER_ADMIN, TEAM_LEAD, WORKSPACE_MANAGER, meAs, storeSession } from '../../test/session';
 import { fill, rowAction, rowWith, summary } from '../../test/admin';
 
+const OFF = { by: 'am', level: 'PLATFORM', at: '2026-10-20T10:00:00Z' };
+
 const CA_ROLE = { id: 'r-ca', name: 'CUSTOMER_ADMIN' };
 const WM_ROLE = { id: 'r-wm', name: 'WORKSPACE_MANAGER' };
 const TL_ROLE = { id: 'r-tl', name: 'TEAM_LEAD' };
@@ -145,7 +147,7 @@ describe('brand users page', () => {
     const { user } = renderApp('/users');
     await rowAction(user, 'Arun Agent', 'Remove from brand');
     await user.click(await screen.findByRole('button', { name: 'Remove' }));
-    expect(await screen.findByText("This is the person's only brand. Deactivate them instead.")).toBeVisible();
+    expect(await screen.findByText("This is the person's only brand. Disable them instead.")).toBeVisible();
   });
 
   it('a forbidden reset shows the message', async () => {
@@ -228,24 +230,24 @@ describe('brand users page', () => {
     expect(callsTo(fetch, 'GET /api/workspaces/w2/users')).toBeGreaterThan(0);
   });
 
-  it('deactivate is offered only with company-user:manage', async () => {
+  it('disable is offered only with company-user:manage', async () => {
     mockFetch({ ...meAs(WORKSPACE_MANAGER), ...routes() });
     const { user } = renderApp('/users');
     await user.click(within(await rowWith('Arun Agent')).getByRole('button', { name: 'Kebab toggle' }));
     expect(await screen.findByRole('menuitem', { name: 'Reset password' })).toBeVisible();
-    expect(screen.queryByRole('menuitem', { name: 'Deactivate' })).toBeNull();
+    expect(screen.queryByRole('menuitem', { name: 'Disable' })).toBeNull();
     vi.unstubAllGlobals();
   });
 
-  it('a customer admin can deactivate', async () => {
+  it('a customer admin can disable', async () => {
     const fetch = mockFetch({
       ...meAs(CUSTOMER_ADMIN),
-      ...routes({ 'POST /api/users/u5/deactivate': { status: 200, body: { ...ARUN, active: false } } }),
+      ...routes({ 'POST /api/users/u5/disable': { status: 200, body: { ...ARUN, active: false, disabled: OFF } } }),
     });
     const { user } = renderApp('/users');
-    await rowAction(user, 'Arun Agent', 'Deactivate');
-    await user.click(await screen.findByRole('button', { name: 'Deactivate' }));
-    expect(await within(await rowWith('Arun Agent')).findByText('Inactive')).toBeVisible();
-    expect(callsTo(fetch, 'POST /api/users/u5/deactivate')).toBe(1);
+    await rowAction(user, 'Arun Agent', 'Disable');
+    await user.click(await screen.findByRole('button', { name: 'Disable' }));
+    expect(await within(await rowWith('Arun Agent')).findByText('Disabled')).toBeVisible();
+    expect(callsTo(fetch, 'POST /api/users/u5/disable')).toBe(1);
   });
 });

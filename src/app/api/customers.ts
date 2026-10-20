@@ -1,4 +1,5 @@
 import { apiFetch } from '@app/api/client';
+import type { Disabled } from '@app/api/enablement';
 import type { TemporaryPassword, UserSummary, WithTemporaryPassword } from '@app/api/users';
 
 export const CUSTOMER_PAGE_SIZE = 50;
@@ -7,6 +8,7 @@ export interface Customer {
   id: string;
   name: string;
   active: boolean;
+  disabled: Disabled | null;
   creationTime: string;
 }
 
@@ -61,8 +63,10 @@ export const createCustomer = (
 export const renameCustomer = (token: string, id: string, name: string) =>
   apiFetch<Customer>(`/api/customers/${id}`, { method: 'PUT', token, body: { name } });
 
-export const setCustomerActive = (token: string, id: string, active: boolean) =>
-  apiFetch<Customer>(`/api/customers/${id}/${active ? 'reactivate' : 'deactivate'}`, { method: 'POST', token });
+const toggle = (enabled: boolean) => (enabled ? 'enable' : 'disable');
+
+export const setCustomerEnabled = (token: string, id: string, enabled: boolean) =>
+  apiFetch<Customer>(`/api/customers/${id}/${toggle(enabled)}`, { method: 'POST', token });
 
 export const addOwner = (token: string, id: string, body: OwnerInput) =>
   apiFetch<WithTemporaryPassword>(`/api/customers/${id}/admins`, { method: 'POST', token, body });
@@ -74,8 +78,9 @@ export const resetOwnerPassword = (token: string, id: string, userId: string, te
     body: { temporaryPassword },
   });
 
-export const setOwnerActive = (token: string, id: string, userId: string, active: boolean) =>
-  apiFetch<UserSummary>(`/api/customers/${id}/admins/${userId}/${active ? 'reactivate' : 'deactivate'}`, {
+/** Any user of the customer, its owners included (platform staff, PLATFORM level). */
+export const setCustomerUserEnabled = (token: string, id: string, userId: string, enabled: boolean) =>
+  apiFetch<UserSummary>(`/api/customers/${id}/users/${userId}/${toggle(enabled)}`, {
     method: 'POST',
     token,
   });

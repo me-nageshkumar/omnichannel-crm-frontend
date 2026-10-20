@@ -17,7 +17,9 @@ const BY_CODE: Record<string, string> = {
   role_in_use: 'This role is assigned to users. Move them to another role first.',
   already_all_brands: 'This person already has access to every brand.',
   already_in_workspace: 'This person already has a role in this brand.',
-  last_access: "This is the person's only brand. Deactivate them instead.",
+  last_access: "This is the person's only brand. Disable them instead.",
+  invalid_connect_code: 'Invalid or expired connect code.',
+  disabled: 'This number, its brand or its company is disabled.',
   not_in_workspace: 'Everyone in a team must have access to this brand.',
   conflict: 'Someone else changed this at the same time. Reload and try again.',
 };
@@ -32,6 +34,9 @@ export function messageFor(error: unknown): string {
   }
   if (code === 'authority_in_use') {
     return `This authority is in a role: ${(error.roles ?? []).join(', ')}. Remove it from those roles first.`;
+  }
+  if (code === 'disabled_at_higher_level') {
+    return error.serverMessage ?? 'This was disabled at a higher level. You cannot enable it.';
   }
   return BY_CODE[code] ?? MESSAGES.generic;
 }

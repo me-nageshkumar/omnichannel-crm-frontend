@@ -31,8 +31,5 @@ export const resetPlatformUserPassword = (token: string, id: string, temporaryPa
     body: { temporaryPassword },
   });
 
-export const deactivatePlatformUser = (token: string, id: string) =>
-  apiFetch<UserSummary>(`${BASE}/${id}/deactivate`, { method: 'POST', token });
-
-export const reactivatePlatformUser = (token: string, id: string) =>
-  apiFetch<UserSummary>(`${BASE}/${id}/reactivate`, { method: 'POST', token });
+export const setPlatformUserEnabled = (token: string, id: string, enabled: boolean) =>
+  apiFetch<UserSummary>(`${BASE}/${id}/${enabled ? 'enable' : 'disable'}`, { method: 'POST', token });

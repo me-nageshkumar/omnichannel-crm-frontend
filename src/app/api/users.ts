@@ -1,3 +1,4 @@
+import type { Disabled } from '@app/api/enablement';
 import { apiFetch } from '@app/api/client';
 
 /** "WORKSPACE_MANAGER" → "Workspace manager". */
@@ -77,6 +78,7 @@ export interface UserSummary {
   email: string | null;
   mobileNumber: string | null;
   active: boolean;
+  disabled: Disabled | null;
   role: RoleRef | null;
   workspaceRoles: Array<{ workspaceId: string; workspaceName: string; role: RoleRef }>;
   mustChangePassword: boolean;

@@ -15,15 +15,15 @@ import {
 import { Table, Tbody, Td, Th, Thead, Tr } from '@patternfly/react-table';
 import { CUSTOMER_PAGE_SIZE, listCustomers } from '@app/api/customers';
 import { PageShell } from '@app/admin/PageShell';
-import { StatusLabel } from '@app/admin/StatusLabel';
+import { EnabledLabel } from '@app/admin/EnabledLabel';
 import { TemporaryPasswordModal } from '@app/admin/TemporaryPasswordModal';
 import { useLoad } from '@app/admin/useLoad';
 import { useAccess } from '@app/session/useAccess';
 import { CreateCustomerModal } from '@app/Customers/CreateCustomerModal';
 
-type Filter = 'active' | 'inactive' | 'all';
+type Filter = 'enabled' | 'disabled' | 'all';
 
-const ACTIVE_PARAM: Record<Filter, boolean | undefined> = { active: true, inactive: false, all: undefined };
+const ACTIVE_PARAM: Record<Filter, boolean | undefined> = { enabled: true, disabled: false, all: undefined };
 
 /** Platform staff: every customer, searchable, 50 per page. */
 export const CustomersPage: React.FunctionComponent = () => {
@@ -84,7 +84,7 @@ export const CustomersPage: React.FunctionComponent = () => {
           </ToolbarItem>
           <ToolbarItem>
             <ToggleGroup aria-label="Status filter">
-              {(['active', 'inactive', 'all'] as Filter[]).map((f) => (
+              {(['enabled', 'disabled', 'all'] as Filter[]).map((f) => (
                 <ToggleGroupItem
                   key={f}
                   text={f.charAt(0).toUpperCase() + f.slice(1)}
@@ -119,7 +119,7 @@ export const CustomersPage: React.FunctionComponent = () => {
                   <Link to={`/customers/${c.id}`}>{c.name}</Link>
                 </Td>
                 <Td dataLabel="Status">
-                  <StatusLabel active={c.active} />
+                  <EnabledLabel disabled={c.disabled} />
                 </Td>
                 <Td dataLabel="Created">{new Date(c.creationTime).toLocaleDateString()}</Td>
               </Tr>

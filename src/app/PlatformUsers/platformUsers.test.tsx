@@ -5,6 +5,8 @@ import { mockFetch, requestTo } from '../../test/fetchMock';
 import { SUPER_ADMIN, meAs, storeSession } from '../../test/session';
 import { fill, rowAction, rowWith, summary } from '../../test/admin';
 
+const OFF = { by: 'am', level: 'PLATFORM', at: '2026-10-20T10:00:00Z' };
+
 const AM_ROLE = { id: 'r-am', name: 'ACCOUNT_MANAGER' };
 const DEV_ROLE = { id: 'r-dev', name: 'WHATSAPP_DEVICE' };
 const ASHA = summary({ id: 'p1', name: 'Asha Manager', username: 'asha', role: AM_ROLE });
@@ -32,7 +34,7 @@ describe('platform users page', () => {
     const row = await rowWith('Asha Manager');
     expect(within(row).getByText('asha')).toBeVisible();
     expect(within(row).getByText('Account manager')).toBeVisible();
-    expect(within(row).getByText('Active')).toBeVisible();
+    expect(within(row).getByText('Enabled')).toBeVisible();
     expect(await rowWith('WhatsApp Bridge')).toBeVisible();
   });
 
@@ -110,22 +112,47 @@ describe('platform users page', () => {
     });
   });
 
-  it('deactivate confirms and updates the row', async () => {
-    mockFetch(routes({ 'POST /api/platform-users/p1/deactivate': { status: 200, body: { ...ASHA, active: false } } }));
+  it('disable confirms and updates the row', async () => {
+    mockFetch(
+      routes({
+        'POST /api/platform-users/p1/disable': { status: 200, body: { ...ASHA, active: false, disabled: OFF } },
+      }),
+    );
     const { user } = renderApp('/platform-users');
-    await rowAction(user, 'Asha Manager', 'Deactivate');
-    await user.click(await screen.findByRole('button', { name: 'Deactivate' }));
+    await rowAction(user, 'Asha Manager', 'Disable');
+    await user.click(await screen.findByRole('button', { name: 'Disable' }));
     const row = await rowWith('Asha Manager');
-    expect(await within(row).findByText('Inactive')).toBeVisible();
+    expect(await within(row).findByText('Disabled')).toBeVisible();
   });
 
   it('forbidden shows a message', async () => {
     mockFetch(
-      routes({ 'POST /api/platform-users/p1/deactivate': { status: 403, body: { code: 'FORBIDDEN', message: 'x' } } }),
+      routes({ 'POST /api/platform-users/p1/disable': { status: 403, body: { code: 'FORBIDDEN', message: 'x' } } }),
     );
     const { user } = renderApp('/platform-users');
-    await rowAction(user, 'Asha Manager', 'Deactivate');
-    await user.click(await screen.findByRole('button', { name: 'Deactivate' }));
+    await rowAction(user, 'Asha Manager', 'Disable');
+    await user.click(await screen.findByRole('button', { name: 'Disable' }));
     expect(await screen.findByText("You don't have permission to do that.")).toBeVisible();
+  });
+
+  it('enableRefusedShowsServerMessage', async () => {
+    const off = { ...ASHA, active: false, disabled: OFF };
+    mockFetch({
+      ...routes({
+        'POST /api/platform-users/p1/enable': {
+          status: 403,
+          body: {
+            code: 'DISABLED_AT_HIGHER_LEVEL',
+            level: 'PLATFORM',
+            message: 'Disabled by platform staff. Only platform staff can enable it.',
+          },
+        },
+      }),
+      'GET /api/platform-users': { status: 200, body: [off, BRIDGE] },
+    });
+    const { user } = renderApp('/platform-users');
+    await rowAction(user, 'Asha Manager', 'Enable');
+    await user.click(await screen.findByRole('button', { name: 'Enable' }));
+    expect(await screen.findByText('Disabled by platform staff. Only platform staff can enable it.')).toBeVisible();
   });
 });

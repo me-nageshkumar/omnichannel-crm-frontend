@@ -3,11 +3,10 @@ import { Alert, Button, Spinner } from '@patternfly/react-core';
 import { ActionsColumn, Table, Tbody, Td, Th, Thead, Tr } from '@patternfly/react-table';
 import {
   createPlatformUser,
-  deactivatePlatformUser,
   listPlatformUsers,
   platformAssignableRoles,
-  reactivatePlatformUser,
   resetPlatformUserPassword,
+  setPlatformUserEnabled,
   updatePlatformUser,
 } from '@app/api/platformUsers';
 import { UserSummary, WithTemporaryPassword, roleLabel } from '@app/api/users';
@@ -15,7 +14,7 @@ import { ConfirmModal } from '@app/admin/ConfirmModal';
 import { PageShell } from '@app/admin/PageShell';
 import { PersonModal, personOf } from '@app/admin/PersonModal';
 import { ResetPasswordModal } from '@app/admin/ResetPasswordModal';
-import { StatusLabel } from '@app/admin/StatusLabel';
+import { EnabledLabel } from '@app/admin/EnabledLabel';
 import { TemporaryPasswordModal } from '@app/admin/TemporaryPasswordModal';
 import { useAction } from '@app/admin/useAction';
 import { upsert, useLoad } from '@app/admin/useLoad';
@@ -43,9 +42,7 @@ export const PlatformUsersPage: React.FunctionComponent = () => {
   };
 
   const onToggle = async (u: UserSummary) => {
-    const updated = await toggle.run(() =>
-      u.active ? deactivatePlatformUser(token as string, u.id) : reactivatePlatformUser(token as string, u.id),
-    );
+    const updated = await toggle.run(() => setPlatformUserEnabled(token as string, u.id, !u.active));
     if (updated) {
       put(updated);
       setDialog(null);
@@ -82,7 +79,7 @@ export const PlatformUsersPage: React.FunctionComponent = () => {
                 <Td dataLabel="Username">{u.username}</Td>
                 <Td dataLabel="Role">{u.role ? roleLabel(u.role.name) : '—'}</Td>
                 <Td dataLabel="Status">
-                  <StatusLabel active={u.active} />
+                  <EnabledLabel disabled={u.disabled} />
                 </Td>
                 <Td isActionCell>
                   <ActionsColumn
@@ -90,7 +87,7 @@ export const PlatformUsersPage: React.FunctionComponent = () => {
                       { title: 'Edit', onClick: () => setDialog({ kind: 'edit', user: u }) },
                       { title: 'Reset password', onClick: () => setDialog({ kind: 'reset', user: u }) },
                       {
-                        title: u.active ? 'Deactivate' : 'Reactivate',
+                        title: u.active ? 'Disable' : 'Enable',
                         onClick: () => {
                           toggle.reset();
                           setDialog({ kind: 'toggle', user: u });
@@ -149,8 +146,8 @@ export const PlatformUsersPage: React.FunctionComponent = () => {
       )}
       {dialog?.kind === 'toggle' && (
         <ConfirmModal
-          title={`${dialog.user.active ? 'Deactivate' : 'Reactivate'} ${dialog.user.name}?`}
-          confirmLabel={dialog.user.active ? 'Deactivate' : 'Reactivate'}
+          title={`${dialog.user.active ? 'Disable' : 'Enable'} ${dialog.user.name}?`}
+          confirmLabel={dialog.user.active ? 'Disable' : 'Enable'}
           variant={dialog.user.active ? 'danger' : 'primary'}
           busy={toggle.busy}
           error={toggle.error}
@@ -158,7 +155,7 @@ export const PlatformUsersPage: React.FunctionComponent = () => {
           onCancel={() => setDialog(null)}
         >
           {dialog.user.active
-            ? 'They will be logged out and unable to log in until reactivated.'
+            ? 'They will be logged out and unable to log in until enabled again.'
             : 'They will be able to log in again.'}
         </ConfirmModal>
       )}

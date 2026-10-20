@@ -7,7 +7,7 @@ import {
   listWorkspaceUsers,
   removeWorkspaceUser,
   resetWorkspaceUserPassword,
-  setCompanyUserActive,
+  setCompanyUserEnabled,
   updateWorkspaceUser,
   workspaceAssignableRoles,
 } from '@app/api/workspaceUsers';
@@ -15,7 +15,7 @@ import { ConfirmModal } from '@app/admin/ConfirmModal';
 import { PageShell } from '@app/admin/PageShell';
 import { PersonModal, personOf } from '@app/admin/PersonModal';
 import { ResetPasswordModal } from '@app/admin/ResetPasswordModal';
-import { StatusLabel } from '@app/admin/StatusLabel';
+import { EnabledLabel } from '@app/admin/EnabledLabel';
 import { TemporaryPasswordModal } from '@app/admin/TemporaryPasswordModal';
 import { useAction } from '@app/admin/useAction';
 import { useLoad } from '@app/admin/useLoad';
@@ -40,7 +40,7 @@ export const UsersPage: React.FunctionComponent = () => {
   const access = useAccess();
   const workspaceId = workspace?.id ?? '';
   const canManage = access.hasInWorkspace('user:manage');
-  const canDeactivate = access.has('company-user:manage');
+  const canDisable = access.has('company-user:manage');
   const users = useLoad((t) => listWorkspaceUsers(t, workspaceId), [workspaceId]);
   const roles = useLoad(
     (t) => (canManage ? workspaceAssignableRoles(t, workspaceId) : Promise.resolve([])),
@@ -72,7 +72,7 @@ export const UsersPage: React.FunctionComponent = () => {
     }
   };
   const onToggle = async (u: WorkspaceUser) => {
-    const updated = await confirm.run(() => setCompanyUserActive(t, u.id, !u.active));
+    const updated = await confirm.run(() => setCompanyUserEnabled(t, u.id, !u.active));
     if (updated) {
       put(updated);
       setDialog(null);
@@ -92,8 +92,7 @@ export const UsersPage: React.FunctionComponent = () => {
       );
       if (!u.allBrands) items.push({ title: 'Remove from brand', onClick: open({ kind: 'remove', user: u }) });
     }
-    if (canDeactivate)
-      items.push({ title: u.active ? 'Deactivate' : 'Reactivate', onClick: open({ kind: 'toggle', user: u }) });
+    if (canDisable) items.push({ title: u.active ? 'Disable' : 'Enable', onClick: open({ kind: 'toggle', user: u }) });
     return items;
   };
 
@@ -142,7 +141,7 @@ export const UsersPage: React.FunctionComponent = () => {
                     )}
                   </Td>
                   <Td dataLabel="Status">
-                    <StatusLabel active={u.active} />
+                    <EnabledLabel disabled={u.disabled} />
                   </Td>
                   <Td isActionCell>{actions.length > 0 && <ActionsColumn items={actions} />}</Td>
                 </Tr>
@@ -215,8 +214,8 @@ export const UsersPage: React.FunctionComponent = () => {
       )}
       {dialog?.kind === 'toggle' && (
         <ConfirmModal
-          title={`${dialog.user.active ? 'Deactivate' : 'Reactivate'} ${dialog.user.name}?`}
-          confirmLabel={dialog.user.active ? 'Deactivate' : 'Reactivate'}
+          title={`${dialog.user.active ? 'Disable' : 'Enable'} ${dialog.user.name}?`}
+          confirmLabel={dialog.user.active ? 'Disable' : 'Enable'}
           variant={dialog.user.active ? 'danger' : 'primary'}
           busy={confirm.busy}
           error={confirm.error}
@@ -224,7 +223,7 @@ export const UsersPage: React.FunctionComponent = () => {
           onCancel={() => setDialog(null)}
         >
           {dialog.user.active
-            ? 'They will be logged out of every brand and unable to log in until reactivated.'
+            ? 'They will be logged out of every brand and unable to log in until enabled again.'
             : 'They will be able to log in again.'}
         </ConfirmModal>
       )}
