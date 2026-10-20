@@ -1,6 +1,6 @@
 import * as React from 'react';
 import { Link, useNavigate, useParams } from 'react-router-dom';
-import { Alert, EmptyState, Label, PageSection, Spinner } from '@patternfly/react-core';
+import { Alert, Button, EmptyState, Label, PageSection, Spinner } from '@patternfly/react-core';
 import { useLoad } from '@app/admin/useLoad';
 import { ApiError } from '@app/api/client';
 import { ChatView, InboxEvent, getChat, listInboxNumbers, markRead } from '@app/api/inbox';
@@ -9,6 +9,7 @@ import { shown } from '@app/api/phoneNumbers';
 import { ChatHeader } from '@app/Inbox/ChatHeader';
 import { ChatList } from '@app/Inbox/ChatList';
 import { Composer } from '@app/Inbox/Composer';
+import { NewChatModal } from '@app/Inbox/NewChatModal';
 import { Thread } from '@app/Inbox/Thread';
 import { defaultFilters } from '@app/Inbox/chatDisplay';
 import { useChatList } from '@app/Inbox/useChatList';
@@ -44,6 +45,7 @@ export const InboxPage: React.FunctionComponent = () => {
   const [openError, setOpenError] = React.useState<string | null>(null);
   const [notice, setNotice] = React.useState<string | null>(null);
   const [readId, setReadId] = React.useState<string | null>(null);
+  const [starting, setStarting] = React.useState(false);
   const openId = React.useRef(chatId);
   openId.current = chatId;
 
@@ -153,6 +155,11 @@ export const InboxPage: React.FunctionComponent = () => {
             <strong>Inbox</strong>
           )}
           <Link to="/inbox">Change number</Link>
+          {access.hasInWorkspace('inbox:send') && (
+            <Button variant="secondary" size="sm" onClick={() => setStarting(true)}>
+              New chat
+            </Button>
+          )}
           {stream === 'retrying' && (
             <Label isCompact color="orange">
               Reconnecting…
@@ -209,6 +216,19 @@ export const InboxPage: React.FunctionComponent = () => {
           </div>
         </div>
       </div>
+      {starting && (
+        <NewChatModal
+          phoneNumberId={phoneNumberId}
+          numberConnected={numberConnected}
+          onClose={() => setStarting(false)}
+          onStarted={(started) => {
+            setStarting(false);
+            setNotice(null);
+            list.reload();
+            navigate(`/inbox/${encodeURIComponent(phoneNumberId)}/${encodeURIComponent(started.chatId)}`);
+          }}
+        />
+      )}
     </PageSection>
   );
 };

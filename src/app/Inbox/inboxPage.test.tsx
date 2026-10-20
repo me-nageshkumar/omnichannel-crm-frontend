@@ -22,6 +22,7 @@ const UNASSIGN = `POST ${B}/inbox/chats/c1/unassign`;
 const CLOSE = `POST ${B}/inbox/chats/c1/close`;
 const REOPEN = `POST ${B}/inbox/chats/c1/reopen`;
 const ASSIGNEES = `GET ${B}/inbox/assignees`;
+const START = `POST ${B}/inbox/phone-numbers/p1/chats`;
 
 const NUMBER = phoneNumber({ id: 'p1', number: '919928088743', label: 'Sales', status: 'CONNECTED' });
 
@@ -441,5 +442,39 @@ describe('inbox page', () => {
     await user.click(link);
 
     expect(await screen.findByRole('grid', { name: 'Inbox numbers' })).toBeVisible();
+  });
+
+  it('starts a chat and opens it', async () => {
+    const started = { ...ASHA, id: 'c9' };
+    const { routes: r } = routes({
+      [START]: { status: 200, body: message({ id: 'm9', chatId: 'c9', direction: 'OUT', body: 'Hello there' }) },
+      [`GET ${B}/inbox/chats/c9`]: { status: 200, body: started },
+      [`GET ${B}/inbox/chats/c9/thread`]: { status: 200, body: { items: [], hasMore: false } },
+      [`POST ${B}/inbox/chats/c9/read`]: { status: 204 },
+    });
+    const fetch = mockFetch(r);
+    const { user } = renderApp('/inbox/p1', <Where />);
+    await list();
+    expect(callsTo(fetch, LIST)).toBe(1);
+
+    await user.click(screen.getByRole('button', { name: 'New chat' }));
+    await user.type(await screen.findByRole('textbox', { name: 'Phone number' }), '919900000009');
+    await user.type(screen.getByRole('textbox', { name: 'Message' }), 'Hello there');
+    await user.click(screen.getByRole('button', { name: 'Send' }));
+
+    await waitFor(() => expect(screen.getByLabelText('Location')).toHaveTextContent(/^\/inbox\/p1\/c9$/));
+    expect(requestTo(fetch, START)?.body).toEqual({ phone: '919900000009', text: 'Hello there' });
+    await waitFor(() => expect(callsTo(fetch, `GET ${B}/inbox/chats/c9`)).toBe(1));
+    await waitFor(() => expect(callsTo(fetch, LIST)).toBe(2));
+    await waitFor(() => expect(screen.queryByRole('dialog')).toBeNull());
+  });
+
+  it('hides New chat without inbox:send', async () => {
+    const { routes: r } = routes({}, VIEWER);
+    mockFetch(r);
+    renderApp('/inbox/p1');
+    await list();
+    expect(screen.getByRole('link', { name: 'Change number' })).toBeVisible();
+    expect(screen.queryByRole('button', { name: 'New chat' })).toBeNull();
   });
 });
