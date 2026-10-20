@@ -25,6 +25,7 @@ import {
   deleteAuthority,
   listAuthorities,
   listNeedsCreating,
+  matchesSearch,
 } from '@app/api/authorities';
 import { LEVEL_LABELS } from '@app/api/roles';
 import { ConfirmModal } from '@app/admin/ConfirmModal';
@@ -62,13 +63,6 @@ const STATUS_LABELS: Record<StatusFilter, string> = {
   NOT_CHECKED: 'Not checked',
   WRONG_LEVEL: 'Wrong level',
 };
-
-/** Case-insensitive match on code, group or description. */
-export function matchesSearch(a: Pick<Authority, 'code' | 'group' | 'description'>, search: string): boolean {
-  const q = search.trim().toLowerCase();
-  if (!q) return true;
-  return [a.code, a.group, a.description].some((s) => s.toLowerCase().includes(q));
-}
 
 const NeedsCreatingPanel: React.FunctionComponent<{
   items: NeedsCreating[];

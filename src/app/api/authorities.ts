@@ -73,6 +73,13 @@ export function validateAuthority(input: { code?: string } & AuthorityInput): Re
   return errors;
 }
 
+/** Case-insensitive match on code, group or description. */
+export function matchesSearch(a: Pick<Authority, 'code' | 'group' | 'description'>, search: string): boolean {
+  const q = search.trim().toLowerCase();
+  if (!q) return true;
+  return [a.code, a.group, a.description].some((s) => s.toLowerCase().includes(q));
+}
+
 const path = (code: string) => `/api/authorities/${encodeURIComponent(code)}`;
 
 export const listAuthorities = (token: string) => apiFetch<Authority[]>('/api/authorities', { token });

@@ -3,6 +3,7 @@ import {
   Alert,
   Button,
   Checkbox,
+  SearchInput,
   Content,
   Form,
   FormFieldGroup,
@@ -35,6 +36,8 @@ import {
   updateRole,
 } from '@app/api/roles';
 import { roleLabel } from '@app/api/users';
+import { matchesSearch } from '@app/api/authorities';
+import { AuthorityStatusLabel } from '@app/Authorities/AuthorityStatusLabel';
 import { useAction } from '@app/admin/useAction';
 import { useSession } from '@app/session/SessionContext';
 
@@ -68,6 +71,17 @@ export const RoleEditor: React.FunctionComponent<{
   const held = level ? levelsHeldBy(level) : [];
   const offered = (authorities ?? []).filter((a) => held.includes(a.level));
   const chosen = selected.filter((code) => offered.some((a) => a.code === code));
+  const [search, setSearch] = React.useState('');
+  // A group whose name matches shows all its authorities; otherwise only the matching ones.
+  const groups = Array.from(new Set(offered.map((a) => a.group)))
+    .sort()
+    .map((group) => {
+      const all = offered.filter((a) => a.group === group).sort((a, b) => a.code.localeCompare(b.code));
+      const q = search.trim().toLowerCase();
+      const shown = !q || group.toLowerCase().includes(q) ? all : all.filter((a) => matchesSearch(a, search));
+      return { group, all, shown };
+    })
+    .filter((g) => g.shown.length > 0);
 
   const toggle = (code: string, on: boolean) =>
     setSelected((s) => (on ? [...s.filter((c) => c !== code), code] : s.filter((c) => c !== code)));
@@ -172,24 +186,41 @@ export const RoleEditor: React.FunctionComponent<{
               onChange={(_e, v) => setDescription(v)}
             />
           </FormGroup>
-          {held.map((l) => (
-            <FormFieldGroup
-              key={l}
-              header={<FormFieldGroupHeader titleText={{ text: `${LEVEL_LABELS[l]} authorities`, id: `auth-${l}` }} />}
-            >
-              {offered
-                .filter((a) => a.level === l)
-                .map((a) => (
+          {offered.length > 0 && (
+            <SearchInput
+              aria-label="Search authorities"
+              placeholder="Search by code, group or description"
+              value={search}
+              onChange={(_e, v) => setSearch(v)}
+              onClear={() => setSearch('')}
+            />
+          )}
+          {groups.map(({ group, all, shown }) => (
+            <section key={group} aria-label={group}>
+              <FormFieldGroup
+                header={
+                  <FormFieldGroupHeader
+                    titleText={{ text: group, id: `auth-group-${group}` }}
+                    titleDescription={`${all.filter((a) => chosen.includes(a.code)).length} of ${all.length} selected`}
+                  />
+                }
+              >
+                {shown.map((a) => (
                   <Checkbox
                     key={a.code}
                     id={`auth-${a.code}`}
-                    label={a.description}
+                    label={
+                      <>
+                        {a.description} <AuthorityStatusLabel authority={a} />
+                      </>
+                    }
                     description={<Content component="small">{a.code}</Content>}
                     isChecked={chosen.includes(a.code)}
                     onChange={(_e, on) => toggle(a.code, on)}
                   />
                 ))}
-            </FormFieldGroup>
+              </FormFieldGroup>
+            </section>
           ))}
         </Form>
       </ModalBody>

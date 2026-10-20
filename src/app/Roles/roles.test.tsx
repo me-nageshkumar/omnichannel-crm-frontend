@@ -4,13 +4,15 @@ import { renderApp } from '../../test/renderApp';
 import { callsTo, mockFetch, requestTo } from '../../test/fetchMock';
 import { SUPER_ADMIN, meAs, storeSession } from '../../test/session';
 import { fill, rowAction, rowWith } from '../../test/admin';
+import { authority } from '../../test/authorities';
 
 const AUTHORITIES = [
-  { code: 'customer:view', level: 'PLATFORM', description: 'See the customer list and details' },
-  { code: 'workspace:create', level: 'COMPANY', description: 'Create workspaces' },
-  { code: 'user:view', level: 'BRAND', description: 'See users with access to the workspace' },
-  { code: 'user:manage', level: 'BRAND', description: 'Create users in the workspace' },
-  { code: 'team:manage', level: 'BRAND', description: 'Create and rename teams' },
+  authority('customer:view', { description: 'See the customer list and details', builtIn: true }),
+  authority('workspace:create', { level: 'COMPANY', description: 'Create workspaces', builtIn: true }),
+  authority('user:view', { level: 'BRAND', description: 'See users with access to the workspace', builtIn: true }),
+  authority('user:manage', { level: 'BRAND', description: 'Create users in the workspace', builtIn: true }),
+  authority('team:manage', { level: 'BRAND', description: 'Create and rename teams', builtIn: true }),
+  authority('order:refnd', { level: 'BRAND', description: 'Refund an order', status: 'NOT_CHECKED' }),
 ];
 
 const role = (id: string, name: string, level: string, authorities: string[], builtIn = true, userCount = 0) => ({
@@ -253,5 +255,83 @@ describe('roles page', () => {
     const { user } = renderApp('/roles');
     await rowAction(user, 'Workspace manager', 'History');
     expect(await screen.findByText(/nageshk · added team:manage · removed user:view/)).toBeVisible();
+  });
+
+  describe('authority groups in the editor', () => {
+    const groupsShown = () =>
+      screen
+        .getAllByRole('region')
+        .map((r) => [r.getAttribute('aria-label'), within(r).getByText(/of \d+ selected/).textContent]);
+
+    it('groupsWithCounts', async () => {
+      mockFetch(routes());
+      const { user } = renderApp('/roles');
+      await rowAction(user, 'Workspace manager', 'Edit');
+      await screen.findByRole('checkbox', { name: /Create and rename teams/ });
+      expect(groupsShown()).toEqual([
+        ['order', '0 of 1 selected'],
+        ['team', '1 of 1 selected'],
+        ['user', '2 of 2 selected'],
+      ]);
+    });
+
+    it('searchFiltersAcrossGroupCodeDescription', async () => {
+      mockFetch(routes());
+      const { user } = renderApp('/roles');
+      await rowAction(user, 'Workspace manager', 'Edit');
+      const search = await screen.findByRole('textbox', { name: 'Search authorities' });
+      await user.type(search, 'team');
+      expect(groupsShown().map(([g]) => g)).toEqual(['team']);
+      await user.clear(search);
+      await user.type(search, 'See users');
+      expect(groupsShown().map(([g]) => g)).toEqual(['user']);
+      expect(screen.queryByRole('checkbox', { name: /Create users in the workspace/ })).toBeNull();
+      await user.clear(search);
+      await user.type(search, 'user');
+      expect(screen.getByRole('checkbox', { name: /Create users in the workspace/ })).toBeVisible();
+      expect(screen.getByRole('checkbox', { name: /See users with access/ })).toBeVisible();
+    });
+
+    it('statusLabelInEditor', async () => {
+      mockFetch(routes());
+      const { user } = renderApp('/roles');
+      await rowAction(user, 'Workspace manager', 'Edit');
+      const order = await screen.findByRole('region', { name: 'order' });
+      expect(within(order).getByText('Not checked')).toBeVisible();
+    });
+
+    it('savingWhileFilteredKeepsHiddenSelections', async () => {
+      const fetch = mockFetch(
+        routes({
+          'POST /api/roles/r-wm/preview': { status: 200, body: { changes: [] } },
+          'PUT /api/roles/r-wm': { status: 200, body: { ...WM, authorities: ['user:view', 'user:manage'] } },
+        }),
+      );
+      const { user } = renderApp('/roles');
+      await rowAction(user, 'Workspace manager', 'Edit');
+      await user.type(await screen.findByRole('textbox', { name: 'Search authorities' }), 'team');
+      await user.click(screen.getByRole('checkbox', { name: /Create and rename teams/ }));
+      await user.click(screen.getByRole('button', { name: 'Save' }));
+      await vi.waitFor(() => expect(callsTo(fetch, 'PUT /api/roles/r-wm')).toBe(1));
+      expect(requestTo(fetch, 'PUT /api/roles/r-wm')?.body.authorities).toEqual(['user:view', 'user:manage']);
+    });
+
+    it('dropsCodesMissingFromCatalogue', async () => {
+      const ghost = { ...WM, authorities: ['user:view', 'gone:code'] };
+      const fetch = mockFetch(
+        routes({
+          'GET /api/roles': { status: 200, body: [SA, AM, CA, ghost, AGENT, SENIOR, HELD] },
+          'POST /api/roles/r-wm/preview': { status: 200, body: { changes: [] } },
+          'PUT /api/roles/r-wm': { status: 200, body: { ...WM, authorities: ['user:view'] } },
+        }),
+      );
+      const { user } = renderApp('/roles');
+      await rowAction(user, 'Workspace manager', 'Edit');
+      await screen.findByRole('checkbox', { name: /See users with access/ });
+      expect(screen.queryByText('gone:code')).toBeNull();
+      await user.click(screen.getByRole('button', { name: 'Save' }));
+      await vi.waitFor(() => expect(callsTo(fetch, 'PUT /api/roles/r-wm')).toBe(1));
+      expect(requestTo(fetch, 'PUT /api/roles/r-wm')?.body.authorities).toEqual(['user:view']);
+    });
   });
 });
