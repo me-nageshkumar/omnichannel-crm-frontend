@@ -234,11 +234,37 @@ describe('inbox page', () => {
     await user.click(header().getByRole('button', { name: 'Close' }));
     expect(await screen.findByText('Reopen to reply')).toBeVisible();
     expect(screen.getByRole('textbox', { name: 'Message' })).toBeDisabled();
+    // The chat left the Open list it was shown in.
+    expect(within(await list()).queryByRole('button', { name: /Asha Rao/ })).toBeNull();
 
     await user.click(header().getByRole('button', { name: 'Reopen' }));
     await waitFor(() => expect(screen.queryByText('Reopen to reply')).toBeNull());
     expect(screen.getByRole('textbox', { name: 'Message' })).toBeEnabled();
     expect(header().getByRole('button', { name: 'Close' })).toBeVisible();
+  });
+
+  it('reopening from the Closed list removes the chat from it', async () => {
+    const closed = { ...ASHA, status: 'CLOSED', unreadCount: 0 };
+    let showClosed = false;
+    const { routes: r } = routes({
+      [LIST]: () => ({
+        status: 200,
+        body: { items: showClosed ? [closed] : [MEENA], hasMore: false },
+      }),
+      [CHAT]: { status: 200, body: closed },
+      [REOPEN]: { status: 200, body: ASHA },
+    });
+    mockFetch(r);
+    const { user } = renderApp('/inbox/p1/c1');
+    await screen.findByText('Hello from Asha', { selector: 'div' });
+    showClosed = true;
+    await user.click(screen.getByRole('button', { name: 'Closed' }));
+    expect(await within(await list()).findByRole('button', { name: /Asha Rao/ })).toBeVisible();
+
+    await user.click(header().getByRole('button', { name: 'Reopen' }));
+
+    expect(await header().findByRole('button', { name: 'Close' })).toBeVisible();
+    await waitFor(() => expect(screen.queryByRole('button', { name: /Asha Rao/ })).toBeNull());
   });
 
   it('shows assign and close controls only to those allowed', async () => {
@@ -258,22 +284,33 @@ describe('inbox page', () => {
     expect(await screen.findByText('WhatsApp is not connected on this number')).toBeVisible();
   });
 
-  it('stream reconnect reloads the list once', async () => {
+  it('stream reconnect reloads the list once and catches up the open chat', async () => {
     vi.useFakeTimers({ shouldAdvanceTime: true });
     const streams: Array<ReturnType<typeof streamMock>> = [];
+    const missed = message({ id: 'm2', body: 'Missed one', timestamp: new Date().toISOString() });
     const { routes: r } = routes({
       [STREAM]: () => {
         const s = streamMock();
         streams.push(s);
         return s.response;
       },
+      [THREAD]: () => ({
+        status: 200,
+        body: { items: streams.length > 1 ? [item(FIRST), item(missed)] : [item(FIRST)], hasMore: false },
+      }),
+      [CHAT]: () => ({
+        status: 200,
+        body: streams.length > 1 ? { ...ASHA, assignedUser: { id: 'u9', name: 'Demo Agent' } } : ASHA,
+      }),
     });
     const fetch = mockFetch(r);
-    renderApp('/inbox/p1');
+    renderApp('/inbox/p1/c1');
     await list();
+    await screen.findByText('Hello from Asha', { selector: 'div' });
     await streamOpened(fetch);
     expect(callsTo(fetch, LIST)).toBe(1);
     expect(screen.queryByText('Reconnecting…')).toBeNull();
+    expect(header().getByText('Unassigned')).toBeVisible();
 
     act(() => streams[0].close());
     expect(await screen.findByText('Reconnecting…')).toBeVisible();
@@ -285,6 +322,13 @@ describe('inbox page', () => {
     expect(callsTo(fetch, NUMBERS)).toBe(2);
     expect(within(await list()).getAllByRole('button', { name: /Asha Rao/ })).toHaveLength(1);
     expect(within(await list()).getAllByRole('listitem')).toHaveLength(2);
+    // What the stream missed is back, once, and the header shows the new assignment.
+    const log = within(screen.getByRole('log', { name: 'Messages' }));
+    expect(await log.findByText('Missed one')).toBeVisible();
+    expect(log.getAllByText('Hello from Asha')).toHaveLength(1);
+    expect(await header().findByText('Agent: Demo Agent')).toBeVisible();
+    expect(callsTo(fetch, THREAD)).toBe(2);
+    expect(callsTo(fetch, CHAT)).toBe(2);
   });
 
   it('stops the stream when the page goes away', async () => {

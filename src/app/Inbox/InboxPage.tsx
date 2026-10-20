@@ -77,6 +77,10 @@ export const InboxPage: React.FunctionComponent = () => {
     if (row && row.unreadCount > 0) applyToList({ type: 'chat', chat: { ...row, unreadCount: 0 }, visible: true });
   }, [rows, readId, applyToList]);
 
+  // A chat that moved to the other of the Open / Closed lists no longer belongs in this one.
+  const applyToShownList = (event: InboxEvent) =>
+    list.apply(event.type === 'chat' && event.chat.status !== filters.status ? { ...event, visible: false } : event);
+
   const onEvent = (event: InboxEvent) => {
     if (event.type === 'chat' && event.chat.id === openId.current) {
       if (!event.visible) {
@@ -88,12 +92,22 @@ export const InboxPage: React.FunctionComponent = () => {
         if (event.chat.unreadCount > 0 && token) markRead(token, ws, event.chat.id).catch(() => undefined);
       }
     }
-    list.apply(event);
+    applyToShownList(event);
     thread.apply(event);
   };
   const { connected } = useInboxStream(phoneNumberId, onEvent, () => {
     list.reload();
     numbers.reload();
+    thread.reload();
+    const reopened = openId.current;
+    if (token && reopened) {
+      getChat(token, ws, reopened).then(
+        (fresh) => {
+          if (openId.current === reopened) setChat(fresh);
+        },
+        () => undefined,
+      );
+    }
   });
 
   const select = (picked: ChatView) => {
@@ -161,7 +175,7 @@ export const InboxPage: React.FunctionComponent = () => {
                   chat={open}
                   onChange={(updated) => {
                     setChat(updated);
-                    list.apply({ type: 'chat', chat: updated, visible: true });
+                    applyToShownList({ type: 'chat', chat: updated, visible: true });
                   }}
                 />
                 <div style={{ flex: '1 1 0', minHeight: 0 }}>

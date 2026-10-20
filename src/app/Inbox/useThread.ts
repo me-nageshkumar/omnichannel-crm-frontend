@@ -11,6 +11,8 @@ export interface ThreadState {
   hasMore: boolean;
   /** Prepends the page older than the first item shown. */
   loadEarlier(): void;
+  /** Fetches the latest page again and merges it in, e.g. to catch up after the live stream was down. */
+  reload(): void;
   /** Folds a live event into the thread; events of other chats are ignored. */
   apply(event: InboxEvent): void;
 }
@@ -100,6 +102,21 @@ export function useThread(chatId: string | null): ThreadState {
     );
   }, [token, ws, chatId]);
 
+  const reload = React.useCallback(() => {
+    if (!token || chatId === null) return;
+    const mine = epoch.current;
+    getThread(token, ws, chatId).then(
+      (res) => {
+        if (epoch.current !== mine) return;
+        setItems((cur) => upsert(cur, res.items));
+      },
+      (e) => {
+        if (epoch.current !== mine) return;
+        setError(messageFor(e));
+      },
+    );
+  }, [token, ws, chatId]);
+
   const apply = React.useCallback(
     (event: InboxEvent) => {
       if (event.type === 'chat' || event.chatId !== chatId) return;
@@ -112,5 +129,5 @@ export function useThread(chatId: string | null): ThreadState {
     [chatId],
   );
 
-  return { items, loading, error, hasMore, loadEarlier, apply };
+  return { items, loading, error, hasMore, loadEarlier, reload, apply };
 }
