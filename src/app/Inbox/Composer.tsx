@@ -1,7 +1,7 @@
 import * as React from 'react';
 import { Alert, Button, FormHelperText, HelperText, HelperTextItem, TextArea } from '@patternfly/react-core';
 import { ApiError } from '@app/api/client';
-import { ChatView, MessageView, sendText } from '@app/api/inbox';
+import { ChatView, MessageView, sendTemplate, sendText } from '@app/api/inbox';
 import { messageFor } from '@app/api/messages';
 import { TemplatePickerModal } from '@app/Inbox/TemplatePickerModal';
 import { useSession } from '@app/session/SessionContext';
@@ -98,7 +98,8 @@ export const Composer: React.FunctionComponent<{
       </div>
       {picking && (
         <TemplatePickerModal
-          chat={chat}
+          contactId={chat.contact.id}
+          send={(id, values) => sendTemplate(token as string, ws, chat.id, id, values)}
           onClose={() => setPicking(false)}
           onSent={(message) => {
             setPicking(false);

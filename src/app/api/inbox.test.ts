@@ -17,11 +17,12 @@ import {
   reopenChat,
   sendTemplate,
   sendText,
+  startChat,
   streamUrl,
   toInboxEvent,
   unassignChat,
 } from '@app/api/inbox';
-import { mockFetch, requestTo } from '../../test/fetchMock';
+import { callsTo, mockFetch, requestTo } from '../../test/fetchMock';
 
 const B = '/api/workspaces/w1/inbox';
 
@@ -113,6 +114,20 @@ describe('inbox api', () => {
     expect(requestTo(fetch, `POST ${B}/chats/c1/messages`)?.body).toEqual({
       templateId: 't1',
       values: { agentName: 'Asha' },
+    });
+  });
+
+  it("startChat posts a text or a template to the number's chats", async () => {
+    const fetch = mockFetch({ [`POST ${B}/phone-numbers/p%201/chats`]: { status: 200, body: { id: 'm1' } } });
+    await startChat('tok', 'w1', 'p 1', { phone: '+919876543210', text: 'hello' });
+    await startChat('tok', 'w1', 'p 1', { phone: '+919876543210', templateId: 't1', values: { a: 'b' } });
+    const key = `POST ${B}/phone-numbers/p%201/chats`;
+    expect(callsTo(fetch, key)).toBe(2);
+    expect(requestTo(fetch, key, 0)?.body).toEqual({ phone: '+919876543210', text: 'hello' });
+    expect(requestTo(fetch, key, 1)?.body).toEqual({
+      phone: '+919876543210',
+      templateId: 't1',
+      values: { a: 'b' },
     });
   });
 

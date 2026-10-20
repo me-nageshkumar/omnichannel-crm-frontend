@@ -20,7 +20,7 @@ import {
   TextInput,
 } from '@patternfly/react-core';
 import { ApiError } from '@app/api/client';
-import { ChatView, MessageView, sendTemplate } from '@app/api/inbox';
+import { MessageView } from '@app/api/inbox';
 import { messageFor } from '@app/api/messages';
 import {
   PlaceholderView,
@@ -43,10 +43,11 @@ const labelOf = (p: PlaceholderView) => p.label || p.name;
  * The preview is rendered by the server, so it is exactly what the send will produce.
  */
 export const TemplatePickerModal: React.FunctionComponent<{
-  chat: ChatView;
+  contactId: string | null;
+  send(templateId: string, values: Record<string, string>): Promise<MessageView>;
   onClose(): void;
   onSent(message: MessageView): void;
-}> = ({ chat, onClose, onSent }) => {
+}> = ({ contactId, send: sendMessage, onClose, onSent }) => {
   const { token, workspace } = useSession();
   const ws = workspace?.id ?? '';
   const t = token as string;
@@ -100,7 +101,7 @@ export const TemplatePickerModal: React.FunctionComponent<{
     setRendering(true);
     const timer = setTimeout(() => {
       renderTemplate(t, ws, chosen.id, {
-        contactId: chat.contact.id,
+        contactId: contactId ?? undefined,
         values: Object.fromEntries(agentFields.map((p) => [p.name, values[p.name] ?? ''])),
       }).then(
         (r) => {
@@ -121,7 +122,7 @@ export const TemplatePickerModal: React.FunctionComponent<{
       live = false;
       clearTimeout(timer);
     };
-  }, [chosen, agentFields, values, chat.contact.id, t, ws]);
+  }, [chosen, agentFields, values, contactId, t, ws]);
 
   const choose = async (id: string) => {
     setOpening(true);
@@ -151,10 +152,7 @@ export const TemplatePickerModal: React.FunctionComponent<{
     setError(null);
     setFieldErrors({});
     try {
-      const message = await sendTemplate(
-        t,
-        ws,
-        chat.id,
+      const message = await sendMessage(
         chosen.id,
         Object.fromEntries(agentFields.map((p) => [p.name, values[p.name] ?? ''])),
       );

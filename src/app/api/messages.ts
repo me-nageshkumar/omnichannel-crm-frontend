@@ -23,6 +23,7 @@ const BY_CODE: Record<string, string> = {
   not_in_workspace: 'Everyone in a team must have access to this brand.',
   too_many_rows: 'Too many contacts to export (the limit is 100,000). Narrow the filter and try again.',
   chat_closed: 'This chat is closed. Reopen it to reply.',
+  chat_taken: 'This number already has a chat assigned to someone else.',
   media_unavailable: 'Media is no longer available on the phone.',
   no_device: 'WhatsApp is not connected on this number.',
   whatsapp_not_ready: 'WhatsApp is not connected on this number.',

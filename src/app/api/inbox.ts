@@ -181,6 +181,14 @@ export const sendTemplate = (
   values: Record<string, string>,
 ) => post<MessageView>(token, `${chatPath(ws, chatId)}/messages`, { templateId, values });
 
+export type NewChatBody =
+  | { phone: string; text: string }
+  | { phone: string; templateId: string; values: Record<string, string> };
+
+/** Starts a chat with a phone number by sending its first message (text, or a template). */
+export const startChat = (token: string, ws: string, pn: string, body: NewChatBody) =>
+  post<MessageView>(token, `${base(ws)}/phone-numbers/${encodeURIComponent(pn)}/chats`, body);
+
 export const assignChat = (token: string, ws: string, chatId: string, target: { userId?: string; teamId?: string }) =>
   post<ChatView>(token, `${chatPath(ws, chatId)}/assign`, target);
 
