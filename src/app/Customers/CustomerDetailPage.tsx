@@ -131,7 +131,7 @@ export const CustomerDetailPage: React.FunctionComponent = () => {
         canManage && (
           <Flex>
             <FlexItem>
-              <EnabledLabel disabled={customer.disabled} />
+              <EnabledLabel disabled={customer.disabled} active={customer.active} />
             </FlexItem>
             <FlexItem>
               <Button variant="secondary" onClick={() => setDialog({ kind: 'rename' })}>
@@ -156,7 +156,7 @@ export const CustomerDetailPage: React.FunctionComponent = () => {
       <Stack hasGutter>
         {!canManage && (
           <StackItem>
-            <EnabledLabel disabled={customer.disabled} />
+            <EnabledLabel disabled={customer.disabled} active={customer.active} />
           </StackItem>
         )}
         <StackItem>
@@ -225,7 +225,7 @@ export const CustomerDetailPage: React.FunctionComponent = () => {
                       <Td dataLabel="Name">{o.name}</Td>
                       <Td dataLabel="Username">{o.username}</Td>
                       <Td dataLabel="Status">
-                        <EnabledLabel disabled={o.disabled} />
+                        <EnabledLabel disabled={o.disabled} active={o.active} />
                       </Td>
                       <Td isActionCell>
                         {canManage && (
@@ -271,7 +271,7 @@ export const CustomerDetailPage: React.FunctionComponent = () => {
                         <Td dataLabel="Username">{u.username}</Td>
                         <Td dataLabel="Roles">{rolesText(u)}</Td>
                         <Td dataLabel="Status">
-                          <EnabledLabel disabled={u.disabled} />
+                          <EnabledLabel disabled={u.disabled} active={u.active} />
                         </Td>
                         <Td isActionCell>
                           {canManage && (

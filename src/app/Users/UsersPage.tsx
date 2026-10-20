@@ -158,7 +158,7 @@ export const UsersPage: React.FunctionComponent = () => {
                     )}
                   </Td>
                   <Td dataLabel="Status">
-                    <EnabledLabel disabled={u.disabled} />{' '}
+                    <EnabledLabel disabled={u.disabled} active={u.active} />{' '}
                     {u.brandDisabled && <EnabledLabel disabled={u.brandDisabled} text="Disabled in this brand" />}
                   </Td>
                   <Td isActionCell>{actions.length > 0 && <ActionsColumn items={actions} />}</Td>

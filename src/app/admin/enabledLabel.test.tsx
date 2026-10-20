@@ -17,6 +17,12 @@ describe('EnabledLabel', () => {
     expect(await screen.findByText(/Disabled by boss \(Customer Admin\) on/)).toBeInTheDocument();
   });
 
+  it('a record switched off before levels existed still reads Disabled', () => {
+    render(<EnabledLabel disabled={null} active={false} />);
+    expect(screen.getByText('Disabled')).toBeVisible();
+    expect(screen.queryByText('Enabled')).toBeNull();
+  });
+
   it('describes each level', () => {
     expect(levelText('PLATFORM')).toBe('platform staff');
     expect(levelText('COMPANY')).toBe('Customer Admin');

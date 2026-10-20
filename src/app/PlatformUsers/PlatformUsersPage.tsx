@@ -79,7 +79,7 @@ export const PlatformUsersPage: React.FunctionComponent = () => {
                 <Td dataLabel="Username">{u.username}</Td>
                 <Td dataLabel="Role">{u.role ? roleLabel(u.role.name) : '—'}</Td>
                 <Td dataLabel="Status">
-                  <EnabledLabel disabled={u.disabled} />
+                  <EnabledLabel disabled={u.disabled} active={u.active} />
                 </Td>
                 <Td isActionCell>
                   <ActionsColumn

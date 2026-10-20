@@ -68,6 +68,7 @@ export const ConnectCodeModal: React.FunctionComponent<{
             <Content component="p">
               {expired ? 'This code has expired. Get a new one.' : `Expires in ${remaining(code.expiresAt, now)}`}
             </Content>
+            <Content component="p">Any earlier code for this number has stopped working.</Content>
             <Content component="ol">
               <Content component="li">Open WhatsApp Web in Chrome and log in to {shown(number.number)}.</Content>
               <Content component="li">Click the extension icon, enter the server address and this code.</Content>

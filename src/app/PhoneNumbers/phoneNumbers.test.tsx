@@ -90,6 +90,7 @@ describe('brand phone numbers page', () => {
     expect(within(dialog).getByText(/Expires in 1[45]:\d\d/)).toBeVisible();
     expect(within(dialog).getByText(/log in to \+919928088743/)).toBeVisible();
     expect(within(dialog).getByRole('button', { name: 'Copy' })).toBeVisible();
+    expect(within(dialog).getByText('Any earlier code for this number has stopped working.')).toBeVisible();
   });
 
   it('newCodeWarnsOldStops', async () => {

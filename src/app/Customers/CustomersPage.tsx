@@ -119,7 +119,7 @@ export const CustomersPage: React.FunctionComponent = () => {
                   <Link to={`/customers/${c.id}`}>{c.name}</Link>
                 </Td>
                 <Td dataLabel="Status">
-                  <EnabledLabel disabled={c.disabled} />
+                  <EnabledLabel disabled={c.disabled} active={c.active} />
                 </Td>
                 <Td dataLabel="Created">{new Date(c.creationTime).toLocaleDateString()}</Td>
               </Tr>
