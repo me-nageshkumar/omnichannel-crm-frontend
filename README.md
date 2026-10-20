@@ -14,10 +14,18 @@ comes from the authorities the server returns in `/api/users/me`; on screen a wo
 |---|---|---|
 | Platform users | `platform-user:manage` | Account Managers and other staff: add, edit, reset password, deactivate |
 | Roles | Super Admin | Which authorities each role holds; custom roles; warns before an edit changes who can assign what; history |
+| Authorities | Super Admin | Every authority with its group, level and status; create one (picking from codes the server found in `@PreAuthorize` checks, or typing one), edit group/level/description, delete unused ones; history |
 | Customers | `customer:view` | Search and page customers; add one with its first brand and owner; owners, rename, deactivate (`customer:manage`) |
 | Brands | `workspace:create` | The company's brands: add, rename |
 | Users | `user:view` in the current brand | People with access to the brand; add (new or from another brand), edit role, reset password, remove (`user:manage`); deactivate (`company-user:manage`) |
 | Teams | `user:view` in the current brand | Teams and members; add, rename, choose members (`team:manage`) |
+
+On the Authorities page, **Not checked** means no server check uses the code yet, so it has no
+effect until one does; **Wrong level** means the server checks it at a different level from the one
+it was created with (a brand authority checked globally, or a platform one checked per brand), so the
+check can never pass. Codes the server checks but nobody has created yet are listed at the top with a
+**Create** button. Built-in authorities keep their level and cannot be deleted. The role editor
+groups authorities by their group and has one search box over code, group and description.
 
 Temporary passwords are typed by whoever creates the person, shown once with a copy button, and must
 be changed at first login. Hiding a menu is only convenience: the server checks every request.
