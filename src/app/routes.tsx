@@ -16,6 +16,7 @@ import { AllPhoneNumbersPage } from '@app/PhoneNumbers/AllPhoneNumbersPage';
 import { ContactsPage } from '@app/Contacts/ContactsPage';
 import { ContactDetailPage } from '@app/Contacts/ContactDetailPage';
 import { ContactFieldsPage } from '@app/Contacts/ContactFieldsPage';
+import { TemplatesPage } from '@app/Templates/TemplatesPage';
 import { Access, useAccess } from '@app/session/useAccess';
 
 export type NavGroup = 'Platform' | 'Company' | 'Brand';
@@ -120,6 +121,13 @@ const routes: IAppRoute[] = [
     path: '/contact-fields',
     group: 'Brand',
     requires: (a) => a.hasInWorkspace('contact-field:manage'),
+  },
+  {
+    element: <TemplatesPage />,
+    label: 'Templates',
+    path: '/templates',
+    group: 'Brand',
+    requires: (a) => a.hasInWorkspace('template:view'),
   },
 ];
 

@@ -36,6 +36,9 @@ export function messageFor(error: unknown): string {
   if (code === 'authority_in_use') {
     return `This authority is in a role: ${(error.roles ?? []).join(', ')}. Remove it from those roles first.`;
   }
+  if (code === 'template_in_use') {
+    return error.serverMessage ?? 'This template has been used; archive it instead';
+  }
   if (code === 'disabled_at_higher_level') {
     return error.serverMessage ?? 'This was disabled at a higher level. You cannot enable it.';
   }
