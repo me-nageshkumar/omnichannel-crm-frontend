@@ -2,7 +2,7 @@ import * as React from 'react';
 import { ApiError } from '@app/api/client';
 import { messageFor } from '@app/api/messages';
 
-const FIELD_LABELS: Record<string, string> = { username: 'Username', name: 'Name' };
+const FIELD_LABELS: Record<string, string> = { username: 'Username', name: 'Name', code: 'Code' };
 
 export interface Action {
   /** Runs {@code fn}; on failure records the message (or field errors) and resolves undefined. */

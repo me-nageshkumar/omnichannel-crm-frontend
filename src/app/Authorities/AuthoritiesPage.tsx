@@ -17,12 +17,42 @@ import {
   ToolbarItem,
   Tooltip,
 } from '@patternfly/react-core';
-import { Table, Tbody, Td, Th, Thead, Tr } from '@patternfly/react-table';
-import { Authority, AuthorityStatus, NeedsCreating, listAuthorities, listNeedsCreating } from '@app/api/authorities';
+import { ActionsColumn, IAction, Table, Tbody, Td, Th, Thead, Tr } from '@patternfly/react-table';
+import {
+  Authority,
+  AuthorityStatus,
+  NeedsCreating,
+  deleteAuthority,
+  listAuthorities,
+  listNeedsCreating,
+} from '@app/api/authorities';
 import { LEVEL_LABELS } from '@app/api/roles';
+import { ConfirmModal } from '@app/admin/ConfirmModal';
 import { PageShell } from '@app/admin/PageShell';
+import { useAction } from '@app/admin/useAction';
 import { useLoad } from '@app/admin/useLoad';
+import { useSession } from '@app/session/SessionContext';
+import { AuthorityHistoryModal } from '@app/Authorities/AuthorityHistoryModal';
+import { AuthorityModal } from '@app/Authorities/AuthorityModal';
 import { AuthorityStatusLabel } from '@app/Authorities/AuthorityStatusLabel';
+
+type Dialog =
+  | { kind: 'create'; prefill?: NeedsCreating }
+  | { kind: 'edit'; authority: Authority }
+  | { kind: 'history'; authority: Authority }
+  | { kind: 'delete'; authority: Authority };
+
+/** Why an authority can't be deleted, or null when it can. */
+function deleteBlocker(a: Authority): string | null {
+  if (a.builtIn) return 'Built-in authorities cannot be deleted.';
+  if (a.roles.length > 0) return `In a role (${a.roles.join(', ')}). Remove it from roles first.`;
+  return null;
+}
+
+function upsertByCode(list: Authority[], item: Authority): Authority[] {
+  const rest = list.filter((a) => a.code !== item.code);
+  return [...rest, item].sort((a, b) => a.group.localeCompare(b.group) || a.code.localeCompare(b.code));
+}
 
 type StatusFilter = 'ALL' | AuthorityStatus;
 
@@ -78,17 +108,61 @@ export const AuthoritiesPage: React.FunctionComponent = () => {
   const [search, setSearch] = React.useState('');
   const [status, setStatus] = React.useState<StatusFilter>('ALL');
   const [statusOpen, setStatusOpen] = React.useState(false);
+  const [dialog, setDialog] = React.useState<Dialog | null>(null);
+  const { token } = useSession();
+  const remove = useAction();
+
+  const groups = Array.from(new Set((authorities.data ?? []).map((a) => a.group))).sort();
+
+  const actionsFor = (a: Authority): IAction[] => {
+    const blocker = deleteBlocker(a);
+    return [
+      { title: 'Edit', onClick: () => setDialog({ kind: 'edit', authority: a }) },
+      { title: 'History', onClick: () => setDialog({ kind: 'history', authority: a }) },
+      {
+        title: 'Delete',
+        isAriaDisabled: blocker !== null,
+        tooltipProps: blocker ? { content: blocker } : undefined,
+        onClick: () => {
+          remove.reset();
+          setDialog({ kind: 'delete', authority: a });
+        },
+      },
+    ];
+  };
+
+  const onDelete = async (a: Authority) => {
+    const done = await remove.run(async () => {
+      await deleteAuthority(token as string, a.code);
+      return true;
+    });
+    if (done) {
+      authorities.setData((list) => (list ?? []).filter((x) => x.code !== a.code));
+      needsCreating.reload();
+      setDialog(null);
+    }
+  };
 
   const shown = (authorities.data ?? []).filter(
     (a) => matchesSearch(a, search) && (status === 'ALL' || a.status === status),
   );
 
   return (
-    <PageShell title="Authorities">
+    <PageShell
+      title="Authorities"
+      actions={
+        <Button variant="primary" onClick={() => setDialog({ kind: 'create' })}>
+          Add authority
+        </Button>
+      }
+    >
       {authorities.error && <Alert variant="danger" isInline title={authorities.error} />}
       {needsCreating.error && <Alert variant="danger" isInline title={needsCreating.error} />}
       {(needsCreating.data ?? []).length > 0 && (
-        <NeedsCreatingPanel items={needsCreating.data ?? []} onCreate={() => undefined} />
+        <NeedsCreatingPanel
+          items={needsCreating.data ?? []}
+          onCreate={(n) => setDialog({ kind: 'create', prefill: n })}
+        />
       )}
       <Toolbar>
         <ToolbarContent>
@@ -139,6 +213,7 @@ export const AuthoritiesPage: React.FunctionComponent = () => {
               <Th>Description</Th>
               <Th width={10}>Status</Th>
               <Th width={10}>Roles</Th>
+              <Th screenReaderText="Actions" />
             </Tr>
           </Thead>
           <Tbody>
@@ -167,10 +242,45 @@ export const AuthoritiesPage: React.FunctionComponent = () => {
                     0
                   )}
                 </Td>
+                <Td isActionCell>
+                  <ActionsColumn items={actionsFor(a)} />
+                </Td>
               </Tr>
             ))}
           </Tbody>
         </Table>
+      )}
+
+      {(dialog?.kind === 'create' || dialog?.kind === 'edit') && (
+        <AuthorityModal
+          mode={dialog.kind}
+          authority={dialog.kind === 'edit' ? dialog.authority : undefined}
+          prefill={dialog.kind === 'create' ? dialog.prefill : undefined}
+          needsCreating={needsCreating.data ?? []}
+          groups={groups}
+          onSaved={(saved) => {
+            authorities.setData((list) => upsertByCode(list ?? [], saved));
+            if (dialog.kind === 'create') needsCreating.reload();
+            setDialog(null);
+          }}
+          onCancel={() => setDialog(null)}
+        />
+      )}
+      {dialog?.kind === 'history' && (
+        <AuthorityHistoryModal authority={dialog.authority} onClose={() => setDialog(null)} />
+      )}
+      {dialog?.kind === 'delete' && (
+        <ConfirmModal
+          title={`Delete ${dialog.authority.code}?`}
+          confirmLabel="Delete"
+          variant="danger"
+          busy={remove.busy}
+          error={remove.error}
+          onConfirm={() => onDelete(dialog.authority)}
+          onCancel={() => setDialog(null)}
+        >
+          The authority is removed. No role holds it, so no one loses access.
+        </ConfirmModal>
       )}
     </PageShell>
   );
