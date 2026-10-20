@@ -29,6 +29,12 @@ export const BRAND_CODES = [
   'contact-field:manage',
   'template:view',
   'template:manage',
+  'inbox:view',
+  'inbox:view-team',
+  'inbox:view-all',
+  'inbox:send',
+  'inbox:assign',
+  'inbox:settings',
 ];
 
 const base = {
