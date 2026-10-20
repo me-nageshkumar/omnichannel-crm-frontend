@@ -186,6 +186,30 @@ describe('contacts page', () => {
     expect(requestTo(fetch, `PUT ${B}/contacts/c1`)?.body).toEqual({ attributes: { a1: 'Delhi' } });
   });
 
+  const saveEdit = async (edit: (user: ReturnType<typeof renderApp>['user']) => Promise<void>) => {
+    const fetch = mockFetch(routes(TEAM_LEAD, { [`PUT ${B}/contacts/c1`]: { status: 200, body: ASHA } }));
+    const { user } = renderApp('/contacts/c1');
+    await user.click(await screen.findByRole('button', { name: 'Edit' }));
+    await edit(user);
+    await user.click(within(screen.getByRole('dialog')).getByRole('button', { name: 'Save' }));
+    return fetch;
+  };
+
+  it('clearingAnAttributeSendsEmptyString', async () => {
+    const fetch = await saveEdit((user) => fill(user, 'City', ''));
+    await waitFor(() => expect(requestTo(fetch, `PUT ${B}/contacts/c1`)?.body).toEqual({ attributes: { a1: '' } }));
+  });
+
+  it('clearingNameSendsEmptyString', async () => {
+    const fetch = await saveEdit((user) => fill(user, 'Name', ''));
+    await waitFor(() => expect(requestTo(fetch, `PUT ${B}/contacts/c1`)?.body).toEqual({ name: '' }));
+  });
+
+  it('unchangedFieldsAreNotSent', async () => {
+    const fetch = await saveEdit((user) => fill(user, 'Name', 'Asha R'));
+    await waitFor(() => expect(requestTo(fetch, `PUT ${B}/contacts/c1`)?.body).toEqual({ name: 'Asha R' }));
+  });
+
   it('addContactValidatesPhone', async () => {
     const fetch = mockFetch(routes(WORKSPACE_MANAGER, { [`POST ${B}/contacts`]: { status: 201, body: ASHA } }));
     const { user } = renderApp('/contacts');

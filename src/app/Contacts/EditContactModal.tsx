@@ -29,14 +29,14 @@ export const EditContactModal: React.FunctionComponent<{
     event?.preventDefault();
     const changes: { name?: string | null; attributes?: Record<string, string> } = {};
     // Sending an unchanged name would mark it as typed and stop WhatsApp from updating it.
-    if (name.trim() !== (contact.name ?? '')) changes.name = name.trim() || null;
-    const next: Record<string, string> = {};
+    // The server merges by key, so send only the changed ones; "" clears a value.
+    if (name.trim() !== (contact.name ?? '')) changes.name = name.trim();
+    const delta: Record<string, string> = {};
     attributes.forEach((a) => {
       const v = (values[a.id] ?? '').trim();
-      if (v) next[a.id] = v;
+      if (v !== (contact.attributes[a.id] ?? '')) delta[a.id] = v;
     });
-    const changed = attributes.some((a) => (next[a.id] ?? '') !== (contact.attributes[a.id] ?? ''));
-    if (changed) changes.attributes = next;
+    if (Object.keys(delta).length > 0) changes.attributes = delta;
     if (Object.keys(changes).length === 0) {
       onCancel();
       return;
