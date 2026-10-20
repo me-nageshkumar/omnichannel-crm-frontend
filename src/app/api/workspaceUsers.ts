@@ -1,4 +1,5 @@
 import { apiFetch } from '@app/api/client';
+import type { Disabled } from '@app/api/enablement';
 import type { RoleRef, TemporaryPassword, UserSummary } from '@app/api/users';
 
 export interface WorkspaceUser extends UserSummary {
@@ -6,6 +7,8 @@ export interface WorkspaceUser extends UserSummary {
   allBrands: boolean;
   /** Whether the caller may manage this login. */
   manageable: boolean;
+  /** Set when the person's access to this brand only is switched off. */
+  brandDisabled?: Disabled | null;
 }
 
 /** The reply to adding someone; {@code temporaryPassword} is null for an existing person. */
@@ -63,3 +66,10 @@ export const resetWorkspaceUserPassword = (
 
 export const setCompanyUserEnabled = (token: string, userId: string, enabled: boolean) =>
   apiFetch<UserSummary>(`/api/users/${userId}/${enabled ? 'enable' : 'disable'}`, { method: 'POST', token });
+
+/** Switches one person's access to this brand off or on (`user:enable`); their other brands are not affected. */
+export const setBrandAccessEnabled = (token: string, workspaceId: string, userId: string, enabled: boolean) =>
+  apiFetch<WorkspaceUser>(`${base(workspaceId)}/users/${userId}/${enabled ? 'enable' : 'disable'}`, {
+    method: 'POST',
+    token,
+  });

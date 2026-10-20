@@ -250,4 +250,46 @@ describe('brand users page', () => {
     expect(await within(await rowWith('Arun Agent')).findByText('Disabled')).toBeVisible();
     expect(callsTo(fetch, 'POST /api/users/u5/disable')).toBe(1);
   });
+
+  it('managerDisablesAgentInBrand', async () => {
+    const off = { by: 'wm', level: 'BRAND', at: '2026-10-20T10:00:00Z' };
+    const fetch = mockFetch({
+      ...meAs(WORKSPACE_MANAGER),
+      ...routes({ 'POST /api/workspaces/w1/users/u5/disable': { status: 200, body: { ...ARUN, brandDisabled: off } } }),
+    });
+    const { user } = renderApp('/users');
+    await rowAction(user, 'Arun Agent', 'Disable in this brand');
+    const dialog = await screen.findByRole('dialog');
+    expect(within(dialog).getByText(/Arun Agent loses access to Brand A until enabled/)).toBeVisible();
+    await user.click(within(dialog).getByRole('button', { name: 'Disable' }));
+    expect(await within(await rowWith('Arun Agent')).findByText('Disabled in this brand')).toBeVisible();
+    expect(callsTo(fetch, 'POST /api/workspaces/w1/users/u5/disable')).toBe(1);
+  });
+
+  it('brandDisabledLabelShown, with Enable in this brand offered', async () => {
+    const off = { by: 'ravi', level: 'COMPANY', at: '2026-10-20T10:00:00Z' };
+    const fetch = mockFetch({
+      ...meAs(WORKSPACE_MANAGER),
+      ...routes({
+        'GET /api/workspaces/w1/users': { status: 200, body: [RAVI, { ...ARUN, brandDisabled: off }] },
+        'POST /api/workspaces/w1/users/u5/enable': { status: 200, body: { ...ARUN, brandDisabled: null } },
+      }),
+    });
+    const { user } = renderApp('/users');
+    expect(within(await rowWith('Arun Agent')).getByText('Disabled in this brand')).toBeVisible();
+    await rowAction(user, 'Arun Agent', 'Enable in this brand');
+    await user.click(within(await screen.findByRole('dialog')).getByRole('button', { name: 'Enable' }));
+    await waitFor(() => expect(callsTo(fetch, 'POST /api/workspaces/w1/users/u5/enable')).toBe(1));
+  });
+
+  it('actionHiddenWithoutUserEnable', async () => {
+    mockFetch({ ...meAs(TEAM_LEAD), ...routes() });
+    const { user } = renderApp('/users');
+    const row = await rowWith('Arun Agent');
+    const kebab = within(row).queryByRole('button', { name: 'Kebab toggle' });
+    if (kebab) {
+      await user.click(kebab);
+      expect(screen.queryByRole('menuitem', { name: 'Disable in this brand' })).toBeNull();
+    }
+  });
 });

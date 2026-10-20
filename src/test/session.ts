@@ -9,7 +9,7 @@ const PLATFORM_CODES = [
   'customer:manage',
   'whatsapp:bridge',
 ];
-export const BRAND_CODES = ['workspace:settings', 'user:view', 'user:manage', 'team:manage'];
+export const BRAND_CODES = ['workspace:settings', 'user:view', 'user:manage', 'user:enable', 'team:manage'];
 
 const base = {
   email: 'me@example.in',

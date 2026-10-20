@@ -7,6 +7,7 @@ import {
   listWorkspaceUsers,
   removeWorkspaceUser,
   resetWorkspaceUserPassword,
+  setBrandAccessEnabled,
   setCompanyUserEnabled,
   updateWorkspaceUser,
   workspaceAssignableRoles,
@@ -29,6 +30,7 @@ type Dialog =
   | { kind: 'reset'; user: WorkspaceUser }
   | { kind: 'remove'; user: WorkspaceUser }
   | { kind: 'toggle'; user: WorkspaceUser }
+  | { kind: 'toggleBrand'; user: WorkspaceUser }
   | { kind: 'password'; username: string; password: string };
 
 const roleHere = (u: UserSummary, workspaceId: string) =>
@@ -41,6 +43,7 @@ export const UsersPage: React.FunctionComponent = () => {
   const workspaceId = workspace?.id ?? '';
   const canManage = access.hasInWorkspace('user:manage');
   const canDisable = access.has('company-user:manage');
+  const canDisableHere = access.hasInWorkspace('user:enable');
   const users = useLoad((t) => listWorkspaceUsers(t, workspaceId), [workspaceId]);
   const roles = useLoad(
     (t) => (canManage ? workspaceAssignableRoles(t, workspaceId) : Promise.resolve([])),
@@ -79,6 +82,14 @@ export const UsersPage: React.FunctionComponent = () => {
     }
   };
 
+  const onToggleBrand = async (u: WorkspaceUser) => {
+    const updated = await confirm.run(() => setBrandAccessEnabled(t, workspaceId, u.id, Boolean(u.brandDisabled)));
+    if (updated) {
+      put(updated);
+      setDialog(null);
+    }
+  };
+
   const actionsFor = (u: WorkspaceUser): IAction[] => {
     const open = (d: Dialog) => () => {
       confirm.reset();
@@ -91,6 +102,12 @@ export const UsersPage: React.FunctionComponent = () => {
         { title: 'Reset password', onClick: open({ kind: 'reset', user: u }) },
       );
       if (!u.allBrands) items.push({ title: 'Remove from brand', onClick: open({ kind: 'remove', user: u }) });
+    }
+    if (canDisableHere && !u.allBrands) {
+      items.push({
+        title: u.brandDisabled ? 'Enable in this brand' : 'Disable in this brand',
+        onClick: open({ kind: 'toggleBrand', user: u }),
+      });
     }
     if (canDisable) items.push({ title: u.active ? 'Disable' : 'Enable', onClick: open({ kind: 'toggle', user: u }) });
     return items;
@@ -141,7 +158,8 @@ export const UsersPage: React.FunctionComponent = () => {
                     )}
                   </Td>
                   <Td dataLabel="Status">
-                    <EnabledLabel disabled={u.disabled} />
+                    <EnabledLabel disabled={u.disabled} />{' '}
+                    {u.brandDisabled && <EnabledLabel disabled={u.brandDisabled} text="Disabled in this brand" />}
                   </Td>
                   <Td isActionCell>{actions.length > 0 && <ActionsColumn items={actions} />}</Td>
                 </Tr>
@@ -225,6 +243,21 @@ export const UsersPage: React.FunctionComponent = () => {
           {dialog.user.active
             ? 'They will be logged out of every brand and unable to log in until enabled again.'
             : 'They will be able to log in again.'}
+        </ConfirmModal>
+      )}
+      {dialog?.kind === 'toggleBrand' && (
+        <ConfirmModal
+          title={`${dialog.user.brandDisabled ? 'Enable' : 'Disable'} ${dialog.user.name} in ${workspace?.name}?`}
+          confirmLabel={dialog.user.brandDisabled ? 'Enable' : 'Disable'}
+          variant={dialog.user.brandDisabled ? 'primary' : 'danger'}
+          busy={confirm.busy}
+          error={confirm.error}
+          onConfirm={() => onToggleBrand(dialog.user)}
+          onCancel={() => setDialog(null)}
+        >
+          {dialog.user.brandDisabled
+            ? `${dialog.user.name} can use ${workspace?.name} again.`
+            : `${dialog.user.name} loses access to ${workspace?.name} until enabled. Their other brands are not affected.`}
         </ConfirmModal>
       )}
       {dialog?.kind === 'password' && (
