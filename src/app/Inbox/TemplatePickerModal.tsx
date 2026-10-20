@@ -75,6 +75,7 @@ export const TemplatePickerModal: React.FunctionComponent<{
           (items) => {
             if (!live) return;
             setTemplates(items);
+            setError(null);
             setLoading(false);
           },
           (e) => {
@@ -105,6 +106,7 @@ export const TemplatePickerModal: React.FunctionComponent<{
         (r) => {
           if (!live) return;
           setResult(r);
+          setError(null);
           setRendering(false);
         },
         (e) => {
@@ -234,7 +236,9 @@ export const TemplatePickerModal: React.FunctionComponent<{
                           validated={err ? 'error' : 'default'}
                           onChange={(_e, v) => {
                             setValues((all) => ({ ...all, [p.name]: v }));
-                            setFieldErrors((all) => Object.fromEntries(Object.entries(all).filter(([k]) => k !== p.name)));
+                            setFieldErrors((all) =>
+                              Object.fromEntries(Object.entries(all).filter(([k]) => k !== p.name)),
+                            );
                           }}
                         />
                         {(err || p.example) && (

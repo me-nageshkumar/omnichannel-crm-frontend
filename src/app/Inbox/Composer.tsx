@@ -38,7 +38,8 @@ export const Composer: React.FunctionComponent<{
     setTextError(null);
     try {
       const message = await sendText(token as string, ws, chat.id, trimmed);
-      setText('');
+      // Keep anything typed while the send was in flight.
+      setText((now) => (now === text ? '' : now));
       onSent(message);
     } catch (e) {
       const field = e instanceof ApiError && e.code?.toUpperCase() === 'VALIDATION' ? e.fields?.text : undefined;

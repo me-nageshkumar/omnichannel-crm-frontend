@@ -136,6 +136,31 @@ describe('composer', () => {
     release();
     await waitFor(() => expect(onSent).toHaveBeenCalledTimes(1));
     expect(callsTo(fetch, SEND)).toBe(1);
+    await user.type(await box(), 'again');
+    expect(sendButton()).toBeEnabled();
+    expect(screen.getByRole('button', { name: 'Template' })).toBeEnabled();
+  });
+
+  it('keeps what was typed while the send was in flight', async () => {
+    let release: () => void = () => undefined;
+    const gate = new Promise<void>((resolve) => {
+      release = resolve;
+    });
+    const fetch = mockFetch({ ...meAs(AGENT_IN_BRAND), [SEND]: { status: 200, body: SENT } });
+    const answer = fetch.getMockImplementation() as NonNullable<ReturnType<typeof fetch.getMockImplementation>>;
+    fetch.mockImplementation(async (input, init) => {
+      if (new URL(String(input), 'http://localhost').pathname.endsWith('/messages')) await gate;
+      return answer(input, init);
+    });
+    const { user, onSent } = renderComposer();
+    await user.type(await box(), 'hello');
+    await user.click(sendButton());
+    await waitFor(() => expect(sendButton()).toBeDisabled());
+    await user.type(await box(), ' and more');
+    release();
+    await waitFor(() => expect(onSent).toHaveBeenCalledTimes(1));
+    expect(await box()).toHaveValue('hello and more');
+    expect(requestTo(fetch, SEND)?.body).toEqual({ text: 'hello' });
   });
 
   it('shows the error and keeps the text when the send fails', async () => {
@@ -268,6 +293,23 @@ describe('template picker', () => {
     expect(send).toBeDisabled();
     await user.click(send);
     expect(callsTo(fetch, SEND)).toBe(0);
+  });
+
+  it('clears a render error once a later render succeeds', async () => {
+    let renders = 0;
+    serve({
+      'POST /api/workspaces/w1/templates/t2/render': () => (++renders === 1 ? { status: 500 } : rendered('Order B-9')),
+      [SEND]: { status: 200, body: SENT },
+    });
+    const { user } = renderComposer();
+    await open(user);
+    await user.click(await screen.findByRole('menuitem', { name: /Order update/ }));
+    expect(await screen.findByText('Something went wrong. Please try again.')).toBeInTheDocument();
+    expect(sendButton()).toBeDisabled();
+    fireEvent.change(await screen.findByLabelText(/Order ID/), { target: { value: 'B-9' } });
+    expect(await screen.findByText('Order B-9')).toBeInTheDocument();
+    expect(screen.queryByText('Something went wrong. Please try again.')).not.toBeInTheDocument();
+    expect(sendButton()).toBeEnabled();
   });
 
   it('maps a server validation error to its field', async () => {
