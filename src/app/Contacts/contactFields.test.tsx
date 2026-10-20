@@ -35,6 +35,21 @@ describe('contact fields page', () => {
     expect(within(await rowWith('City')).getByText('3')).toBeVisible();
   });
 
+  it('attributeKeyShown', async () => {
+    mockFetch(
+      routes({
+        [`GET ${B}/contact-attributes`]: {
+          status: 200,
+          body: [attribute({ id: 'a1', key: 'home_city', name: 'Home city' })],
+        },
+      }),
+    );
+    renderApp('/contact-fields');
+    const row = await rowWith('Home city');
+    expect(within(row).getByText('{{contact.attributes.home_city}}')).toBeVisible();
+    expect(screen.getByRole('columnheader', { name: 'Placeholder' })).toBeVisible();
+  });
+
   it('createsLabelWithColour', async () => {
     const created = label({ id: 'l2', name: 'Lead', color: 'teal' });
     const fetch = mockFetch(routes({ [`POST ${B}/contact-labels`]: { status: 201, body: created } }));

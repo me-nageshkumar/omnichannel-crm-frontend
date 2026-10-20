@@ -27,6 +27,8 @@ export const BRAND_CODES = [
   'contact:bulk',
   'contact:delete',
   'contact-field:manage',
+  'template:view',
+  'template:manage',
 ];
 
 const base = {
@@ -108,6 +110,8 @@ export const TEAM_LEAD: CurrentUser = {
         'contact:import',
         'contact:export',
         'contact:bulk',
+        'template:view',
+        'template:manage',
       ],
     },
   ],
@@ -120,7 +124,13 @@ export const AGENT_IN_BRAND: CurrentUser = {
   name: 'Ishaan Agent',
   username: 'ishaan',
   customer: { id: 'c1', name: 'Acme' },
-  workspaces: [{ ...BRAND_A, role: { id: 'r-ag', name: 'AGENT' }, authorities: ['contact:view', 'contact:annotate'] }],
+  workspaces: [
+    {
+      ...BRAND_A,
+      role: { id: 'r-ag', name: 'AGENT' },
+      authorities: ['contact:view', 'contact:annotate', 'template:view'],
+    },
+  ],
 };
 
 export const AGENT_NO_BRANDS: CurrentUser = {

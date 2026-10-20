@@ -1,5 +1,5 @@
 import { afterEach, describe, expect, it, vi } from 'vitest';
-import { ApiError, apiFetch, setUnauthorizedHandler } from '@app/api/client';
+import { ApiError, apiFetch, apiFetchBlob, setUnauthorizedHandler } from '@app/api/client';
 import { mockFetch, rejectionOf, requestTo } from '../../test/fetchMock';
 
 describe('apiFetch', () => {
@@ -52,5 +52,26 @@ describe('apiFetch', () => {
     const err = await rejectionOf<ApiError>(apiFetch('/api/auth/login', { method: 'POST', body: {} }));
     expect(handler).not.toHaveBeenCalled();
     expect(err.code).toBe('invalid_credentials');
+  });
+});
+
+describe('apiFetchBlob', () => {
+  afterEach(() => vi.unstubAllGlobals());
+
+  it('GETs the bytes with the bearer token', async () => {
+    const fetch = mockFetch({
+      'GET /api/file': { status: 200, text: 'PNGDATA', headers: { 'Content-Type': 'image/png' } },
+    });
+    const blob = await apiFetchBlob('/api/file', 't');
+    expect(blob.size).toBe(7);
+    expect(blob.type).toBe('image/png');
+    expect(requestTo(fetch, 'GET /api/file')?.headers.get('Authorization')).toBe('Bearer t');
+  });
+
+  it('throws ApiError on a non-2xx reply', async () => {
+    mockFetch({ 'GET /api/file': { status: 404, body: { code: 'NOT_FOUND' } } });
+    const err = await rejectionOf<ApiError>(apiFetchBlob('/api/file', 't'));
+    expect(err.status).toBe(404);
+    expect(err.code).toBe('NOT_FOUND');
   });
 });

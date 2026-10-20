@@ -90,3 +90,10 @@ export async function apiFetchFile(
   if (!res.ok) throw failure(res, path, await res.text());
   return res;
 }
+
+/** A GET whose reply is a file (template media), which needs the auth header and so cannot be a plain `src`. */
+export async function apiFetchBlob(path: string, token: string): Promise<Blob> {
+  const res = await fetch(path, { method: 'GET', headers: { Authorization: `Bearer ${token}` } });
+  if (!res.ok) throw failure(res, path, await res.text());
+  return res.blob();
+}

@@ -118,6 +118,7 @@ export const ContactFieldsPage: React.FunctionComponent = () => {
           <Thead>
             <Tr>
               <Th>Name</Th>
+              <Th>Placeholder</Th>
               <Th>Description</Th>
               <Th>Contacts</Th>
               <Th screenReaderText="Actions" />
@@ -127,6 +128,9 @@ export const ContactFieldsPage: React.FunctionComponent = () => {
             {(attributes.data ?? []).map((a) => (
               <Tr key={a.id}>
                 <Td dataLabel="Name">{a.name}</Td>
+                <Td dataLabel="Placeholder">
+                  <code>{`{{contact.attributes.${a.key}}}`}</code>
+                </Td>
                 <Td dataLabel="Description">{a.description ?? '—'}</Td>
                 <Td dataLabel="Contacts">{a.contactCount}</Td>
                 <Td isActionCell>

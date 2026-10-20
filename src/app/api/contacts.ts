@@ -30,6 +30,8 @@ export interface ContactLabel {
 
 export interface ContactAttribute {
   id: string;
+  /** The immutable name used in templates: {{contact.attributes.<key>}}. */
+  key: string;
   name: string;
   description: string | null;
   contactCount: number;

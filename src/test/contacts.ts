@@ -6,7 +6,7 @@ export function label(over: Partial<ContactLabel> & Pick<ContactLabel, 'id' | 'n
 }
 
 export function attribute(over: Partial<ContactAttribute> & Pick<ContactAttribute, 'id' | 'name'>): ContactAttribute {
-  return { description: null, contactCount: 0, ...over };
+  return { key: over.name.toLowerCase().replace(/[^a-z0-9]+/g, '_'), description: null, contactCount: 0, ...over };
 }
 
 /** A contact view as the API returns it, with sensible defaults. */
