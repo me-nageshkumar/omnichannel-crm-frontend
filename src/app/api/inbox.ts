@@ -91,7 +91,13 @@ export interface ActionView {
   at: string;
 }
 
-export type ThreadItem = ({ kind: 'message' } & MessageView) | ({ kind: 'action' } & ActionView);
+/** One line of a thread: exactly one of `message` / `action` is set, matching `kind`; `at` orders the items. */
+export interface ThreadItem {
+  kind: 'message' | 'action';
+  message: MessageView | null;
+  action: ActionView | null;
+  at: string;
+}
 
 export interface ChatsPage {
   items: ChatView[];
@@ -104,7 +110,9 @@ export interface ThreadPage {
 }
 
 export interface InboxSettings {
-  routing: { mode: RoutingMode; teamId: string | null; userId: string | null };
+  mode: RoutingMode;
+  teamId: string | null;
+  userId: string | null;
   claimOnReply: boolean;
   keepAssignmentOnClose: boolean;
 }

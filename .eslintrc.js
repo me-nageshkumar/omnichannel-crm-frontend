@@ -1,4 +1,6 @@
 module.exports = {
+  // stop ESLint cascading to a parent checkout's config (this repo is used from nested git worktrees)
+  "root": true,
   // tells eslint to use the TypeScript parser
   "parser": "@typescript-eslint/parser",
   // tell the TypeScript parser that we want to use JSX syntax

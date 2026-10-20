@@ -1,4 +1,5 @@
 import { afterEach, describe, expect, it, vi } from 'vitest';
+import type { ActionView, MessageView } from '@app/api/inbox';
 import {
   assignChat,
   chatMediaUrl,
@@ -74,7 +75,9 @@ describe('toInboxEvent', () => {
 
 describe('inbox api', () => {
   it('listChats builds the query string', async () => {
-    const fetch = mockFetch({ [`GET ${B}/phone-numbers/p1/chats`]: { status: 200, body: { items: [], hasMore: false } } });
+    const fetch = mockFetch({
+      [`GET ${B}/phone-numbers/p1/chats`]: { status: 200, body: { items: [], hasMore: false } },
+    });
     await listChats('tok', 'w1', 'p1', { scope: 'TEAM', status: 'OPEN', unread: true, limit: 50 });
     const url = String(fetch.mock.calls[0][0]);
     expect(url).toContain('scope=TEAM&status=OPEN&unread=true&limit=50');
@@ -82,14 +85,18 @@ describe('inbox api', () => {
   });
 
   it('listChats omits unset filters and encodes the rest', async () => {
-    const fetch = mockFetch({ [`GET ${B}/phone-numbers/p1/chats`]: { status: 200, body: { items: [], hasMore: false } } });
+    const fetch = mockFetch({
+      [`GET ${B}/phone-numbers/p1/chats`]: { status: 200, body: { items: [], hasMore: false } },
+    });
     await listChats('tok', 'w1', 'p1', { scope: 'MINE', q: 'ra j', before: '2026-01-01T00:00:00Z' });
     const url = String(fetch.mock.calls[0][0]);
     expect(url).toBe(`${B}/phone-numbers/p1/chats?scope=MINE&q=ra+j&before=2026-01-01T00%3A00%3A00Z`);
   });
 
   it('listChats without filters has no query string', async () => {
-    const fetch = mockFetch({ [`GET ${B}/phone-numbers/p1/chats`]: { status: 200, body: { items: [], hasMore: false } } });
+    const fetch = mockFetch({
+      [`GET ${B}/phone-numbers/p1/chats`]: { status: 200, body: { items: [], hasMore: false } },
+    });
     await listChats('tok', 'w1', 'p1');
     expect(String(fetch.mock.calls[0][0])).toBe(`${B}/phone-numbers/p1/chats`);
   });
@@ -124,6 +131,30 @@ describe('inbox api', () => {
     expect(threadUrl).toBe(`${B}/chats/c1/thread?before=2026-01-01T00%3A00%3A00Z`);
   });
 
+  it('reads a mixed thread page with the nested item shape', async () => {
+    const message = { id: 'm1', chatId: 'c1', body: 'hi' } as MessageView;
+    const action = {
+      id: 'a1',
+      type: 'ASSIGNED',
+      by: null,
+      toUser: null,
+      toTeam: null,
+      at: '2026-01-01T10:01:00Z',
+    } as ActionView;
+    const items = [
+      { kind: 'message', message, action: null, at: '2026-01-01T10:00:00Z' },
+      { kind: 'action', message: null, action, at: '2026-01-01T10:01:00Z' },
+    ];
+    mockFetch({ [`GET ${B}/chats/c1/thread`]: { status: 200, body: { items, hasMore: true } } });
+    const page = await getThread('tok', 'w1', 'c1');
+    expect(page.hasMore).toBe(true);
+    expect(page.items.map((i) => i.kind)).toEqual(['message', 'action']);
+    expect(page.items[0].message?.body).toBe('hi');
+    expect(page.items[0].action).toBeNull();
+    expect(page.items[1].action?.type).toBe('ASSIGNED');
+    expect(page.items[1].message).toBeNull();
+  });
+
   it('posts the chat actions', async () => {
     const fetch = mockFetch({
       [`POST ${B}/chats/c1/read`]: { status: 204 },
@@ -142,7 +173,9 @@ describe('inbox api', () => {
 
   it('gets and puts the settings', async () => {
     const settings = {
-      routing: { mode: 'TEAM' as const, teamId: 't1', userId: null },
+      mode: 'TEAM' as const,
+      teamId: 't1',
+      userId: null,
       claimOnReply: true,
       keepAssignmentOnClose: false,
     };
@@ -162,7 +195,9 @@ describe('inbox api', () => {
 
   it('fetches media as a blob with the bearer token', async () => {
     const path = chatMediaUrl('w1', 'c1', 'm1');
-    const fetch = mockFetch({ [`GET ${path}`]: { status: 200, text: 'bytes', headers: { 'Content-Type': 'image/png' } } });
+    const fetch = mockFetch({
+      [`GET ${path}`]: { status: 200, text: 'bytes', headers: { 'Content-Type': 'image/png' } },
+    });
     const blob = await fetchMedia('tok', path);
     expect(blob.size).toBe(5);
     expect(requestTo(fetch, `GET ${path}`)?.headers.get('Authorization')).toBe('Bearer tok');
