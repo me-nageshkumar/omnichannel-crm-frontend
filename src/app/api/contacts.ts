@@ -1,4 +1,4 @@
-import { apiFetch } from '@app/api/client';
+import { apiFetch, apiFetchFile } from '@app/api/client';
 
 export { NUMBER_PATTERN, normaliseNumber } from '@app/api/phoneNumbers';
 
@@ -196,3 +196,50 @@ export const countContacts = (token: string, ws: string, selection: Selection) =
   send<{ count: number }>(token, 'POST', `${base(ws)}/contacts/count`, { selection });
 export const bulkContacts = (token: string, ws: string, body: BulkRequest) =>
   send<{ matched: number; changed: number }>(token, 'POST', `${base(ws)}/contacts/bulk`, body);
+
+// Import and export
+
+export interface ImportResult {
+  created: number;
+  updated: number;
+  unchanged: number;
+  skipped: number;
+  problems: Array<{ row: number; reason: string }>;
+  unknownColumns: string[];
+  unknownLabels: string[];
+}
+
+export const importContacts = async (token: string, ws: string, file: File): Promise<ImportResult> => {
+  const body = new FormData();
+  body.append('file', file);
+  const res = await apiFetchFile(`${base(ws)}/contacts/import`, { token, body });
+  return (await res.json()) as ImportResult;
+};
+
+/** The file name in a Content-Disposition header, or a plain default. */
+export function fileNameOf(disposition: string | null): string {
+  const match = disposition?.match(/filename="?([^";]+)"?/i);
+  return match ? match[1] : 'contacts.csv';
+}
+
+/** Exports the contacts of an inline filter or a saved filter as a CSV file. */
+export async function exportContacts(
+  token: string,
+  ws: string,
+  scope: { filter: ContactFilterSpec } | { filterId: string },
+): Promise<{ blob: Blob; fileName: string }> {
+  const res = await apiFetchFile(`${base(ws)}/contacts/export`, { token, body: scope, json: true });
+  return { blob: await res.blob(), fileName: fileNameOf(res.headers.get('Content-Disposition')) };
+}
+
+/** Hands the file to the browser as a download. */
+export function saveFile(blob: Blob, fileName: string): void {
+  const url = URL.createObjectURL(blob);
+  const a = document.createElement('a');
+  a.href = url;
+  a.download = fileName;
+  document.body.appendChild(a);
+  a.click();
+  a.remove();
+  URL.revokeObjectURL(url);
+}

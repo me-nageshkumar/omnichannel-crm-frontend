@@ -7,7 +7,11 @@ export interface MockRequest {
 
 export interface MockResponse {
   status: number;
+  /** Sent as JSON. */
   body?: unknown;
+  /** Sent as is (e.g. a CSV file); use {@code headers} for its Content-Type. */
+  text?: string;
+  headers?: Record<string, string>;
 }
 
 export type MockRoute = MockResponse | ((req: MockRequest) => MockResponse);
@@ -28,10 +32,10 @@ export function mockFetch(routes: Record<string, MockRoute>) {
     const headers = new Headers(init?.headers);
     const body = typeof init?.body === 'string' && init.body.length > 0 ? JSON.parse(init.body) : undefined;
     const res = typeof route === 'function' ? route({ body, headers }) : route;
-    const text = res.body === undefined ? '' : JSON.stringify(res.body);
+    const text = res.text ?? (res.body === undefined ? '' : JSON.stringify(res.body));
     return new Response(res.status === 204 ? null : text, {
       status: res.status,
-      headers: text ? { 'Content-Type': 'application/json' } : {},
+      headers: { ...(text && res.text === undefined ? { 'Content-Type': 'application/json' } : {}), ...res.headers },
     });
   });
   vi.stubGlobal('fetch', fn);

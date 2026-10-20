@@ -21,6 +21,7 @@ const BY_CODE: Record<string, string> = {
   invalid_connect_code: 'Invalid or expired connect code.',
   disabled: 'This number, its brand or its company is disabled.',
   not_in_workspace: 'Everyone in a team must have access to this brand.',
+  too_many_rows: 'Too many contacts to export (the limit is 100,000). Narrow the filter and try again.',
   conflict: 'Someone else changed this at the same time. Reload and try again.',
 };
 

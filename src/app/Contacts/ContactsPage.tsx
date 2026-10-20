@@ -28,21 +28,26 @@ import {
   createContact,
   createFilter,
   deleteFilter,
+  exportContacts,
+  importContacts,
   listAttributes,
   listFilters,
   listLabels,
+  saveFile,
   searchContacts,
 } from '@app/api/contacts';
 import { ConfirmModal } from '@app/admin/ConfirmModal';
 import { NameModal } from '@app/admin/NameModal';
 import { PageShell } from '@app/admin/PageShell';
 import { useAction } from '@app/admin/useAction';
+import { messageFor } from '@app/api/messages';
 import { upsert, useLoad } from '@app/admin/useLoad';
 import { useSession } from '@app/session/SessionContext';
 import { useAccess } from '@app/session/useAccess';
 import { relative } from '@app/PhoneNumbers/PhoneNumberStatusLabel';
 import { AddContactModal } from '@app/Contacts/AddContactModal';
 import { BULK_BUTTON, BulkModal } from '@app/Contacts/BulkModal';
+import { ImportContactsModal } from '@app/Contacts/ImportContactsModal';
 import { FilterPanel } from '@app/Contacts/FilterPanel';
 import { SavedFilterBar } from '@app/Contacts/SavedFilterBar';
 import { cleanSpec } from '@app/Contacts/filterSpec';
@@ -60,6 +65,8 @@ export const ContactsPage: React.FunctionComponent = () => {
   const canEdit = access.hasInWorkspace('contact:edit');
   const canBulk = access.hasInWorkspace('contact:bulk');
   const canDelete = access.hasInWorkspace('contact:delete');
+  const canImport = access.hasInWorkspace('contact:import');
+  const canExport = access.hasInWorkspace('contact:export');
   const [search, setSearch] = React.useState('');
   const [q, setQ] = React.useState('');
   const [panel, setPanel] = React.useState<ContactFilterSpec>({});
@@ -75,6 +82,9 @@ export const ContactsPage: React.FunctionComponent = () => {
   const [allMatching, setAllMatching] = React.useState(false);
   const [bulk, setBulk] = React.useState<BulkAction | null>(null);
   const [bulkNote, setBulkNote] = React.useState<string | null>(null);
+  const [importing, setImporting] = React.useState(false);
+  const [exporting, setExporting] = React.useState(false);
+  const [exportError, setExportError] = React.useState<string | null>(null);
   const removal = useAction();
 
   React.useEffect(() => {
@@ -141,6 +151,18 @@ export const ContactsPage: React.FunctionComponent = () => {
       setDeletingFilter(false);
     }
   };
+  const onExport = async () => {
+    setExportError(null);
+    setExporting(true);
+    try {
+      const { blob, fileName } = await exportContacts(t, ws, savedId ? { filterId: savedId } : { filter });
+      saveFile(blob, fileName);
+    } catch (e) {
+      setExportError(messageFor(e));
+    } finally {
+      setExporting(false);
+    }
+  };
   const bulkActions: BulkAction[] = [
     'ADD_LABELS',
     'REMOVE_LABELS',
@@ -153,11 +175,23 @@ export const ContactsPage: React.FunctionComponent = () => {
     <PageShell
       title="Contacts"
       actions={
-        canEdit && (
-          <Button variant="primary" onClick={() => setAdding(true)}>
-            Add contact
-          </Button>
-        )
+        <>
+          {canImport && (
+            <Button variant="secondary" onClick={() => setImporting(true)}>
+              Import
+            </Button>
+          )}{' '}
+          {canExport && (
+            <Button variant="secondary" onClick={onExport} isDisabled={exporting} isLoading={exporting}>
+              Export
+            </Button>
+          )}{' '}
+          {canEdit && (
+            <Button variant="primary" onClick={() => setAdding(true)}>
+              Add contact
+            </Button>
+          )}
+        </>
       }
     >
       <Toolbar>
@@ -279,6 +313,7 @@ export const ContactsPage: React.FunctionComponent = () => {
           </ToolbarContent>
         </Toolbar>
       )}
+      {exportError && <Alert variant="danger" isInline title={exportError} />}
       {contacts.error && <Alert variant="danger" isInline title={contacts.error} />}
       {contacts.loading && !contacts.data ? (
         <Spinner aria-label="Loading contacts" />
@@ -346,6 +381,16 @@ export const ContactsPage: React.FunctionComponent = () => {
             contacts.reload();
           }}
           onCancel={() => setAdding(false)}
+        />
+      )}
+      {importing && (
+        <ImportContactsModal
+          upload={(file) => importContacts(t, ws, file)}
+          onImported={() => {
+            contacts.reload();
+            labels.reload();
+          }}
+          onClose={() => setImporting(false)}
         />
       )}
       {saving && (
