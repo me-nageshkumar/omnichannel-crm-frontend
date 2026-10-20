@@ -17,6 +17,7 @@ import { ContactsPage } from '@app/Contacts/ContactsPage';
 import { ContactDetailPage } from '@app/Contacts/ContactDetailPage';
 import { ContactFieldsPage } from '@app/Contacts/ContactFieldsPage';
 import { TemplatesPage } from '@app/Templates/TemplatesPage';
+import { TemplateEditorPage } from '@app/Templates/TemplateEditorPage';
 import { Access, useAccess } from '@app/session/useAccess';
 
 export type NavGroup = 'Platform' | 'Company' | 'Brand';
@@ -127,6 +128,16 @@ const routes: IAppRoute[] = [
     label: 'Templates',
     path: '/templates',
     group: 'Brand',
+    requires: (a) => a.hasInWorkspace('template:view'),
+  },
+  {
+    element: <TemplateEditorPage />,
+    path: '/templates/new',
+    requires: (a) => a.hasInWorkspace('template:view'),
+  },
+  {
+    element: <TemplateEditorPage />,
+    path: '/templates/:id',
     requires: (a) => a.hasInWorkspace('template:view'),
   },
 ];

@@ -87,4 +87,22 @@ describe('authority-driven navigation', () => {
     renderApp('/roles');
     expect(await screen.findByText('404 Page not found')).toBeVisible();
   });
+
+  it('the template editor routes need template:view and have no nav entry', async () => {
+    storeSession();
+    mockFetch(meAs(ACCOUNT_MANAGER));
+    renderApp('/templates/new?type=TEXT');
+    expect(await screen.findByText('404 Page not found')).toBeVisible();
+  });
+
+  it('the template editor routes open for a user with template:view', async () => {
+    storeSession();
+    mockFetch({
+      ...meAs(WORKSPACE_MANAGER),
+      'GET /api/workspaces/w1/templates/categories': { status: 200, body: [] },
+      'GET /api/workspaces/w1/contact-attributes': { status: 200, body: [] },
+    });
+    renderApp('/templates/new?type=TEXT');
+    expect(await screen.findByRole('button', { name: 'Save' })).toBeVisible();
+  });
 });
