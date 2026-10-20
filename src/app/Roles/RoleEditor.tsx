@@ -3,7 +3,6 @@ import {
   Alert,
   Button,
   Checkbox,
-  SearchInput,
   Content,
   Form,
   FormFieldGroup,
@@ -20,6 +19,7 @@ import {
   ModalBody,
   ModalFooter,
   ModalHeader,
+  SearchInput,
   TextArea,
   TextInput,
 } from '@patternfly/react-core';
