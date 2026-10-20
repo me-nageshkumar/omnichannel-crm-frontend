@@ -30,5 +30,8 @@ export function messageFor(error: unknown): string {
     const minutes = Math.max(1, Math.ceil((error.retryAfterSeconds ?? 60) / 60));
     return `Too many attempts. Try again in ${minutes} ${minutes === 1 ? 'minute' : 'minutes'}.`;
   }
+  if (code === 'authority_in_use') {
+    return `This authority is in a role: ${(error.roles ?? []).join(', ')}. Remove it from those roles first.`;
+  }
   return BY_CODE[code] ?? MESSAGES.generic;
 }

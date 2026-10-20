@@ -1,5 +1,8 @@
 import { apiFetch } from '@app/api/client';
 
+export { listAuthorities } from '@app/api/authorities';
+export type { Authority } from '@app/api/authorities';
+
 export type RoleLevel = 'PLATFORM' | 'COMPANY' | 'BRAND';
 
 export const ROLE_LEVELS: RoleLevel[] = ['PLATFORM', 'COMPANY', 'BRAND'];
@@ -11,12 +14,6 @@ export function levelsHeldBy(level: RoleLevel): RoleLevel[] {
   if (level === 'PLATFORM') return ['PLATFORM'];
   if (level === 'COMPANY') return ['COMPANY', 'BRAND'];
   return ['BRAND'];
-}
-
-export interface Authority {
-  code: string;
-  level: RoleLevel;
-  description: string;
 }
 
 export interface Role {
@@ -48,8 +45,6 @@ export interface RoleChange {
 }
 
 export const SUPER_ADMIN_ROLE = 'SUPER_ADMIN';
-
-export const listAuthorities = (token: string) => apiFetch<Authority[]>('/api/authorities', { token });
 
 export const listRoles = (token: string) => apiFetch<Role[]>('/api/roles', { token });
 
