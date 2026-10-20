@@ -3,6 +3,7 @@ import { screen, waitFor, within } from '@testing-library/react';
 import type { InboxSettings } from '@app/api/inbox';
 import { renderApp } from '../../test/renderApp';
 import { mockFetch, requestTo } from '../../test/fetchMock';
+import { streamMock } from '../../test/inbox';
 import { rowWith } from '../../test/admin';
 import { phoneNumber } from '../../test/phoneNumbers';
 import { AGENT_IN_BRAND, BRAND_A, WORKSPACE_MANAGER, meAs, storeSession } from '../../test/session';
@@ -152,8 +153,17 @@ describe('inbox navigation', () => {
   });
 
   it('the chat routes open the inbox page', async () => {
-    mockFetch(routes());
+    const chat = { id: 'c1', phoneNumberId: 'p1', contact: { id: 'ct1', name: 'Asha Rao', phone: null } };
+    mockFetch(
+      routes({
+        [`GET ${B}/inbox/phone-numbers/p1/chats`]: { status: 200, body: { items: [chat], hasMore: false } },
+        [`GET ${B}/inbox/chats/c1`]: { status: 200, body: { ...chat, status: 'OPEN', unreadCount: 0 } },
+        [`GET ${B}/inbox/chats/c1/thread`]: { status: 200, body: { items: [], hasMore: false } },
+        [`POST ${B}/inbox/chats/c1/read`]: { status: 204 },
+        [`GET ${B}/inbox/phone-numbers/p1/stream`]: streamMock().response,
+      }),
+    );
     renderApp('/inbox/p1/c1');
-    expect(await screen.findByRole('heading', { name: 'Inbox' })).toBeVisible();
+    expect(await screen.findByRole('group', { name: 'Chat header' })).toBeVisible();
   });
 });

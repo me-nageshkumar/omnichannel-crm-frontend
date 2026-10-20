@@ -14,7 +14,8 @@ export interface MockResponse {
   headers?: Record<string, string>;
 }
 
-export type MockRoute = MockResponse | ((req: MockRequest) => MockResponse);
+/** A route may answer with a ready-made {@code Response} (e.g. an event stream the test feeds). */
+export type MockRoute = MockResponse | Response | ((req: MockRequest) => MockResponse | Response);
 
 /**
  * Replaces global fetch. Routes are keyed "METHOD /path"; a function route sees the parsed JSON
@@ -32,6 +33,7 @@ export function mockFetch(routes: Record<string, MockRoute>) {
     const headers = new Headers(init?.headers);
     const body = typeof init?.body === 'string' && init.body.length > 0 ? JSON.parse(init.body) : undefined;
     const res = typeof route === 'function' ? route({ body, headers }) : route;
+    if (res instanceof Response) return res;
     const text = res.text ?? (res.body === undefined ? '' : JSON.stringify(res.body));
     return new Response(res.status === 204 ? null : text, {
       status: res.status,
