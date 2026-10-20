@@ -10,12 +10,17 @@
   <base href="/">
   <script>
     // Applies the saved theme before the first paint, so dark mode never flashes white.
-    // Mirrors src/app/theme/themeStore.ts (key, values, class); React keeps it in step after load.
+    // Mirrors src/app/theme/themeStore.ts (keys, values, defaults, classes); React keeps it in step after load.
     (function () {
       try {
-        var choice = localStorage.getItem('omnichannel.theme');
-        var dark = choice === 'dark' || (choice !== 'light' && window.matchMedia('(prefers-color-scheme: dark)').matches);
-        if (dark) document.documentElement.classList.add('pf-v6-theme-dark');
+        var root = document.documentElement.classList;
+        var mq = function (q) { return window.matchMedia && window.matchMedia(q).matches; };
+        var scheme = localStorage.getItem('omnichannel.theme');
+        var contrast = localStorage.getItem('omnichannel.theme.contrast') || 'glass';
+        if (scheme === 'dark' || (scheme !== 'light' && mq('(prefers-color-scheme: dark)'))) root.add('pf-v6-theme-dark');
+        if (localStorage.getItem('omnichannel.theme.brand') === 'felt') root.add('pf-v6-theme-felt');
+        if (contrast === 'glass') root.add('pf-v6-theme-glass');
+        if (contrast === 'high-contrast' || (contrast === 'system' && mq('(prefers-contrast: more)'))) root.add('pf-v6-theme-high-contrast');
       } catch (e) {}
     })();
   </script>

@@ -1,36 +1,35 @@
 import * as React from 'react';
-import { DARK_QUERY, ThemeChoice, applyDark, readTheme, systemPrefersDark, writeTheme } from '@app/theme/themeStore';
+import { CONTRAST_QUERY, DARK_QUERY, ThemePrefs, applyPrefs, readPrefs, writePrefs } from '@app/theme/themeStore';
 
 interface ThemeValue {
-  choice: ThemeChoice;
-  choose: (choice: ThemeChoice) => void;
+  prefs: ThemePrefs;
+  choose: (change: Partial<ThemePrefs>) => void;
 }
 
 const ThemeContext = React.createContext<ThemeValue | null>(null);
 
-/** Holds the light/dark choice and keeps <html> in step with it, and with the computer under 'system'. */
+/** Holds the theme choices and keeps <html> in step with them, and with the computer for 'system'. */
 export const ThemeProvider: React.FunctionComponent<{ children: React.ReactNode }> = ({ children }) => {
-  const [choice, setChoice] = React.useState<ThemeChoice>(readTheme);
+  const [prefs, setPrefs] = React.useState<ThemePrefs>(readPrefs);
 
   React.useLayoutEffect(() => {
-    if (choice !== 'system') {
-      applyDark(choice === 'dark');
-      return;
-    }
-    applyDark(systemPrefersDark());
-    if (typeof window.matchMedia !== 'function') return;
-    const query = window.matchMedia(DARK_QUERY);
-    const onChange = (e: { matches: boolean }) => applyDark(e.matches);
-    query.addEventListener('change', onChange);
-    return () => query.removeEventListener('change', onChange);
-  }, [choice]);
+    applyPrefs(prefs);
+    if (typeof window.matchMedia !== 'function') return undefined;
+    const queries = [DARK_QUERY, CONTRAST_QUERY].map((q) => window.matchMedia(q));
+    const onChange = () => applyPrefs(prefs);
+    queries.forEach((q) => q.addEventListener('change', onChange));
+    return () => queries.forEach((q) => q.removeEventListener('change', onChange));
+  }, [prefs]);
 
-  const choose = React.useCallback((next: ThemeChoice) => {
-    writeTheme(next);
-    setChoice(next);
+  const choose = React.useCallback((change: Partial<ThemePrefs>) => {
+    setPrefs((current) => {
+      const next = { ...current, ...change };
+      writePrefs(next);
+      return next;
+    });
   }, []);
 
-  const value = React.useMemo(() => ({ choice, choose }), [choice, choose]);
+  const value = React.useMemo(() => ({ prefs, choose }), [prefs, choose]);
   return <ThemeContext.Provider value={value}>{children}</ThemeContext.Provider>;
 };
 
