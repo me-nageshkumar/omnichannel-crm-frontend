@@ -1,6 +1,6 @@
 import * as React from 'react';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
-import { act, render, screen, waitFor, within } from '@testing-library/react';
+import { act, fireEvent, render, screen, waitFor, within } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import type { ActionView, ChatView, InboxEvent, MessageView, ThreadItem } from '@app/api/inbox';
 import { Thread } from '@app/Inbox/Thread';
@@ -504,6 +504,57 @@ describe('thread', () => {
     scroller.dispatchEvent(new Event('scroll'));
     act(() => apply(messageEvent(message({ id: 'm3', body: 'Three', timestamp: hoursAgo(1) }))));
     expect(scroller.scrollTop).toBe(100);
+  });
+
+  it('stays at the bottom when an image loads and makes the content taller', async () => {
+    mockFetch({
+      ...meAs(AGENT_IN_BRAND),
+      [`GET ${THREAD}`]: page([
+        message({
+          id: 'm1',
+          type: 'image',
+          media: { mimetype: 'image/png', filename: null, size: 10, available: true },
+        }),
+      ]),
+      [`GET ${MEDIA('m1')}`]: { status: 200, text: 'PNG', headers: { 'Content-Type': 'image/png' } },
+    });
+    renderThread();
+    const scroller = await screen.findByRole('log', { name: 'Messages' });
+    const image = await screen.findByRole('img');
+    Object.defineProperty(scroller, 'scrollHeight', { configurable: true, value: 1000 });
+    Object.defineProperty(scroller, 'clientHeight', { configurable: true, value: 400 });
+
+    fireEvent.load(image);
+    expect(scroller.scrollTop).toBe(1000);
+
+    // Someone who scrolled up to read is left where they are.
+    scroller.scrollTop = 100;
+    scroller.dispatchEvent(new Event('scroll'));
+    Object.defineProperty(scroller, 'scrollHeight', { configurable: true, value: 1500 });
+    fireEvent.load(image);
+    expect(scroller.scrollTop).toBe(100);
+  });
+
+  it('stays at the bottom when a video learns its size', async () => {
+    mockFetch({
+      ...meAs(AGENT_IN_BRAND),
+      [`GET ${THREAD}`]: page([
+        message({
+          id: 'm1',
+          type: 'video',
+          media: { mimetype: 'video/mp4', filename: null, size: 10, available: true },
+        }),
+      ]),
+      [`GET ${MEDIA('m1')}`]: { status: 200, text: 'MP4', headers: { 'Content-Type': 'video/mp4' } },
+    });
+    const { container } = renderThread();
+    const scroller = await screen.findByRole('log', { name: 'Messages' });
+    await waitFor(() => expect(container.querySelector('video')).not.toBeNull());
+    Object.defineProperty(scroller, 'scrollHeight', { configurable: true, value: 900 });
+    Object.defineProperty(scroller, 'clientHeight', { configurable: true, value: 400 });
+
+    fireEvent.loadedMetadata(container.querySelector('video') as HTMLVideoElement);
+    expect(scroller.scrollTop).toBe(900);
   });
 
   it('fetches nothing without a chat', async () => {

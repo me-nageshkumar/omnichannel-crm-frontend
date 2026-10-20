@@ -2,6 +2,7 @@ import * as React from 'react';
 import { Link, useNavigate, useParams } from 'react-router-dom';
 import { Alert, EmptyState, Label, PageSection, Spinner } from '@patternfly/react-core';
 import { useLoad } from '@app/admin/useLoad';
+import { ApiError } from '@app/api/client';
 import { ChatView, InboxEvent, getChat, listInboxNumbers, markRead } from '@app/api/inbox';
 import { messageFor } from '@app/api/messages';
 import { shown } from '@app/api/phoneNumbers';
@@ -77,25 +78,27 @@ export const InboxPage: React.FunctionComponent = () => {
     if (row && row.unreadCount > 0) applyToList({ type: 'chat', chat: { ...row, unreadCount: 0 }, visible: true });
   }, [rows, readId, applyToList]);
 
-  // A chat that moved to the other of the Open / Closed lists no longer belongs in this one.
-  const applyToShownList = (event: InboxEvent) =>
-    list.apply(event.type === 'chat' && event.chat.status !== filters.status ? { ...event, visible: false } : event);
+  // The chat leaves this inbox: say so, and go back to the empty pane.
+  const leave = () => {
+    setNotice(REASSIGNED);
+    navigate(`/inbox/${encodeURIComponent(phoneNumberId)}`);
+  };
 
   const onEvent = (event: InboxEvent) => {
     if (event.type === 'chat' && event.chat.id === openId.current) {
       if (!event.visible) {
-        setNotice(REASSIGNED);
-        navigate(`/inbox/${encodeURIComponent(phoneNumberId)}`);
+        leave();
       } else {
         setChat(event.chat);
         // Something arrived while the chat is on screen: it is read already.
         if (event.chat.unreadCount > 0 && token) markRead(token, ws, event.chat.id).catch(() => undefined);
       }
     }
-    applyToShownList(event);
+    // Which list a chat belongs in (status, scope, search) is the list's own call.
+    list.apply(event);
     thread.apply(event);
   };
-  const { connected } = useInboxStream(phoneNumberId, onEvent, () => {
+  const { state: stream } = useInboxStream(phoneNumberId, onEvent, () => {
     list.reload();
     numbers.reload();
     thread.reload();
@@ -105,7 +108,10 @@ export const InboxPage: React.FunctionComponent = () => {
         (fresh) => {
           if (openId.current === reopened) setChat(fresh);
         },
-        () => undefined,
+        (e) => {
+          // A chat that vanished while the stream was down is no longer ours to show.
+          if (e instanceof ApiError && e.status === 404 && openId.current === reopened) leave();
+        },
       );
     }
   });
@@ -147,7 +153,7 @@ export const InboxPage: React.FunctionComponent = () => {
             <strong>Inbox</strong>
           )}
           <Link to="/inbox">Change number</Link>
-          {!connected && (
+          {stream === 'retrying' && (
             <Label isCompact color="orange">
               Reconnecting…
             </Label>
@@ -165,6 +171,13 @@ export const InboxPage: React.FunctionComponent = () => {
             />
           </div>
           <div style={{ flex: '1 1 0', minWidth: 0, minHeight: 0, display: 'flex', flexDirection: 'column' }}>
+            {stream === 'failed' && (
+              <Alert
+                variant="danger"
+                isInline
+                title="Live updates are unavailable for this number; reload the page to try again"
+              />
+            )}
             {notice && <Alert variant="warning" isInline title={notice} />}
             {openError && <Alert variant="danger" isInline title={openError} />}
             {!chatId ? (
@@ -174,8 +187,9 @@ export const InboxPage: React.FunctionComponent = () => {
                 <ChatHeader
                   chat={open}
                   onChange={(updated) => {
-                    setChat(updated);
-                    applyToShownList({ type: 'chat', chat: updated, visible: true });
+                    // The answer may come after another chat was opened; it still belongs in the list.
+                    if (updated.id === openId.current) setChat(updated);
+                    list.apply({ type: 'chat', chat: updated, visible: true });
                   }}
                 />
                 <div style={{ flex: '1 1 0', minHeight: 0 }}>

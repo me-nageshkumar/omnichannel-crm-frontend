@@ -31,6 +31,11 @@ export function setUnauthorizedHandler(fn: (() => void) | null): void {
   onUnauthorized = fn;
 }
 
+/** Tells the app the session is no longer valid, for callers that see the 401 themselves (the event stream). */
+export function signalUnauthorized(): void {
+  onUnauthorized?.();
+}
+
 /** Turns a non-2xx reply into the {@link ApiError} callers handle; also signals an expired session. */
 function failure(res: Response, path: string, text: string): ApiError {
   let data: Record<string, unknown> | undefined;

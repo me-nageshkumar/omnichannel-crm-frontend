@@ -67,6 +67,22 @@ export const Thread: React.FunctionComponent<ThreadProps> = ({ chat, thread }) =
     seen.current = { first, last, height: el.scrollHeight };
   }, [items]);
 
+  // Images and videos grow the content once they have loaded, after the scroll to the bottom has run. These
+  // events do not bubble, so they are listened for in the capture phase.
+  React.useEffect(() => {
+    const el = scroller.current;
+    if (!el) return undefined;
+    const grown = () => {
+      if (nearBottom.current) el.scrollTop = el.scrollHeight;
+    };
+    el.addEventListener('load', grown, true);
+    el.addEventListener('loadedmetadata', grown, true);
+    return () => {
+      el.removeEventListener('load', grown, true);
+      el.removeEventListener('loadedmetadata', grown, true);
+    };
+  }, []);
+
   const onScroll = () => {
     const el = scroller.current;
     if (el) nearBottom.current = el.scrollHeight - el.scrollTop - el.clientHeight <= NEAR_BOTTOM;

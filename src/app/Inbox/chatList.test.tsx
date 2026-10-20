@@ -112,6 +112,29 @@ const urls = (fetch: ReturnType<typeof mockFetch>) =>
 const listUrls = (fetch: ReturnType<typeof mockFetch>) => urls(fetch).filter((u) => u.pathname === LIST);
 const pressed = (name: string) => screen.getByRole('button', { name }).getAttribute('aria-pressed');
 
+/** A list reply held back until {@code release(items)}; headers arrive at once, the body does not. */
+function gatedPage() {
+  let controller!: ReadableStreamDefaultController<Uint8Array>;
+  const body = new ReadableStream<Uint8Array>({
+    start(c) {
+      controller = c;
+    },
+  });
+  return {
+    response: new Response(body, { status: 200, headers: { 'Content-Type': 'application/json' } }),
+    release(items: ChatView[]) {
+      controller.enqueue(new TextEncoder().encode(JSON.stringify({ items, hasMore: false })));
+      controller.close();
+    },
+  };
+}
+
+/** Lets the pending promise callbacks and renders run. */
+const settle = () => act(async () => void (await new Promise((resolve) => setTimeout(resolve, 20))));
+
+const mineOf = (c: ChatView): ChatView => ({ ...c, assignedUser: { id: 'u7', name: 'Ishaan Agent' } });
+const otherUser = { id: 'u9', name: 'Other Agent' };
+
 describe('chat list', () => {
   beforeEach(() => {
     localStorage.clear();
@@ -297,5 +320,187 @@ describe('chat list', () => {
     expect(listUrls(fetch)).toHaveLength(1);
     await waitFor(() => expect(listUrls(fetch)).toHaveLength(2));
     expect(listUrls(fetch)[1].searchParams.get('q')).toBe('ash');
+  });
+
+  describe('membership', () => {
+    it('a burst of unknown chats reloads once, however slow the reload is', async () => {
+      const gate = gatedPage();
+      let n = 0;
+      const fetch = mockFetch({
+        ...meAs(MANAGER),
+        [`GET ${LIST}`]: () => (n++ === 1 ? gate.response : page([ASHA])),
+      });
+      renderList();
+      await rows();
+      act(() => apply({ type: 'chat', chat: MEENA, visible: true }));
+      await settle();
+      act(() => apply({ type: 'chat', chat: PHONE_ONLY, visible: true }));
+      act(() => apply({ type: 'chat', chat: HIDDEN, visible: true }));
+      await settle();
+      // The reload in flight is not cancelled by the later events.
+      expect(callsTo(fetch, `GET ${LIST}`)).toBe(2);
+
+      await act(async () => gate.release([ASHA, MEENA]));
+      // One more fetch picks up what arrived meanwhile; not one per event.
+      await waitFor(() => expect(callsTo(fetch, `GET ${LIST}`)).toBe(3));
+      await settle();
+      expect(callsTo(fetch, `GET ${LIST}`)).toBe(3);
+    });
+
+    it('an unknown chat that does not match the search does not reload', async () => {
+      const fetch = mockFetch({ ...meAs(MANAGER), [`GET ${LIST}`]: page([ASHA]) });
+      const { user } = renderList();
+      await rows();
+      await user.type(screen.getByRole('textbox', { name: 'Search chats' }), 'ash');
+      await waitFor(() => expect(listUrls(fetch)).toHaveLength(2));
+      await rows();
+
+      act(() => apply({ type: 'chat', chat: MEENA, visible: true })); // name Meena, no phone
+      act(() => apply({ type: 'chat', chat: PHONE_ONLY, visible: true })); // phone 9199...
+      expect(callsTo(fetch, `GET ${LIST}`)).toBe(2);
+
+      // A prefix of the name, in any case, or of the phone does match.
+      act(() =>
+        apply({ type: 'chat', chat: { ...HIDDEN, contact: { ...HIDDEN.contact, name: 'Ashok' } }, visible: true }),
+      );
+      expect(callsTo(fetch, `GET ${LIST}`)).toBe(3);
+      await settle();
+    });
+
+    it('an unknown chat with a phone prefix matching the search reloads', async () => {
+      const fetch = mockFetch({ ...meAs(MANAGER), [`GET ${LIST}`]: page([ASHA]) });
+      const { user } = renderList();
+      await rows();
+      await user.type(screen.getByRole('textbox', { name: 'Search chats' }), '+91990');
+      await waitFor(() => expect(listUrls(fetch)).toHaveLength(2));
+      await rows();
+      act(() => apply({ type: 'chat', chat: PHONE_ONLY, visible: true }));
+      expect(callsTo(fetch, `GET ${LIST}`)).toBe(3);
+      await settle();
+    });
+
+    it('an unknown chat without unread messages does not reload an unread-only list', async () => {
+      const fetch = mockFetch({ ...meAs(MANAGER), [`GET ${LIST}`]: page([ASHA]) });
+      const { user } = renderList();
+      await rows();
+      await user.click(screen.getByRole('switch', { name: 'Unread only' }));
+      await waitFor(() => expect(listUrls(fetch)).toHaveLength(2));
+      await rows();
+
+      act(() => apply({ type: 'chat', chat: MEENA, visible: true }));
+      expect(callsTo(fetch, `GET ${LIST}`)).toBe(2);
+      act(() => apply({ type: 'chat', chat: { ...MEENA, unreadCount: 1 }, visible: true }));
+      expect(callsTo(fetch, `GET ${LIST}`)).toBe(3);
+      await settle();
+    });
+
+    it('unknown chats of someone else do not reload Mine; an unassigned one does not reload either', async () => {
+      const fetch = mockFetch({ ...meAs(AGENT), [`GET ${LIST}`]: page([mineOf(ASHA)]) });
+      renderList();
+      await rows();
+      act(() => apply({ type: 'chat', chat: { ...MEENA, assignedUser: otherUser }, visible: true }));
+      act(() => apply({ type: 'chat', chat: MEENA, visible: true }));
+      expect(callsTo(fetch, `GET ${LIST}`)).toBe(1);
+      act(() => apply({ type: 'chat', chat: mineOf(MEENA), visible: true }));
+      expect(callsTo(fetch, `GET ${LIST}`)).toBe(2);
+      await settle();
+    });
+
+    it('an assigned unknown chat does not reload Unassigned', async () => {
+      const fetch = mockFetch({ ...meAs(LEAD), [`GET ${LIST}`]: page([MEENA]) });
+      const { user } = renderList();
+      await rows();
+      await user.click(screen.getByRole('button', { name: 'Unassigned' }));
+      await waitFor(() => expect(listUrls(fetch)).toHaveLength(2));
+      await rows();
+      act(() => apply({ type: 'chat', chat: { ...ASHA, assignedTeam: { id: 't1', name: 'Support' } }, visible: true }));
+      act(() => apply({ type: 'chat', chat: { ...ASHA, assignedUser: otherUser }, visible: true }));
+      expect(callsTo(fetch, `GET ${LIST}`)).toBe(2);
+      act(() => apply({ type: 'chat', chat: ASHA, visible: true }));
+      expect(callsTo(fetch, `GET ${LIST}`)).toBe(3);
+      await settle();
+    });
+
+    it('a removed row does not come back with a reply that was already on its way', async () => {
+      const gate = gatedPage();
+      let n = 0;
+      const fetch = mockFetch({
+        ...meAs(MANAGER),
+        [`GET ${LIST}`]: () => (n++ === 1 ? gate.response : page([ASHA, MEENA])),
+      });
+      renderList();
+      await rows();
+      act(() => apply({ type: 'chat', chat: PHONE_ONLY, visible: true }));
+      await settle();
+      expect(callsTo(fetch, `GET ${LIST}`)).toBe(2);
+
+      act(() => apply({ type: 'chat', chat: ASHA, visible: false }));
+      expect(await rows()).toHaveLength(1);
+      await act(async () => gate.release([ASHA, MEENA, PHONE_ONLY]));
+
+      await waitFor(async () => expect(await rows()).toHaveLength(2));
+      const names = (await rows()).map((r) => r.textContent ?? '');
+      expect(names.some((t) => t.includes('Asha Rao'))).toBe(false);
+      expect(names.some((t) => t.includes('Meena'))).toBe(true);
+      expect(names.some((t) => t.includes('+919900000003'))).toBe(true);
+    });
+
+    it('a claimed chat leaves Unassigned', async () => {
+      const fetch = mockFetch({ ...meAs(LEAD), [`GET ${LIST}`]: page([ASHA, MEENA]) });
+      const { user } = renderList();
+      await rows();
+      await user.click(screen.getByRole('button', { name: 'Unassigned' }));
+      await waitFor(() => expect(listUrls(fetch)).toHaveLength(2));
+      expect(await rows()).toHaveLength(2);
+
+      act(() => apply({ type: 'chat', chat: mineOf(ASHA), visible: true }));
+      const left = await rows();
+      expect(left).toHaveLength(1);
+      expect(left[0]).toHaveTextContent('Meena');
+      act(() =>
+        apply({ type: 'chat', chat: { ...MEENA, assignedTeam: { id: 't1', name: 'Support' } }, visible: true }),
+      );
+      await waitFor(() => expect(screen.queryByRole('list', { name: 'Chats' })).toBeNull());
+      expect(callsTo(fetch, `GET ${LIST}`)).toBe(2);
+    });
+
+    it('a chat assigned away leaves Mine; one assigned to me stays', async () => {
+      const mine = mineOf(ASHA);
+      const fetch = mockFetch({ ...meAs(AGENT), [`GET ${LIST}`]: page([mine, mineOf(MEENA)]) });
+      renderList();
+      expect(await rows()).toHaveLength(2);
+
+      act(() => apply({ type: 'chat', chat: { ...mine, unreadCount: 5 }, visible: true }));
+      expect(await rows()).toHaveLength(2);
+      act(() => apply({ type: 'chat', chat: { ...mine, assignedUser: otherUser }, visible: true }));
+      const left = await rows();
+      expect(left).toHaveLength(1);
+      expect(left[0]).toHaveTextContent('Meena');
+      expect(callsTo(fetch, `GET ${LIST}`)).toBe(1);
+    });
+
+    it('a Team row whose assignment changed triggers one reload; other updates do not', async () => {
+      const fetch = mockFetch({ ...meAs(LEAD), [`GET ${LIST}`]: page([ASHA, MEENA]) });
+      renderList();
+      expect(await rows()).toHaveLength(2);
+
+      act(() => apply({ type: 'chat', chat: { ...ASHA, unreadCount: 9 }, visible: true }));
+      expect(callsTo(fetch, `GET ${LIST}`)).toBe(1);
+      act(() => apply({ type: 'chat', chat: { ...ASHA, assignedUser: otherUser }, visible: true }));
+      expect(callsTo(fetch, `GET ${LIST}`)).toBe(2);
+      await settle();
+      expect(await rows()).toHaveLength(2);
+    });
+
+    it('a known chat that moved to the other status leaves the list', async () => {
+      const fetch = mockFetch({ ...meAs(MANAGER), [`GET ${LIST}`]: page([ASHA, MEENA]) });
+      renderList();
+      expect(await rows()).toHaveLength(2);
+      act(() => apply({ type: 'chat', chat: { ...ASHA, status: 'CLOSED' }, visible: true }));
+      const left = await rows();
+      expect(left).toHaveLength(1);
+      expect(left[0]).toHaveTextContent('Meena');
+      expect(callsTo(fetch, `GET ${LIST}`)).toBe(1);
+    });
   });
 });

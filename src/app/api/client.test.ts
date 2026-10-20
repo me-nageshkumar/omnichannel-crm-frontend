@@ -1,11 +1,19 @@
 import { afterEach, describe, expect, it, vi } from 'vitest';
-import { ApiError, apiFetch, apiFetchBlob, setUnauthorizedHandler } from '@app/api/client';
+import { ApiError, apiFetch, apiFetchBlob, setUnauthorizedHandler, signalUnauthorized } from '@app/api/client';
 import { mockFetch, rejectionOf, requestTo } from '../../test/fetchMock';
 
 describe('apiFetch', () => {
   afterEach(() => {
     setUnauthorizedHandler(null);
     vi.unstubAllGlobals();
+  });
+
+  it('signalUnauthorized calls the registered handler, and does nothing without one', () => {
+    expect(() => signalUnauthorized()).not.toThrow();
+    const handler = vi.fn();
+    setUnauthorizedHandler(handler);
+    signalUnauthorized();
+    expect(handler).toHaveBeenCalledTimes(1);
   });
 
   it('adds the bearer token', async () => {

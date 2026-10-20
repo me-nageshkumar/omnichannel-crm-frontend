@@ -331,6 +331,90 @@ describe('inbox page', () => {
     expect(callsTo(fetch, CHAT)).toBe(2);
   });
 
+  it('shows no Reconnecting label while the stream is still opening', async () => {
+    const { routes: r } = routes();
+    const fetch = mockFetch(r);
+    const answer = fetch.getMockImplementation() as NonNullable<ReturnType<typeof fetch.getMockImplementation>>;
+    fetch.mockImplementation((input, init) =>
+      String(input).endsWith('/stream') ? new Promise<Response>(() => undefined) : answer(input, init),
+    );
+    renderApp('/inbox/p1');
+    await list();
+    await streamOpened(fetch);
+    expect(screen.queryByText('Reconnecting…')).toBeNull();
+    expect(screen.queryByRole('heading', { name: /live updates/i })).toBeNull();
+  });
+
+  it('says so, and does not keep retrying, when the stream is refused', async () => {
+    const { routes: r } = routes({ [STREAM]: { status: 404, body: { code: 'NOT_FOUND' } } });
+    const fetch = mockFetch(r);
+    renderApp('/inbox/p1');
+    expect(await screen.findByText(/Live updates are unavailable/)).toBeVisible();
+    expect(screen.queryByText('Reconnecting…')).toBeNull();
+    expect(callsTo(fetch, STREAM)).toBe(1);
+  });
+
+  it('an open chat that is gone after the outage is closed with the notice', async () => {
+    vi.useFakeTimers({ shouldAdvanceTime: true });
+    const streams: Array<ReturnType<typeof streamMock>> = [];
+    const { routes: r } = routes({
+      [STREAM]: () => {
+        const s = streamMock();
+        streams.push(s);
+        return s.response;
+      },
+      [CHAT]: () => (streams.length > 1 ? { status: 404, body: { code: 'NOT_FOUND' } } : { status: 200, body: ASHA }),
+    });
+    const fetch = mockFetch(r);
+    renderApp('/inbox/p1/c1', <Where />);
+    await screen.findByText('Hello from Asha', { selector: 'div' });
+    await streamOpened(fetch);
+
+    act(() => streams[0].close());
+    await screen.findByText('Reconnecting…');
+    await act(() => vi.advanceTimersByTimeAsync(1100));
+
+    expect(await screen.findByText('This chat was reassigned and is no longer in your inbox')).toBeVisible();
+    expect(await screen.findByText('Pick a chat')).toBeVisible();
+    expect(screen.getByLabelText('Location')).toHaveTextContent(/^\/inbox\/p1$/);
+  });
+
+  it('a close that answers after another chat was opened leaves the open chat alone', async () => {
+    let finish!: (res: ChatView) => void;
+    const body = new ReadableStream<Uint8Array>({
+      start(c) {
+        finish = (res) => {
+          c.enqueue(new TextEncoder().encode(JSON.stringify(res)));
+          c.close();
+        };
+      },
+    });
+    const { routes: r } = routes({
+      [CLOSE]: new Response(body, { status: 200, headers: { 'Content-Type': 'application/json' } }),
+      [`GET ${B}/inbox/chats/c2`]: { status: 200, body: MEENA },
+      [`GET ${B}/inbox/chats/c2/thread`]: { status: 200, body: { items: [], hasMore: false } },
+      [`POST ${B}/inbox/chats/c2/read`]: { status: 204 },
+    });
+    mockFetch(r);
+    const { user } = renderApp('/inbox/p1/c1', <Where />);
+    await screen.findByText('Hello from Asha', { selector: 'div' });
+    await user.click(header().getByRole('button', { name: 'Close' }));
+    await user.click(within(await list()).getByRole('button', { name: /Meena/ }));
+    await waitFor(() => expect(header().getByText('Meena')).toBeVisible());
+
+    await act(async () => finish({ ...ASHA, status: 'CLOSED' }));
+
+    // Asha left the Open list; the chat on screen is still Meena, not a spinner waiting for her.
+    await waitFor(() =>
+      expect(
+        within(screen.getByRole('list', { name: 'Chats' })).queryByRole('button', { name: /Asha Rao/ }),
+      ).toBeNull(),
+    );
+    expect(header().getByText('Meena')).toBeVisible();
+    expect(screen.queryByRole('progressbar', { name: 'Loading chat' })).toBeNull();
+    expect(screen.getByLabelText('Location')).toHaveTextContent('/inbox/p1/c2');
+  });
+
   it('stops the stream when the page goes away', async () => {
     const { routes: r } = routes();
     const fetch = mockFetch(r);
