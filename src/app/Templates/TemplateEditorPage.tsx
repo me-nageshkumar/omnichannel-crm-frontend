@@ -3,9 +3,6 @@ import { Link, useNavigate, useParams, useSearchParams } from 'react-router-dom'
 import {
   Alert,
   Button,
-  Card,
-  CardBody,
-  CardTitle,
   Flex,
   FlexItem,
   Form,
@@ -44,6 +41,7 @@ import { useAccess } from '@app/session/useAccess';
 import { CategoryField } from '@app/Templates/CategoryField';
 import { ContentForm } from '@app/Templates/ContentForm';
 import { PlaceholdersPanel } from '@app/Templates/PlaceholdersPanel';
+import { TemplatePreview } from '@app/Templates/TemplatePreview';
 import type { PlaceholderRef } from '@app/Templates/placeholders';
 import { TYPE_META } from '@app/Templates/typeMeta';
 import {
@@ -52,6 +50,7 @@ import {
   buildRequest,
   derive,
   initialContent,
+  isDirty,
   isShownKey,
   loadedContent,
   loadedSettings,
@@ -121,6 +120,7 @@ const EditorBody: React.FunctionComponent<BodyProps> = ({ type, template }) => {
 
   const { refs, errors: grammar } = React.useMemo(() => derive(type, content), [type, content]);
   const problems = validate(type, name, category, content, media, refs, settings);
+  const dirty = isDirty(saved, type, name, category, content, media, refs, settings);
   const blocked = Object.keys({ ...problems, ...grammar }).length > 0;
   const shown: Record<string, string> = {
     ...serverErrors,
@@ -286,11 +286,15 @@ const EditorBody: React.FunctionComponent<BodyProps> = ({ type, template }) => {
           </div>
         </GridItem>
         <GridItem lg={5}>
-          {/* TASK 4 SLOT: the WhatsApp-style preview replaces this card (it reads the draft state above). */}
-          <Card isCompact>
-            <CardTitle>Preview</CardTitle>
-            <CardBody>The preview appears here.</CardBody>
-          </Card>
+          <TemplatePreview
+            type={type}
+            content={content}
+            media={media}
+            refs={refs}
+            settings={settings}
+            templateId={saved?.id}
+            dirty={dirty}
+          />
         </GridItem>
       </Grid>
     </PageShell>

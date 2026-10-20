@@ -9,3 +9,74 @@ body,
   --pf-v6-c-content--blockquote--BorderLeftColor: var(--pf-t--global--color--nonstatus--purple--default); /* changes all <blockquote> left border color to the semantic token for non-status (purple) */
   --pf-v6-c-content--hr--BackgroundColor: var(--pf-t--global--color--nonstatus--yellow--default); /* changes a <hr> color to the semantic token for non-status (yellow) */
 }
+
+/* The template preview: an outgoing WhatsApp message. Light values here, dark values under PatternFly's dark class. */
+:root {
+  --omni-wa-canvas: #efeae2;
+  --omni-wa-bubble-bg: #d9fdd3;
+  --omni-wa-bubble-fg: #111b21;
+  --omni-wa-bubble-muted: #54656f;
+  --omni-wa-bubble-card: rgba(0, 0, 0, 0.06);
+}
+
+.pf-v6-theme-dark {
+  --omni-wa-canvas: #0b141a;
+  --omni-wa-bubble-bg: #005c4b;
+  --omni-wa-bubble-fg: #e9edef;
+  --omni-wa-bubble-muted: #aebac1;
+  --omni-wa-bubble-card: rgba(255, 255, 255, 0.1);
+}
+
+.omni-wa-canvas {
+  display: flex;
+  justify-content: flex-end;
+  padding: 16px;
+  border-radius: 8px;
+  background: var(--omni-wa-canvas);
+}
+
+.omni-wa-bubble {
+  max-width: 85%;
+  min-width: 120px;
+  padding: 6px 8px;
+  border-radius: 8px 0 8px 8px;
+  background: var(--omni-wa-bubble-bg);
+  color: var(--omni-wa-bubble-fg);
+  overflow-wrap: anywhere;
+}
+
+.omni-wa-text code {
+  font-family: monospace;
+}
+
+.omni-wa-muted {
+  color: var(--omni-wa-bubble-muted);
+  font-size: 0.875em;
+}
+
+.omni-wa-card {
+  display: flex;
+  gap: 8px;
+  align-items: center;
+  margin-bottom: 4px;
+  padding: 8px;
+  border-radius: 6px;
+  background: var(--omni-wa-bubble-card);
+}
+
+.omni-wa-card__title {
+  font-weight: 600;
+}
+
+.omni-wa-media {
+  display: block;
+  max-width: 100%;
+  max-height: 240px;
+  margin-bottom: 4px;
+  border-radius: 6px;
+}
+
+.omni-wa-option {
+  display: block;
+  padding: 4px 0;
+}

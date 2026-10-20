@@ -5,8 +5,9 @@ import type {
   TemplateContent,
   TemplateRequest,
   TemplateType,
+  TemplateView,
 } from '@app/api/templates';
-import { PLACEHOLDER_FIELDS, PlaceholderRef, parsePlaceholders } from '@app/Templates/placeholders';
+import { PLACEHOLDER_FIELDS, PlaceholderRef, fillPreview, parsePlaceholders } from '@app/Templates/placeholders';
 
 /** What the editor keeps for one placeholder; typed text, so every value is a string. */
 export interface Setting {
@@ -279,4 +280,55 @@ export function isShownKey(key: string, type: TemplateType, refs: PlaceholderRef
     return CONTENT_FIELDS[type].includes(field);
   }
   return refs.some((r) => key.startsWith(`placeholders.${r.name}.`));
+}
+
+/**
+ * What each placeholder shows in the local preview: an agent field its example, else `[label]`, else `[name]`;
+ * a contact field its fallback, else `[name]`.
+ */
+export function previewValues(refs: PlaceholderRef[], settings: Settings): Record<string, string> {
+  const out: Record<string, string> = {};
+  refs.forEach((ref) => {
+    const s = settingFor(settings, ref);
+    out[ref.name] = ref.kind === 'AGENT' ? s.example || `[${s.label || ref.name}]` : s.fallback || `[${ref.name}]`;
+  });
+  return out;
+}
+
+/** The content with {@link fillPreview} applied to every field that accepts placeholders. */
+export function fillContent(type: TemplateType, c: TemplateContent, values: Record<string, string>): TemplateContent {
+  const out = { ...c } as unknown as Record<string, unknown>;
+  PLACEHOLDER_FIELDS[type].forEach((field) => {
+    const v = c[field];
+    if (typeof v === 'string') out[field] = fillPreview(v, values);
+    else if (Array.isArray(v)) out[field] = v.map((o) => fillPreview(o, values));
+  });
+  return out as unknown as TemplateContent;
+}
+
+/** True when the draft would save as something other than the last saved (or loaded) template. */
+export function isDirty(
+  saved: TemplateView | undefined,
+  type: TemplateType,
+  name: string,
+  category: string,
+  content: TemplateContent,
+  media: MediaView | null,
+  refs: PlaceholderRef[],
+  settings: Settings,
+): boolean {
+  if (!saved) return true;
+  const savedContent = loadedContent(type, saved.content);
+  const baseline = buildRequest(
+    type,
+    saved.name,
+    saved.category ?? '',
+    savedContent,
+    saved.media,
+    derive(type, savedContent).refs,
+    loadedSettings(saved.placeholders),
+  );
+  return (
+    JSON.stringify(buildRequest(type, name, category, content, media, refs, settings)) !== JSON.stringify(baseline)
+  );
 }

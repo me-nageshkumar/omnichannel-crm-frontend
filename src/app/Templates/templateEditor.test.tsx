@@ -253,7 +253,7 @@ describe('template editor', () => {
     });
     await user.upload(input, file);
 
-    expect(await screen.findByText(/menu\.png/)).toBeVisible();
+    expect((await screen.findAllByText(/menu\.png/))[0]).toBeVisible();
     expect(screen.getByText(/2 KB/)).toBeVisible();
     const upload = fetch.mock.calls.find(([u]) => String(u).endsWith('/template-media'));
     const form = (upload?.[1] as RequestInit).body as FormData;
@@ -306,13 +306,13 @@ describe('template editor', () => {
     const fileInput = () => document.querySelector('input[type=file]') as HTMLInputElement;
     await waitFor(() => expect(fileInput()).not.toBeNull());
     await user.upload(fileInput(), new File(['x'], 'a.mp3', { type: 'audio/mpeg' }));
-    expect(await screen.findByText(/a\.mp3/)).toBeVisible();
+    expect((await screen.findAllByText(/a\.mp3/))[0]).toBeVisible();
     expect(screen.getByRole('switch', { name: 'Send as voice note' })).toBeDisabled();
 
     await user.click(screen.getByRole('button', { name: 'Replace' }));
     await waitFor(() => expect(fileInput()).not.toBeNull());
     await user.upload(fileInput(), new File(['x'], 'a.ogg', { type: 'audio/ogg' }));
-    expect(await screen.findByText(/a\.ogg/)).toBeVisible();
+    expect((await screen.findAllByText(/a\.ogg/))[0]).toBeVisible();
     const voice = screen.getByRole('switch', { name: 'Send as voice note' });
     expect(voice).toBeEnabled();
     await user.click(voice);
