@@ -6,8 +6,8 @@ import { messageFor } from '@app/api/messages';
 import { TemplatePickerModal } from '@app/Inbox/TemplatePickerModal';
 import { useSession } from '@app/session/SessionContext';
 
-const MAX_LENGTH = 4096;
-const COUNTER_FROM = 3900;
+export const MAX_LENGTH = 4096;
+export const COUNTER_FROM = 3900;
 
 /** The text box under a thread: Enter sends, Shift+Enter breaks the line, and a template can be sent instead. */
 export const Composer: React.FunctionComponent<{
