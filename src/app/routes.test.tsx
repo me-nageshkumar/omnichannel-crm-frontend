@@ -13,7 +13,7 @@ import {
   storeSession,
 } from '../test/session';
 
-const ALL = ['Platform users', 'Roles', 'Authorities', 'Customers', 'Brands', 'Users', 'Teams'];
+const ALL = ['Platform users', 'Roles', 'Authorities', 'Customers', 'Brands', 'Users', 'Teams', 'Phone numbers'];
 
 async function navFor(user: CurrentUser): Promise<string[]> {
   storeSession();
@@ -32,11 +32,11 @@ describe('authority-driven navigation', () => {
   });
 
   it('customer admin sees brands, users and teams', async () => {
-    expect(await navFor(CUSTOMER_ADMIN)).toEqual(['Brands', 'Users', 'Teams']);
+    expect(await navFor(CUSTOMER_ADMIN)).toEqual(['Brands', 'Users', 'Teams', 'Phone numbers']);
   });
 
   it('workspace manager sees users and teams', async () => {
-    expect(await navFor(WORKSPACE_MANAGER)).toEqual(['Users', 'Teams']);
+    expect(await navFor(WORKSPACE_MANAGER)).toEqual(['Users', 'Teams', 'Phone numbers']);
   });
 
   it('account manager sees customers only', async () => {

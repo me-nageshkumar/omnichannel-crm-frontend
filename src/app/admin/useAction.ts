@@ -4,6 +4,9 @@ import { messageFor } from '@app/api/messages';
 
 const FIELD_LABELS: Record<string, string> = { username: 'Username', name: 'Name', code: 'Code' };
 
+/** Duplicates whose sentence reads better than "<Field> is already in use." */
+const DUPLICATE_MESSAGES: Record<string, string> = { number: 'This number is already onboarded.' };
+
 export interface Action {
   /** Runs {@code fn}; on failure records the message (or field errors) and resolves undefined. */
   run<T>(fn: () => Promise<T>): Promise<T | undefined>;
@@ -15,7 +18,9 @@ export interface Action {
 
 function fieldMessages(e: ApiError): Record<string, string> {
   if (e.code === 'DUPLICATE' && e.field) {
-    return { [e.field]: `${FIELD_LABELS[e.field] ?? e.field} is already in use.` };
+    return {
+      [e.field]: DUPLICATE_MESSAGES[e.field] ?? `${FIELD_LABELS[e.field] ?? e.field} is already in use.`,
+    };
   }
   if (e.code === 'VALIDATION' && e.fields) return e.fields;
   return {};

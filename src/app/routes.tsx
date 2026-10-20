@@ -11,6 +11,7 @@ import { CustomerDetailPage } from '@app/Customers/CustomerDetailPage';
 import { BrandsPage } from '@app/Brands/BrandsPage';
 import { UsersPage } from '@app/Users/UsersPage';
 import { TeamsPage } from '@app/Teams/TeamsPage';
+import { PhoneNumbersPage } from '@app/PhoneNumbers/PhoneNumbersPage';
 import { Access, useAccess } from '@app/session/useAccess';
 
 export type NavGroup = 'Platform' | 'Company' | 'Brand';
@@ -82,6 +83,13 @@ const routes: IAppRoute[] = [
     path: '/teams',
     group: 'Brand',
     requires: (a) => a.hasInWorkspace('user:view'),
+  },
+  {
+    element: <PhoneNumbersPage />,
+    label: 'Phone numbers',
+    path: '/phone-numbers',
+    group: 'Brand',
+    requires: (a) => a.hasInWorkspace('phone-number:view'),
   },
 ];
 

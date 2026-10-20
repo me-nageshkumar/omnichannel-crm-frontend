@@ -9,7 +9,15 @@ const PLATFORM_CODES = [
   'customer:manage',
   'whatsapp:bridge',
 ];
-export const BRAND_CODES = ['workspace:settings', 'user:view', 'user:manage', 'user:enable', 'team:manage'];
+export const BRAND_CODES = [
+  'workspace:settings',
+  'user:view',
+  'user:manage',
+  'user:enable',
+  'team:manage',
+  'phone-number:view',
+  'phone-number:manage',
+];
 
 const base = {
   email: 'me@example.in',
@@ -71,7 +79,9 @@ export const TEAM_LEAD: CurrentUser = {
   name: 'Tara Lead',
   username: 'tara',
   customer: { id: 'c1', name: 'Acme' },
-  workspaces: [{ ...BRAND_A, role: { id: 'r-tl', name: 'TEAM_LEAD' }, authorities: ['user:view'] }],
+  workspaces: [
+    { ...BRAND_A, role: { id: 'r-tl', name: 'TEAM_LEAD' }, authorities: ['user:view', 'phone-number:view'] },
+  ],
 };
 
 export const AGENT_NO_BRANDS: CurrentUser = {
