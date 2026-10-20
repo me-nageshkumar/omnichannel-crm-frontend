@@ -19,6 +19,14 @@ export const BRAND_CODES = [
   'team:manage',
   'phone-number:view',
   'phone-number:manage',
+  'contact:view',
+  'contact:annotate',
+  'contact:edit',
+  'contact:import',
+  'contact:export',
+  'contact:bulk',
+  'contact:delete',
+  'contact-field:manage',
 ];
 
 const base = {
@@ -88,8 +96,31 @@ export const TEAM_LEAD: CurrentUser = {
   username: 'tara',
   customer: { id: 'c1', name: 'Acme' },
   workspaces: [
-    { ...BRAND_A, role: { id: 'r-tl', name: 'TEAM_LEAD' }, authorities: ['user:view', 'phone-number:view'] },
+    {
+      ...BRAND_A,
+      role: { id: 'r-tl', name: 'TEAM_LEAD' },
+      authorities: [
+        'user:view',
+        'phone-number:view',
+        'contact:view',
+        'contact:annotate',
+        'contact:edit',
+        'contact:import',
+        'contact:export',
+        'contact:bulk',
+      ],
+    },
   ],
+};
+
+/** An agent in Brand A with the spec's defaults: view and annotate contacts, nothing else. */
+export const AGENT_IN_BRAND: CurrentUser = {
+  ...base,
+  id: 'u7',
+  name: 'Ishaan Agent',
+  username: 'ishaan',
+  customer: { id: 'c1', name: 'Acme' },
+  workspaces: [{ ...BRAND_A, role: { id: 'r-ag', name: 'AGENT' }, authorities: ['contact:view', 'contact:annotate'] }],
 };
 
 export const AGENT_NO_BRANDS: CurrentUser = {

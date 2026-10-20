@@ -13,6 +13,7 @@ import { UsersPage } from '@app/Users/UsersPage';
 import { TeamsPage } from '@app/Teams/TeamsPage';
 import { PhoneNumbersPage } from '@app/PhoneNumbers/PhoneNumbersPage';
 import { AllPhoneNumbersPage } from '@app/PhoneNumbers/AllPhoneNumbersPage';
+import { ContactFieldsPage } from '@app/Contacts/ContactFieldsPage';
 import { Access, useAccess } from '@app/session/useAccess';
 
 export type NavGroup = 'Platform' | 'Company' | 'Brand';
@@ -98,6 +99,13 @@ const routes: IAppRoute[] = [
     path: '/phone-numbers',
     group: 'Brand',
     requires: (a) => a.hasInWorkspace('phone-number:view'),
+  },
+  {
+    element: <ContactFieldsPage />,
+    label: 'Contact fields',
+    path: '/contact-fields',
+    group: 'Brand',
+    requires: (a) => a.hasInWorkspace('contact-field:manage'),
   },
 ];
 

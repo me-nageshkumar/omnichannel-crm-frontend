@@ -1,0 +1,198 @@
+import { apiFetch } from '@app/api/client';
+
+export { NUMBER_PATTERN, normaliseNumber } from '@app/api/phoneNumbers';
+
+export type LabelColor = 'blue' | 'teal' | 'green' | 'orange' | 'purple' | 'red' | 'orangered' | 'yellow' | 'grey';
+export const LABEL_COLORS: LabelColor[] = [
+  'blue',
+  'teal',
+  'green',
+  'orange',
+  'purple',
+  'red',
+  'orangered',
+  'yellow',
+  'grey',
+];
+
+export type ContactSource = 'CHAT' | 'IMPORT' | 'MANUAL';
+export const SOURCES: ContactSource[] = ['CHAT', 'IMPORT', 'MANUAL'];
+export type ContactSort = 'LAST_MESSAGE' | 'NAME' | 'CREATED';
+export type AttributeOp = 'EQUALS' | 'CONTAINS' | 'EXISTS' | 'NOT_EXISTS';
+
+export interface ContactLabel {
+  id: string;
+  name: string;
+  color: LabelColor;
+  description: string | null;
+  contactCount: number;
+}
+
+export interface ContactAttribute {
+  id: string;
+  name: string;
+  description: string | null;
+  contactCount: number;
+}
+
+export interface Contact {
+  id: string;
+  name: string | null;
+  phone: string | null;
+  waId: string | null;
+  numberHidden: boolean;
+  labels: string[];
+  attributes: Record<string, string>;
+  source: ContactSource;
+  lastMessageAt: string | null;
+  creationTime: string;
+  lastUpdateTime: string;
+}
+
+export interface ContactNote {
+  id: string;
+  contactId: string;
+  text: string;
+  createdBy: { username: string; name: string };
+  creationTime: string;
+  lastUpdateTime: string;
+  mine: boolean;
+}
+
+export interface AttributeCondition {
+  attributeId: string;
+  op: AttributeOp;
+  value?: string;
+}
+
+/** The structured filter; every part is optional and the parts are ANDed. */
+export interface ContactFilterSpec {
+  q?: string;
+  labelsAny?: string[];
+  labelsAll?: string[];
+  labelsNone?: string[];
+  attributes?: AttributeCondition[];
+  source?: ContactSource[];
+  numberHidden?: boolean;
+  createdFrom?: string;
+  createdTo?: string;
+  lastMessageFrom?: string;
+  lastMessageTo?: string;
+}
+
+export interface SavedFilter {
+  id: string;
+  name: string;
+  filter: ContactFilterSpec;
+  createdBy: string | { username: string; name: string };
+  creationTime: string;
+}
+
+/** Exactly one of the three. */
+export type Selection = { ids: string[] } | { filter: ContactFilterSpec } | { filterId: string };
+
+export interface ContactPage {
+  items: Contact[];
+  total: number;
+  page: number;
+}
+
+export const CONTACT_PAGE_SIZE = 50;
+
+const base = (workspaceId: string) => `/api/workspaces/${encodeURIComponent(workspaceId)}`;
+const send = <T>(token: string, method: string, path: string, body?: unknown) =>
+  apiFetch<T>(path, { method, token, body });
+
+// Labels and attributes
+
+export const listLabels = (token: string, ws: string) =>
+  apiFetch<ContactLabel[]>(`${base(ws)}/contact-labels`, { token });
+export const createLabel = (token: string, ws: string, body: Pick<ContactLabel, 'name' | 'color' | 'description'>) =>
+  send<ContactLabel>(token, 'POST', `${base(ws)}/contact-labels`, body);
+export const updateLabel = (
+  token: string,
+  ws: string,
+  id: string,
+  body: Pick<ContactLabel, 'name' | 'color' | 'description'>,
+) => send<ContactLabel>(token, 'PUT', `${base(ws)}/contact-labels/${id}`, body);
+export const deleteLabel = (token: string, ws: string, id: string) =>
+  send<void>(token, 'DELETE', `${base(ws)}/contact-labels/${id}`);
+
+export const listAttributes = (token: string, ws: string) =>
+  apiFetch<ContactAttribute[]>(`${base(ws)}/contact-attributes`, { token });
+export const createAttribute = (token: string, ws: string, body: Pick<ContactAttribute, 'name' | 'description'>) =>
+  send<ContactAttribute>(token, 'POST', `${base(ws)}/contact-attributes`, body);
+export const updateAttribute = (
+  token: string,
+  ws: string,
+  id: string,
+  body: Pick<ContactAttribute, 'name' | 'description'>,
+) => send<ContactAttribute>(token, 'PUT', `${base(ws)}/contact-attributes/${id}`, body);
+export const deleteAttribute = (token: string, ws: string, id: string) =>
+  send<void>(token, 'DELETE', `${base(ws)}/contact-attributes/${id}`);
+
+// Contacts
+
+export const searchContacts = (
+  token: string,
+  ws: string,
+  body: { filter?: ContactFilterSpec; filterId?: string; sort?: ContactSort; page?: number },
+) => send<ContactPage>(token, 'POST', `${base(ws)}/contacts/search`, body);
+export const getContact = (token: string, ws: string, id: string) =>
+  apiFetch<Contact>(`${base(ws)}/contacts/${id}`, { token });
+export const createContact = (
+  token: string,
+  ws: string,
+  body: { name: string | null; phone: string; labels?: string[]; attributes?: Record<string, string> },
+) => send<Contact>(token, 'POST', `${base(ws)}/contacts`, body);
+export const updateContact = (
+  token: string,
+  ws: string,
+  id: string,
+  body: { name?: string | null; attributes?: Record<string, string> },
+) => send<Contact>(token, 'PUT', `${base(ws)}/contacts/${id}`, body);
+export const deleteContact = (token: string, ws: string, id: string) =>
+  send<void>(token, 'DELETE', `${base(ws)}/contacts/${id}`);
+export const addContactLabel = (token: string, ws: string, id: string, labelId: string) =>
+  send<Contact>(token, 'POST', `${base(ws)}/contacts/${id}/labels/${labelId}`);
+export const removeContactLabel = (token: string, ws: string, id: string, labelId: string) =>
+  send<Contact>(token, 'DELETE', `${base(ws)}/contacts/${id}/labels/${labelId}`);
+
+// Notes
+
+export const listNotes = (token: string, ws: string, id: string) =>
+  apiFetch<ContactNote[]>(`${base(ws)}/contacts/${id}/notes`, { token });
+export const addNote = (token: string, ws: string, id: string, text: string) =>
+  send<ContactNote>(token, 'POST', `${base(ws)}/contacts/${id}/notes`, { text });
+export const updateNote = (token: string, ws: string, id: string, noteId: string, text: string) =>
+  send<ContactNote>(token, 'PUT', `${base(ws)}/contacts/${id}/notes/${noteId}`, { text });
+export const deleteNote = (token: string, ws: string, id: string, noteId: string) =>
+  send<void>(token, 'DELETE', `${base(ws)}/contacts/${id}/notes/${noteId}`);
+
+// Saved filters
+
+export const listFilters = (token: string, ws: string) =>
+  apiFetch<SavedFilter[]>(`${base(ws)}/contact-filters`, { token });
+export const createFilter = (token: string, ws: string, name: string, filter: ContactFilterSpec) =>
+  send<SavedFilter>(token, 'POST', `${base(ws)}/contact-filters`, { name, filter });
+export const updateFilter = (token: string, ws: string, id: string, name: string, filter: ContactFilterSpec) =>
+  send<SavedFilter>(token, 'PUT', `${base(ws)}/contact-filters/${id}`, { name, filter });
+export const deleteFilter = (token: string, ws: string, id: string) =>
+  send<void>(token, 'DELETE', `${base(ws)}/contact-filters/${id}`);
+
+// Count and bulk
+
+export type BulkAction = 'ADD_LABELS' | 'REMOVE_LABELS' | 'SET_ATTRIBUTE' | 'CLEAR_ATTRIBUTE' | 'DELETE';
+
+export interface BulkRequest {
+  selection: Selection;
+  action: BulkAction;
+  labelIds?: string[];
+  attributeId?: string;
+  value?: string;
+}
+
+export const countContacts = (token: string, ws: string, selection: Selection) =>
+  send<{ count: number }>(token, 'POST', `${base(ws)}/contacts/count`, { selection });
+export const bulkContacts = (token: string, ws: string, body: BulkRequest) =>
+  send<{ matched: number; changed: number }>(token, 'POST', `${base(ws)}/contacts/bulk`, body);
