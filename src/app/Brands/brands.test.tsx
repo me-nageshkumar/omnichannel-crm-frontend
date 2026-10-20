@@ -88,4 +88,24 @@ describe('brands page', () => {
     expect(requestTo(fetch, 'PUT /api/workspaces/w1')?.body).toEqual({ name: 'Brand Alpha' });
     expect(await screen.findByRole('button', { name: 'Brand: Brand Alpha' })).toBeVisible();
   });
+
+  it('brandsPageDisablesBrand', async () => {
+    const off = { by: 'ravi', level: 'COMPANY', at: '2026-10-20T10:00:00Z' };
+    const fetch = mockFetch({
+      ...meThen(CUSTOMER_ADMIN),
+      'GET /api/workspaces': {
+        status: 200,
+        body: [
+          { id: 'w1', name: 'Brand A', disabled: null },
+          { id: 'w2', name: 'Brand B', disabled: null },
+        ],
+      },
+      'POST /api/workspaces/w2/disable': { status: 200, body: { id: 'w2', name: 'Brand B', disabled: off } },
+    });
+    const { user } = renderApp('/brands');
+    await rowAction(user, 'Brand B', 'Disable');
+    await user.click(await screen.findByRole('button', { name: 'Disable' }));
+    expect(await screen.findByText('Disabled')).toBeVisible();
+    expect(requestTo(fetch, 'POST /api/workspaces/w2/disable')).toBeDefined();
+  });
 });

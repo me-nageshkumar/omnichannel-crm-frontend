@@ -6,7 +6,7 @@ import { useSession } from '@app/session/SessionContext';
 export const WorkspaceSwitcher: React.FunctionComponent = () => {
   const { user, workspace, selectWorkspace } = useSession();
   const [isOpen, setIsOpen] = React.useState(false);
-  const workspaces = user?.workspaces ?? [];
+  const workspaces = (user?.workspaces ?? []).filter((w) => !w.disabled);
   if (!workspace) return null;
   const label = `Brand: ${workspace.name}`;
   if (workspaces.length === 1) return <span>{label}</span>;

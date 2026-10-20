@@ -9,8 +9,6 @@ import {
   CardTitle,
   Flex,
   FlexItem,
-  List,
-  ListItem,
   Spinner,
   Stack,
   StackItem,
@@ -20,12 +18,15 @@ import {
   CustomerDetail,
   addOwner,
   getCustomer,
+  listCustomerUsers,
   renameCustomer,
   resetOwnerPassword,
   setCustomerEnabled,
   setCustomerUserEnabled,
+  setCustomerWorkspaceEnabled,
 } from '@app/api/customers';
-import { UserSummary, WithTemporaryPassword } from '@app/api/users';
+import { UserSummary, WithTemporaryPassword, roleLabel } from '@app/api/users';
+import type { Workspace } from '@app/api/workspaces';
 import { ConfirmModal } from '@app/admin/ConfirmModal';
 import { NameModal } from '@app/admin/NameModal';
 import { PageShell } from '@app/admin/PageShell';
@@ -43,20 +44,33 @@ type Dialog =
   | { kind: 'toggle' }
   | { kind: 'addOwner' }
   | { kind: 'resetOwner'; owner: UserSummary }
-  | { kind: 'toggleOwner'; owner: UserSummary }
+  | { kind: 'toggleUser'; user: UserSummary }
+  | { kind: 'toggleBrand'; brand: Workspace }
   | { kind: 'password'; username: string; password: string };
 
-/** One customer: its brands and owners, and the platform-side actions on them. */
+/** "Brand A: Agent, Brand B: Team lead", or the company-wide role. */
+function rolesText(u: UserSummary): string {
+  if (u.role) return `${roleLabel(u.role.name)} (all brands)`;
+  return u.workspaceRoles.map((wr) => `${wr.workspaceName}: ${roleLabel(wr.role.name)}`).join(', ');
+}
+
+/** One customer: its brands, owners and users, and the platform-side actions on them. */
 export const CustomerDetailPage: React.FunctionComponent = () => {
   const { id = '' } = useParams();
   const { token } = useSession();
   const canManage = useAccess().has('customer:manage');
   const detail = useLoad((t) => getCustomer(t, id), [id]);
+  const users = useLoad((t) => listCustomerUsers(t, id), [id]);
   const [dialog, setDialog] = React.useState<Dialog | null>(null);
   const toggle = useAction();
 
   const update = (fn: (d: CustomerDetail) => CustomerDetail) => detail.setData((d) => (d ? fn(d) : d));
   const putOwner = (owner: UserSummary) => update((d) => ({ ...d, admins: upsert(d.admins, owner) }));
+  /** A user may be in both lists: owners are users too. */
+  const putUser = (u: UserSummary) => {
+    users.setData((list) => upsert(list ?? [], u));
+    update((d) => (d.admins.some((a) => a.id === u.id) ? { ...d, admins: upsert(d.admins, u) } : d));
+  };
   const showPassword = (reply: WithTemporaryPassword) => {
     putOwner(reply.user);
     setDialog({ kind: 'password', username: reply.user.username, password: reply.temporaryPassword });
@@ -86,13 +100,29 @@ export const CustomerDetailPage: React.FunctionComponent = () => {
       setDialog(null);
     }
   };
-  const onToggleOwner = async (owner: UserSummary) => {
-    const updated = await toggle.run(() => setCustomerUserEnabled(t, customer.id, owner.id, !owner.active));
+  const onToggleUser = async (u: UserSummary) => {
+    const updated = await toggle.run(() => setCustomerUserEnabled(t, customer.id, u.id, !u.active));
     if (updated) {
-      putOwner(updated);
+      putUser(updated);
       setDialog(null);
     }
   };
+  const onToggleBrand = async (brand: Workspace) => {
+    const updated = await toggle.run(() =>
+      setCustomerWorkspaceEnabled(t, customer.id, brand.id, Boolean(brand.disabled)),
+    );
+    if (updated) {
+      update((d) => ({ ...d, workspaces: upsert(d.workspaces, updated) }));
+      setDialog(null);
+    }
+  };
+  const toggleItem = (title: string, open: () => void) => ({
+    title,
+    onClick: () => {
+      toggle.reset();
+      open();
+    },
+  });
 
   return (
     <PageShell
@@ -133,11 +163,36 @@ export const CustomerDetailPage: React.FunctionComponent = () => {
           <Card>
             <CardTitle>Brands</CardTitle>
             <CardBody>
-              <List isPlain>
-                {workspaces.map((w) => (
-                  <ListItem key={w.id}>{w.name}</ListItem>
-                ))}
-              </List>
+              <Table aria-label="Brands" variant="compact">
+                <Thead>
+                  <Tr>
+                    <Th>Name</Th>
+                    <Th>Status</Th>
+                    <Th screenReaderText="Actions" />
+                  </Tr>
+                </Thead>
+                <Tbody>
+                  {workspaces.map((w) => (
+                    <Tr key={w.id}>
+                      <Td dataLabel="Name">{w.name}</Td>
+                      <Td dataLabel="Status">
+                        <EnabledLabel disabled={w.disabled} />
+                      </Td>
+                      <Td isActionCell>
+                        {canManage && (
+                          <ActionsColumn
+                            items={[
+                              toggleItem(w.disabled ? 'Enable' : 'Disable', () =>
+                                setDialog({ kind: 'toggleBrand', brand: w }),
+                              ),
+                            ]}
+                          />
+                        )}
+                      </Td>
+                    </Tr>
+                  ))}
+                </Tbody>
+              </Table>
             </CardBody>
           </Card>
         </StackItem>
@@ -177,13 +232,9 @@ export const CustomerDetailPage: React.FunctionComponent = () => {
                           <ActionsColumn
                             items={[
                               { title: 'Reset password', onClick: () => setDialog({ kind: 'resetOwner', owner: o }) },
-                              {
-                                title: o.active ? 'Disable' : 'Enable',
-                                onClick: () => {
-                                  toggle.reset();
-                                  setDialog({ kind: 'toggleOwner', owner: o });
-                                },
-                              },
+                              toggleItem(o.active ? 'Disable' : 'Enable', () =>
+                                setDialog({ kind: 'toggleUser', user: o }),
+                              ),
                             ]}
                           />
                         )}
@@ -192,6 +243,52 @@ export const CustomerDetailPage: React.FunctionComponent = () => {
                   ))}
                 </Tbody>
               </Table>
+            </CardBody>
+          </Card>
+        </StackItem>
+        <StackItem>
+          <Card>
+            <CardTitle>Users</CardTitle>
+            <CardBody>
+              {users.error && <Alert variant="danger" isInline title={users.error} />}
+              {users.loading && !users.data ? (
+                <Spinner aria-label="Loading users" />
+              ) : (
+                <Table aria-label="Users" variant="compact">
+                  <Thead>
+                    <Tr>
+                      <Th>Name</Th>
+                      <Th>Username</Th>
+                      <Th>Roles</Th>
+                      <Th>Status</Th>
+                      <Th screenReaderText="Actions" />
+                    </Tr>
+                  </Thead>
+                  <Tbody>
+                    {(users.data ?? []).map((u) => (
+                      <Tr key={u.id}>
+                        <Td dataLabel="Name">{u.name}</Td>
+                        <Td dataLabel="Username">{u.username}</Td>
+                        <Td dataLabel="Roles">{rolesText(u)}</Td>
+                        <Td dataLabel="Status">
+                          <EnabledLabel disabled={u.disabled} />
+                        </Td>
+                        <Td isActionCell>
+                          {canManage && (
+                            <ActionsColumn
+                              items={[
+                                toggleItem(u.active ? 'Disable' : 'Enable', () =>
+                                  setDialog({ kind: 'toggleUser', user: u }),
+                                ),
+                              ]}
+                            />
+                          )}
+                        </Td>
+                      </Tr>
+                    ))}
+                  </Tbody>
+                </Table>
+              )}
             </CardBody>
           </Card>
         </StackItem>
@@ -252,17 +349,32 @@ export const CustomerDetailPage: React.FunctionComponent = () => {
           onCancel={() => setDialog(null)}
         />
       )}
-      {dialog?.kind === 'toggleOwner' && (
+      {dialog?.kind === 'toggleBrand' && (
         <ConfirmModal
-          title={`${dialog.owner.active ? 'Disable' : 'Enable'} ${dialog.owner.name}?`}
-          confirmLabel={dialog.owner.active ? 'Disable' : 'Enable'}
-          variant={dialog.owner.active ? 'danger' : 'primary'}
+          title={`${dialog.brand.disabled ? 'Enable' : 'Disable'} ${dialog.brand.name}?`}
+          confirmLabel={dialog.brand.disabled ? 'Enable' : 'Disable'}
+          variant={dialog.brand.disabled ? 'primary' : 'danger'}
           busy={toggle.busy}
           error={toggle.error}
-          onConfirm={() => onToggleOwner(dialog.owner)}
+          onConfirm={() => onToggleBrand(dialog.brand)}
           onCancel={() => setDialog(null)}
         >
-          {dialog.owner.active
+          {dialog.brand.disabled
+            ? 'Its people can use it again and its WhatsApp numbers can reconnect.'
+            : 'Its people lose access to it and its WhatsApp numbers disconnect. Only platform staff can enable it again.'}
+        </ConfirmModal>
+      )}
+      {dialog?.kind === 'toggleUser' && (
+        <ConfirmModal
+          title={`${dialog.user.active ? 'Disable' : 'Enable'} ${dialog.user.name}?`}
+          confirmLabel={dialog.user.active ? 'Disable' : 'Enable'}
+          variant={dialog.user.active ? 'danger' : 'primary'}
+          busy={toggle.busy}
+          error={toggle.error}
+          onConfirm={() => onToggleUser(dialog.user)}
+          onCancel={() => setDialog(null)}
+        >
+          {dialog.user.active
             ? 'They will be logged out and unable to log in until enabled again.'
             : 'They will be able to log in again.'}
         </ConfirmModal>

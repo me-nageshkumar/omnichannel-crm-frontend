@@ -1,5 +1,6 @@
 import { apiFetch } from '@app/api/client';
 import type { Disabled } from '@app/api/enablement';
+import type { Workspace } from '@app/api/workspaces';
 import type { TemporaryPassword, UserSummary, WithTemporaryPassword } from '@app/api/users';
 
 export const CUSTOMER_PAGE_SIZE = 50;
@@ -20,7 +21,7 @@ export interface CustomerPage {
 
 export interface CustomerDetail {
   customer: Customer;
-  workspaces: Array<{ id: string; name: string }>;
+  workspaces: Workspace[];
   admins: UserSummary[];
 }
 
@@ -77,6 +78,13 @@ export const resetOwnerPassword = (token: string, id: string, userId: string, te
     token,
     body: { temporaryPassword },
   });
+
+export const listCustomerUsers = (token: string, id: string) =>
+  apiFetch<UserSummary[]>(`/api/customers/${id}/users`, { token });
+
+/** Platform staff (PLATFORM level). */
+export const setCustomerWorkspaceEnabled = (token: string, id: string, workspaceId: string, enabled: boolean) =>
+  apiFetch<Workspace>(`/api/customers/${id}/workspaces/${workspaceId}/${toggle(enabled)}`, { method: 'POST', token });
 
 /** Any user of the customer, its owners included (platform staff, PLATFORM level). */
 export const setCustomerUserEnabled = (token: string, id: string, userId: string, enabled: boolean) =>

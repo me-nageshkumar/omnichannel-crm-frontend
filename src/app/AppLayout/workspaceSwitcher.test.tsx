@@ -34,4 +34,19 @@ describe('brand switcher', () => {
     expect(await screen.findByText('Brand: Brand A')).toBeVisible();
     expect(screen.queryByRole('button', { name: 'Brand: Brand A' })).toBeNull();
   });
+
+  it('switcherSkipsDisabledBrand', async () => {
+    storeSession();
+    localStorage.setItem(WORKSPACE_KEY, 'w1');
+    const off = { by: 'am', level: 'PLATFORM' as const, at: '2026-10-20T10:00:00Z' };
+    mockFetch(
+      meAs({
+        ...CUSTOMER_ADMIN,
+        workspaces: [{ ...CUSTOMER_ADMIN.workspaces[0], disabled: off, authorities: [] }, CUSTOMER_ADMIN.workspaces[1]],
+      }),
+    );
+    renderApp('/');
+    expect(await screen.findByText('Brand: Brand B')).toBeVisible();
+    expect(screen.queryByRole('button', { name: /Brand:/ })).toBeNull();
+  });
 });

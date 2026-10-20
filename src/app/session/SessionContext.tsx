@@ -157,8 +157,8 @@ export const SessionProvider: React.FunctionComponent<{ children: React.ReactNod
     setState((s) => ({ ...s, user }));
   }, [state.token]);
 
-  // A stored brand the user no longer has falls back to their first.
-  const workspaces = state.user?.workspaces ?? [];
+  // A stored brand the user no longer has, or that is disabled, falls back to their first enabled one.
+  const workspaces = (state.user?.workspaces ?? []).filter((w) => !w.disabled);
   const workspace = workspaces.find((w) => w.id === workspaceId) ?? workspaces[0] ?? null;
 
   const value: Session = {

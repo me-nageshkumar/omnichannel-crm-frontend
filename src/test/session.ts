@@ -52,7 +52,7 @@ export const CUSTOMER_ADMIN: CurrentUser = {
   username: 'ravi',
   customer: { id: 'c1', name: 'Acme' },
   role: { id: 'r-ca', name: 'CUSTOMER_ADMIN' },
-  authorities: ['workspace:create', 'company-user:manage'],
+  authorities: ['workspace:create', 'workspace:enable', 'company-user:manage'],
   workspaces: [BRAND_A, BRAND_B],
 };
 

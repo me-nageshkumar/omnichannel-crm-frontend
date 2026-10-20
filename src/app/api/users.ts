@@ -24,6 +24,8 @@ export interface WorkspaceAccess {
   /** Null when access comes from the user's company-wide role. */
   role: RoleRef | null;
   authorities: string[];
+  /** Set when the brand is disabled; only company-wide roles still see it, with no authorities. */
+  disabled?: Disabled | null;
 }
 
 export interface CurrentUser {

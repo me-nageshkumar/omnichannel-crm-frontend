@@ -11,7 +11,13 @@ const ACME = { id: 'c1', name: 'Acme', active: true, disabled: null, creationTim
 const GLOBEX = { id: 'c2', name: 'Globex', active: false, disabled: OFF, creationTime: '2026-10-19T10:00:00Z' };
 const CA_ROLE = { id: 'r-ca', name: 'CUSTOMER_ADMIN' };
 const RAVI = summary({ id: 'u3', name: 'Ravi Owner', username: 'ravi', role: CA_ROLE });
-const DETAIL = { customer: ACME, workspaces: [{ id: 'w1', name: 'Acme Retail' }], admins: [RAVI] };
+const DETAIL = { customer: ACME, workspaces: [{ id: 'w1', name: 'Acme Retail', disabled: null }], admins: [RAVI] };
+const ARUN = summary({
+  id: 'u5',
+  name: 'Arun Agent',
+  username: 'arun',
+  workspaceRoles: [{ workspaceId: 'w1', workspaceName: 'Acme Retail', role: { id: 'r-ag', name: 'AGENT' } }],
+});
 
 const page = (items: unknown[], total = items.length, n = 0) => ({ status: 200, body: { items, total, page: n } });
 
@@ -50,6 +56,7 @@ describe('customers', () => {
       'GET /api/customers': page([]),
       'POST /api/customers': { status: 201, body: { customer: ACME, user: RAVI, temporaryPassword: 'temp-pass-123' } },
       'GET /api/customers/c1': { status: 200, body: DETAIL },
+      'GET /api/customers/c1/users': { status: 200, body: [] },
     });
     const { user } = renderApp('/customers');
     await user.click(await screen.findByRole('button', { name: 'Add customer' }));
@@ -96,6 +103,7 @@ describe('customers', () => {
     const fetch = mockFetch({
       ...meAs(ACCOUNT_MANAGER),
       'GET /api/customers/c1': { status: 200, body: DETAIL },
+      'GET /api/customers/c1/users': { status: 200, body: [] },
       'POST /api/customers/c1/disable': { status: 200, body: { ...ACME, active: false, disabled: OFF } },
     });
     const { user } = renderApp('/customers/c1');
@@ -111,6 +119,7 @@ describe('customers', () => {
     mockFetch({
       ...meAs(ACCOUNT_MANAGER),
       'GET /api/customers/c1': { status: 200, body: DETAIL },
+      'GET /api/customers/c1/users': { status: 200, body: [] },
       'POST /api/customers/c1/admins': { status: 201, body: { user: neha, temporaryPassword: 'temp-pass-456' } },
     });
     const { user } = renderApp('/customers/c1');
@@ -128,6 +137,7 @@ describe('customers', () => {
     const fetch = mockFetch({
       ...meAs(ACCOUNT_MANAGER),
       'GET /api/customers/c1': { status: 200, body: DETAIL },
+      'GET /api/customers/c1/users': { status: 200, body: [] },
       'POST /api/customers/c1/admins/u3/reset-password': {
         status: 200,
         body: { temporaryPassword: 'reset-pass-77' },
@@ -148,6 +158,7 @@ describe('customers', () => {
       ...meAs({ ...ACCOUNT_MANAGER, authorities: ['customer:view'] }),
       'GET /api/customers': page([ACME]),
       'GET /api/customers/c1': { status: 200, body: DETAIL },
+      'GET /api/customers/c1/users': { status: 200, body: [] },
     });
     renderApp('/customers/c1');
     await screen.findByRole('heading', { name: 'Acme' });
@@ -164,5 +175,50 @@ describe('customers', () => {
     });
     renderApp('/customers/zz');
     expect(await screen.findByText("That item no longer exists or you can't see it.")).toBeVisible();
+  });
+
+  it('usersTabListsAllCustomerUsers', async () => {
+    mockFetch({
+      ...meAs(ACCOUNT_MANAGER),
+      'GET /api/customers/c1': { status: 200, body: DETAIL },
+      'GET /api/customers/c1/users': { status: 200, body: [RAVI, ARUN] },
+    });
+    renderApp('/customers/c1');
+    const users = await screen.findByRole('grid', { name: 'Users' });
+    const row = within(users).getByText('Arun Agent').closest('tr') as HTMLElement;
+    expect(within(row).getByText('arun')).toBeVisible();
+    expect(within(row).getByText('Acme Retail: Agent')).toBeVisible();
+    expect(within(users).getByText('Ravi Owner')).toBeVisible();
+  });
+
+  it('accountManagerDisablesAgent', async () => {
+    const fetch = mockFetch({
+      ...meAs(ACCOUNT_MANAGER),
+      'GET /api/customers/c1': { status: 200, body: DETAIL },
+      'GET /api/customers/c1/users': { status: 200, body: [RAVI, ARUN] },
+      'POST /api/customers/c1/users/u5/disable': { status: 200, body: { ...ARUN, active: false, disabled: OFF } },
+    });
+    const { user } = renderApp('/customers/c1');
+    await rowAction(user, 'Arun Agent', 'Disable');
+    await user.click(within(screen.getByRole('dialog')).getByRole('button', { name: 'Disable' }));
+    expect(await within(await rowWith('Arun Agent')).findByText('Disabled')).toBeVisible();
+    expect(requestTo(fetch, 'POST /api/customers/c1/users/u5/disable')).toBeDefined();
+  });
+
+  it('brandDisableFromCustomerDetail', async () => {
+    const fetch = mockFetch({
+      ...meAs(ACCOUNT_MANAGER),
+      'GET /api/customers/c1': { status: 200, body: DETAIL },
+      'GET /api/customers/c1/users': { status: 200, body: [] },
+      'POST /api/customers/c1/workspaces/w1/disable': {
+        status: 200,
+        body: { id: 'w1', name: 'Acme Retail', disabled: OFF },
+      },
+    });
+    const { user } = renderApp('/customers/c1');
+    await rowAction(user, 'Acme Retail', 'Disable');
+    await user.click(within(screen.getByRole('dialog')).getByRole('button', { name: 'Disable' }));
+    expect(await within(await rowWith('Acme Retail')).findByText('Disabled')).toBeVisible();
+    expect(requestTo(fetch, 'POST /api/customers/c1/workspaces/w1/disable')).toBeDefined();
   });
 });
