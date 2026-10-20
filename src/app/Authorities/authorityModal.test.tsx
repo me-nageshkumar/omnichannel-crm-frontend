@@ -62,18 +62,18 @@ describe('authority dialogs', () => {
 
   it('typedUnknownCodeWarns', async () => {
     const fetch = mockFetch(
-      routes({ 'POST /api/authorities': { status: 201, body: authority('order:refnd', { status: 'NOT_CHECKED' }) } }),
+      routes({ 'POST /api/authorities': { status: 201, body: authority('order:refund', { status: 'NOT_CHECKED' }) } }),
     );
     const { user } = renderApp('/authorities');
     await openAdd(user);
-    await user.type(codeBox(), 'order:refnd');
+    await user.type(codeBox(), 'order:refund');
     expect(screen.getByText(TYPED_WARNING)).toBeVisible();
     await user.selectOptions(levelSelect(), 'PLATFORM');
     await fill(user, 'Description', 'Refund');
     await user.click(screen.getByRole('button', { name: 'Create' }));
     await vi.waitFor(() => expect(callsTo(fetch, 'POST /api/authorities')).toBe(1));
     expect(requestTo(fetch, 'POST /api/authorities')?.body).toEqual({
-      code: 'order:refnd',
+      code: 'order:refund',
       group: 'order',
       level: 'PLATFORM',
       description: 'Refund',
@@ -245,5 +245,65 @@ describe('authority dialogs', () => {
     expect(items[0]).toHaveTextContent(/changed the description/);
     expect(items[0]).not.toHaveTextContent(/level/);
     expect(items[1]).toHaveTextContent(/system · created/);
+  });
+
+  describe('final review fixes', () => {
+    it('retypedCodeRederivesGroup', async () => {
+      mockFetch(routes());
+      const { user } = renderApp('/authorities');
+      await openAdd(user);
+      await user.type(codeBox(), 'x:');
+      await user.click(await screen.findByRole('option', { name: /x:y/ }));
+      expect(screen.getByLabelText(/^Group/)).toHaveValue('x');
+      await user.clear(codeBox());
+      await user.type(codeBox(), 'invoice:pay');
+      expect(screen.getByLabelText(/^Group/)).toHaveValue('invoice');
+    });
+
+    it('prefilledCodeRetypedRederivesGroup', async () => {
+      mockFetch(routes());
+      const { user } = renderApp('/authorities');
+      const panel = await screen.findByRole('region', { name: /Checked in code, not created yet/ });
+      const probeRow = within(panel).getByText('test:probe').closest('tr') as HTMLElement;
+      await user.click(within(probeRow).getByRole('button', { name: 'Create' }));
+      await screen.findByRole('dialog');
+      await user.clear(codeBox());
+      await user.type(codeBox(), 'order:pay');
+      expect(screen.getByLabelText(/^Group/)).toHaveValue('order');
+    });
+
+    it('existingCodeSaysAlreadyExists', async () => {
+      mockFetch(routes());
+      const { user } = renderApp('/authorities');
+      await openAdd(user);
+      await user.type(codeBox(), 'customer:view');
+      expect(screen.getByText('An authority with this code already exists.')).toBeVisible();
+      expect(screen.queryByText(TYPED_WARNING)).toBeNull();
+    });
+
+    it('noTypedWarningWhileNeedsCreatingLoads', async () => {
+      mockFetch(routes({ 'GET /api/authorities/needs-creating': { status: 500, body: { code: 'INTERNAL' } } }));
+      const { user } = renderApp('/authorities');
+      await openAdd(user);
+      await user.type(codeBox(), 'order:pay');
+      expect(screen.queryByText(TYPED_WARNING)).toBeNull();
+    });
+
+    it('refusedDeleteReloadsTheList', async () => {
+      const fetch = mockFetch(
+        routes({
+          'DELETE /api/authorities/order%3Arefnd': {
+            status: 409,
+            body: { code: 'AUTHORITY_IN_USE', message: 'in use', roles: ['AGENT'] },
+          },
+        }),
+      );
+      const { user } = renderApp('/authorities');
+      await rowAction(user, 'order:refnd', 'Delete');
+      const dialog = await screen.findByRole('dialog');
+      await user.click(within(dialog).getByRole('button', { name: 'Delete' }));
+      await within(dialog).findByText(/This authority is in a role: AGENT/);
+      await vi.waitFor(() => expect(callsTo(fetch, 'GET /api/authorities')).toBe(2));
+    });
   });
 });

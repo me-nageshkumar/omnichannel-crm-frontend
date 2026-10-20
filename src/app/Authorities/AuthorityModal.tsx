@@ -69,23 +69,27 @@ export const AuthorityModal: React.FunctionComponent<{
   mode: 'create' | 'edit';
   authority?: Authority;
   prefill?: NeedsCreating;
-  needsCreating: NeedsCreating[];
+  /** Undefined until loaded (or if loading failed): no "nothing checks it" warning is shown then. */
+  needsCreating: NeedsCreating[] | undefined;
+  existingCodes: string[];
   groups: string[];
   onSaved(a: Authority): void;
   onCancel(): void;
-}> = ({ mode, authority, prefill, needsCreating, groups, onSaved, onCancel }) => {
+}> = ({ mode, authority, prefill, needsCreating, existingCodes, groups, onSaved, onCancel }) => {
   const { token } = useSession();
   const editing = mode === 'edit' && authority !== undefined;
   const [code, setCode] = React.useState(authority?.code ?? prefill?.code ?? '');
   const [group, setGroup] = React.useState(authority?.group ?? prefill?.suggestedGroup ?? '');
-  const [groupTouched, setGroupTouched] = React.useState(editing || prefill !== undefined);
+  // The group follows the code until the user edits the group field itself; a pick or prefill doesn't count.
+  const [groupTouched, setGroupTouched] = React.useState(editing);
   const [level, setLevel] = React.useState<RoleLevel | ''>(authority?.level ?? prefill?.suggestedLevel ?? '');
   const [description, setDescription] = React.useState(authority?.description ?? '');
   const [clientErrors, setClientErrors] = React.useState<Record<string, string>>({});
   const action = useAction(FIELDS);
   const errors = { ...action.fieldErrors, ...clientErrors };
 
-  const found = needsCreating.find((n) => n.code === code.trim());
+  const found = needsCreating?.find((n) => n.code === code.trim());
+  const exists = !editing && existingCodes.includes(code.trim());
   const levelLocked = editing && (authority.builtIn || authority.roles.length > 0);
   const levelHelper = !editing
     ? undefined
@@ -95,8 +99,9 @@ export const AuthorityModal: React.FunctionComponent<{
         ? `In a role (${authority.roles.join(', ')}). Remove it from roles to change its level.`
         : undefined;
 
-  const codeWarning =
-    !editing && code.trim() && !found
+  const codeWarning = exists
+    ? 'An authority with this code already exists.'
+    : !editing && code.trim() && needsCreating && !found
       ? `No code checks ${code.trim()} yet. It will have no effect until it does.`
       : undefined;
   const levelWarning = !editing && found && level && wrongLevel(found, level) ? wrongLevelText(level) : undefined;
@@ -107,11 +112,10 @@ export const AuthorityModal: React.FunctionComponent<{
   };
 
   const onPick = (value: string) => {
-    const pick = needsCreating.find((n) => n.code === value);
+    const pick = needsCreating?.find((n) => n.code === value);
     setCode(value);
     if (!pick) return;
-    setGroup(pick.suggestedGroup);
-    setGroupTouched(true);
+    if (!groupTouched) setGroup(pick.suggestedGroup);
     if (pick.suggestedLevel) setLevel(pick.suggestedLevel);
   };
 
@@ -145,7 +149,7 @@ export const AuthorityModal: React.FunctionComponent<{
                 id="authority-code"
                 label="Code"
                 value={code}
-                options={needsCreating.map((n) => ({ value: n.code, description: n.checkedIn.join(', ') }))}
+                options={(needsCreating ?? []).map((n) => ({ value: n.code, description: n.checkedIn.join(', ') }))}
                 onChange={onCodeChange}
                 onPick={onPick}
               />

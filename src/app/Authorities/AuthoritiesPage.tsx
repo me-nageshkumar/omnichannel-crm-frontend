@@ -134,6 +134,9 @@ export const AuthoritiesPage: React.FunctionComponent = () => {
       authorities.setData((list) => (list ?? []).filter((x) => x.code !== a.code));
       needsCreating.reload();
       setDialog(null);
+    } else {
+      // e.g. AUTHORITY_IN_USE: the row's role count was stale, so refresh it
+      authorities.reload();
     }
   };
 
@@ -250,7 +253,8 @@ export const AuthoritiesPage: React.FunctionComponent = () => {
           mode={dialog.kind}
           authority={dialog.kind === 'edit' ? dialog.authority : undefined}
           prefill={dialog.kind === 'create' ? dialog.prefill : undefined}
-          needsCreating={needsCreating.data ?? []}
+          needsCreating={needsCreating.data}
+          existingCodes={(authorities.data ?? []).map((a) => a.code)}
           groups={groups}
           onSaved={(saved) => {
             authorities.setData((list) => upsertByCode(list ?? [], saved));
