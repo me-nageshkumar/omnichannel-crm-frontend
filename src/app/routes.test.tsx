@@ -13,7 +13,17 @@ import {
   storeSession,
 } from '../test/session';
 
-const ALL = ['Platform users', 'Roles', 'Authorities', 'Customers', 'Brands', 'Users', 'Teams', 'Phone numbers'];
+const ALL = [
+  'Platform users',
+  'Roles',
+  'Authorities',
+  'Customers',
+  'Brands',
+  'Users',
+  'Teams',
+  'Phone numbers',
+  'All phone numbers',
+];
 
 async function navFor(user: CurrentUser): Promise<string[]> {
   storeSession();
@@ -40,11 +50,17 @@ describe('authority-driven navigation', () => {
   });
 
   it('account manager sees customers only', async () => {
-    expect(await navFor(ACCOUNT_MANAGER)).toEqual(['Customers']);
+    expect(await navFor(ACCOUNT_MANAGER)).toEqual(['Customers', 'All phone numbers']);
   });
 
   it('super admin sees platform users, roles and customers', async () => {
-    expect(await navFor(SUPER_ADMIN)).toEqual(['Platform users', 'Roles', 'Authorities', 'Customers']);
+    expect(await navFor(SUPER_ADMIN)).toEqual([
+      'Platform users',
+      'Roles',
+      'Authorities',
+      'Customers',
+      'All phone numbers',
+    ]);
   });
 
   it('a direct URL without the authority is not found', async () => {

@@ -8,6 +8,8 @@ const PLATFORM_CODES = [
   'customer:create',
   'customer:manage',
   'whatsapp:bridge',
+  'phone-number:view-all',
+  'phone-number:manage-all',
 ];
 export const BRAND_CODES = [
   'workspace:settings',
@@ -47,7 +49,13 @@ export const ACCOUNT_MANAGER: CurrentUser = {
   name: 'Asha Manager',
   username: 'asha',
   role: { id: 'r-am', name: 'ACCOUNT_MANAGER' },
-  authorities: ['customer:view', 'customer:create', 'customer:manage'],
+  authorities: [
+    'customer:view',
+    'customer:create',
+    'customer:manage',
+    'phone-number:view-all',
+    'phone-number:manage-all',
+  ],
 };
 
 export const BRAND_A: WorkspaceAccess = { id: 'w1', name: 'Brand A', role: null, authorities: BRAND_CODES };
