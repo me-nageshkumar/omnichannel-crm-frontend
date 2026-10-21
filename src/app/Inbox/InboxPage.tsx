@@ -225,6 +225,16 @@ export const InboxPage: React.FunctionComponent = () => {
             setStarting(false);
             setNotice(null);
             list.reload();
+            thread.apply({ type: 'message', chatId: started.chatId, message: started });
+            if (token && started.chatId === openId.current) {
+              // Navigating to the URL already open re-runs nothing, so the chat (it may have been closed) is fetched here.
+              getChat(token, ws, started.chatId).then(
+                (fresh) => {
+                  if (openId.current === started.chatId) setChat(fresh);
+                },
+                () => undefined,
+              );
+            }
             navigate(`/inbox/${encodeURIComponent(phoneNumberId)}/${encodeURIComponent(started.chatId)}`);
           }}
         />

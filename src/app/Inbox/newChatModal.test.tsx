@@ -234,4 +234,55 @@ describe('new chat modal', () => {
     await waitFor(() => expect(onStarted).toHaveBeenCalledTimes(1));
     expect(requestTo(fetch, START)?.body).toEqual({ phone: '919811111111', templateId: 't1', values: {} });
   });
+
+  it('focuses the phone number first', async () => {
+    mockFetch({ ...meAs(AGENT_IN_BRAND) });
+    renderModal();
+    const box = await phoneBox();
+    await waitFor(() => expect(box).toHaveFocus());
+  });
+
+  it('Escape in the template picker closes only the picker', async () => {
+    mockFetch({
+      ...meAs(AGENT_IN_BRAND),
+      [TEMPLATES]: { status: 200, body: [welcome] },
+    });
+    const { user, onClose } = renderModal();
+    await user.type(await phoneBox(), '919811111111');
+    await user.type(await messageBox(), 'hello');
+    await user.click(templateButton());
+    await screen.findByRole('dialog', { name: 'Send a template' });
+    await user.keyboard('{Escape}');
+    await waitFor(() => expect(screen.queryByRole('dialog', { name: 'Send a template' })).not.toBeInTheDocument());
+    expect(screen.getByRole('dialog', { name: 'New chat' })).toBeInTheDocument();
+    expect(await phoneBox()).toHaveValue('919811111111');
+    expect(await messageBox()).toHaveValue('hello');
+    expect(onClose).not.toHaveBeenCalled();
+  });
+
+  it('ignores close requests while a send is in flight', async () => {
+    let release: () => void = () => undefined;
+    const gate = new Promise<void>((resolve) => {
+      release = resolve;
+    });
+    const fetch = mockFetch({ ...meAs(AGENT_IN_BRAND), [START]: { status: 200, body: STARTED } });
+    const answer = fetch.getMockImplementation() as NonNullable<ReturnType<typeof fetch.getMockImplementation>>;
+    fetch.mockImplementation(async (input, init) => {
+      if (new URL(String(input), 'http://localhost').pathname.endsWith('/chats')) await gate;
+      return answer(input, init);
+    });
+    const { user, onStarted, onClose } = renderModal();
+    await user.type(await phoneBox(), '919811111111');
+    await user.type(await messageBox(), 'hello');
+    await user.click(sendButton());
+    await waitFor(() => expect(sendButton()).toBeDisabled());
+    await user.click(screen.getByRole('button', { name: 'Cancel' }));
+    await user.keyboard('{Escape}');
+    await user.click(screen.getByRole('button', { name: 'Close' }));
+    expect(onClose).not.toHaveBeenCalled();
+    expect(screen.getByRole('dialog', { name: 'New chat' })).toBeInTheDocument();
+    release();
+    await waitFor(() => expect(onStarted).toHaveBeenCalledWith(STARTED));
+    expect(onClose).not.toHaveBeenCalled();
+  });
 });

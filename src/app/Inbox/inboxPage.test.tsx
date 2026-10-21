@@ -469,6 +469,26 @@ describe('inbox page', () => {
     await waitFor(() => expect(screen.queryByRole('dialog')).toBeNull());
   });
 
+  it('starting a chat with the number of the open chat refreshes it', async () => {
+    const { routes: r } = routes({
+      [START]: { status: 200, body: message({ id: 'm9', chatId: 'c1', direction: 'OUT', body: 'Fresh start' }) },
+    });
+    const fetch = mockFetch(r);
+    const { user } = renderApp('/inbox/p1', <Where />);
+    await user.click(within(await list()).getByRole('button', { name: /Asha Rao/ }));
+    expect(await screen.findByText('Hello from Asha', { selector: 'div' })).toBeVisible();
+    expect(callsTo(fetch, CHAT)).toBe(1);
+
+    await user.click(screen.getByRole('button', { name: 'New chat' }));
+    await user.type(await screen.findByRole('textbox', { name: 'Phone number' }), '919900000001');
+    await user.type(screen.getByRole('textbox', { name: 'Message' }), 'Fresh start');
+    await user.click(screen.getByRole('button', { name: 'Send' }));
+
+    await waitFor(() => expect(callsTo(fetch, CHAT)).toBe(2));
+    expect(await screen.findByText('Fresh start', { selector: 'div' })).toBeVisible();
+    expect(screen.getByLabelText('Location')).toHaveTextContent(/^\/inbox\/p1\/c1$/);
+  });
+
   it('hides New chat without inbox:send', async () => {
     const { routes: r } = routes({}, VIEWER);
     mockFetch(r);

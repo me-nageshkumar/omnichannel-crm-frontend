@@ -79,7 +79,18 @@ export const NewChatModal: React.FunctionComponent<{
 
   return (
     <>
-      <Modal isOpen variant="small" onClose={onClose} aria-labelledby="new-chat-title">
+      <Modal
+        isOpen
+        variant="small"
+        // Closing mid-send would still navigate on success, from wherever the agent has gone.
+        onClose={sending ? () => undefined : onClose}
+        // Every open Modal hears Escape: leave this one to the template picker while it is on top.
+        onEscapePress={() => {
+          if (!picking && !sending) onClose();
+        }}
+        elementToFocus="#new-chat-phone"
+        aria-labelledby="new-chat-title"
+      >
         <ModalHeader title="New chat" labelId="new-chat-title" />
         <ModalBody>
           {!numberConnected && <Alert variant="info" isInline isPlain title={NOT_CONNECTED} />}
@@ -152,7 +163,7 @@ export const NewChatModal: React.FunctionComponent<{
           >
             Template…
           </Button>
-          <Button variant="link" onClick={onClose}>
+          <Button variant="link" onClick={onClose} isDisabled={sending}>
             Cancel
           </Button>
         </ModalFooter>
