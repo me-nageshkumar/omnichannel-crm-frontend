@@ -173,7 +173,7 @@ describe('new chat modal', () => {
     await user.type(await messageBox(), 'hello');
     await user.click(sendButton());
     expect(await screen.findByText('must be 8 to 15 digits')).toBeInTheDocument();
-    expect(screen.queryByRole('alert')).not.toBeInTheDocument();
+    expect(document.querySelector('.pf-v6-c-alert')).toBeNull();
     expect(onStarted).not.toHaveBeenCalled();
     // Editing the number clears the server's complaint about it.
     await user.type(await phoneBox(), '0');
@@ -191,7 +191,7 @@ describe('new chat modal', () => {
     await user.type(await messageBox(), 'hello');
     await user.click(sendButton());
     expect(await screen.findByText('must not be blank')).toBeInTheDocument();
-    expect(screen.queryByRole('alert')).not.toBeInTheDocument();
+    expect(document.querySelector('.pf-v6-c-alert')).toBeNull();
   });
 
   it('shows the taken-chat message', async () => {
@@ -503,6 +503,24 @@ describe('new chat modal', () => {
       );
     });
 
+    it('a lookup that fails on Send stops that click, and the next click goes ahead', async () => {
+      const fetch = mockFetch({
+        ...meAs(AGENT_IN_BRAND),
+        [LOOKUP]: { status: 502, body: { code: 'LOOKUP_FAILED', message: 'x' } },
+        [START]: { status: 200, body: STARTED },
+      });
+      const { user, onStarted } = renderModal();
+      await user.type(await messageBox(), 'hello');
+      await user.type(await phoneBox(), '919811111111{Enter}');
+      expect(await screen.findByText('Could not check this number')).toBeInTheDocument();
+      expect(callsTo(fetch, START)).toBe(0);
+      await waitFor(() => expect(sendButton()).toBeEnabled());
+      await user.click(sendButton());
+      await waitFor(() => expect(onStarted).toHaveBeenCalledTimes(1));
+      expect(callsTo(fetch, START)).toBe(1);
+      expect(callsTo(fetch, LOOKUP)).toBe(1);
+    });
+
     it('does not send when the pre-send lookup says not on WhatsApp', async () => {
       const fetch = mockFetch({ ...meAs(AGENT_IN_BRAND), [LOOKUP]: lookup(false) });
       const { user, onStarted } = renderModal();
@@ -525,7 +543,7 @@ describe('new chat modal', () => {
       await user.click(sendButton());
       expect(await screen.findByText(NOT_ON)).toBeInTheDocument();
       expect(screen.getByRole('button', { name: 'Check again' })).toBeInTheDocument();
-      expect(screen.queryByRole('alert')).not.toBeInTheDocument();
+      expect(document.querySelector('.pf-v6-c-alert')).toBeNull();
       expect(onStarted).not.toHaveBeenCalled();
     });
 

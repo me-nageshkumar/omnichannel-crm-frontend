@@ -92,7 +92,12 @@ export const NewChatModal: React.FunctionComponent<{
     let state: Verdict;
     if (current?.state === 'registered' || current?.state === 'failed') state = current.state;
     else if (current?.state === 'checking' && pending.current?.phone === cleaned) state = await pending.current.verdict;
-    else state = await check(false);
+    else {
+      state = await check(false);
+      // A lookup that this very click had to start and that failed can have taken as long as the server's
+      // timeout: sending now would make the server wait that long again. The next click goes ahead.
+      if (state === 'failed') return false;
+    }
     // The agent may have edited the number while the lookup was out.
     return state !== 'unregistered' && latestPhone.current === cleaned;
   };
@@ -165,7 +170,7 @@ export const NewChatModal: React.FunctionComponent<{
                 }}
               />
               <FormHelperText>
-                <HelperText>
+                <HelperText isLiveRegion>
                   {shownPhoneError ? (
                     <HelperTextItem variant="error">{shownPhoneError}</HelperTextItem>
                   ) : current?.state === 'checking' ? (
