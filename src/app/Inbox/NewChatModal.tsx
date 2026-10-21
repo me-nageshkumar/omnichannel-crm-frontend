@@ -15,7 +15,7 @@ import {
   TextInput,
 } from '@patternfly/react-core';
 import { ApiError } from '@app/api/client';
-import { MessageView, startChat } from '@app/api/inbox';
+import { MessageView, lookupNumber, startChat } from '@app/api/inbox';
 import { messageFor } from '@app/api/messages';
 import { COUNTER_FROM, MAX_LENGTH } from '@app/Inbox/Composer';
 import { TemplatePickerModal } from '@app/Inbox/TemplatePickerModal';
@@ -28,6 +28,13 @@ const PHONE_INVALID = 'Enter 8 to 15 digits with the country code';
 /** What the server is sent: the number as typed, minus the punctuation people put in it. */
 const cleanPhone = (raw: string) => raw.replace(/[+\s\-()]/g, '');
 const isValidPhone = (cleaned: string) => /^[1-9][0-9]{7,14}$/.test(cleaned);
+
+type Verdict = 'registered' | 'unregistered' | 'failed';
+/** What is known about one phone number: a lookup under way, or its verdict. */
+interface Answer {
+  phone: string;
+  state: 'checking' | Verdict;
+}
 
 /** Starts a chat with a phone number by sending it a first message: text, or a template. */
 export const NewChatModal: React.FunctionComponent<{
@@ -48,12 +55,45 @@ export const NewChatModal: React.FunctionComponent<{
   const [picking, setPicking] = React.useState(false);
   // A second click or Enter can arrive before the first send has re-rendered the button as disabled.
   const inFlight = React.useRef(false);
+  const [answer, setAnswer] = React.useState<Answer | null>(null);
+  // The number as last typed, so a lookup that comes back late can tell it is about an old one.
+  const latestPhone = React.useRef('');
+  // The lookup under way, so a send or Template… click made meanwhile waits for it instead of starting another.
+  const pending = React.useRef<{ phone: string; verdict: Promise<Verdict> } | null>(null);
 
   const cleaned = cleanPhone(phone);
   const phoneValid = isValidPhone(cleaned);
   const trimmed = text.trim();
-  const canSend = numberConnected && phoneValid && trimmed.length > 0 && !sending;
+  // An answer about another number is as good as none.
+  const current = answer && answer.phone === cleaned ? answer : null;
+  const unregistered = current?.state === 'unregistered';
+  const canSend = numberConnected && phoneValid && trimmed.length > 0 && !sending && !unregistered;
   const shownPhoneError = phoneError ?? (touched && !phoneValid ? PHONE_INVALID : null);
+
+  const check = (force: boolean): Promise<Verdict> => {
+    const checked = cleaned;
+    setAnswer({ phone: checked, state: 'checking' });
+    const verdict = lookupNumber(token as string, ws, phoneNumberId, checked, force).then(
+      (found): Verdict => (found.registered ? 'registered' : 'unregistered'),
+      (): Verdict => 'failed',
+    );
+    const settled = verdict.then((state) => {
+      if (latestPhone.current === checked) setAnswer({ phone: checked, state });
+      return state;
+    });
+    pending.current = { phone: checked, verdict: settled };
+    return settled;
+  };
+
+  /** Whether to go on with this number: only a number known not to be on WhatsApp stops the agent. */
+  const ensureChecked = async () => {
+    let state: Verdict;
+    if (current?.state === 'registered' || current?.state === 'failed') state = current.state;
+    else if (current?.state === 'checking' && pending.current?.phone === cleaned) state = await pending.current.verdict;
+    else state = await check(false);
+    // The agent may have edited the number while the lookup was out.
+    return state !== 'unregistered' && latestPhone.current === cleaned;
+  };
 
   const send = async () => {
     setTouched(true);
@@ -64,10 +104,14 @@ export const NewChatModal: React.FunctionComponent<{
     setPhoneError(null);
     setTextError(null);
     try {
+      if (!(await ensureChecked())) return;
       onStarted(await startChat(token as string, ws, phoneNumberId, { phone: cleaned, text: trimmed }));
     } catch (e) {
       const fields = e instanceof ApiError && e.code?.toUpperCase() === 'VALIDATION' ? e.fields : undefined;
-      if (fields?.phone || fields?.text) {
+      if (e instanceof ApiError && e.code?.toUpperCase() === 'NOT_ON_WHATSAPP') {
+        // The cached answer said yes and was stale: show it where the lookup would have.
+        setAnswer({ phone: cleaned, state: 'unregistered' });
+      } else if (fields?.phone || fields?.text) {
         setPhoneError(fields.phone ?? null);
         setTextError(fields.text ?? null);
       } else setError(messageFor(e));
@@ -102,12 +146,16 @@ export const NewChatModal: React.FunctionComponent<{
                 type="tel"
                 value={phone}
                 isRequired
-                validated={shownPhoneError ? 'error' : 'default'}
+                validated={shownPhoneError || unregistered ? 'error' : 'default'}
                 onChange={(_e, v) => {
+                  latestPhone.current = cleanPhone(v);
                   setPhone(v);
                   setPhoneError(null);
                 }}
-                onBlur={() => setTouched(true)}
+                onBlur={() => {
+                  setTouched(true);
+                  if (phoneValid && !current) void check(false);
+                }}
                 onKeyDown={(e) => {
                   if (e.key !== 'Enter' || e.nativeEvent.isComposing) return;
                   e.preventDefault();
@@ -118,6 +166,19 @@ export const NewChatModal: React.FunctionComponent<{
                 <HelperText>
                   {shownPhoneError ? (
                     <HelperTextItem variant="error">{shownPhoneError}</HelperTextItem>
+                  ) : current?.state === 'checking' ? (
+                    <HelperTextItem variant="indeterminate">Checking WhatsApp…</HelperTextItem>
+                  ) : current?.state === 'registered' ? (
+                    <HelperTextItem variant="success">On WhatsApp</HelperTextItem>
+                  ) : current?.state === 'unregistered' ? (
+                    <HelperTextItem variant="error">
+                      This number is not on WhatsApp{' '}
+                      <Button variant="link" isInline onClick={() => void check(true)}>
+                        Check again
+                      </Button>
+                    </HelperTextItem>
+                  ) : current?.state === 'failed' ? (
+                    <HelperTextItem variant="warning">Could not check this number</HelperTextItem>
                   ) : (
                     <HelperTextItem>{PHONE_HINT}</HelperTextItem>
                   )}
@@ -158,8 +219,8 @@ export const NewChatModal: React.FunctionComponent<{
           </Button>
           <Button
             variant="secondary"
-            onClick={() => setPicking(true)}
-            isDisabled={!numberConnected || !phoneValid || sending}
+            onClick={() => void ensureChecked().then((ok) => ok && setPicking(true))}
+            isDisabled={!numberConnected || !phoneValid || sending || unregistered}
           >
             Template…
           </Button>

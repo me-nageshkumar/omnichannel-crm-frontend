@@ -23,6 +23,11 @@ const CLOSE = `POST ${B}/inbox/chats/c1/close`;
 const REOPEN = `POST ${B}/inbox/chats/c1/reopen`;
 const ASSIGNEES = `GET ${B}/inbox/assignees`;
 const START = `POST ${B}/inbox/phone-numbers/p1/chats`;
+const LOOKUP = `GET ${B}/inbox/phone-numbers/p1/number-lookup`;
+const ON_WHATSAPP = {
+  status: 200,
+  body: { phone: '919900000009', registered: true, remoteId: 'x@lid', checkedAt: 't', cached: false },
+};
 
 const NUMBER = phoneNumber({ id: 'p1', number: '919928088743', label: 'Sales', status: 'CONNECTED' });
 
@@ -447,6 +452,7 @@ describe('inbox page', () => {
   it('starts a chat and opens it', async () => {
     const started = { ...ASHA, id: 'c9' };
     const { routes: r } = routes({
+      [LOOKUP]: ON_WHATSAPP,
       [START]: { status: 200, body: message({ id: 'm9', chatId: 'c9', direction: 'OUT', body: 'Hello there' }) },
       [`GET ${B}/inbox/chats/c9`]: { status: 200, body: started },
       [`GET ${B}/inbox/chats/c9/thread`]: { status: 200, body: { items: [], hasMore: false } },
@@ -471,6 +477,7 @@ describe('inbox page', () => {
 
   it('starting a chat with the number of the open chat refreshes it', async () => {
     const { routes: r } = routes({
+      [LOOKUP]: ON_WHATSAPP,
       [START]: { status: 200, body: message({ id: 'm9', chatId: 'c1', direction: 'OUT', body: 'Fresh start' }) },
     });
     const fetch = mockFetch(r);
