@@ -189,6 +189,23 @@ export type NewChatBody =
 export const startChat = (token: string, ws: string, pn: string, body: NewChatBody) =>
   post<MessageView>(token, `${base(ws)}/phone-numbers/${encodeURIComponent(pn)}/chats`, body);
 
+export interface NumberLookup {
+  phone: string;
+  registered: boolean;
+  remoteId: string | null;
+  checkedAt: string;
+  cached: boolean;
+}
+
+/** Asks whether a phone number is on WhatsApp; `force` skips the cached answer. */
+export const lookupNumber = (token: string, ws: string, pn: string, phone: string, force = false) =>
+  apiFetch<NumberLookup>(
+    `${base(ws)}/phone-numbers/${encodeURIComponent(pn)}/number-lookup?phone=${encodeURIComponent(phone)}${
+      force ? '&force=true' : ''
+    }`,
+    { token },
+  );
+
 export const assignChat = (token: string, ws: string, chatId: string, target: { userId?: string; teamId?: string }) =>
   post<ChatView>(token, `${chatPath(ws, chatId)}/assign`, target);
 

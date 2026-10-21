@@ -11,6 +11,7 @@ import {
   getThread,
   listChats,
   listInboxNumbers,
+  lookupNumber,
   markRead,
   parseSse,
   putInboxSettings,
@@ -22,6 +23,7 @@ import {
   toInboxEvent,
   unassignChat,
 } from '@app/api/inbox';
+import { urlsOf } from '../../test/admin';
 import { callsTo, mockFetch, requestTo } from '../../test/fetchMock';
 
 const B = '/api/workspaces/w1/inbox';
@@ -129,6 +131,32 @@ describe('inbox api', () => {
       templateId: 't1',
       values: { a: 'b' },
     });
+  });
+
+  it('looks a number up', async () => {
+    const key = `GET ${B}/phone-numbers/p1/number-lookup`;
+    const fetch = mockFetch({
+      [key]: {
+        status: 200,
+        body: { phone: '919811111111', registered: true, remoteId: 'x@lid', checkedAt: 't', cached: false },
+      },
+    });
+    await expect(lookupNumber('tok', 'w1', 'p1', '919811111111')).resolves.toMatchObject({ registered: true });
+    expect(urlsOf(fetch, key)[0]).toContain('?phone=919811111111');
+    expect(urlsOf(fetch, key)[0]).not.toContain('force');
+  });
+
+  it('forces a fresh lookup', async () => {
+    const key = `GET ${B}/phone-numbers/p1/number-lookup`;
+    const fetch = mockFetch({
+      [key]: {
+        status: 200,
+        body: { phone: '+919811111111', registered: false, remoteId: null, checkedAt: 't', cached: false },
+      },
+    });
+    await lookupNumber('tok', 'w1', 'p1', '+919811111111', true);
+    expect(urlsOf(fetch, key)[0]).toContain('phone=%2B919811111111');
+    expect(urlsOf(fetch, key)[0]).toContain('force=true');
   });
 
   it('reads numbers, a chat, a thread page and assignees', async () => {

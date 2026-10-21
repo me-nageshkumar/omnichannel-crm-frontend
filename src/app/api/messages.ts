@@ -24,6 +24,8 @@ const BY_CODE: Record<string, string> = {
   too_many_rows: 'Too many contacts to export (the limit is 100,000). Narrow the filter and try again.',
   chat_closed: 'This chat is closed. Reopen it to reply.',
   chat_taken: 'This number already has a chat assigned to someone else.',
+  not_on_whatsapp: 'This number is not on WhatsApp.',
+  lookup_failed: 'Could not check this number on WhatsApp. Try again.',
   media_unavailable: 'Media is no longer available on the phone.',
   no_device: 'WhatsApp is not connected on this number.',
   whatsapp_not_ready: 'WhatsApp is not connected on this number.',

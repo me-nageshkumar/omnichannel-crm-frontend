@@ -8,4 +8,12 @@ describe('messageFor', () => {
       'This number already has a chat assigned to someone else.',
     );
   });
+
+  it('says when a number is not on WhatsApp', () => {
+    expect(messageFor(new ApiError(404, 'NOT_ON_WHATSAPP'))).toBe('This number is not on WhatsApp.');
+  });
+
+  it('says when the number check failed', () => {
+    expect(messageFor(new ApiError(502, 'LOOKUP_FAILED'))).toBe('Could not check this number on WhatsApp. Try again.');
+  });
 });
