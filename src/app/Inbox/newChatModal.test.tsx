@@ -211,13 +211,15 @@ describe('new chat modal', () => {
   });
 
   it('disabledWhenNotConnected', async () => {
-    mockFetch({ ...meAs(AGENT_IN_BRAND) });
+    const fetch = mockFetch({ ...meAs(AGENT_IN_BRAND) });
     const { user } = renderModal({ numberConnected: false });
     expect(await screen.findByText('WhatsApp is not connected on this number')).toBeInTheDocument();
     await user.type(await phoneBox(), '919811111111');
     await user.type(await messageBox(), 'hello');
     expect(sendButton()).toBeDisabled();
     expect(templateButton()).toBeDisabled();
+    // Nothing can be sent, so the number is not looked up either.
+    expect(callsTo(fetch, LOOKUP)).toBe(0);
   });
 
   it('Cancel closes', async () => {
@@ -446,6 +448,41 @@ describe('new chat modal', () => {
       expect(screen.getByText('On WhatsApp')).toBeInTheDocument();
       expect(screen.queryByText(NOT_ON)).not.toBeInTheDocument();
       expect(sendButton()).toBeEnabled();
+    });
+
+    it('recoversWhenTheNumberComesBackAfterADroppedAnswer', async () => {
+      let finish: () => void = () => undefined;
+      const slow = new ReadableStream<Uint8Array>({
+        start(c) {
+          finish = () => {
+            c.enqueue(new TextEncoder().encode(JSON.stringify(lookup(false).body)));
+            c.close();
+          };
+        },
+      });
+      let n = 0;
+      const fetch = mockFetch({
+        ...meAs(AGENT_IN_BRAND),
+        [LOOKUP]: () =>
+          n++ === 0
+            ? new Response(slow, { status: 200, headers: { 'Content-Type': 'application/json' } })
+            : lookup(true),
+      });
+      const { user } = renderModal();
+      await user.type(await phoneBox(), '919811111111');
+      await user.tab();
+      await screen.findByText('Checking WhatsApp…');
+      // Edit away without blurring, let the first answer land (it is dropped), then edit back.
+      await user.type(await phoneBox(), '2');
+      finish();
+      await waitFor(() => expect(screen.queryByText('Checking WhatsApp…')).not.toBeInTheDocument());
+      await new Promise((r) => setTimeout(r, 20));
+      await user.type(await phoneBox(), '{Backspace}');
+      expect(screen.queryByText('Checking WhatsApp…')).not.toBeInTheDocument();
+      expect(screen.getByText('Country code first, digits only, e.g. 919812345678')).toBeInTheDocument();
+      await user.tab();
+      expect(await screen.findByText('On WhatsApp')).toBeInTheDocument();
+      expect(callsTo(fetch, LOOKUP)).toBe(2);
     });
 
     it('sendLooksUpAnUncheckedNumberFirst', async () => {

@@ -79,6 +79,8 @@ export const NewChatModal: React.FunctionComponent<{
     );
     const settled = verdict.then((state) => {
       if (latestPhone.current === checked) setAnswer({ phone: checked, state });
+      // Dropped: do not leave this number's 'checking' behind, or it would never resolve if the number comes back.
+      else setAnswer((a) => (a?.phone === checked && a.state === 'checking' ? null : a));
       return state;
     });
     pending.current = { phone: checked, verdict: settled };
@@ -154,7 +156,7 @@ export const NewChatModal: React.FunctionComponent<{
                 }}
                 onBlur={() => {
                   setTouched(true);
-                  if (phoneValid && !current) void check(false);
+                  if (numberConnected && phoneValid && !current) void check(false);
                 }}
                 onKeyDown={(e) => {
                   if (e.key !== 'Enter' || e.nativeEvent.isComposing) return;
