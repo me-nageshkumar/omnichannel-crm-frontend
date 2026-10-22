@@ -61,7 +61,16 @@ export const SavedFiltersPage: React.FunctionComponent = () => {
         </Button>
       );
     }
-    return c.state === 'counting' ? <Spinner size="md" aria-label="Counting contacts" /> : c.text;
+    if (c.state === 'counting') return <Spinner size="md" aria-label="Counting contacts" />;
+    if (c.state === 'done') return c.text;
+    return (
+      <>
+        {c.text}{' '}
+        <Button variant="secondary" size="sm" onClick={() => void count(f.id)}>
+          Count
+        </Button>
+      </>
+    );
   };
 
   return (
@@ -83,7 +92,7 @@ export const SavedFiltersPage: React.FunctionComponent = () => {
       {filters.error && <Alert variant="danger" isInline title={filters.error} />}
       {filters.loading && !filters.data ? (
         <Spinner aria-label="Loading saved filters" />
-      ) : (
+      ) : filters.error && !filters.data ? null : (
         <Table aria-label="Saved filters" variant="compact">
           <Thead>
             <Tr>

@@ -1,5 +1,6 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { screen, waitFor, within } from '@testing-library/react';
+import { messageFor } from '@app/api/messages';
 import type { CurrentUser } from '@app/api/users';
 import { renderApp } from '../../../test/renderApp';
 import { callsTo, mockFetch, requestTo } from '../../../test/fetchMock';
@@ -63,11 +64,27 @@ describe('saved filters page', () => {
   });
 
   it('countTimeoutStaysInTheRow', async () => {
-    mockFetch(routes(WORKSPACE_MANAGER, { [COUNT]: { status: 504, body: { code: 'QUERY_TIMEOUT' } } }));
+    let calls = 0;
+    mockFetch(
+      routes(WORKSPACE_MANAGER, {
+        [COUNT]: () =>
+          ++calls === 1 ? { status: 504, body: { code: 'QUERY_TIMEOUT' } } : { status: 200, body: { count: 7 } },
+      }),
+    );
     const { user } = renderApp('/contacts/filters');
     const row = await rowWith('Lapsed VIPs');
     await user.click(within(row).getByRole('button', { name: 'Count' }));
     expect(await within(row).findByText('This filter takes too long to run. Make it more specific.')).toBeVisible();
+    await user.click(within(row).getByRole('button', { name: 'Count' }));
+    expect(await within(row).findByText('7 contacts')).toBeVisible();
+    expect(within(row).queryByText(/too long/)).toBeNull();
+  });
+
+  it('loadErrorShowsOnlyTheAlert', async () => {
+    mockFetch(routes(WORKSPACE_MANAGER, { [`GET ${B}/contact-filters`]: { status: 500, body: {} } }));
+    renderApp('/contacts/filters');
+    expect(await screen.findByText(messageFor(new Error('load')))).toBeVisible();
+    expect(screen.queryByText('No saved filters yet.')).toBeNull();
   });
 
   it('editAdvancedOpensTheBuilder', async () => {
@@ -86,8 +103,9 @@ describe('saved filters page', () => {
     expect(await screen.findByRole('heading', { name: 'Contacts' })).toBeVisible();
     expect(await screen.findByRole('button', { name: 'Saved filter: Jaipur VIPs' })).toBeVisible();
     await waitFor(() => {
-      const n = fetch.mock.calls.filter(([i, init]) => String(i).endsWith('/contacts/search') && init?.method === 'POST')
-        .length;
+      const n = fetch.mock.calls.filter(
+        ([i, init]) => String(i).endsWith('/contacts/search') && init?.method === 'POST',
+      ).length;
       expect(n).toBeGreaterThan(0);
       expect(requestTo(fetch, SEARCH, n - 1)?.body).toHaveProperty('filterId', 'f1');
     });
@@ -98,7 +116,9 @@ describe('saved filters page', () => {
     const { user } = renderApp('/contacts/filters');
     await rowAction(user, 'Lapsed VIPs', 'Delete');
     const dialog = await screen.findByRole('dialog', { name: /Delete this saved filter\?/ });
-    expect(within(dialog).getByText('Contacts are not affected. Everyone in the brand loses the filter.')).toBeVisible();
+    expect(
+      within(dialog).getByText('Contacts are not affected. Everyone in the brand loses the filter.'),
+    ).toBeVisible();
     await user.click(within(dialog).getByRole('button', { name: 'Cancel' }));
     expect(callsTo(fetch, DELETE)).toBe(0);
 
