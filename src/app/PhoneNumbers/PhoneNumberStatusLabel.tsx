@@ -56,3 +56,17 @@ export const PhoneNumberStatusLabel: React.FunctionComponent<{ number: PhoneNumb
   }
   return label;
 };
+
+const PLAIN_TEXT: Record<PhoneNumberStatus, string> = {
+  CONNECTED: 'Connected',
+  WAITING_FOR_LOGIN: 'Waiting for WhatsApp login',
+  NOT_CONNECTED_YET: 'Not connected yet',
+  DISCONNECTED: 'Disconnected',
+  WRONG_NUMBER: 'Wrong number',
+  DISABLED: 'Disabled',
+};
+
+/** A bare connection status, for lists that only know the status. */
+export const PhoneStatusLabel: React.FunctionComponent<{ status: PhoneNumberStatus }> = ({ status }) => (
+  <Label color={COLORS[status]}>{PLAIN_TEXT[status]}</Label>
+);
