@@ -1,4 +1,6 @@
+import type { CampaignAction } from '@app/api/campaigns';
 import { ApiError } from '@app/api/client';
+import { shown } from '@app/api/phoneNumbers';
 
 export const MESSAGES = {
   sessionExpired: 'Your session has expired. Please log in again.',
@@ -29,6 +31,11 @@ const BY_CODE: Record<string, string> = {
   media_unavailable: 'Media is no longer available on the phone.',
   no_device: 'WhatsApp is not connected on this number.',
   whatsapp_not_ready: 'WhatsApp is not connected on this number.',
+  campaign_not_editable: 'Only a draft campaign can be edited.',
+  template_has_link: 'Campaign messages cannot contain links.',
+  template_not_text: 'Only text templates can be used in campaigns.',
+  placeholder_unmapped: 'Every placeholder needs a value.',
+  mapping_column_reused: 'A CSV column can be used only once.',
   conflict: 'Someone else changed this at the same time. Reload and try again.',
 };
 
@@ -49,10 +56,28 @@ export function messageFor(error: unknown): string {
   if (code === 'disabled_at_higher_level') {
     return error.serverMessage ?? 'This was disabled at a higher level. You cannot enable it.';
   }
+  if (code === 'sender_not_available') {
+    return `${error.number ? shown(error.number) : 'This number'} cannot send campaigns right now.`;
+  }
   if (code === 'validation') {
     // The server names the field(s) in a readable sentence; show it rather than "try again".
     const fields = Object.entries(error.fields ?? {}).map(([k, v]) => `${k} ${v}`);
     return error.serverMessage ?? (fields.length > 0 ? fields.join('; ') : MESSAGES.generic);
   }
   return BY_CODE[code] ?? MESSAGES.generic;
+}
+
+const DONE: Record<CampaignAction, string> = {
+  start: 'started',
+  pause: 'paused',
+  resume: 'resumed',
+  terminate: 'terminated',
+};
+
+/** The sentence for a failed campaign lifecycle action; a wrong state names the action. */
+export function campaignActionMessage(error: unknown, action: CampaignAction): string {
+  if (error instanceof ApiError && error.code?.toLowerCase() === 'campaign_state') {
+    return `This campaign cannot be ${DONE[action]} now.`;
+  }
+  return messageFor(error);
 }

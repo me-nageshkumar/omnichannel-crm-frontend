@@ -63,6 +63,19 @@ describe('apiFetch', () => {
   });
 });
 
+describe('ApiError number', () => {
+  afterEach(() => vi.unstubAllGlobals());
+
+  it('carries the number of a SENDER_NOT_AVAILABLE reply', async () => {
+    mockFetch({
+      'POST /api/x': { status: 400, body: { code: 'SENDER_NOT_AVAILABLE', field: 'senderIds', number: '919800000001' } },
+    });
+    const err = await rejectionOf<ApiError>(apiFetch('/api/x', { method: 'POST' }));
+    expect(err.number).toBe('919800000001');
+    expect(err.field).toBe('senderIds');
+  });
+});
+
 describe('apiFetchBlob', () => {
   afterEach(() => vi.unstubAllGlobals());
 

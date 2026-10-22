@@ -12,6 +12,8 @@ export class ApiError extends Error {
     public readonly roles?: string[],
     /** The server's own sentence, for errors whose wording only the server knows. */
     public readonly serverMessage?: string,
+    /** The digits of the first unavailable sender, on SENDER_NOT_AVAILABLE. */
+    public readonly number?: string,
   ) {
     super(code ?? `HTTP ${status}`);
     this.name = 'ApiError';
@@ -51,7 +53,8 @@ function failure(res: Response, path: string, text: string): ApiError {
   const fields = data?.fields && typeof data.fields === 'object' ? (data.fields as Record<string, string>) : undefined;
   const roles = Array.isArray(data?.roles) ? (data.roles as string[]) : undefined;
   const serverMessage = typeof data?.message === 'string' ? data.message : undefined;
-  return new ApiError(res.status, code, retry, field, fields, roles, serverMessage);
+  const number = typeof data?.number === 'string' ? data.number : undefined;
+  return new ApiError(res.status, code, retry, field, fields, roles, serverMessage, number);
 }
 
 export async function apiFetch<T>(path: string, init: ApiFetchInit = {}): Promise<T> {
