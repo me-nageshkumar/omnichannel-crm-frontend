@@ -5,7 +5,7 @@ import { callsTo, mockFetch, requestTo } from '../../test/fetchMock';
 import { gate } from '../../test/gate';
 import { AGENT_IN_BRAND, WORKSPACE_MANAGER, meAs, storeSession } from '../../test/session';
 import { urlsOf } from '../../test/admin';
-import { attribute, contact, savedFilter } from '../../test/contacts';
+import { advancedFilter, attribute, contact, savedFilter } from '../../test/contacts';
 import { content, placeholderView, template } from '../../test/templates';
 import { campaign, campaignDetail, partJson, sender } from '../../test/campaigns';
 import type { CsvPreview } from '@app/api/campaigns';
@@ -240,6 +240,21 @@ describe('new campaign wizard', () => {
     expect(next()).toBeEnabled();
     await user.clear(screen.getByRole('textbox', { name: 'Name' }));
     expect(next()).toBeDisabled();
+  });
+
+  it('listsBothFilterKinds', async () => {
+    const fetch = mockFetch(
+      routes({
+        [`GET ${B}/contact-filters`]: { status: 200, body: [PUNE, advancedFilter({ id: 'f2', name: 'Lapsed VIPs' })] },
+      }),
+    );
+    const { user } = renderApp('/campaigns/new');
+    const select = await screen.findByRole('combobox', { name: 'Saved contact filter' });
+    await within(select).findByRole('option', { name: 'Pune leads' });
+    expect(within(select).getByRole('option', { name: 'Lapsed VIPs' })).toBeInTheDocument();
+    await user.selectOptions(select, 'Lapsed VIPs');
+    expect(await screen.findByText('1,204 contacts')).toBeVisible();
+    expect(requestTo(fetch, COUNT)?.body).toEqual({ selection: { filterId: 'f2' } });
   });
 
   it('csvUploadShowsColumnsAndPresetsThem', async () => {

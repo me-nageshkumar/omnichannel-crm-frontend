@@ -76,6 +76,24 @@ describe('ApiError number', () => {
   });
 });
 
+describe('ApiError usedBy', () => {
+  afterEach(() => vi.unstubAllGlobals());
+
+  it('carries the filters that use the item, with no campaigns', async () => {
+    mockFetch({
+      'DELETE /api/x': { status: 409, body: { code: 'FILTER_IN_USE', filters: [{ id: 'f2', name: 'Lapsed VIPs' }] } },
+    });
+    const err = await rejectionOf<ApiError>(apiFetch('/api/x', { method: 'DELETE' }));
+    expect(err.usedBy).toEqual({ filters: [{ id: 'f2', name: 'Lapsed VIPs' }], campaigns: [] });
+  });
+
+  it('has no usedBy when the body names neither', async () => {
+    mockFetch({ 'DELETE /api/x': { status: 409, body: { code: 'FILTER_IN_USE' } } });
+    const err = await rejectionOf<ApiError>(apiFetch('/api/x', { method: 'DELETE' }));
+    expect(err.usedBy).toBeUndefined();
+  });
+});
+
 describe('apiFetchBlob', () => {
   afterEach(() => vi.unstubAllGlobals());
 

@@ -78,3 +78,37 @@ describe('senderActionMessage', () => {
     expect(senderActionMessage(new ApiError(403, 'FORBIDDEN'), 'REST')).toBe("You don't have permission to do that.");
   });
 });
+
+describe('messageFor filters', () => {
+  const IN_USE = 'This is used by a saved filter or a campaign. Remove it there first.';
+  const usedBy = (filters: { id: string; name: string }[], campaigns: { id: string; name: string }[]) =>
+    new ApiError(409, 'FILTER_IN_USE', undefined, undefined, undefined, undefined, undefined, undefined, {
+      filters,
+      campaigns,
+    });
+
+  it('says a query timed out', () => {
+    expect(messageFor(new ApiError(504, 'QUERY_TIMEOUT'))).toBe(
+      'This filter takes too long to run. Make it more specific.',
+    );
+  });
+
+  it('names the filters and campaigns that use it', () => {
+    const error = usedBy(
+      [
+        { id: 'f2', name: 'Lapsed VIPs' },
+        { id: 'f3', name: 'Pune' },
+      ],
+      [{ id: 'c1', name: 'Diwali' }],
+    );
+    expect(messageFor(error)).toBe(`${IN_USE} Saved filters: Lapsed VIPs, Pune. Campaigns: Diwali.`);
+  });
+
+  it('names only the campaigns when no filter uses it', () => {
+    expect(messageFor(usedBy([], [{ id: 'c1', name: 'Diwali' }]))).toBe(`${IN_USE} Campaigns: Diwali.`);
+  });
+
+  it('is the bare sentence without usedBy', () => {
+    expect(messageFor(new ApiError(409, 'FILTER_IN_USE'))).toBe(IN_USE);
+  });
+});

@@ -102,6 +102,53 @@ describe('contact fields page', () => {
     expect(callsTo(fetch, `DELETE ${B}/contact-labels/l1`)).toBe(1);
   });
 
+  it('deleteLabelInUseNamesTheUsers', async () => {
+    mockFetch(
+      routes({
+        [`DELETE ${B}/contact-labels/l1`]: {
+          status: 409,
+          body: {
+            code: 'FILTER_IN_USE',
+            message: 'x',
+            filters: [{ id: 'f2', name: 'Lapsed VIPs' }],
+            campaigns: [{ id: 'c1', name: 'Diwali' }],
+          },
+        },
+      }),
+    );
+    const { user } = renderApp('/contact-fields');
+    await rowAction(user, 'VIP', 'Delete');
+    const dialog = await screen.findByRole('dialog');
+    await user.click(within(dialog).getByRole('button', { name: 'Delete' }));
+    expect(
+      await within(dialog).findByText(
+        'This is used by a saved filter or a campaign. Remove it there first. Saved filters: Lapsed VIPs. Campaigns: Diwali.',
+      ),
+    ).toBeVisible();
+    await user.click(within(dialog).getByRole('button', { name: 'Cancel' }));
+    expect(await rowWith('VIP')).toBeVisible();
+  });
+
+  it('deleteAttributeInUseNamesTheUsers', async () => {
+    mockFetch(
+      routes({
+        [`DELETE ${B}/contact-attributes/a1`]: {
+          status: 409,
+          body: { code: 'FILTER_IN_USE', message: 'x', filters: [{ id: 'f2', name: 'Lapsed VIPs' }] },
+        },
+      }),
+    );
+    const { user } = renderApp('/contact-fields');
+    await rowAction(user, 'City', 'Delete');
+    const dialog = await screen.findByRole('dialog');
+    await user.click(within(dialog).getByRole('button', { name: 'Delete' }));
+    expect(
+      await within(dialog).findByText(
+        'This is used by a saved filter or a campaign. Remove it there first. Saved filters: Lapsed VIPs.',
+      ),
+    ).toBeVisible();
+  });
+
   it('editRenamesLabel', async () => {
     const fetch = mockFetch(
       routes({ [`PUT ${B}/contact-labels/l1`]: { status: 200, body: { ...VIP, name: 'Gold' } } }),

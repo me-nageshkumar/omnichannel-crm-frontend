@@ -1,4 +1,12 @@
-import type { Contact, ContactAttribute, ContactLabel, LabelColor, SavedFilter } from '@app/api/contacts';
+import type {
+  Contact,
+  ContactAttribute,
+  ContactLabel,
+  FilterPreview,
+  LabelColor,
+  RuleGroup,
+  SavedFilter,
+} from '@app/api/contacts';
 
 /** A label as the API returns it, with sensible defaults. */
 export function label(over: Partial<ContactLabel> & Pick<ContactLabel, 'id' | 'name'>): ContactLabel {
@@ -28,5 +36,60 @@ export function contact(over: Partial<Contact> & Pick<Contact, 'id'>): Contact {
 }
 
 export function savedFilter(over: Partial<SavedFilter> & Pick<SavedFilter, 'id' | 'name'>): SavedFilter {
-  return { filter: {}, createdBy: 'meera', creationTime: '2026-10-20T10:00:00Z', ...over };
+  return {
+    kind: 'SIMPLE',
+    filter: {},
+    createdBy: 'meera',
+    creationTime: '2026-10-20T10:00:00Z',
+    lastUpdateTime: '2026-10-20T10:00:00Z',
+    ...over,
+  };
+}
+
+export const LAPSED_TREE: RuleGroup = {
+  combinator: 'and',
+  not: false,
+  rules: [
+    { field: 'labels', operator: 'has', value: 'l1' },
+    { field: 'lastMessageAt', operator: 'before', value: '2026-09-01' },
+    {
+      combinator: 'or',
+      not: true,
+      rules: [
+        { field: 'attributes.a1', operator: 'is', value: 'Pune' },
+        { field: 'source', operator: 'in', value: ['CHAT', 'IMPORT'] },
+      ],
+    },
+  ],
+};
+
+export const LAPSED_QUERY = {
+  $and: [
+    { labels: 'l1' },
+    { lastMessageAt: { $lt: { $date: '2026-08-31T18:30:00Z' } } },
+    {
+      $nor: [
+        { $or: [{ 'attributes.a1': { $regex: '^Pune$', $options: 'i' } }, { source: { $in: ['CHAT', 'IMPORT'] } }] },
+      ],
+    },
+  ],
+};
+
+/** An advanced saved filter as the API returns it, with sensible defaults. */
+export function advancedFilter(over: Partial<SavedFilter> & Pick<SavedFilter, 'id' | 'name'>): SavedFilter {
+  return {
+    kind: 'ADVANCED',
+    filter: null,
+    rules: LAPSED_TREE,
+    query: LAPSED_QUERY,
+    uses: { attributeIds: ['a1'], labelIds: ['l1'] },
+    createdBy: 'meera',
+    creationTime: '2026-10-20T10:00:00Z',
+    lastUpdateTime: '2026-10-21T10:00:00Z',
+    ...over,
+  };
+}
+
+export function filterPreview(over: Partial<FilterPreview> = {}): FilterPreview {
+  return { count: 1204, sample: [], query: LAPSED_QUERY, ...over };
 }

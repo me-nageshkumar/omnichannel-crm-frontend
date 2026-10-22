@@ -84,16 +84,60 @@ export interface ContactFilterSpec {
   lastMessageTo?: string;
 }
 
+export type Combinator = 'and' | 'or';
+
+export interface Rule {
+  field: string;
+  operator: string;
+  value: string | string[] | null;
+}
+
+export interface RuleGroup {
+  combinator: Combinator;
+  not: boolean;
+  rules: (Rule | RuleGroup)[];
+}
+
+export type FilterKind = 'SIMPLE' | 'ADVANCED';
+
+/** The labels and attributes a filter's rules refer to. */
+export interface FilterUses {
+  attributeIds: string[];
+  labelIds: string[];
+}
+
 export interface SavedFilter {
   id: string;
   name: string;
-  filter: ContactFilterSpec;
+  /** Null or absent on filters saved before advanced filters existed: those are simple. */
+  kind?: FilterKind | null;
+  filter: ContactFilterSpec | null;
+  rules?: RuleGroup | null;
+  query?: Record<string, unknown> | null;
+  uses?: FilterUses | null;
   createdBy: string | { username: string; name: string };
   creationTime: string;
+  lastUpdateTime?: string | null;
 }
 
-/** Exactly one of the three. */
-export type Selection = { ids: string[] } | { filter: ContactFilterSpec } | { filterId: string };
+export const isAdvanced = (f: Pick<SavedFilter, 'kind'>): boolean => f.kind === 'ADVANCED';
+
+export interface FilterPreview {
+  count: number;
+  sample: Contact[];
+  query: Record<string, unknown>;
+}
+
+export const FILTER_SAMPLE_SIZE = 10;
+
+export type FilterBody = { name: string; filter: ContactFilterSpec } | { name: string; rules: RuleGroup };
+
+/** Exactly one of the four. */
+export type Selection =
+  | { ids: string[] }
+  | { filter: ContactFilterSpec }
+  | { filterId: string }
+  | { filterId: string; filter: ContactFilterSpec };
 
 export interface ContactPage {
   items: Contact[];
@@ -182,10 +226,19 @@ export const deleteNote = (token: string, ws: string, id: string, noteId: string
 
 export const listFilters = (token: string, ws: string) =>
   apiFetch<SavedFilter[]>(`${base(ws)}/contact-filters`, { token });
-export const createFilter = (token: string, ws: string, name: string, filter: ContactFilterSpec) =>
-  send<SavedFilter>(token, 'POST', `${base(ws)}/contact-filters`, { name, filter });
-export const updateFilter = (token: string, ws: string, id: string, name: string, filter: ContactFilterSpec) =>
-  send<SavedFilter>(token, 'PUT', `${base(ws)}/contact-filters/${id}`, { name, filter });
+export const getFilter = (token: string, ws: string, id: string) =>
+  apiFetch<SavedFilter>(`${base(ws)}/contact-filters/${id}`, { token });
+export const createFilter = (token: string, ws: string, body: FilterBody) =>
+  send<SavedFilter>(token, 'POST', `${base(ws)}/contact-filters`, body);
+export const updateFilter = (token: string, ws: string, id: string, body: FilterBody) =>
+  send<SavedFilter>(token, 'PUT', `${base(ws)}/contact-filters/${id}`, body);
+export const previewFilter = (token: string, ws: string, rules: RuleGroup, sample?: number) =>
+  send<FilterPreview>(
+    token,
+    'POST',
+    `${base(ws)}/contact-filters/preview`,
+    sample === undefined ? { rules } : { rules, sample },
+  );
 export const deleteFilter = (token: string, ws: string, id: string) =>
   send<void>(token, 'DELETE', `${base(ws)}/contact-filters/${id}`);
 
@@ -235,7 +288,7 @@ export function fileNameOf(disposition: string | null): string {
 export async function exportContacts(
   token: string,
   ws: string,
-  scope: { filter: ContactFilterSpec } | { filterId: string },
+  scope: { filter: ContactFilterSpec } | { filterId: string } | { filterId: string; filter: ContactFilterSpec },
 ): Promise<{ blob: Blob; fileName: string }> {
   const res = await apiFetchFile(`${base(ws)}/contacts/export`, { token, body: scope, json: true });
   return { blob: await res.blob(), fileName: fileNameOf(res.headers.get('Content-Disposition')) };

@@ -1,3 +1,8 @@
+export interface NamedRef {
+  id: string;
+  name: string;
+}
+
 /** A non-2xx reply. {@code code} is the body's {@code error} (auth endpoints) or {@code code} (everything else). */
 export class ApiError extends Error {
   constructor(
@@ -14,6 +19,8 @@ export class ApiError extends Error {
     public readonly serverMessage?: string,
     /** The digits of the first unavailable sender, on SENDER_NOT_AVAILABLE. */
     public readonly number?: string,
+    /** The saved filters and campaigns that use the item, on FILTER_IN_USE. */
+    public readonly usedBy?: { filters: NamedRef[]; campaigns: NamedRef[] },
   ) {
     super(code ?? `HTTP ${status}`);
     this.name = 'ApiError';
@@ -54,7 +61,14 @@ function failure(res: Response, path: string, text: string): ApiError {
   const roles = Array.isArray(data?.roles) ? (data.roles as string[]) : undefined;
   const serverMessage = typeof data?.message === 'string' ? data.message : undefined;
   const number = typeof data?.number === 'string' ? data.number : undefined;
-  return new ApiError(res.status, code, retry, field, fields, roles, serverMessage, number);
+  const usedBy =
+    Array.isArray(data?.filters) || Array.isArray(data?.campaigns)
+      ? {
+          filters: Array.isArray(data?.filters) ? (data.filters as NamedRef[]) : [],
+          campaigns: Array.isArray(data?.campaigns) ? (data.campaigns as NamedRef[]) : [],
+        }
+      : undefined;
+  return new ApiError(res.status, code, retry, field, fields, roles, serverMessage, number, usedBy);
 }
 
 export async function apiFetch<T>(path: string, init: ApiFetchInit = {}): Promise<T> {

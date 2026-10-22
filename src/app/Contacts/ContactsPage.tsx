@@ -407,7 +407,7 @@ export const ContactsPage: React.FunctionComponent = () => {
           title="Save filter"
           label="Filter name"
           submitLabel="Save"
-          save={(name) => createFilter(t, ws, name, filter)}
+          save={(name) => createFilter(t, ws, { name, filter })}
           onSaved={(f) => {
             saved.setData((l) => upsert(l ?? [], f));
             setSavedId(f.id);

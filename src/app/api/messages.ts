@@ -38,6 +38,7 @@ const BY_CODE: Record<string, string> = {
   mapping_column_reused: 'A CSV column can be used only once.',
   phone_column_required: 'Choose the column that holds the phone number.',
   sender_state: 'This number cannot be changed now.',
+  query_timeout: 'This filter takes too long to run. Make it more specific.',
   conflict: 'Someone else changed this at the same time. Reload and try again.',
 };
 
@@ -60,6 +61,15 @@ export function messageFor(error: unknown): string {
   }
   if (code === 'sender_not_available') {
     return `${error.number ? shown(error.number) : 'This number'} cannot send campaigns right now.`;
+  }
+  if (code === 'filter_in_use') {
+    const names = (refs: { name: string }[] = []) => refs.map((r) => r.name).join(', ');
+    const parts = [
+      'This is used by a saved filter or a campaign. Remove it there first.',
+      error.usedBy?.filters.length ? `Saved filters: ${names(error.usedBy.filters)}.` : '',
+      error.usedBy?.campaigns.length ? `Campaigns: ${names(error.usedBy.campaigns)}.` : '',
+    ];
+    return parts.filter(Boolean).join(' ');
   }
   if (code === 'validation') {
     // The server names the field(s) in a readable sentence; show it rather than "try again".
