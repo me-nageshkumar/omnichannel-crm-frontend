@@ -29,48 +29,106 @@ import { InboxNumbersPage } from '@app/Inbox/InboxNumbersPage';
 import { InboxPage } from '@app/Inbox/InboxPage';
 import { Access, useAccess } from '@app/session/useAccess';
 
-export type NavGroup = 'Platform' | 'Company' | 'Brand';
-
 export interface IAppRoute {
-  label?: string; // Excluding the label will exclude the route from the nav sidebar in AppLayout
   element: React.ReactElement;
   path: string;
   /** Who may open the page; everyone signed in when absent. */
   requires?: (a: Access) => boolean;
-  group?: NavGroup;
 }
 
-export const NAV_GROUPS: NavGroup[] = ['Platform', 'Company', 'Brand'];
+/** A sidebar link to a route's path. */
+export interface NavLinkEntry {
+  label: string;
+  path: string;
+}
+
+/** A sidebar group that expands to its links. */
+export interface NavExpandableEntry {
+  label: string;
+  links: NavLinkEntry[];
+}
+
+export type NavEntry = NavLinkEntry | NavExpandableEntry;
+
+export const isExpandable = (entry: NavEntry): entry is NavExpandableEntry => 'links' in entry;
+
+/**
+ * The sidebar, as on patternfly.org: sections split by a divider, each a list of links and expandable groups.
+ * Everyday work first, then the brand's own setup, then company and platform administration.
+ */
+const NAV_SECTIONS: NavEntry[][] = [
+  [
+    { label: 'Dashboard', path: '/' },
+    { label: 'Inbox', path: '/inbox' },
+  ],
+  [
+    {
+      label: 'Contacts',
+      links: [
+        { label: 'All contacts', path: '/contacts' },
+        { label: 'Saved filters', path: '/contacts/filters' },
+        { label: 'Contact fields', path: '/contact-fields' },
+      ],
+    },
+    {
+      label: 'Campaigns',
+      links: [
+        { label: 'All campaigns', path: '/campaigns' },
+        { label: 'Senders', path: '/campaigns/senders' },
+        { label: 'Settings', path: '/campaigns/settings' },
+      ],
+    },
+    { label: 'Templates', path: '/templates' },
+    { label: 'Phone numbers', path: '/phone-numbers' },
+    {
+      label: 'Users and teams',
+      links: [
+        { label: 'Users', path: '/users' },
+        { label: 'Teams', path: '/teams' },
+      ],
+    },
+  ],
+  [
+    { label: 'Brands', path: '/brands' },
+    {
+      label: 'Platform',
+      links: [
+        { label: 'Customers', path: '/customers' },
+        { label: 'All phone numbers', path: '/platform/phone-numbers' },
+      ],
+    },
+    {
+      label: 'Access control',
+      links: [
+        { label: 'Platform users', path: '/platform-users' },
+        { label: 'Roles', path: '/roles' },
+        { label: 'Authorities', path: '/authorities' },
+      ],
+    },
+  ],
+];
 
 const routes: IAppRoute[] = [
-  { element: <Dashboard />, label: 'Dashboard', path: '/' },
-  { element: <ProfilePage />, label: 'Profile', path: '/profile' },
+  { element: <Dashboard />, path: '/' },
+  { element: <ProfilePage />, path: '/profile' },
   {
     element: <PlatformUsersPage />,
-    label: 'Platform users',
     path: '/platform-users',
-    group: 'Platform',
     requires: (a) => a.has('platform-user:manage'),
   },
   {
     element: <RolesPage />,
-    label: 'Roles',
     path: '/roles',
-    group: 'Platform',
     requires: (a) => a.superAdmin,
   },
   {
     element: <AuthoritiesPage />,
-    label: 'Authorities',
     path: '/authorities',
-    group: 'Platform',
     requires: (a) => a.superAdmin,
   },
   {
     element: <CustomersPage />,
-    label: 'Customers',
     path: '/customers',
-    group: 'Platform',
     requires: (a) => a.has('customer:view'),
   },
   {
@@ -80,23 +138,17 @@ const routes: IAppRoute[] = [
   },
   {
     element: <AllPhoneNumbersPage />,
-    label: 'All phone numbers',
     path: '/platform/phone-numbers',
-    group: 'Platform',
     requires: (a) => a.has('phone-number:view-all'),
   },
   {
     element: <BrandsPage />,
-    label: 'Brands',
     path: '/brands',
-    group: 'Company',
     requires: (a) => a.has('workspace:create'),
   },
   {
     element: <InboxNumbersPage />,
-    label: 'Inbox',
     path: '/inbox',
-    group: 'Brand',
     requires: (a) => a.hasInWorkspace('inbox:view'),
   },
   {
@@ -111,30 +163,22 @@ const routes: IAppRoute[] = [
   },
   {
     element: <UsersPage />,
-    label: 'Users',
     path: '/users',
-    group: 'Brand',
     requires: (a) => a.hasInWorkspace('user:view'),
   },
   {
     element: <TeamsPage />,
-    label: 'Teams',
     path: '/teams',
-    group: 'Brand',
     requires: (a) => a.hasInWorkspace('user:view'),
   },
   {
     element: <PhoneNumbersPage />,
-    label: 'Phone numbers',
     path: '/phone-numbers',
-    group: 'Brand',
     requires: (a) => a.hasInWorkspace('phone-number:view'),
   },
   {
     element: <ContactsPage />,
-    label: 'Contacts',
     path: '/contacts',
-    group: 'Brand',
     requires: (a) => a.hasInWorkspace('contact:view'),
   },
   // Keep before /contacts/:id, which would otherwise capture "filters".
@@ -160,16 +204,12 @@ const routes: IAppRoute[] = [
   },
   {
     element: <ContactFieldsPage />,
-    label: 'Contact fields',
     path: '/contact-fields',
-    group: 'Brand',
     requires: (a) => a.hasInWorkspace('contact-field:manage'),
   },
   {
     element: <TemplatesPage />,
-    label: 'Templates',
     path: '/templates',
-    group: 'Brand',
     requires: (a) => a.hasInWorkspace('template:view'),
   },
   {
@@ -184,9 +224,7 @@ const routes: IAppRoute[] = [
   },
   {
     element: <CampaignsPage />,
-    label: 'Campaigns',
     path: '/campaigns',
-    group: 'Brand',
     requires: (a) => a.hasInWorkspace('campaign:view'),
   },
   // Keep before any /campaigns/:id route, which would otherwise capture "new", "senders" and "settings".
@@ -216,6 +254,21 @@ const routes: IAppRoute[] = [
 export function useAllowedRoutes(): IAppRoute[] {
   const access = useAccess();
   return routes.filter((r) => !r.requires || r.requires(access));
+}
+
+/**
+ * The sidebar sections the signed-in user may open. Groups keep only allowed links, a group left with one link
+ * shows as that link, and empty groups and sections are dropped.
+ */
+export function useNavSections(): NavEntry[][] {
+  const allowed = new Set(useAllowedRoutes().map((r) => r.path));
+  return NAV_SECTIONS.map((section) =>
+    section.flatMap((entry): NavEntry[] => {
+      if (!isExpandable(entry)) return allowed.has(entry.path) ? [entry] : [];
+      const links = entry.links.filter((link) => allowed.has(link.path));
+      return links.length > 1 ? [{ ...entry, links }] : links;
+    }),
+  ).filter((section) => section.length > 0);
 }
 
 const AppRoutes = (): React.ReactElement => {

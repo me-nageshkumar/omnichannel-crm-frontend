@@ -1,5 +1,5 @@
 import * as React from 'react';
-import { NavLink, useLocation, useNavigate } from 'react-router-dom';
+import { Link, useLocation, useNavigate } from 'react-router-dom';
 import {
   Divider,
   Dropdown,
@@ -14,8 +14,9 @@ import {
   MastheadToggle,
   MenuToggle,
   Nav,
-  NavGroup,
+  NavExpandable,
   NavItem,
+  NavItemSeparator,
   NavList,
   Page,
   PageSidebar,
@@ -28,7 +29,7 @@ import {
   ToolbarGroup,
   ToolbarItem,
 } from '@patternfly/react-core';
-import { IAppRoute, NAV_GROUPS, useAllowedRoutes } from '@app/routes';
+import { NavEntry, NavLinkEntry, isExpandable, useNavSections } from '@app/routes';
 import { BarsIcon, UserIcon } from '@patternfly/react-icons';
 import { userRoleLabel } from '@app/api/users';
 import { WorkspaceSwitcher } from '@app/AppLayout/WorkspaceSwitcher';
@@ -73,6 +74,14 @@ const UserMenu: React.FunctionComponent = () => {
   );
 };
 
+/** The nav path the page falls under: the longest one that is the pathname or a parent of it. */
+function currentNavPath(sections: NavEntry[][], pathname: string): string | undefined {
+  const paths = sections.flat().flatMap((entry) => (isExpandable(entry) ? entry.links : [entry])).map((link) => link.path);
+  return paths
+    .filter((path) => path === pathname || (path !== '/' && pathname.startsWith(`${path}/`)))
+    .sort((a, b) => b.length - a.length)[0];
+}
+
 const AppLayout: React.FunctionComponent<IAppLayout> = ({ children }) => {
   const masthead = (
     <Masthead>
@@ -110,32 +119,36 @@ const AppLayout: React.FunctionComponent<IAppLayout> = ({ children }) => {
     </Masthead>
   );
 
-  const location = useLocation();
+  const { pathname } = useLocation();
+  const sections = useNavSections();
+  const current = currentNavPath(sections, pathname);
 
-  const renderNavItem = (route: IAppRoute, index: number) => (
-    <NavItem key={`${route.label}-${index}`} id={`${route.label}-${index}`} isActive={route.path === location.pathname}>
-      <NavLink
-        to={route.path}
-      >
-        {route.label}
-      </NavLink>
+  const renderLink = (link: NavLinkEntry) => (
+    <NavItem key={link.path} isActive={link.path === current}>
+      <Link to={link.path}>{link.label}</Link>
     </NavItem>
   );
 
-  const allowed = useAllowedRoutes().filter((route) => route.label);
-  const ungrouped = allowed.filter((route) => !route.group);
+  const renderEntry = (entry: NavEntry) => {
+    if (!isExpandable(entry)) return renderLink(entry);
+    const holdsCurrent = entry.links.some((link) => link.path === current);
+    return (
+      <NavExpandable key={entry.label} title={entry.label} isActive={holdsCurrent} isExpanded={holdsCurrent}>
+        {entry.links.map(renderLink)}
+      </NavExpandable>
+    );
+  };
 
   const Navigation = (
-    <Nav id="nav-primary-simple">
-      <NavList id="nav-list-simple">{ungrouped.map(renderNavItem)}</NavList>
-      {NAV_GROUPS.map((group) => {
-        const items = allowed.filter((route) => route.group === group);
-        return items.length === 0 ? null : (
-          <NavGroup key={group} title={group}>
-            {items.map(renderNavItem)}
-          </NavGroup>
-        );
-      })}
+    <Nav id="nav-primary" aria-label="Global">
+      <NavList>
+        {sections.map((section, index) => (
+          <React.Fragment key={index}>
+            {index > 0 && <NavItemSeparator />}
+            {section.map(renderEntry)}
+          </React.Fragment>
+        ))}
+      </NavList>
     </Nav>
   );
 

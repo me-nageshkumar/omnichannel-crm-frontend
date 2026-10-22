@@ -18,10 +18,11 @@ describe('App shell', () => {
   });
 
   // jsdom has no viewport width, so the managed sidebar starts collapsed (hidden)
-  it('nav lists Dashboard and Profile only', async () => {
+  // Profile lives in the user menu, not the sidebar.
+  it('nav lists Dashboard only', async () => {
     renderApp('/');
     expect(await screen.findByRole('link', { name: 'Dashboard', hidden: true })).toBeInTheDocument();
-    expect(screen.getByRole('link', { name: 'Profile', hidden: true })).toBeInTheDocument();
+    expect(screen.queryByRole('link', { name: 'Profile', hidden: true })).toBeNull();
     expect(screen.queryByRole('link', { name: 'Support', hidden: true })).toBeNull();
   });
 
