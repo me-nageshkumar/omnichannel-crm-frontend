@@ -6,6 +6,7 @@ import path from 'path';
 export default defineConfig({
   plugins: [react()],
   test: {
+    exclude: ['**/node_modules/**', '**/.worktrees/**'],
     environment: 'jsdom',
     setupFiles: ['./src/test/setup.ts'],
     globals: true,
