@@ -131,7 +131,7 @@ const SendersToday: React.FunctionComponent<{ senders: SenderView[] }> = ({ send
   </Table>
 );
 
-/** The campaign's recipients, fetched again after each refresh of the campaign (rows stay meanwhile). */
+/** The campaign's recipients, fetched again after each refresh of the campaign (rows stay meanwhile, and on a failure). */
 const Recipients: React.FunctionComponent<{ id: string; refreshedAt: Date | null }> = ({ id, refreshedAt }) => {
   const { workspace } = useSession();
   const ws = workspace?.id ?? '';
@@ -140,6 +140,7 @@ const Recipients: React.FunctionComponent<{ id: string; refreshedAt: Date | null
   const recipients = useLoad(
     (tk) => listRecipients(tk, ws, id, { status: status || undefined, page }),
     [ws, id, status, page],
+    { keepOnError: true },
   );
   const { reload } = recipients;
   // The first refresh is the load the table made itself; later ones bring new rows.
@@ -248,9 +249,21 @@ const Recipients: React.FunctionComponent<{ id: string; refreshedAt: Date | null
 export const CampaignDetailPage: React.FunctionComponent = () => {
   const { id = '' } = useParams();
   const navigate = useNavigate();
-  const startError = (useLocation().state as { startError?: string } | null)?.startError;
+  const location = useLocation();
+  const handedOver = (location.state as { startError?: string } | null)?.startError ?? null;
+  // Why the wizard could not start this draft; held here so it is not shown again from history.
+  const [startError, setStartError] = React.useState<string | null>(handedOver);
+  React.useEffect(() => {
+    if (!handedOver) return;
+    setStartError(handedOver);
+    navigate({ pathname: location.pathname, search: location.search }, { replace: true, state: null });
+  }, [handedOver, location.pathname, location.search, navigate]);
   const progress = useCampaignProgress(id);
-  const actions = useCampaignActions((act) => (act === 'delete' ? navigate('/campaigns') : progress.refresh()));
+  const actions = useCampaignActions((act) => {
+    setStartError(null);
+    if (act === 'delete') navigate('/campaigns');
+    else progress.refresh();
+  });
   const c = progress.campaign;
   const estimate = c && SHOWS_ESTIMATE.includes(c.status) ? estimateText(c.estimate) : null;
 

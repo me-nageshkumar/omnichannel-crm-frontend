@@ -174,6 +174,24 @@ describe('campaign detail', () => {
     expect(callsTo(fetch, GET)).toBe(1);
   });
 
+  it('recipientsStayWhenTheirReloadFails', async () => {
+    mockFetch(
+      routes(RUNNING, {
+        [REC]: (() => {
+          let n = 0;
+          return () =>
+            ++n === 1 ? { status: 200, body: { items: [recipient()], total: 1, page: 0 } } : { status: 500 };
+        })(),
+      }),
+    );
+    open();
+    await rowWith('+919800000002');
+    await advance(5000);
+    await dangerAlert(MESSAGES.generic);
+    expect(await rowWith('+919800000002')).toBeVisible();
+    expect(screen.queryByText('No recipients.')).toBeNull();
+  });
+
   it('filtersAndPagesRecipients', async () => {
     const skipped = recipient({
       status: 'SKIPPED',
@@ -272,5 +290,39 @@ describe('campaign detail', () => {
     const { user } = renderApp('/', <Probe />, { advanceTimers: vi.advanceTimersByTime });
     await user.click(await screen.findByRole('button', { name: 'Go' }));
     await dangerAlert('Could not start it.');
+  });
+
+  it('startErrorClearsAfterASuccessfulStart', async () => {
+    const Probe: React.FunctionComponent = () => {
+      const navigate = useNavigate();
+      return (
+        <>
+          <button onClick={() => navigate('/campaigns/c1', { state: { startError: 'Could not start it.' } })}>
+            Go
+          </button>
+          <button onClick={() => navigate('/campaigns')}>Leave</button>
+          <button onClick={() => navigate(-1)}>Return</button>
+        </>
+      );
+    };
+    const fetch = mockFetch(
+      routes(campaignDetail({ status: 'DRAFT' }), {
+        [`POST ${B}/c1/start`]: { status: 200, body: campaignDetail({ status: 'RUNNING' }) },
+        [`GET ${B}`]: { status: 200, body: { items: [], total: 0, page: 0, systemPaused: false } },
+      }),
+    );
+    const { user } = renderApp('/', <Probe />, { advanceTimers: vi.advanceTimersByTime });
+    await user.click(await screen.findByRole('button', { name: 'Go' }));
+    await dangerAlert('Could not start it.');
+    await user.click(await screen.findByRole('button', { name: 'Start' }));
+    await waitFor(() => expect(screen.queryByText('Could not start it.')).toBeNull());
+    expect(callsTo(fetch, `POST ${B}/c1/start`)).toBe(1);
+    // Coming back to the page's history entry does not bring the handed-over error back.
+    await user.click(screen.getByRole('button', { name: 'Leave' }));
+    expect(await screen.findByRole('heading', { name: 'Campaigns' })).toBeVisible();
+    await user.click(screen.getByRole('button', { name: 'Return' }));
+    expect(await screen.findByRole('heading', { name: 'Diwali offer' })).toBeVisible();
+    await screen.findByText(/^Refreshed /);
+    expect(screen.queryByText('Could not start it.')).toBeNull();
   });
 });

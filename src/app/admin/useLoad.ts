@@ -11,8 +11,17 @@ export interface Loaded<T> {
   setData(update: (current: T | undefined) => T | undefined): void;
 }
 
+export interface LoadOptions {
+  /** A failed reload keeps the value loaded before it (for the same key) instead of clearing it. */
+  keepOnError?: boolean;
+}
+
 /** Loads {@code fetcher(token)} and reloads whenever {@code key} changes. */
-export function useLoad<T>(fetcher: (token: string) => Promise<T>, key: unknown[] = []): Loaded<T> {
+export function useLoad<T>(
+  fetcher: (token: string) => Promise<T>,
+  key: unknown[] = [],
+  { keepOnError = false }: LoadOptions = {},
+): Loaded<T> {
   const { token } = useSession();
   const [data, setDataState] = React.useState<T | undefined>(undefined);
   const [error, setError] = React.useState<string | null>(null);
@@ -43,7 +52,7 @@ export function useLoad<T>(fetcher: (token: string) => Promise<T>, key: unknown[
       },
       (e) => {
         if (!live) return;
-        setDataState(undefined);
+        if (!keepOnError) setDataState(undefined);
         setError(messageFor(e));
         setLoading(false);
       },
