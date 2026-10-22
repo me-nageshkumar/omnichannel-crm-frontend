@@ -92,21 +92,22 @@ export function useCreateCampaign(draft: Draft): CreateCampaign {
   return { submit, busy, error: create.error, errorField, fieldErrors: create.fieldErrors, reset };
 }
 
-/** Back, the two ways to finish, and Cancel. */
-export const ReviewFooter: React.FunctionComponent<{ busy: boolean; onSubmit(start: boolean): void }> = ({
-  busy,
-  onSubmit,
-}) => {
+/** Back, the two ways to finish (only for a draft every earlier step accepts), and Cancel. */
+export const ReviewFooter: React.FunctionComponent<{
+  busy: boolean;
+  ready: boolean;
+  onSubmit(start: boolean): void;
+}> = ({ busy, ready, onSubmit }) => {
   const { goToPrevStep, close } = useWizardContext();
   return (
     <WizardFooterWrapper>
       <Button variant="secondary" onClick={() => void goToPrevStep()}>
         Back
       </Button>
-      <Button variant="secondary" isDisabled={busy} onClick={() => onSubmit(false)}>
+      <Button variant="secondary" isDisabled={busy || !ready} onClick={() => onSubmit(false)}>
         Save draft
       </Button>
-      <Button variant="primary" isDisabled={busy} onClick={() => onSubmit(true)}>
+      <Button variant="primary" isDisabled={busy || !ready} onClick={() => onSubmit(true)}>
         Start campaign
       </Button>
       <Button variant="link" onClick={close}>
@@ -144,7 +145,9 @@ export const ReviewStep: React.FunctionComponent<{
   attributes: ContactAttribute[];
   senders: SenderView[];
   create: CreateCampaign;
-}> = ({ draft, attributes, senders, create }) => {
+  /** False when an earlier step no longer accepts the draft; the footer then cannot submit. */
+  ready: boolean;
+}> = ({ draft, attributes, senders, create, ready }) => {
   const filterCount = useFilterCount(draft);
   const size = audienceSize(draft, filterCount.count);
   const chosen = senders.filter((s) => draft.senderIds.includes(s.phoneNumberId));
@@ -173,6 +176,7 @@ export const ReviewStep: React.FunctionComponent<{
 
   return (
     <Stack hasGutter>
+      {!ready && <Alert variant="warning" isInline title="Finish the earlier steps before saving." />}
       {banner && <Alert variant="danger" isInline title={banner} />}
       <DescriptionList isHorizontal>
         <DescriptionListGroup>

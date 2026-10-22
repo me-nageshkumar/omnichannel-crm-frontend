@@ -29,7 +29,7 @@ const CSV_NOTE =
   'Rows need a phone column; other columns can fill template placeholders. 10-digit numbers get the default country code.';
 
 const SAMPLE_ROWS = 5;
-const NO_FILE: Partial<Draft> = { file: null, preview: null, phoneColumn: null, nameColumn: null };
+const NO_FILE: Partial<Draft> = { file: null, preview: null, phoneColumn: null, nameColumn: null, reading: false };
 
 /** The live size of the chosen saved filter. */
 const FilterCount: React.FunctionComponent<{ filterId: string }> = ({ filterId }) => {
@@ -76,45 +76,37 @@ const FilterAudience: React.FunctionComponent<StepProps> = ({ draft, update }) =
 const CsvAudience: React.FunctionComponent<StepProps> = ({ draft, update }) => {
   const { token, workspace } = useSession();
   const ws = workspace?.id ?? '';
-  const [reading, setReading] = React.useState<File | null>(null);
-  const [error, setError] = React.useState<string | null>(null);
   // Bumped after a failed preview to reset the browser's file input, so the same file can be chosen again.
   const [inputKey, setInputKey] = React.useState(0);
-  // The file whose preview may still be applied; an earlier file's late answer is ignored.
+  // The file last chosen here, to ignore FileUpload reporting one choice twice.
   const latest = React.useRef<File | null>(null);
 
   const choose = (file: File) => {
     // FileUpload reports one choice twice (the input change and the dropzone drop).
     if (file === latest.current) return;
     latest.current = file;
-    setReading(file);
-    setError(null);
+    // The draft holds the new file at once, so nothing reads the old one's columns while this one is read.
+    update({ ...NO_FILE, file, reading: true, previewError: null });
+    // Only the draft's current file takes the answer; one chosen earlier, or cleared since, is ignored.
+    const ifCurrent = (patch: Partial<Draft>) => update((d) => (d.file === file ? patch : null));
     previewCsv(token as string, ws, file).then(
-      (p) => {
-        if (latest.current !== file) return;
-        setReading(null);
-        update({
-          file,
+      (p) =>
+        ifCurrent({
+          reading: false,
           preview: p,
           phoneColumn: p.suggested.phone,
           nameColumn: p.headers.find((h) => h.trim().toLowerCase() === 'name') ?? null,
-        });
-      },
+        }),
       (e) => {
-        if (latest.current !== file) return;
-        setReading(null);
-        setError(messageFor(e));
+        ifCurrent({ ...NO_FILE, previewError: messageFor(e) });
         setInputKey((k) => k + 1);
-        update(NO_FILE);
       },
     );
   };
 
   const clear = () => {
     latest.current = null;
-    setReading(null);
-    setError(null);
-    update(NO_FILE);
+    update({ ...NO_FILE, previewError: null });
   };
 
   const p = draft.preview;
@@ -124,7 +116,7 @@ const CsvAudience: React.FunctionComponent<StepProps> = ({ draft, update }) => {
         <FileUpload
           key={inputKey}
           id="audience-csv"
-          filename={(reading ?? draft.file)?.name ?? ''}
+          filename={draft.file?.name ?? ''}
           browseButtonText="Choose file"
           hideDefaultPreview
           onFileInputChange={(_e, f) => choose(f)}
@@ -133,14 +125,14 @@ const CsvAudience: React.FunctionComponent<StepProps> = ({ draft, update }) => {
         />
         <FormHelperText>
           <HelperText>
-            {error && <HelperTextItem variant="error">{error}</HelperTextItem>}
+            {draft.previewError && <HelperTextItem variant="error">{draft.previewError}</HelperTextItem>}
             <HelperTextItem>{CSV_NOTE}</HelperTextItem>
           </HelperText>
         </FormHelperText>
-        {reading && <Spinner size="md" aria-label="Reading the file" />}
-        {!reading && !draft.file && <SampleCsvLinks templates={draft.templates} />}
+        {draft.reading && <Spinner size="md" aria-label="Reading the file" />}
+        {!draft.file && <SampleCsvLinks templates={draft.templates} />}
       </FormGroup>
-      {p && !reading && (
+      {p && (
         <>
           <div>
             <p>{`${p.rows.toLocaleString('en-US')} rows`}</p>

@@ -11,6 +11,10 @@ export interface Draft {
   /** The chosen filter's name, for the Review step. */
   filterName: string;
   file: File | null;
+  /** True while {@link file}'s preview is being read; its preview and columns are null until then. */
+  reading: boolean;
+  /** Why the last chosen file could not be read; cleared when another file is chosen or the file is cleared. */
+  previewError: string | null;
   preview: CsvPreview | null;
   phoneColumn: string | null;
   nameColumn: string | null;
@@ -25,6 +29,8 @@ export const EMPTY_DRAFT: Draft = {
   filterId: '',
   filterName: '',
   file: null,
+  reading: false,
+  previewError: null,
   preview: null,
   phoneColumn: null,
   nameColumn: null,
@@ -53,7 +59,7 @@ export const hasLink = (body: string | null): boolean => body !== null && LINK.t
 export function audienceReady(d: Draft): boolean {
   if (d.name.trim() === '') return false;
   if (d.kind === 'FILTER') return d.filterId !== '';
-  return d.file === null || d.phoneColumn !== null;
+  return !d.reading && (d.file === null || d.phoneColumn !== null);
 }
 
 export function messageReady(d: Draft): boolean {
@@ -64,10 +70,13 @@ export function messageReady(d: Draft): boolean {
   return d.kind === 'FILTER' || d.preview !== null;
 }
 
+/** A change to the draft, or one computed from the current draft (null leaves it as it is). */
+export type DraftPatch = Partial<Draft> | ((d: Draft) => Partial<Draft> | null);
+
 /** What every wizard step receives. */
 export interface StepProps {
   draft: Draft;
-  update(patch: Partial<Draft>): void;
+  update(patch: DraftPatch): void;
 }
 
 /** How many recipients the audience has: the saved filter's live count, or the CSV's rows; null until known. */

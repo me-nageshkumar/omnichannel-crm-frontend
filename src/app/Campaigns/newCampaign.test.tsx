@@ -21,6 +21,7 @@ const CREATE = `POST ${C}`;
 const START = `POST ${C}/c9/start`;
 const NOTE =
   'Rows need a phone column; other columns can fill template placeholders. 10-digit numbers get the default country code.';
+const UNFINISHED = 'Finish the earlier steps before saving.';
 const FEW = "Fewer than three variants makes the fleet's messages look alike";
 
 const CITY = attribute({ id: 'a1', name: 'City' });
@@ -280,6 +281,62 @@ describe('new campaign wizard', () => {
     expect(next()).toBeEnabled();
   });
 
+  it('reUploadInFlightDisablesNext', async () => {
+    let n = 0;
+    const fetch = mockFetch(
+      routes({
+        [PREVIEW_CSV]: () => {
+          n += 1;
+          return {
+            status: 200,
+            body: n === 1 ? preview() : preview({ headers: ['mobile', 'name'], suggested: { phone: 'mobile' } }),
+          };
+        },
+      }),
+    );
+    const held = gate(fetch, PREVIEW_CSV, 2);
+    const { user } = renderApp('/campaigns/new');
+    await typeName(user);
+    await chooseCsv(user);
+    await upload(user);
+    expect(next()).toBeEnabled();
+    await user.upload(fileInput(), csvFile('second.csv'));
+    expect(await screen.findByRole('progressbar', { name: 'Reading the file' })).toBeInTheDocument();
+    expect(screen.queryByText('Columns: phone, name, City, Offer')).not.toBeInTheDocument();
+    expect(next()).toBeDisabled();
+    held.release();
+    expect(await screen.findByText('Columns: mobile, name')).toBeVisible();
+    expect(screen.getByRole('combobox', { name: 'Phone column' })).toHaveValue('mobile');
+    expect(next()).toBeEnabled();
+  });
+
+  it('previewErrorSurvivesLeavingTheStep', async () => {
+    let n = 0;
+    const fetch = mockFetch(
+      routes({
+        [PREVIEW_CSV]: () =>
+          ++n === 1
+            ? { status: 400, body: { code: 'VALIDATION', message: 'file has more than 20000 rows' } }
+            : { status: 200, body: preview() },
+      }),
+    );
+    const held = gate(fetch, PREVIEW_CSV, 1);
+    const { user } = renderApp('/campaigns/new');
+    await typeName(user);
+    await chooseCsv(user);
+    await user.upload(fileInput(), csvFile('big.csv'));
+    await screen.findByRole('progressbar', { name: 'Reading the file' });
+    expect(next()).toBeDisabled();
+    held.release();
+    expect(await screen.findByText('file has more than 20000 rows')).toBeVisible();
+    await user.click(screen.getByRole('radio', { name: 'Saved contact filter' }));
+    expect(screen.queryByText('file has more than 20000 rows')).not.toBeInTheDocument();
+    await chooseCsv(user);
+    expect(screen.getByText('file has more than 20000 rows')).toBeVisible();
+    await upload(user, csvFile('small.csv'));
+    expect(screen.queryByText('file has more than 20000 rows')).not.toBeInTheDocument();
+  });
+
   it('listsActiveTextTemplatesAndDisablesLinks', async () => {
     const fetch = mockFetch(routes());
     const { user } = renderApp('/campaigns/new');
@@ -420,12 +477,15 @@ describe('new campaign wizard', () => {
     await pick(user, 'Offer');
     await user.selectOptions(source('offer'), 'Offer');
     expect(source('offer')).toHaveValue('col:Offer');
+    await user.type(screen.getByRole('textbox', { name: 'Fallback for contact.attributes.city' }), 'your city');
     await user.click(back());
     await user.upload(fileInput(), csvFile('second.csv'));
     expect(await screen.findByText('Columns: phone, name, City')).toBeVisible();
     await user.click(next());
     expect(await screen.findByRole('combobox', { name: 'Source for offer' })).toHaveValue('');
     expect(source('contact.attributes.city')).toHaveValue('col:City');
+    // A column the new file still has keeps its mapping, fallback included.
+    expect(screen.getByRole('textbox', { name: 'Fallback for contact.attributes.city' })).toHaveValue('your city');
     expect(next()).toBeDisabled();
   });
 
@@ -553,6 +613,26 @@ describe('new campaign wizard', () => {
     expect(screen.queryByText('+919800000002 cannot send campaigns right now.')).not.toBeInTheDocument();
     expect(screen.getByRole('heading', { name: 'New campaign' })).toBeVisible();
     expect(saveDraft()).toBeEnabled();
+  });
+
+  it('navJumpToReviewWithAnInvalidDraftCannotSubmit', async () => {
+    const fetch = mockFetch(routes());
+    const { user } = renderApp('/campaigns/new');
+    await toReview(user);
+    expect(screen.queryByText(UNFINISHED)).not.toBeInTheDocument();
+    await user.click(screen.getByRole('button', { name: 'Senders' }));
+    await user.click(await screen.findByRole('checkbox', { name: 'Select +919800000001' }));
+    await user.click(screen.getByRole('button', { name: 'Review' }));
+    await screen.findByRole('button', { name: 'Start campaign' });
+    expect(saveDraft()).toBeDisabled();
+    expect(startCampaign()).toBeDisabled();
+    expect(screen.getByText(UNFINISHED)).toBeVisible();
+    expect(screen.getByRole('button', { name: /Senders/ })).toHaveClass('pf-m-danger');
+    expect(screen.getByRole('button', { name: 'Audience' })).not.toHaveClass('pf-m-danger');
+    expect(screen.getByRole('button', { name: 'Message' })).not.toHaveClass('pf-m-danger');
+    await user.click(saveDraft());
+    await user.click(startCampaign());
+    expect(callsTo(fetch, CREATE)).toBe(0);
   });
 
   it('submitsOnce', async () => {
