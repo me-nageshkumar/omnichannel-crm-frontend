@@ -21,6 +21,7 @@ import { TemplateEditorPage } from '@app/Templates/TemplateEditorPage';
 import { CampaignsPage } from '@app/Campaigns/CampaignsPage';
 import { SendersPage } from '@app/Campaigns/SendersPage';
 import { CampaignSettingsPage } from '@app/Campaigns/CampaignSettingsPage';
+import { CampaignDetailPage } from '@app/Campaigns/CampaignDetailPage';
 import { InboxNumbersPage } from '@app/Inbox/InboxNumbersPage';
 import { InboxPage } from '@app/Inbox/InboxPage';
 import { Access, useAccess } from '@app/session/useAccess';
@@ -178,6 +179,11 @@ const routes: IAppRoute[] = [
   {
     element: <CampaignSettingsPage />,
     path: '/campaigns/settings',
+    requires: (a) => a.hasInWorkspace('campaign:view'),
+  },
+  {
+    element: <CampaignDetailPage />,
+    path: '/campaigns/:id',
     requires: (a) => a.hasInWorkspace('campaign:view'),
   },
 ];
