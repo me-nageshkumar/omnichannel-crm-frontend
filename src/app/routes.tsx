@@ -16,6 +16,7 @@ import { AllPhoneNumbersPage } from '@app/PhoneNumbers/AllPhoneNumbersPage';
 import { ContactsPage } from '@app/Contacts/ContactsPage';
 import { ContactDetailPage } from '@app/Contacts/ContactDetailPage';
 import { ContactFieldsPage } from '@app/Contacts/ContactFieldsPage';
+import { FilterBuilderPage } from '@app/Contacts/Filters/FilterBuilderPage';
 import { TemplatesPage } from '@app/Templates/TemplatesPage';
 import { TemplateEditorPage } from '@app/Templates/TemplateEditorPage';
 import { CampaignsPage } from '@app/Campaigns/CampaignsPage';
@@ -133,6 +134,17 @@ const routes: IAppRoute[] = [
     label: 'Contacts',
     path: '/contacts',
     group: 'Brand',
+    requires: (a) => a.hasInWorkspace('contact:view'),
+  },
+  // Keep before /contacts/:id, which would otherwise capture "filters".
+  {
+    element: <FilterBuilderPage />,
+    path: '/contacts/filters/new',
+    requires: (a) => a.hasInWorkspace('contact:view'),
+  },
+  {
+    element: <FilterBuilderPage />,
+    path: '/contacts/filters/:id',
     requires: (a) => a.hasInWorkspace('contact:view'),
   },
   {
