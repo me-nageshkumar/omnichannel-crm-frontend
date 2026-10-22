@@ -240,34 +240,38 @@ export function ruleMissing(
   return null;
 }
 
-const DATE = /^\d{4}-\d{2}-\d{2}$/;
-const isDate = (v: unknown): v is string => typeof v === 'string' && DATE.test(v);
+const DATE = /^(\d{4})-(\d{2})-(\d{2})$/;
+/** A real calendar date in YYYY-MM-DD form. */
+function isDate(v: unknown): v is string {
+  if (typeof v !== 'string') return false;
+  const m = DATE.exec(v);
+  if (!m) return false;
+  const [y, mo, d] = [Number(m[1]), Number(m[2]), Number(m[3])];
+  const at = new Date(Date.UTC(y, mo - 1, d));
+  return at.getUTCFullYear() === y && at.getUTCMonth() === mo - 1 && at.getUTCDate() === d;
+}
 
-function valueFits(type: FieldType, kind: ValueKind, value: Rule['value']): boolean {
+const isText = (v: unknown): v is string => typeof v === 'string' && v.trim() !== '' && v.length <= MAX_VALUE_LENGTH;
+
+const isList = (v: unknown, entry: (e: string) => boolean): boolean =>
+  Array.isArray(v) && v.length >= 1 && v.length <= MAX_VALUES && v.every((e) => isText(e) && entry(e));
+
+function valueFits(type: FieldType, kind: ValueKind, value: Rule['value'], field: string): boolean {
+  const source = (v: string) => (SOURCES as string[]).includes(v);
   switch (kind) {
     case 'none':
       return value === null;
     case 'text':
-      return typeof value === 'string' && value.trim() !== '' && value.length <= MAX_VALUE_LENGTH;
+      return isText(value) && (field !== 'phone' || /\d/.test(value));
     case 'option':
       if (typeof value !== 'string') return false;
-      return type === 'boolean' ? value === 'true' || value === 'false' : (SOURCES as string[]).includes(value);
+      return type === 'boolean' ? value === 'true' || value === 'false' : source(value);
     case 'options':
-      return (
-        Array.isArray(value) &&
-        value.length >= 1 &&
-        value.length <= MAX_VALUES &&
-        value.every((v) => (SOURCES as string[]).includes(v))
-      );
+      return isList(value, source);
     case 'label':
-      return typeof value === 'string' && value !== '';
+      return isText(value);
     case 'labels':
-      return (
-        Array.isArray(value) &&
-        value.length >= 1 &&
-        value.length <= MAX_VALUES &&
-        value.every((v) => typeof v === 'string' && v !== '')
-      );
+      return isList(value, () => true);
     case 'date':
       return isDate(value);
     case 'dateRange':
@@ -278,7 +282,7 @@ function valueFits(type: FieldType, kind: ValueKind, value: Rule['value']): bool
 function ruleComplete(rule: Rule): boolean {
   const type = fieldType(rule.field);
   if (!type || !OPERATORS[type].includes(rule.operator)) return false;
-  return valueFits(type, valueKind(type, rule.operator), rule.value);
+  return valueFits(type, valueKind(type, rule.operator), rule.value, rule.field);
 }
 
 function groupComplete(group: RuleGroup): boolean {

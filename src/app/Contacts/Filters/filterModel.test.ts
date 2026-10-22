@@ -182,6 +182,18 @@ describe('filterModel', () => {
     expect(one(rule('', '', null))).toBe(false);
     expect(one(rule('name', 'has', 'a'))).toBe(false);
     expect(one(rule('labels', 'has', ''))).toBe(false);
+    expect(one(rule('phone', 'contains', 'abc'))).toBe(false);
+    expect(one(rule('phone', 'is', '+'))).toBe(false);
+    expect(one(rule('phone', 'contains', '+91 98'))).toBe(true);
+    expect(one(rule('phone', 'isSet', null))).toBe(true);
+    expect(one(rule('labels', 'has', '   '))).toBe(false);
+    expect(one(rule('labels', 'has', 'l'.repeat(201)))).toBe(false);
+    expect(one(rule('labels', 'hasAny', ['l1', '  ']))).toBe(false);
+    expect(one(rule('labels', 'hasAny', ['l'.repeat(201)]))).toBe(false);
+    expect(one(rule('source', 'in', ['CHAT', ' ']))).toBe(false);
+    expect(one(rule('creationTime', 'before', '2026-02-31'))).toBe(false);
+    expect(one(rule('creationTime', 'before', '2024-02-29'))).toBe(true);
+    expect(one(rule('creationTime', 'between', ['2026-01-01', '2026-13-01']))).toBe(false);
   });
 
   it('cleanRulesTrimsValues', () => {
@@ -211,6 +223,22 @@ describe('filterModel', () => {
       name: 'is required',
       other: ['rules[9]: x'],
     });
+    const keyed = splitErrors(
+      {
+        'rules[0].field': 'is unknown',
+        'rules[1].operator': 'is not allowed',
+        'rules[2].combinator': 'must be and or or',
+        'rules.combinator': 'must be and or or',
+      },
+      LAPSED_TREE,
+    );
+    expect(keyed.byPath).toEqual({
+      'rules[0]': 'is unknown',
+      'rules[1]': 'is not allowed',
+      'rules[2]': 'must be and or or',
+      rules: 'must be and or or',
+    });
+    expect(keyed.other).toEqual([]);
     expect(splitErrors({ 'rules[2].rules': 'bad' }, LAPSED_TREE).byPath).toEqual({ 'rules[2]': 'bad' });
   });
 
