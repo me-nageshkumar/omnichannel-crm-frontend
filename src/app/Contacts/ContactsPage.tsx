@@ -22,6 +22,7 @@ import {
   BulkAction,
   CONTACT_PAGE_SIZE,
   ContactFilterSpec,
+  ContactPage,
   ContactSort,
   Selection,
   bulkContacts,
@@ -101,21 +102,26 @@ export const ContactsPage: React.FunctionComponent = () => {
 
   const filter = React.useMemo<ContactFilterSpec>(() => cleanSpec({ ...panel, q }), [panel, q]);
   const saved = useLoad((tk) => listFilters(tk, ws), [ws]);
-  const picked = saved.data?.find((f) => f.id === savedId);
+  // An id that the loaded list does not know (e.g. a stale hand-over) counts as no pick at all.
+  const activeId = savedId && !(saved.data && !saved.data.some((f) => f.id === savedId)) ? savedId : null;
+  const picked = saved.data?.find((f) => f.id === activeId);
   const advanced = !!picked && isAdvanced(picked);
   // The one place that decides what "the contacts in view" means, for search, export and "all matching".
   const scope = ():
     | { filterId: string }
     | { filterId: string; filter: ContactFilterSpec }
     | { filter: ContactFilterSpec } => {
-    if (!savedId) return { filter };
-    return advanced && Object.keys(filter).length > 0 ? { filterId: savedId, filter } : { filterId: savedId };
+    if (!activeId) return { filter };
+    return advanced && Object.keys(filter).length > 0 ? { filterId: activeId, filter } : { filterId: activeId };
   };
   const scopeKey = JSON.stringify(scope());
+  // A handed-over id is only trusted once the saved filters have arrived, so the first search never uses a bogus one.
+  const waitingForList = !!savedId && savedId === handedOver && saved.loading && !saved.data;
   const contacts = useLoad(
-    (tk) => searchContacts(tk, ws, { ...scope(), sort, page }),
+    (tk) =>
+      waitingForList ? new Promise<ContactPage>(() => undefined) : searchContacts(tk, ws, { ...scope(), sort, page }),
     // eslint-disable-next-line react-hooks/exhaustive-deps
-    [ws, scopeKey, sort, page],
+    [ws, scopeKey, waitingForList, sort, page],
   );
   const labels = useLoad((tk) => listLabels(tk, ws), [ws]);
   const attributes = useLoad((tk) => listAttributes(tk, ws), [ws]);

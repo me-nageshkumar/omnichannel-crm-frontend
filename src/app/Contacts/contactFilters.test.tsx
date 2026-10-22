@@ -327,6 +327,16 @@ describe('contact filters and bulk actions', () => {
     expect(callsTo(second, SEARCH)).toBeGreaterThan(0);
   });
 
+  it('dropsAnUnknownHandedOverFilter', async () => {
+    const fetch = mockFetch(routes());
+    renderApp({ pathname: '/contacts', state: { filterId: 'nope' } });
+    expect(await screen.findByRole('button', { name: 'Saved filter: None' })).toBeVisible();
+    await rowWith('Asha Rao');
+    expect(callsTo(fetch, SEARCH)).toBeGreaterThan(0);
+    for (let n = 0; n < callsTo(fetch, SEARCH); n++)
+      expect(requestTo(fetch, SEARCH, n)?.body).not.toHaveProperty('filterId');
+  });
+
   it('filterBuilderNeedsBulk', async () => {
     mockFetch(routes(WORKSPACE_MANAGER, { [`GET ${B}/contacts/filters`]: { status: 404, body: {} } }));
     const first = renderApp('/contacts', <LocationProbe />);
