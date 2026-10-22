@@ -21,6 +21,7 @@ import { TemplateEditorPage } from '@app/Templates/TemplateEditorPage';
 import { CampaignsPage } from '@app/Campaigns/CampaignsPage';
 import { SendersPage } from '@app/Campaigns/SendersPage';
 import { CampaignSettingsPage } from '@app/Campaigns/CampaignSettingsPage';
+import { NewCampaignPage } from '@app/Campaigns/NewCampaign/NewCampaignPage';
 import { CampaignDetailPage } from '@app/Campaigns/CampaignDetailPage';
 import { InboxNumbersPage } from '@app/Inbox/InboxNumbersPage';
 import { InboxPage } from '@app/Inbox/InboxPage';
@@ -170,7 +171,12 @@ const routes: IAppRoute[] = [
     group: 'Brand',
     requires: (a) => a.hasInWorkspace('campaign:view'),
   },
-  // Keep before any /campaigns/:id route, which would otherwise capture "senders" and "settings".
+  // Keep before any /campaigns/:id route, which would otherwise capture "new", "senders" and "settings".
+  {
+    element: <NewCampaignPage />,
+    path: '/campaigns/new',
+    requires: (a) => a.hasInWorkspace('campaign:view'),
+  },
   {
     element: <SendersPage />,
     path: '/campaigns/senders',
