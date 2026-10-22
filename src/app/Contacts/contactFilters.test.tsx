@@ -338,7 +338,7 @@ describe('contact filters and bulk actions', () => {
   });
 
   it('filterBuilderNeedsBulk', async () => {
-    mockFetch(routes(WORKSPACE_MANAGER, { [`GET ${B}/contacts/filters`]: { status: 404, body: {} } }));
+    mockFetch(routes());
     const first = renderApp('/contacts', <LocationProbe />);
     await rowWith('Asha Rao');
     await first.user.click(screen.getByRole('button', { name: 'Filter builder' }));

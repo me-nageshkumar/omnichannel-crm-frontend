@@ -47,8 +47,6 @@ function routes(user: CurrentUser = WORKSPACE_MANAGER, extra: Record<string, Moc
     // The Contacts page, which a simple filter opens.
     [`POST ${B}/contacts/search`]: { status: 200, body: { items: [ASHA], total: 1, page: 0 } },
     [`GET ${B}/contact-filters`]: { status: 200, body: [SIMPLE] },
-    // Until the saved filters page exists, /contacts/filters falls to the contact detail route.
-    [`GET ${B}/contacts/filters`]: { status: 404, body: {} },
     ...extra,
   };
 }

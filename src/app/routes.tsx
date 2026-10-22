@@ -16,6 +16,7 @@ import { AllPhoneNumbersPage } from '@app/PhoneNumbers/AllPhoneNumbersPage';
 import { ContactsPage } from '@app/Contacts/ContactsPage';
 import { ContactDetailPage } from '@app/Contacts/ContactDetailPage';
 import { ContactFieldsPage } from '@app/Contacts/ContactFieldsPage';
+import { SavedFiltersPage } from '@app/Contacts/Filters/SavedFiltersPage';
 import { FilterBuilderPage } from '@app/Contacts/Filters/FilterBuilderPage';
 import { TemplatesPage } from '@app/Templates/TemplatesPage';
 import { TemplateEditorPage } from '@app/Templates/TemplateEditorPage';
@@ -137,6 +138,11 @@ const routes: IAppRoute[] = [
     requires: (a) => a.hasInWorkspace('contact:view'),
   },
   // Keep before /contacts/:id, which would otherwise capture "filters".
+  {
+    element: <SavedFiltersPage />,
+    path: '/contacts/filters',
+    requires: (a) => a.hasInWorkspace('contact:view'),
+  },
   {
     element: <FilterBuilderPage />,
     path: '/contacts/filters/new',
