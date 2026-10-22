@@ -43,9 +43,10 @@ export const RuleEditor: React.FunctionComponent<{
   labels: ContactLabel[];
   attributes: ContactAttribute[];
   error?: string;
+  isDisabled?: boolean;
   onChange(rule: Rule): void;
   onRemove(): void;
-}> = ({ rule, path, labels, attributes, error, onChange, onRemove }) => {
+}> = ({ rule, path, labels, attributes, error, isDisabled = false, onChange, onRemove }) => {
   const id = rulePath(path);
   const type = fieldType(rule.field);
   const missing = ruleMissing(rule, labels, attributes);
@@ -61,11 +62,17 @@ export const RuleEditor: React.FunctionComponent<{
         return null;
       case 'text':
         return (
-          <TextInput aria-label="Value" value={text} maxLength={MAX_VALUE_LENGTH} onChange={(_e, v) => setValue(v)} />
+          <TextInput
+            aria-label="Value"
+            value={text}
+            maxLength={MAX_VALUE_LENGTH}
+            isDisabled={isDisabled}
+            onChange={(_e, v) => setValue(v)}
+          />
         );
       case 'option':
         return (
-          <FormSelect aria-label="Value" value={text} onChange={(_e, v) => setValue(v)}>
+          <FormSelect aria-label="Value" value={text} isDisabled={isDisabled} onChange={(_e, v) => setValue(v)}>
             <FormSelectOption value="" label="Choose a value" isPlaceholder />
             {type === 'enum'
               ? SOURCES.map((s) => <FormSelectOption key={s} value={s} label={SOURCE_TEXT[s]} />)
@@ -86,6 +93,7 @@ export const RuleEditor: React.FunctionComponent<{
                 id={`${id}-source-${s}`}
                 label={SOURCE_TEXT[s]}
                 isChecked={list.includes(s)}
+                isDisabled={isDisabled}
                 onChange={(_e, on) => toggle(s, on)}
               />
             ))}
@@ -93,19 +101,39 @@ export const RuleEditor: React.FunctionComponent<{
         );
       }
       case 'date':
-        return <TextInput type="date" aria-label="Value" value={text} onChange={(_e, v) => setValue(v)} />;
+        return (
+          <TextInput
+            type="date"
+            aria-label="Value"
+            value={text}
+            isDisabled={isDisabled}
+            onChange={(_e, v) => setValue(v)}
+          />
+        );
       case 'dateRange': {
         const [from = '', to = ''] = list;
         return (
           <>
-            <TextInput type="date" aria-label="From" value={from} onChange={(_e, v) => setValue([v, to])} />
-            <TextInput type="date" aria-label="To" value={to} onChange={(_e, v) => setValue([from, v])} />
+            <TextInput
+              type="date"
+              aria-label="From"
+              value={from}
+              isDisabled={isDisabled}
+              onChange={(_e, v) => setValue([v, to])}
+            />
+            <TextInput
+              type="date"
+              aria-label="To"
+              value={to}
+              isDisabled={isDisabled}
+              onChange={(_e, v) => setValue([from, v])}
+            />
           </>
         );
       }
       case 'label':
         return (
-          <FormSelect aria-label="Value" value={text} onChange={(_e, v) => setValue(v)}>
+          <FormSelect aria-label="Value" value={text} isDisabled={isDisabled} onChange={(_e, v) => setValue(v)}>
             <FormSelectOption value="" label="Choose a label" isPlaceholder />
             {text !== '' && !labels.some((l) => l.id === text) && (
               <FormSelectOption value={text} label="—" isDisabled />
@@ -126,7 +154,12 @@ export const RuleEditor: React.FunctionComponent<{
     <div role="group" aria-label={nodeName(path, false)}>
       <Flex alignItems={{ default: 'alignItemsCenter' }} spaceItems={{ default: 'spaceItemsSm' }}>
         <FlexItem>
-          <FormSelect aria-label="Field" value={rule.field} onChange={(_e, v) => onChange(withField(rule, v))}>
+          <FormSelect
+            aria-label="Field"
+            value={rule.field}
+            isDisabled={isDisabled}
+            onChange={(_e, v) => onChange(withField(rule, v))}
+          >
             <FormSelectOption value="" label="Choose a field" isPlaceholder />
             {missing === 'attribute' && <FormSelectOption value={rule.field} label="—" isDisabled />}
             {FIELD_GROUPS.map((g) => (
@@ -144,7 +177,7 @@ export const RuleEditor: React.FunctionComponent<{
           <FormSelect
             aria-label="Operator"
             value={rule.operator}
-            isDisabled={!type}
+            isDisabled={!type || isDisabled}
             onChange={(_e, v) => onChange(withOperator(rule, v))}
           >
             {(type ? OPERATORS[type] : []).map((op) => (

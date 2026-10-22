@@ -31,6 +31,8 @@ const NESTED: React.CSSProperties = {
   borderInlineStart: '2px solid var(--pf-t--global--border--color--default)',
   paddingInlineStart: SPACER,
 };
+// A fieldset that only groups the controls for `disabled`; it draws nothing.
+const PLAIN_FIELDSET: React.CSSProperties = { border: 0, margin: 0, padding: 0, minInlineSize: 0 };
 const COMBINATORS: Array<[Combinator, string]> = [
   ['and', 'All of these'],
   ['or', 'Any of these'],
@@ -40,12 +42,14 @@ interface TreeProps {
   labels: ContactLabel[];
   attributes: ContactAttribute[];
   errors?: Record<string, string>;
+  /** Locks every control, e.g. while the filter is being saved. */
+  isDisabled?: boolean;
 }
 
 /** One group: its toolbar, its error, then its children in order. Every change goes back as a new root. */
 const GroupEditor: React.FunctionComponent<
   TreeProps & { root: RuleGroup; group: RuleGroup; path: Path; onChange(next: RuleGroup): void }
-> = ({ root, group, path, onChange, labels, attributes, errors }) => {
+> = ({ root, group, path, onChange, labels, attributes, errors, isDisabled }) => {
   const name = nodeName(path, true);
   const error = errors?.[rulePath(path)];
   const set = (patch: Partial<RuleGroup>) => onChange(replaceAt(root, path, { ...group, ...patch }));
@@ -70,6 +74,7 @@ const GroupEditor: React.FunctionComponent<
               id={`not-${rulePath(path)}`}
               label="Not"
               isChecked={group.not}
+              isDisabled={isDisabled}
               onChange={(_e, not) => set({ not })}
             />
           </FlexItem>
@@ -122,6 +127,7 @@ const GroupEditor: React.FunctionComponent<
                   labels={labels}
                   attributes={attributes}
                   errors={errors}
+                  isDisabled={isDisabled}
                 />
               ) : (
                 <RuleEditor
@@ -130,6 +136,7 @@ const GroupEditor: React.FunctionComponent<
                   labels={labels}
                   attributes={attributes}
                   error={errors?.[rulePath(at)]}
+                  isDisabled={isDisabled}
                   onChange={(r) => onChange(replaceAt(root, at, r))}
                   onRemove={() => onChange(removeAt(root, at))}
                 />
@@ -142,17 +149,24 @@ const GroupEditor: React.FunctionComponent<
   );
 };
 
-/** The recursive rules editor for an advanced filter; errors are keyed by rulePath. */
+/**
+ * The recursive rules editor for an advanced filter; errors are keyed by rulePath. {@code isDisabled}
+ * disables the fieldset, so no control can change the tree (the label picker included); the form
+ * controls also take it for their disabled look.
+ */
 export const RuleTreeEditor: React.FunctionComponent<
   TreeProps & { value: RuleGroup; onChange(next: RuleGroup): void }
-> = ({ value, onChange, labels, attributes, errors }) => (
-  <GroupEditor
-    root={value}
-    group={value}
-    path={[]}
-    onChange={onChange}
-    labels={labels}
-    attributes={attributes}
-    errors={errors}
-  />
+> = ({ value, onChange, labels, attributes, errors, isDisabled = false }) => (
+  <fieldset disabled={isDisabled} style={PLAIN_FIELDSET}>
+    <GroupEditor
+      root={value}
+      group={value}
+      path={[]}
+      onChange={onChange}
+      labels={labels}
+      attributes={attributes}
+      errors={errors}
+      isDisabled={isDisabled}
+    />
+  </fieldset>
 );

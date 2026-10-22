@@ -132,7 +132,7 @@ export const FILTER_SAMPLE_SIZE = 10;
 
 export type FilterBody = { name: string; filter: ContactFilterSpec } | { name: string; rules: RuleGroup };
 
-/** Exactly one of the four. */
+/** One of: explicit ids, an inline filter, a saved filter, or a saved filter ANDed with an inline filter. */
 export type Selection =
   | { ids: string[] }
   | { filter: ContactFilterSpec }

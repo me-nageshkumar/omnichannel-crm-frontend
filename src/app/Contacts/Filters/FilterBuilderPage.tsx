@@ -109,17 +109,22 @@ const FilterBuilderForm: React.FunctionComponent<{
   const [ruleErrors, setRuleErrors] = React.useState<Record<string, string>>({});
   const [nameError, setNameError] = React.useState<string | null>(null);
   const [previewError, setPreviewError] = React.useState<string | null>(null);
+  // From Save until it settles: Name and the tree are locked, so what is saved is what is shown.
+  const [saving, setSaving] = React.useState(false);
 
   const key = JSON.stringify(cleanRules(rules));
   // The tree in view now, for dropping a preview answer that was sent for an older tree.
   const keyRef = React.useRef(key);
   keyRef.current = key;
+  // The saved tree, whose query the filter already carries.
+  const [existingKey] = React.useState(() => existing?.rules && JSON.stringify(cleanRules(existing.rules)));
 
   const missing = React.useMemo(() => missingIds(rules, labels, attributes), [rules, labels, attributes]);
   const blocked = !isComplete(rules) || missing.attributeIds.length + missing.labelIds.length > 0;
-  const busy = previewing || save.busy;
+  const busy = previewing || saving;
   const current = checked?.key === key ? checked : null;
-  const query = checked?.query ?? existing?.query ?? null;
+  // Only the query of the tree in view: a newer tree has none until it is checked.
+  const query = current?.query ?? (key === existingKey ? existing?.query : null) ?? null;
   const shownNameError = nameError ?? save.fieldErrors.name;
 
   const changeRules = (next: RuleGroup) => {
@@ -162,31 +167,42 @@ const FilterBuilderForm: React.FunctionComponent<{
     }
   };
 
-  const onSave = async () => {
-    if (checked?.key !== key && !(await runPreview())) return;
-    const body = { name: name.trim(), rules: cleanRules(rules) };
-    const saved = await save.run(() => (existing ? updateFilter(t, ws, existing.id, body) : createFilter(t, ws, body)));
-    if (saved) navigate(SAVED_FILTERS);
-  };
-
   const saveDisabled = name.trim() === '' || blocked || busy;
 
+  const onSave = async () => {
+    if (saveDisabled) return;
+    setSaving(true);
+    try {
+      if (checked?.key !== key && !(await runPreview())) return;
+      const body = { name: name.trim(), rules: cleanRules(rules) };
+      const saved = await save.run(() =>
+        existing ? updateFilter(t, ws, existing.id, body) : createFilter(t, ws, body),
+      );
+      if (saved) navigate(SAVED_FILTERS);
+    } finally {
+      setSaving(false);
+    }
+  };
+
+  // Save is a plain button and only Name saves on Enter, so Enter in a rule's value never saves.
   return (
-    <Form
-      onSubmit={(e) => {
-        e.preventDefault();
-        if (!saveDisabled) void onSave();
-      }}
-    >
+    <Form onSubmit={(e) => e.preventDefault()}>
       <FormGroup label="Name" isRequired fieldId="filter-name">
         <TextInput
           id="filter-name"
           isRequired
           value={name}
+          isDisabled={saving}
           validated={shownNameError ? 'error' : 'default'}
           onChange={(_e, v) => {
             setName(v);
             setNameError(null);
+            save.reset();
+          }}
+          onKeyDown={(e) => {
+            if (e.key !== 'Enter') return;
+            e.preventDefault();
+            void onSave();
           }}
         />
         {shownNameError && (
@@ -208,6 +224,7 @@ const FilterBuilderForm: React.FunctionComponent<{
                   labels={labels}
                   attributes={attributes}
                   errors={ruleErrors}
+                  isDisabled={saving}
                 />
               </div>
             </Tab>
@@ -243,6 +260,11 @@ const FilterBuilderForm: React.FunctionComponent<{
                     Show sample
                   </Button>
                 </div>
+                {blocked && (
+                  <HelperText>
+                    <HelperTextItem>Complete every rule to check the count.</HelperTextItem>
+                  </HelperText>
+                )}
                 {current?.sample && <SampleTable sample={current.sample} labels={labels} />}
                 {previewError && <Alert variant="danger" isInline title={previewError} />}
               </Flex>
@@ -252,7 +274,7 @@ const FilterBuilderForm: React.FunctionComponent<{
       </Grid>
       {save.error && <Alert variant="danger" isInline title={save.error} />}
       <ActionGroup>
-        <Button type="submit" variant="primary" isDisabled={saveDisabled} isLoading={save.busy}>
+        <Button variant="primary" isDisabled={saveDisabled} isLoading={saving} onClick={() => void onSave()}>
           Save
         </Button>
         <Button variant="link" onClick={() => navigate(SAVED_FILTERS)}>

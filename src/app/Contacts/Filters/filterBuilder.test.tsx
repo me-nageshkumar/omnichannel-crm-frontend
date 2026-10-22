@@ -78,6 +78,25 @@ async function buildTwo(user: User) {
 }
 
 const leftFor = async (path: string) => waitFor(() => expect(location()).toBe(path));
+const nameInput = () => screen.getByLabelText(/^Name/) as HTMLInputElement;
+const COMPLETE_HINT = 'Complete every rule to check the count.';
+
+/** Name and every control of a one-rule tree are disabled; typing into Name changes nothing. */
+async function expectLockedWhileSaving(user: User) {
+  const toolbar = within(screen.getByRole('toolbar', { name: 'Filter rules actions' }));
+  for (const control of [
+    nameInput(),
+    rule('Rule 1').getByLabelText('Field'),
+    rule('Rule 1').getByLabelText('Operator'),
+    rule('Rule 1').getByLabelText('Value'),
+    rule('Rule 1').getByRole('button', { name: 'Remove rule' }),
+    toolbar.getByRole('checkbox', { name: 'Not' }),
+    ...toolbar.getAllByRole('button'),
+  ]) {
+    expect(control).toBeDisabled();
+  }
+  await user.type(nameInput(), ' 2');
+}
 
 describe('filter builder', () => {
   beforeEach(() => {
@@ -96,6 +115,8 @@ describe('filter builder', () => {
     expect(await screen.findByText('404 Page not found')).toBeVisible();
     expect(callsTo(fetch, `GET ${B}/contact-filters/f2`)).toBe(0);
     expect(callsTo(fetch, PREVIEW)).toBe(0);
+    expect(callsTo(fetch, `GET ${B}/contact-labels`)).toBe(0);
+    expect(callsTo(fetch, `GET ${B}/contact-attributes`)).toBe(0);
   });
 
   it('checkAndSampleNeedACompleteTree', async () => {
@@ -118,6 +139,16 @@ describe('filter builder', () => {
     expect(button('Check count')).toBeDisabled();
     expect(button('Show sample')).toBeDisabled();
     expect(button('Save')).toBeDisabled();
+  });
+
+  it('incompleteTreeSaysWhyChecksAreDisabled', async () => {
+    mockFetch(routes());
+    const { user } = open('/contacts/filters/new');
+    await screen.findByRole('group', { name: 'Rule 1' });
+    expect(screen.getByText(COMPLETE_HINT)).toBeVisible();
+
+    await buildOne(user);
+    expect(screen.queryByText(COMPLETE_HINT)).not.toBeInTheDocument();
   });
 
   it('checkCountSendsTheTree', async () => {
@@ -154,6 +185,28 @@ describe('filter builder', () => {
     await screen.findByText('1,204 contacts');
     await user.click(tab('Query'));
     expect(codeText()).toBe(JSON.stringify(LAPSED_QUERY, null, 2));
+  });
+
+  it('queryTabHidesTheQueryOfAnOlderTree', async () => {
+    mockFetch(routes());
+    const { user } = open('/contacts/filters/new');
+    await buildOne(user);
+    await user.click(button('Check count'));
+    await screen.findByText('1,204 contacts');
+    await user.selectOptions(rule('Rule 1').getByLabelText('Value'), 'Lead');
+    await user.click(tab('Query'));
+    expect(screen.getByText('Check the count to see the query.')).toBeVisible();
+    expect(screen.queryByRole('code')).not.toBeInTheDocument();
+  });
+
+  it('queryTabHidesTheSavedQueryOnceTheTreeChanges', async () => {
+    mockFetch(routes());
+    const { user } = open('/contacts/filters/f2');
+    await screen.findByRole('group', { name: 'Rule 1' });
+    await user.selectOptions(rule('Rule 1').getByLabelText('Value'), 'Lead');
+    await user.click(tab('Query'));
+    expect(screen.getByText('Check the count to see the query.')).toBeVisible();
+    expect(screen.queryByRole('code')).not.toBeInTheDocument();
   });
 
   it('saveSendsNameAndRules', async () => {
@@ -216,6 +269,72 @@ describe('filter builder', () => {
     expect(callsTo(fetch, PREVIEW)).toBe(2);
   });
 
+  it('aStaleValidationErrorIsDropped', async () => {
+    const fetch = mockFetch(
+      routes(WORKSPACE_MANAGER, {
+        [PREVIEW]: { status: 400, body: { code: 'VALIDATION', fields: { 'rules[0].value': 'x' } } },
+      }),
+    );
+    const held = gate(fetch, PREVIEW, 1);
+    const { user } = open('/contacts/filters/new');
+    await buildOne(user);
+    await user.click(button('Check count'));
+    await waitFor(() => expect(callsTo(fetch, PREVIEW)).toBe(1));
+    await user.selectOptions(rule('Rule 1').getByLabelText('Value'), 'Lead');
+    held.release();
+    await waitFor(() => expect(button('Check count')).toBeEnabled());
+    expect(screen.queryByText('x')).not.toBeInTheDocument();
+  });
+
+  it('editsAreLockedWhileSaveChecksTheTree', async () => {
+    const fetch = mockFetch(routes());
+    const held = gate(fetch, PREVIEW, 1);
+    const { user } = open('/contacts/filters/new');
+    await buildOne(user);
+    await fill(user, 'Name', 'Lapsed VIPs');
+    await user.click(button('Save'));
+    await waitFor(() => expect(callsTo(fetch, PREVIEW)).toBe(1));
+    await expectLockedWhileSaving(user);
+    const shown = nameInput().value;
+    held.release();
+    await leftFor('/contacts/filters');
+    expect(requestTo(fetch, CREATE)?.body).toEqual({ name: shown, rules: ONE });
+  });
+
+  it('editsAreLockedWhileSaveCreates', async () => {
+    const fetch = mockFetch(routes());
+    const held = gate(fetch, CREATE, 1);
+    const { user } = open('/contacts/filters/new');
+    await buildOne(user);
+    await fill(user, 'Name', 'Lapsed VIPs');
+    await user.click(button('Check count'));
+    await screen.findByText('1,204 contacts');
+    await user.click(button('Save'));
+    await waitFor(() => expect(callsTo(fetch, CREATE)).toBe(1));
+    await expectLockedWhileSaving(user);
+    const shown = nameInput().value;
+    held.release();
+    await leftFor('/contacts/filters');
+    expect(requestTo(fetch, CREATE)?.body).toEqual({ name: shown, rules: ONE });
+  });
+
+  it('enterSavesOnlyFromName', async () => {
+    const fetch = mockFetch(routes());
+    const { user } = open('/contacts/filters/new');
+    await fill(user, 'Name', 'Lapsed VIPs');
+    await screen.findByRole('group', { name: 'Rule 1' });
+    await user.selectOptions(rule('Rule 1').getByLabelText('Field'), 'Name');
+    await user.type(rule('Rule 1').getByLabelText('Value'), 'Asha{Enter}');
+    expect(button('Save')).toBeEnabled();
+    expect(callsTo(fetch, PREVIEW)).toBe(0);
+    expect(callsTo(fetch, CREATE)).toBe(0);
+
+    await user.type(nameInput(), '{Enter}');
+    await leftFor('/contacts/filters');
+    expect(callsTo(fetch, PREVIEW)).toBe(1);
+    expect(requestTo(fetch, CREATE)?.body.name).toBe('Lapsed VIPs');
+  });
+
   it('previewTimeoutShowsTheSentenceAndDoesNotSave', async () => {
     const fetch = mockFetch(routes(WORKSPACE_MANAGER, { [PREVIEW]: { status: 504, body: { code: 'QUERY_TIMEOUT' } } }));
     const { user } = open('/contacts/filters/new');
@@ -248,6 +367,9 @@ describe('filter builder', () => {
     await user.click(button('Save'));
     expect(await screen.findByText('Name is already in use.')).toBeVisible();
     expect(location()).toBe('/contacts/filters/new');
+
+    await user.type(nameInput(), ' 2');
+    expect(screen.queryByText('Name is already in use.')).not.toBeInTheDocument();
   });
 
   it('editLoadsTheFilterAndPuts', async () => {
