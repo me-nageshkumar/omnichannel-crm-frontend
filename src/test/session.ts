@@ -35,6 +35,9 @@ export const BRAND_CODES = [
   'inbox:send',
   'inbox:assign',
   'inbox:settings',
+  'campaign:view',
+  'campaign:manage',
+  'campaign:settings',
 ];
 
 const base = {
@@ -118,6 +121,8 @@ export const TEAM_LEAD: CurrentUser = {
         'contact:bulk',
         'template:view',
         'template:manage',
+        'campaign:view',
+        'campaign:manage',
       ],
     },
   ],
@@ -134,7 +139,7 @@ export const AGENT_IN_BRAND: CurrentUser = {
     {
       ...BRAND_A,
       role: { id: 'r-ag', name: 'AGENT' },
-      authorities: ['contact:view', 'contact:annotate', 'template:view'],
+      authorities: ['contact:view', 'contact:annotate', 'template:view', 'campaign:view'],
     },
   ],
 };

@@ -1,13 +1,15 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
-import { screen } from '@testing-library/react';
+import { cleanup, screen } from '@testing-library/react';
 import type { CurrentUser } from '@app/api/users';
 import { renderApp } from '../test/renderApp';
 import { mockFetch } from '../test/fetchMock';
 import {
   ACCOUNT_MANAGER,
+  AGENT_IN_BRAND,
   AGENT_NO_BRANDS,
   CUSTOMER_ADMIN,
   SUPER_ADMIN,
+  TEAM_LEAD,
   WORKSPACE_MANAGER,
   meAs,
   storeSession,
@@ -26,6 +28,7 @@ const ALL = [
   'Contacts',
   'Contact fields',
   'Templates',
+  'Campaigns',
   'All phone numbers',
 ];
 
@@ -55,6 +58,7 @@ describe('authority-driven navigation', () => {
       'Contacts',
       'Contact fields',
       'Templates',
+      'Campaigns',
     ]);
   });
 
@@ -67,7 +71,14 @@ describe('authority-driven navigation', () => {
       'Contacts',
       'Contact fields',
       'Templates',
+      'Campaigns',
     ]);
+  });
+
+  it('teamLeadAndAgentSeeCampaigns', async () => {
+    expect(await navFor(TEAM_LEAD)).toContain('Campaigns');
+    cleanup();
+    expect(await navFor(AGENT_IN_BRAND)).toContain('Campaigns');
   });
 
   it('account manager sees customers only', async () => {
