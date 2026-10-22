@@ -103,6 +103,18 @@ describe('campaign detail', () => {
     await waitFor(() => expect(callsTo(fetch, REC)).toBe(2));
   });
 
+  it('backLinkKeepsFocusWhilePolling', async () => {
+    mockFetch(routes(RUNNING));
+    open();
+    await countdown('Refreshing in 5 s');
+    const back = screen.getByRole('link', { name: 'Back to campaigns' });
+    act(() => back.focus());
+    expect(document.activeElement).toBe(back);
+    await advance(2000);
+    expect(screen.getByRole('progressbar', { name: 'Refreshing in 3 s' })).toBeVisible();
+    expect(document.activeElement).toBe(back);
+  });
+
   it('fetchErrorKeepsNumbersAndKeepsCounting', async () => {
     const fetch = mockFetch(routes(inTurn(RUNNING, { status: 500 }, RUNNING)));
     open();

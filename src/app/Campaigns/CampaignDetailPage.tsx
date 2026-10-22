@@ -80,6 +80,9 @@ const STATUS_COLOR: Record<RecipientStatus, 'grey' | 'blue' | 'green' | 'red'> =
 const STATUSES = Object.keys(RECIPIENT_STATUS_TEXT) as RecipientStatus[];
 const SHOWS_ESTIMATE = ['DRAFT', 'RUNNING', 'PAUSED'];
 
+// Defined once: an inline component would remount the link (and drop its focus) on every countdown tick.
+const BackLink = (props: React.AnchorHTMLAttributes<HTMLAnchorElement>) => <Link {...props} to="/campaigns" />;
+
 const when = (iso: string | null) => (iso ? relative(iso) : '—');
 
 const Counts: React.FunctionComponent<{ counts: CampaignCounts }> = ({ counts }) => (
@@ -257,7 +260,7 @@ export const CampaignDetailPage: React.FunctionComponent = () => {
       actions={
         <Flex spaceItems={{ default: 'spaceItemsSm' }}>
           {c && actions.buttonsFor(c)}
-          <Button component={(p) => <Link {...p} to="/campaigns" />} variant="link">
+          <Button component={BackLink} variant="link">
             Back to campaigns
           </Button>
         </Flex>
