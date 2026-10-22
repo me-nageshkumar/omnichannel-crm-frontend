@@ -1,4 +1,4 @@
-import type { CampaignAction } from '@app/api/campaigns';
+import type { CampaignAction, SenderAction } from '@app/api/campaigns';
 import { ApiError } from '@app/api/client';
 import { shown } from '@app/api/phoneNumbers';
 
@@ -36,6 +36,8 @@ const BY_CODE: Record<string, string> = {
   template_not_text: 'Only text templates can be used in campaigns.',
   placeholder_unmapped: 'Every placeholder needs a value.',
   mapping_column_reused: 'A CSV column can be used only once.',
+  phone_column_required: 'Choose the column that holds the phone number.',
+  sender_state: 'This number cannot be changed now.',
   conflict: 'Someone else changed this at the same time. Reload and try again.',
 };
 
@@ -80,4 +82,20 @@ export function campaignActionMessage(error: unknown, action: CampaignAction): s
     return `This campaign cannot be ${DONE[action]} now.`;
   }
   return messageFor(error);
+}
+
+const SENDER_DONE: Record<SenderAction, string> = {
+  REST: 'rested',
+  RETIRE: 'retired',
+  REACTIVATE: 'reactivated',
+  RESUME: 'resumed',
+};
+
+/** Whether the server refused a sender action because of the sender's state (someone else changed it). */
+export const isSenderState = (error: unknown): boolean =>
+  error instanceof ApiError && error.code?.toLowerCase() === 'sender_state';
+
+/** The sentence for a failed sender action; a wrong state names the action. */
+export function senderActionMessage(error: unknown, action: SenderAction): string {
+  return isSenderState(error) ? `This number cannot be ${SENDER_DONE[action]} now.` : messageFor(error);
 }

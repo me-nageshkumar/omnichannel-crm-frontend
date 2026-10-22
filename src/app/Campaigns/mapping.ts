@@ -125,7 +125,8 @@ export function decodeSource(v: string, current: Mapping): PlaceholderSource | n
 
 /**
  * Placeholders with no usable source, and those whose CSV column an earlier placeholder already uses.
- * contact.phone and contact.name read the audience's phone and name columns, so they never count as reuse.
+ * As on the server, every placeholder counts (contact.phone and contact.name too); the audience's phone
+ * and name columns are not placeholders, so a placeholder reading one of them is not reuse by itself.
  */
 export function mappingProblems(
   placeholders: PlaceholderView[],
@@ -140,7 +141,7 @@ export function mappingProblems(
       unmapped.push(p.name);
       return;
     }
-    if (s.kind !== 'CSV_COLUMN' || p.name === 'contact.phone' || p.name === 'contact.name') return;
+    if (s.kind !== 'CSV_COLUMN') return;
     if (used.has(s.column)) reused.push(p.name);
     else used.add(s.column);
   });

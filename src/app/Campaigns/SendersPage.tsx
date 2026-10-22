@@ -5,6 +5,7 @@ import { PencilAltIcon } from '@patternfly/react-icons';
 import { ActionsColumn, Table, Tbody, Td, Th, Thead, Tr } from '@patternfly/react-table';
 import type { IAction } from '@patternfly/react-table';
 import { SenderAction, SenderView, listSenders, updateSender } from '@app/api/campaigns';
+import { isSenderState, senderActionMessage } from '@app/api/messages';
 import { shown } from '@app/api/phoneNumbers';
 import { ConfirmModal } from '@app/admin/ConfirmModal';
 import { PageShell } from '@app/admin/PageShell';
@@ -110,7 +111,16 @@ export const SendersPage: React.FunctionComponent = () => {
     senders.setData((cur) => cur?.map((s) => (s.phoneNumberId === updated.phoneNumberId ? updated : s)));
 
   const update = async (s: SenderView, body: { runsOn?: string | null; action?: SenderAction }) => {
-    const updated = await action.run(() => updateSender(token as string, ws, s.phoneNumberId, body));
+    const act = body.action;
+    const updated = await action.run(
+      () =>
+        updateSender(token as string, ws, s.phoneNumberId, body).catch((e: unknown) => {
+          // The sender changed under us (e.g. it was suspended); show where it is now.
+          if (isSenderState(e)) senders.reload();
+          throw e;
+        }),
+      act ? (e) => senderActionMessage(e, act) : undefined,
+    );
     if (updated) replace(updated);
     return updated;
   };

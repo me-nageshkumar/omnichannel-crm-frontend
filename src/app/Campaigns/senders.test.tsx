@@ -1,7 +1,7 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { screen, within } from '@testing-library/react';
 import { renderApp } from '../../test/renderApp';
-import { mockFetch, requestTo } from '../../test/fetchMock';
+import { callsTo, mockFetch, requestTo } from '../../test/fetchMock';
 import { TEAM_LEAD, WORKSPACE_MANAGER, meAs, storeSession } from '../../test/session';
 import { rowAction, rowWith } from '../../test/admin';
 import { sender } from '../../test/campaigns';
@@ -88,9 +88,7 @@ describe('senders', () => {
   });
 
   it('retireConfirmsFirst', async () => {
-    const fetch = mockFetch(
-      routes([WARMING], { [PUT]: { status: 200, body: { ...WARMING, state: 'RETIRED' } } }),
-    );
+    const fetch = mockFetch(routes([WARMING], { [PUT]: { status: 200, body: { ...WARMING, state: 'RETIRED' } } }));
     const { user } = renderApp('/campaigns/senders');
     await rowAction(user, '+919800000001', 'Retire');
     const d = await screen.findByRole('dialog', { name: /Retire this number\?/ });
@@ -126,5 +124,27 @@ describe('senders', () => {
     const row = await rowWith('+919800000001');
     expect(within(row).queryByRole('button', { name: 'Kebab toggle' })).toBeNull();
     expect(within(row).queryByRole('button', { name: 'Edit runs on' })).toBeNull();
+  });
+
+  it('aStateConflictNamesTheActionAndReloads', async () => {
+    let n = 0;
+    const fetch = mockFetch(
+      routes([], {
+        [S]: () => ({ status: 200, body: [++n === 1 ? WARMING : { ...WARMING, state: 'SUSPENDED' }] }),
+        [PUT]: { status: 409, body: { code: 'SENDER_STATE' } },
+      }),
+    );
+    const { user } = renderApp('/campaigns/senders');
+    await rowAction(user, '+919800000001', 'Rest');
+    const alert = (await screen.findByText('This number cannot be rested now.')).closest('.pf-v6-c-alert');
+    expect(alert).toHaveClass('pf-m-danger');
+    await vi.waitFor(() => expect(callsTo(fetch, S)).toBe(2));
+    expect(await within(await rowWith('+919800000001')).findByText('Suspended')).toBeVisible();
+
+    await rowAction(user, '+919800000001', 'Retire');
+    const d = await screen.findByRole('dialog', { name: /Retire this number\?/ });
+    await user.click(within(d).getByRole('button', { name: 'Retire' }));
+    expect(await within(d).findByText('This number cannot be retired now.')).toBeVisible();
+    await vi.waitFor(() => expect(callsTo(fetch, S)).toBe(3));
   });
 });

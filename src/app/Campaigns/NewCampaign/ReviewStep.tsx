@@ -161,12 +161,22 @@ export const ReviewStep: React.FunctionComponent<{
   const audience =
     draft.kind === 'FILTER'
       ? `Saved filter ${draft.filterName}${filterCount.count === null ? '' : ` · ${countText(filterCount.count)}`}`
-      : `CSV ${draft.file?.name ?? ''} · ${(draft.preview?.rows ?? 0).toLocaleString('en-US')} rows`;
+      : [
+          `CSV ${draft.file?.name ?? ''}`,
+          `${(draft.preview?.rows ?? 0).toLocaleString('en-US')} rows`,
+          draft.phoneColumn && `phone column ${draft.phoneColumn}`,
+          draft.nameColumn && `name column ${draft.nameColumn}`,
+        ]
+          .filter(Boolean)
+          .join(' · ');
 
   const sourceText = (name: string) => {
-    const s = draft.mappings[name]?.source ?? null;
+    const m = draft.mappings[name];
+    const s = m?.source ?? null;
     if (s?.kind === 'FIXED') return `Fixed text “${s.text}”`;
-    return options.find((o) => o.value === encodeSource(s))?.label ?? '—';
+    const label = options.find((o) => o.value === encodeSource(s))?.label ?? '—';
+    // A fixed text is sent without a fallback; any other source sends the one given.
+    return m?.fallback ? `${label} (fallback “${m.fallback}”)` : label;
   };
 
   const estimate =

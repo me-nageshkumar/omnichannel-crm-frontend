@@ -23,7 +23,8 @@ export function actionText(action: ActionView): string {
     case 'CLOSED':
       return `Closed${by}`;
     case 'REOPENED':
-      return 'Reopened';
+      // A campaign that reopens a chat is named (its by has no id and reads "Campaign: <name>").
+      return action.by && action.by.id === null ? `Reopened by ${action.by.name}` : 'Reopened';
   }
 }
 

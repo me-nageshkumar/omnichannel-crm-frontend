@@ -112,9 +112,15 @@ describe('mapping', () => {
     });
     expect(problems.unmapped).toEqual(['contact.name', 'offer']);
     expect(problems.reused).toEqual(['z']);
+    // As on the server, every placeholder counts, contact.name and contact.phone included; the audience's
+    // phone and name columns are not placeholders, so reading one of them is never reuse.
     expect(
-      mappingProblems([phonePh, namePh], { 'contact.phone': col('Phone'), 'contact.name': col('Name') }).reused,
-    ).toEqual([]);
+      mappingProblems([namePh, cityPh], { 'contact.name': col('Name'), 'contact.attributes.city': col('Name') }).reused,
+    ).toEqual(['contact.attributes.city']);
+    expect(
+      mappingProblems([phonePh, namePh], { 'contact.phone': col('Phone'), 'contact.name': col('Phone') }).reused,
+    ).toEqual(['contact.name']);
+    expect(mappingProblems([phonePh], { 'contact.phone': col('Phone') }).reused).toEqual([]);
   });
 
   it('previewValuesFillFromContactRowOrFallback', () => {

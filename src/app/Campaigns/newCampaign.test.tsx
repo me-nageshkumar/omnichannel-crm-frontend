@@ -520,7 +520,7 @@ describe('new campaign wizard', () => {
     expect(within(group('Name')).getByText('Diwali')).toBeVisible();
     expect(await screen.findByText('Saved filter Pune leads · 1,204 contacts')).toBeVisible();
     expect(within(group('Templates')).getByText('Welcome')).toBeVisible();
-    expect(within(group('Placeholders')).getByText('contact.name: Contact name')).toBeVisible();
+    expect(within(group('Placeholders')).getByText('contact.name: Contact name (fallback “there”)')).toBeVisible();
     expect(within(group('Placeholders')).getByText('contact.attributes.city: City')).toBeVisible();
     expect(within(group('Senders')).getByText('+919800000001, +919800000002')).toBeVisible();
     expect(screen.getByText('About 81 working days')).toBeVisible();
@@ -568,7 +568,8 @@ describe('new campaign wizard', () => {
     const fetch = mockFetch(routes());
     const { user } = renderApp('/campaigns/new');
     await toReview(user, ['+919800000001'], true);
-    expect(screen.getByText('CSV leads.csv · 120 rows')).toBeVisible();
+    expect(screen.getByText('CSV leads.csv · 120 rows · phone column phone · name column name')).toBeVisible();
+    expect(within(group('Placeholders')).getByText('contact.name: name')).toBeVisible();
     await user.click(saveDraft());
     expect(await screen.findByRole('heading', { name: 'Diwali' })).toBeVisible();
     const form = fetch.mock.calls[indexesOf(fetch, CREATE)[0]][1]?.body as FormData;

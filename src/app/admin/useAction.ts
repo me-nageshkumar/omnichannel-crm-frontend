@@ -11,8 +11,11 @@ const DUPLICATE_MESSAGES: Record<string, string> = {
 };
 
 export interface Action {
-  /** Runs {@code fn}; on failure records the message (or field errors) and resolves undefined. */
-  run<T>(fn: () => Promise<T>): Promise<T | undefined>;
+  /**
+   * Runs {@code fn}; on failure records the message (or field errors) and resolves undefined.
+   * {@code describe} words the failure instead of {@link messageFor}.
+   */
+  run<T>(fn: () => Promise<T>, describe?: (error: unknown) => string): Promise<T | undefined>;
   error: string | null;
   fieldErrors: Record<string, string>;
   busy: boolean;
@@ -45,7 +48,7 @@ export function useAction(shownFields: string[] = []): Action {
   }, []);
 
   const run = React.useCallback(
-    async <T>(fn: () => Promise<T>): Promise<T | undefined> => {
+    async <T>(fn: () => Promise<T>, describe: (error: unknown) => string = messageFor): Promise<T | undefined> => {
       reset();
       setBusy(true);
       try {
@@ -54,7 +57,7 @@ export function useAction(shownFields: string[] = []): Action {
         const fields = e instanceof ApiError ? fieldMessages(e) : {};
         const keys = Object.keys(fields);
         if (keys.length === 0) {
-          setError(messageFor(e));
+          setError(describe(e));
         } else {
           setFieldErrors(fields);
           const hidden = keys.filter((k) => !shownFields.includes(k));
