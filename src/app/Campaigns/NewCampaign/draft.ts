@@ -1,7 +1,7 @@
-import type { AudienceKind, CsvPreview } from '@app/api/campaigns';
+import type { AudienceKind, CampaignRequest, CsvPreview } from '@app/api/campaigns';
 import type { ContactAttribute } from '@app/api/contacts';
-import type { TemplateView } from '@app/api/templates';
-import { Mapping, MappingContext, distinctPlaceholders, mappingProblems } from '@app/Campaigns/mapping';
+import type { PlaceholderView, TemplateView } from '@app/api/templates';
+import { Mapping, MappingContext, distinctPlaceholders, mappingProblems, toPlaceholders } from '@app/Campaigns/mapping';
 
 /** Everything the new-campaign wizard has collected so far. */
 export interface Draft {
@@ -68,4 +68,23 @@ export function messageReady(d: Draft): boolean {
 export interface StepProps {
   draft: Draft;
   update(patch: Partial<Draft>): void;
+}
+
+/** How many recipients the audience has: the saved filter's live count, or the CSV's rows; null until known. */
+export function audienceSize(d: Draft, filterCount: number | null): number | null {
+  return d.kind === 'FILTER' ? filterCount : (d.preview?.rows ?? null);
+}
+
+/** The create request for a finished draft; a CSV audience's file goes alongside it. */
+export function toRequest(d: Draft, placeholders: PlaceholderView[]): CampaignRequest {
+  return {
+    name: d.name.trim(),
+    audience:
+      d.kind === 'FILTER'
+        ? { kind: 'FILTER', filterId: d.filterId }
+        : { kind: 'CSV', phoneColumn: d.phoneColumn ?? '', nameColumn: d.nameColumn },
+    templateIds: d.templates.map((t) => t.id),
+    placeholders: toPlaceholders(placeholders, d.mappings),
+    senderIds: d.senderIds,
+  };
 }

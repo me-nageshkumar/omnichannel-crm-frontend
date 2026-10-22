@@ -1,6 +1,7 @@
 import * as React from 'react';
 import { useNavigate } from 'react-router-dom';
 import { Alert, Wizard, WizardStep } from '@patternfly/react-core';
+import { listSenders } from '@app/api/campaigns';
 import { listAttributes } from '@app/api/contacts';
 import { PageShell } from '@app/admin/PageShell';
 import { useLoad } from '@app/admin/useLoad';
@@ -8,6 +9,8 @@ import { distinctPlaceholders, mergeMappings } from '@app/Campaigns/mapping';
 import { AudienceStep } from '@app/Campaigns/NewCampaign/AudienceStep';
 import { Draft, EMPTY_DRAFT, audienceReady, mappingContext, messageReady } from '@app/Campaigns/NewCampaign/draft';
 import { MessageStep } from '@app/Campaigns/NewCampaign/MessageStep';
+import { ReviewFooter, ReviewStep, useCreateCampaign } from '@app/Campaigns/NewCampaign/ReviewStep';
+import { SendersStep } from '@app/Campaigns/NewCampaign/SendersStep';
 import { NotFound } from '@app/NotFound/NotFound';
 import { useSession } from '@app/session/SessionContext';
 import { useAccess } from '@app/session/useAccess';
@@ -19,7 +22,17 @@ const NewCampaignWizard: React.FunctionComponent<{ ws: string }> = ({ ws }) => {
   const navigate = useNavigate();
   const attributesLoad = useLoad((tk) => listAttributes(tk, ws), [ws]);
   const attributes = React.useMemo(() => attributesLoad.data ?? [], [attributesLoad.data]);
+  const sendersLoad = useLoad((tk) => listSenders(tk, ws), [ws]);
+  const senders = React.useMemo(
+    () => sendersLoad.data?.filter((s) => s.state !== 'SUSPENDED' && s.state !== 'RETIRED'),
+    [sendersLoad.data],
+  );
   const [draft, setDraft] = React.useState<Draft>(EMPTY_DRAFT);
+  const create = useCreateCampaign(draft);
+  const { reset } = create;
+
+  // A create error describes the draft it was sent with; any change makes it stale.
+  React.useEffect(() => reset(), [draft, reset]);
 
   const update = React.useCallback(
     (patch: Partial<Draft>) =>
@@ -42,8 +55,16 @@ const NewCampaignWizard: React.FunctionComponent<{ ws: string }> = ({ ws }) => {
         <WizardStep name="Message" id="message" footer={{ isNextDisabled: !messageReady(draft) }}>
           <MessageStep draft={draft} update={update} attributes={attributes} />
         </WizardStep>
-        <WizardStep name="Senders" id="senders" />
-        <WizardStep name="Review" id="review" />
+        <WizardStep name="Senders" id="senders" footer={{ isNextDisabled: draft.senderIds.length === 0 }}>
+          <SendersStep draft={draft} update={update} senders={senders} error={sendersLoad.error} />
+        </WizardStep>
+        <WizardStep
+          name="Review"
+          id="review"
+          footer={<ReviewFooter busy={create.busy} onSubmit={(start) => void create.submit(start)} />}
+        >
+          <ReviewStep draft={draft} attributes={attributes} senders={senders ?? []} create={create} />
+        </WizardStep>
       </Wizard>
     </>
   );

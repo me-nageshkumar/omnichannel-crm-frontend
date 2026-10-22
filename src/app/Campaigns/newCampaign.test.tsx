@@ -2,10 +2,12 @@ import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { fireEvent, screen, waitFor, within } from '@testing-library/react';
 import { renderApp } from '../../test/renderApp';
 import { callsTo, mockFetch, requestTo } from '../../test/fetchMock';
+import { gate } from '../../test/gate';
 import { AGENT_IN_BRAND, WORKSPACE_MANAGER, meAs, storeSession } from '../../test/session';
 import { urlsOf } from '../../test/admin';
 import { attribute, contact, savedFilter } from '../../test/contacts';
 import { content, placeholderView, template } from '../../test/templates';
+import { campaign, campaignDetail, partJson, sender } from '../../test/campaigns';
 import type { CsvPreview } from '@app/api/campaigns';
 
 const B = '/api/workspaces/w1';
@@ -14,6 +16,9 @@ const PREVIEW_CSV = `POST ${C}/csv/preview`;
 const COUNT = `POST ${B}/contacts/count`;
 const SEARCH = `POST ${B}/contacts/search`;
 const TEMPLATES = `GET ${B}/templates`;
+const SENDERS = `GET ${C}/senders`;
+const CREATE = `POST ${C}`;
+const START = `POST ${C}/c9/start`;
 const NOTE =
   'Rows need a phone column; other columns can fill template placeholders. 10-digit numbers get the default country code.';
 const FEW = "Fewer than three variants makes the fleet's messages look alike";
@@ -46,6 +51,23 @@ const OFFER = template({
 const REMINDER = template({ id: 't3', name: 'Reminder', content: content({ body: 'See you soon' }) });
 const PROMO = template({ id: 't4', name: 'Promo', content: content({ body: 'Visit https://x.in' }) });
 
+const P1 = sender({ phoneNumberId: 'p1', number: '919800000001', state: 'WARMING', capToday: 5 });
+const P2 = sender({
+  phoneNumberId: 'p2',
+  number: '919800000002',
+  state: 'ACTIVE',
+  phoneStatus: 'DISCONNECTED',
+  capToday: 10,
+});
+const P3 = sender({
+  phoneNumberId: 'p3',
+  number: '919800000003',
+  state: 'RESTING',
+  restUntil: '2026-10-28T06:00:00Z',
+});
+const P4 = sender({ phoneNumberId: 'p4', number: '919800000004', state: 'SUSPENDED' });
+const CREATED = campaign({ id: 'c9', name: 'Diwali' });
+
 function preview(over: Partial<CsvPreview> = {}): CsvPreview {
   return {
     headers: ['phone', 'name', 'City', 'Offer'],
@@ -65,6 +87,11 @@ function routes(extra = {}, user = WORKSPACE_MANAGER) {
     [SEARCH]: { status: 200, body: { items: [ASHA], total: 1, page: 0 } },
     [TEMPLATES]: { status: 200, body: [WELCOME, OFFER, REMINDER, PROMO] },
     [PREVIEW_CSV]: { status: 200, body: preview() },
+    [SENDERS]: { status: 200, body: [P1, P2, P3, P4] },
+    [CREATE]: { status: 201, body: CREATED },
+    [START]: { status: 200, body: { ...CREATED, status: 'RUNNING' } },
+    [`GET ${C}/c9`]: { status: 200, body: campaignDetail({ id: 'c9', name: 'Diwali' }) },
+    [`GET ${C}/c9/recipients`]: { status: 200, body: { items: [], total: 0, page: 0 } },
     ...extra,
   };
 }
@@ -120,6 +147,60 @@ async function pick(user: User, name: string) {
 }
 
 const source = (name: string) => screen.getByRole('combobox', { name: `Source for ${name}` });
+
+/** Through Audience and Message with the Welcome template (a saved filter, or with {@code csv} leads.csv), onto Senders. */
+async function toSenders(user: User, csv = false) {
+  if (csv) {
+    await typeName(user);
+    await chooseCsv(user);
+    await upload(user, csvFile('leads.csv'));
+    await user.click(next());
+    await pick(user, 'Welcome');
+  } else {
+    await filterToMessage(user);
+    await pick(user, 'Welcome');
+    await user.type(screen.getByRole('textbox', { name: 'Fallback for contact.name' }), 'there');
+  }
+  await user.click(next());
+  await screen.findByRole('checkbox', { name: 'Select +919800000001' });
+}
+
+/** Onto Review with the given senders checked. */
+async function toReview(user: User, numbers = ['+919800000001'], csv = false) {
+  await toSenders(user, csv);
+  for (const n of numbers) await user.click(screen.getByRole('checkbox', { name: `Select ${n}` }));
+  await user.click(next());
+  await screen.findByRole('button', { name: 'Start campaign' });
+}
+
+const saveDraft = () => screen.getByRole('button', { name: 'Save draft' });
+const startCampaign = () => screen.getByRole('button', { name: 'Start campaign' });
+const row = (number: string) => screen.getByRole('row', { name: new RegExp(number.replace('+', '\\+')) });
+
+/** The path of the n-th request the mocked fetch received. */
+const pathOf = (fetch: ReturnType<typeof mockFetch>, n: number) =>
+  new URL(String(fetch.mock.calls[n][0]), 'http://localhost').pathname;
+
+/** The indexes of the calls to "METHOD /path", in order. */
+function indexesOf(fetch: ReturnType<typeof mockFetch>, key: string): number[] {
+  const [method, path] = key.split(' ');
+  return fetch.mock.calls.flatMap(([, init], i) =>
+    (init?.method ?? 'GET').toUpperCase() === method && pathOf(fetch, i) === path ? [i] : [],
+  );
+}
+
+async function dangerAlert(text: string): Promise<HTMLElement> {
+  const alert = (await screen.findByText(text)).closest('.pf-v6-c-alert') as HTMLElement;
+  expect(alert).toHaveClass('pf-m-danger');
+  return alert;
+}
+
+/** The Review summary group whose term is {@code term}. */
+const group = (term: string) =>
+  screen
+    .getAllByRole('term')
+    .find((dt) => dt.textContent === term)
+    ?.closest('.pf-v6-c-description-list__group') as HTMLElement;
 
 describe('new campaign wizard', () => {
   beforeEach(() => {
@@ -346,5 +427,148 @@ describe('new campaign wizard', () => {
     expect(await screen.findByRole('combobox', { name: 'Source for offer' })).toHaveValue('');
     expect(source('contact.attributes.city')).toHaveValue('col:City');
     expect(next()).toBeDisabled();
+  });
+
+  it('sendersStepOffersWarmingAndActive', async () => {
+    mockFetch(routes());
+    const { user } = renderApp('/campaigns/new');
+    await toSenders(user);
+    const one = screen.getByRole('checkbox', { name: 'Select +919800000001' });
+    const two = screen.getByRole('checkbox', { name: 'Select +919800000002' });
+    expect(one).not.toBeChecked();
+    expect(two).not.toBeChecked();
+    expect(within(row('+919800000002')).getByText('not connected')).toBeVisible();
+    expect(within(row('+919800000001')).queryByText('not connected')).not.toBeInTheDocument();
+    expect(within(row('+919800000003')).getByText(/rests until/)).toBeVisible();
+    expect(within(row('+919800000003')).queryByRole('checkbox')).not.toBeInTheDocument();
+    expect(screen.getAllByText(/rests until/)).toHaveLength(1);
+    expect(screen.queryByText('+919800000004')).not.toBeInTheDocument();
+    expect(next()).toBeDisabled();
+    await user.click(one);
+    expect(next()).toBeEnabled();
+    await user.click(two);
+    expect(screen.getByText('Selected senders can send about 15 messages a day')).toBeVisible();
+    await user.click(one);
+    await user.click(two);
+    expect(next()).toBeDisabled();
+  });
+
+  it('reviewSummarisesTheCampaign', async () => {
+    mockFetch(routes());
+    const { user } = renderApp('/campaigns/new');
+    await toReview(user, ['+919800000001', '+919800000002']);
+    expect(within(group('Name')).getByText('Diwali')).toBeVisible();
+    expect(await screen.findByText('Saved filter Pune leads · 1,204 contacts')).toBeVisible();
+    expect(within(group('Templates')).getByText('Welcome')).toBeVisible();
+    expect(within(group('Placeholders')).getByText('contact.name: Contact name')).toBeVisible();
+    expect(within(group('Placeholders')).getByText('contact.attributes.city: City')).toBeVisible();
+    expect(within(group('Senders')).getByText('+919800000001, +919800000002')).toBeVisible();
+    expect(screen.getByText('About 81 working days')).toBeVisible();
+    for (const name of ['Back', 'Save draft', 'Start campaign', 'Cancel']) {
+      expect(screen.getByRole('button', { name })).toBeEnabled();
+    }
+    expect(startCampaign()).toHaveClass('pf-m-primary');
+  });
+
+  it('saveDraftPostsTheCampaignAndOpensIt', async () => {
+    const fetch = mockFetch(routes());
+    const { user } = renderApp('/campaigns/new');
+    await toReview(user);
+    await user.click(saveDraft());
+    expect(await screen.findByRole('heading', { name: 'Diwali' })).toBeVisible();
+    expect(requestTo(fetch, CREATE)?.body).toEqual({
+      name: 'Diwali',
+      audience: { kind: 'FILTER', filterId: 'f1' },
+      templateIds: ['t1'],
+      placeholders: [
+        { name: 'contact.name', source: { kind: 'CONTACT_FIELD', field: 'name' }, fallback: 'there' },
+        { name: 'contact.attributes.city', source: { kind: 'CONTACT_ATTRIBUTE', attributeId: 'a1' }, fallback: '' },
+      ],
+      senderIds: ['p1'],
+    });
+    expect(callsTo(fetch, CREATE)).toBe(1);
+    expect(callsTo(fetch, START)).toBe(0);
+  });
+
+  it('startCampaignCreatesThenStarts', async () => {
+    const fetch = mockFetch(routes());
+    const { user } = renderApp('/campaigns/new');
+    await toReview(user);
+    await user.click(startCampaign());
+    expect(await screen.findByRole('heading', { name: 'Diwali' })).toBeVisible();
+    const creates = indexesOf(fetch, CREATE);
+    const starts = indexesOf(fetch, START);
+    expect(creates).toHaveLength(1);
+    expect(starts).toHaveLength(1);
+    expect(starts[0]).toBeGreaterThan(creates[0]);
+    expect(screen.queryByText('This campaign cannot be started now.')).not.toBeInTheDocument();
+  });
+
+  it('csvCampaignPostsMultipart', async () => {
+    const fetch = mockFetch(routes());
+    const { user } = renderApp('/campaigns/new');
+    await toReview(user, ['+919800000001'], true);
+    expect(screen.getByText('CSV leads.csv · 120 rows')).toBeVisible();
+    await user.click(saveDraft());
+    expect(await screen.findByRole('heading', { name: 'Diwali' })).toBeVisible();
+    const form = fetch.mock.calls[indexesOf(fetch, CREATE)[0]][1]?.body as FormData;
+    expect(form).toBeInstanceOf(FormData);
+    const req = (await partJson(form, 'campaign')) as Record<string, unknown>;
+    expect(req.audience).toEqual({ kind: 'CSV', phoneColumn: 'phone', nameColumn: 'name' });
+    expect(req.placeholders).toEqual([
+      { name: 'contact.name', source: { kind: 'CSV_COLUMN', column: 'name' }, fallback: '' },
+      { name: 'contact.attributes.city', source: { kind: 'CSV_COLUMN', column: 'City' }, fallback: '' },
+    ]);
+    expect(req.senderIds).toEqual(['p1']);
+    expect((form.get('file') as File).name).toBe('leads.csv');
+  });
+
+  it('startFailureOpensTheDraftWithTheReason', async () => {
+    const fetch = mockFetch(routes({ [START]: { status: 409, body: { code: 'CAMPAIGN_STATE' } } }));
+    const { user } = renderApp('/campaigns/new');
+    await toReview(user);
+    await user.click(startCampaign());
+    expect(await screen.findByRole('heading', { name: 'Diwali' })).toBeVisible();
+    await dangerAlert('This campaign cannot be started now.');
+    expect(callsTo(fetch, CREATE)).toBe(1);
+  });
+
+  it('createErrorsShowOnReview', async () => {
+    let n = 0;
+    const answers = [
+      { status: 409, body: { code: 'DUPLICATE', field: 'name' } },
+      { status: 400, body: { code: 'SENDER_NOT_AVAILABLE', number: '919800000002' } },
+      { status: 400, body: { code: 'TEMPLATE_HAS_LINK', field: 'placeholders' } },
+    ];
+    mockFetch(routes({ [CREATE]: () => answers[n++] }));
+    const { user } = renderApp('/campaigns/new');
+    await toReview(user);
+    await user.click(saveDraft());
+    expect(group('Name')).toContainElement(await dangerAlert('Name is already in use.'));
+    await user.click(startCampaign());
+    await dangerAlert('+919800000002 cannot send campaigns right now.');
+    expect(screen.queryByText('Name is already in use.')).not.toBeInTheDocument();
+    await user.click(saveDraft());
+    expect(group('Placeholders')).toContainElement(await dangerAlert('Campaign messages cannot contain links.'));
+    expect(screen.queryByText('+919800000002 cannot send campaigns right now.')).not.toBeInTheDocument();
+    expect(screen.getByRole('heading', { name: 'New campaign' })).toBeVisible();
+    expect(saveDraft()).toBeEnabled();
+  });
+
+  it('submitsOnce', async () => {
+    const fetch = mockFetch(routes());
+    const held = gate(fetch, CREATE, 1);
+    const { user } = renderApp('/campaigns/new');
+    await toReview(user);
+    await user.click(startCampaign());
+    await waitFor(() => expect(startCampaign()).toBeDisabled());
+    expect(saveDraft()).toBeDisabled();
+    await user.click(startCampaign());
+    await user.click(saveDraft());
+    expect(callsTo(fetch, CREATE)).toBe(1);
+    held.release();
+    expect(await screen.findByRole('heading', { name: 'Diwali' })).toBeVisible();
+    expect(callsTo(fetch, CREATE)).toBe(1);
+    expect(callsTo(fetch, START)).toBe(1);
   });
 });
