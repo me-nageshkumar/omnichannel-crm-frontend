@@ -38,12 +38,15 @@ const isComplete = (r: AttributeCondition) =>
 
 type LabelKey = 'labelsAny' | 'labelsAll' | 'labelsNone';
 
-const LabelPicker: React.FunctionComponent<{
+/** A checkbox menu of labels; with max, the unselected labels are disabled once max are chosen. */
+export const LabelPicker: React.FunctionComponent<{
   title: string;
   labels: ContactLabel[];
   selected: string[];
   onChange(ids: string[]): void;
-}> = ({ title, labels, selected, onChange }) => {
+  max?: number;
+}> = ({ title, labels, selected, onChange, max }) => {
+  const full = max !== undefined && selected.length >= max;
   const [open, setOpen] = React.useState(false);
   return (
     <Select
@@ -61,7 +64,13 @@ const LabelPicker: React.FunctionComponent<{
     >
       <SelectList>
         {labels.map((l) => (
-          <SelectOption key={l.id} value={l.id} hasCheckbox isSelected={selected.includes(l.id)}>
+          <SelectOption
+            key={l.id}
+            value={l.id}
+            hasCheckbox
+            isSelected={selected.includes(l.id)}
+            isDisabled={full && !selected.includes(l.id)}
+          >
             {l.name}
           </SelectOption>
         ))}
