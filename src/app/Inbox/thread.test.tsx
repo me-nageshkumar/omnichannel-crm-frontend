@@ -229,6 +229,27 @@ describe('thread', () => {
     }
   });
 
+  it('shows the campaign as the sender', async () => {
+    mockFetch({
+      ...meAs(AGENT_IN_BRAND),
+      [`GET ${THREAD}`]: page([
+        message({
+          id: 'm1',
+          direction: 'OUT',
+          source: 'CAMPAIGN',
+          body: 'Diwali offer',
+          sentBy: named('Campaign: Diwali leads'),
+        }),
+        action({ id: 'a1', type: 'CLOSED', by: { id: null, name: 'Campaign: Diwali leads' }, at: hoursAgo(1) }),
+      ]),
+    });
+    renderThread();
+    const bubble = (await screen.findByText('Diwali offer')).closest('[data-side]') as HTMLElement;
+    expect(within(bubble).getByText('Campaign: Diwali leads')).toBeInTheDocument();
+    expect(within(bubble).queryByText('WhatsApp Web')).toBeNull();
+    expect(screen.getByText('Closed by Campaign: Diwali leads')).toBeInTheDocument();
+  });
+
   it('media not available shows Download and fetches on click', async () => {
     const fetch = mockFetch({
       ...meAs(AGENT_IN_BRAND),

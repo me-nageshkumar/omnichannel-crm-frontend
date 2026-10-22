@@ -56,7 +56,12 @@ export interface MessageBubbleProps {
 export const MessageBubble: React.FunctionComponent<MessageBubbleProps> = ({ message, side }) => {
   const outgoing = message.direction === 'OUT';
   const tick = outgoing ? STATUS_TICK[message.status] : null;
-  const source = message.source === 'CONSOLE' ? (message.sentBy?.name ?? 'Console') : 'WhatsApp Web';
+  const source =
+    message.source === 'CONSOLE'
+      ? (message.sentBy?.name ?? 'Console')
+      : message.source === 'CAMPAIGN'
+        ? (message.sentBy?.name ?? 'Campaign')
+        : 'WhatsApp Web';
   return (
     <div style={{ display: 'flex', justifyContent: side === 'right' ? 'flex-end' : 'flex-start' }}>
       <div

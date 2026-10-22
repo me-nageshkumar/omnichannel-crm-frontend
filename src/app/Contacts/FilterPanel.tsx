@@ -193,6 +193,19 @@ export const FilterPanel: React.FunctionComponent<{
           />
         </FormGroup>
       </GridItem>
+      <GridItem md={3}>
+        <FormGroup label="Do not contact" fieldId="filter-dnc">
+          <FormSelect
+            id="filter-dnc"
+            value={spec.doNotContact === undefined ? 'any' : String(spec.doNotContact)}
+            onChange={(_e, v) => set({ doNotContact: v === 'any' ? undefined : v === 'true' })}
+          >
+            <FormSelectOption value="any" label="Any" />
+            <FormSelectOption value="true" label="Only" />
+            <FormSelectOption value="false" label="Exclude" />
+          </FormSelect>
+        </FormGroup>
+      </GridItem>
       {dates.map(([title, key, end]) => (
         <GridItem key={key} md={3}>
           <FormGroup label={title} fieldId={`filter-${key}`}>

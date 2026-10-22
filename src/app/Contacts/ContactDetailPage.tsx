@@ -7,6 +7,7 @@ import {
   DescriptionListDescription,
   DescriptionListGroup,
   DescriptionListTerm,
+  Label,
   MenuToggle,
   Select,
   SelectList,
@@ -16,10 +17,12 @@ import {
 } from '@patternfly/react-core';
 import {
   addContactLabel,
+  clearDoNotContact,
   deleteContact,
   getContact,
   listAttributes,
   listLabels,
+  markDoNotContact,
   removeContactLabel,
   updateContact,
 } from '@app/api/contacts';
@@ -56,6 +59,7 @@ export const ContactDetailPage: React.FunctionComponent = () => {
   const [deleting, setDeleting] = React.useState(false);
   const tagging = useAction();
   const removal = useAction();
+  const suppression = useAction();
 
   const c = contact.data;
   const mine = new Set(c?.labels ?? []);
@@ -65,6 +69,12 @@ export const ContactDetailPage: React.FunctionComponent = () => {
   const tag = async (labelId: string, add: boolean) => {
     const updated = await tagging.run(() =>
       add ? addContactLabel(t, ws, id, labelId) : removeContactLabel(t, ws, id, labelId),
+    );
+    if (updated) contact.setData(() => updated);
+  };
+  const setDoNotContact = async (on: boolean) => {
+    const updated = await suppression.run(() =>
+      on ? markDoNotContact(t, ws, id) : clearDoNotContact(t, ws, id),
     );
     if (updated) contact.setData(() => updated);
   };
@@ -125,6 +135,34 @@ export const ContactDetailPage: React.FunctionComponent = () => {
               <DescriptionListGroup>
                 <DescriptionListTerm>Last message</DescriptionListTerm>
                 <DescriptionListDescription>{when(c.lastMessageAt)}</DescriptionListDescription>
+              </DescriptionListGroup>
+              <DescriptionListGroup>
+                <DescriptionListTerm>Do not contact</DescriptionListTerm>
+                <DescriptionListDescription>
+                  {c.doNotContact ? (
+                    <>
+                      <Label color="red" isCompact>
+                        Do not contact
+                      </Label>{' '}
+                      {c.doNotContact.reason === 'STOP_REPLY' ? 'Replied with a stop word' : 'Marked by hand'}{' '}
+                      {canEdit && (
+                        <Button variant="link" isInline isDisabled={suppression.busy} onClick={() => setDoNotContact(false)}>
+                          Clear
+                        </Button>
+                      )}
+                    </>
+                  ) : (
+                    <>
+                      No{' '}
+                      {canEdit && (
+                        <Button variant="link" isInline isDisabled={suppression.busy} onClick={() => setDoNotContact(true)}>
+                          Mark do not contact
+                        </Button>
+                      )}
+                    </>
+                  )}
+                  {suppression.error && <Alert variant="danger" isInline isPlain title={suppression.error} />}
+                </DescriptionListDescription>
               </DescriptionListGroup>
             </DescriptionList>
 

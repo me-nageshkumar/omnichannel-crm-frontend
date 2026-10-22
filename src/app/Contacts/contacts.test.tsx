@@ -19,6 +19,12 @@ const ASHA = contact({
   attributes: { a1: 'Jaipur' },
   lastMessageAt: new Date(Date.now() - 2 * 3600_000).toISOString(),
 });
+const STOPPED = contact({
+  id: 'c3',
+  name: 'Kiran Das',
+  phone: '919900000003',
+  doNotContact: { at: '2026-10-20T10:00:00Z', reason: 'STOP_REPLY', campaignId: 'camp1' },
+});
 const HIDDEN = contact({ id: 'c2', name: 'Meena', numberHidden: true, source: 'IMPORT' });
 const NOTE = {
   id: 'n1',
@@ -64,6 +70,57 @@ describe('contacts page', () => {
     mockFetch(routes(WORKSPACE_MANAGER, { [`POST ${B}/contacts/search`]: page([]) }));
     renderApp('/contacts');
     expect(await screen.findByText('No contacts match.')).toBeVisible();
+  });
+
+  it('listShowsDoNotContact', async () => {
+    mockFetch(routes(WORKSPACE_MANAGER, { [`POST ${B}/contacts/search`]: page([ASHA, STOPPED]) }));
+    renderApp('/contacts');
+    expect(within(await rowWith('Kiran Das')).getByText('Do not contact')).toBeVisible();
+    expect(within(await rowWith('Asha Rao')).queryByText('Do not contact')).toBeNull();
+  });
+
+  it('detailClearsDoNotContact', async () => {
+    const fetch = mockFetch(
+      routes(WORKSPACE_MANAGER, {
+        [`GET ${B}/contacts/c3`]: { status: 200, body: STOPPED },
+        [`DELETE ${B}/contacts/c3/do-not-contact`]: { status: 200, body: { ...STOPPED, doNotContact: null } },
+      }),
+    );
+    const { user } = renderApp('/contacts/c3');
+    expect(await screen.findByText('Replied with a stop word')).toBeVisible();
+    expect(screen.queryByRole('button', { name: 'Mark do not contact' })).toBeNull();
+    await user.click(screen.getByRole('button', { name: 'Clear' }));
+    expect(await screen.findByRole('button', { name: 'Mark do not contact' })).toBeVisible();
+    expect(callsTo(fetch, `DELETE ${B}/contacts/c3/do-not-contact`)).toBe(1);
+    expect(screen.queryByText('Replied with a stop word')).toBeNull();
+    expect(screen.queryByRole('button', { name: 'Clear' })).toBeNull();
+    expect(screen.getByText('No')).toBeVisible();
+  });
+
+  it('detailMarksDoNotContact', async () => {
+    const marked = {
+      ...ASHA,
+      doNotContact: { at: '2026-10-22T10:00:00Z', reason: 'MANUAL', campaignId: null },
+    };
+    const fetch = mockFetch(
+      routes(WORKSPACE_MANAGER, { [`PUT ${B}/contacts/c1/do-not-contact`]: { status: 200, body: marked } }),
+    );
+    const { user } = renderApp('/contacts/c1');
+    await user.click(await screen.findByRole('button', { name: 'Mark do not contact' }));
+    expect(await screen.findByText('Marked by hand')).toBeVisible();
+    expect(screen.getAllByText('Do not contact').length).toBeGreaterThan(0);
+    expect(callsTo(fetch, `PUT ${B}/contacts/c1/do-not-contact`)).toBe(1);
+    expect(screen.queryByRole('button', { name: 'Mark do not contact' })).toBeNull();
+    expect(screen.getByRole('button', { name: 'Clear' })).toBeVisible();
+  });
+
+  it('doNotContactNeedsEdit', async () => {
+    mockFetch(routes(AGENT_IN_BRAND, { [`GET ${B}/contacts/c3`]: { status: 200, body: STOPPED } }));
+    renderApp('/contacts/c3');
+    expect(await screen.findByText('Replied with a stop word')).toBeVisible();
+    expect(screen.getAllByText('Do not contact').length).toBeGreaterThan(0);
+    expect(screen.queryByRole('button', { name: 'Clear' })).toBeNull();
+    expect(screen.queryByRole('button', { name: 'Mark do not contact' })).toBeNull();
   });
 
   it('hiddenNumberShown', async () => {

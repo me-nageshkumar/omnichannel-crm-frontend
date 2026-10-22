@@ -69,6 +69,19 @@ describe('contact filters and bulk actions', () => {
     );
   });
 
+  it('doNotContactFilterIsTriState', async () => {
+    const fetch = mockFetch(routes());
+    const { user } = renderApp('/contacts');
+    await openFilters(user);
+    const select = screen.getByLabelText('Do not contact');
+    await user.selectOptions(select, 'Only');
+    await waitFor(() => expect(lastSearch(fetch).filter?.doNotContact).toBe(true));
+    await user.selectOptions(select, 'Exclude');
+    await waitFor(() => expect(lastSearch(fetch).filter?.doNotContact).toBe(false));
+    await user.selectOptions(select, 'Any');
+    await waitFor(() => expect(lastSearch(fetch).filter ?? {}).not.toHaveProperty('doNotContact'));
+  });
+
   const attributeConditionsSent = (fetch: ReturnType<typeof mockFetch>) =>
     Array.from({ length: callsTo(fetch, SEARCH) }, (_v, n) => requestTo(fetch, SEARCH, n)?.body.filter?.attributes);
 

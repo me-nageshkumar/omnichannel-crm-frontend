@@ -5,6 +5,7 @@ import {
   AlertActionCloseButton,
   Button,
   ExpandableSection,
+  Label,
   MenuToggle,
   Pagination,
   SearchInput,
@@ -359,6 +360,14 @@ export const ContactsPage: React.FunctionComponent = () => {
                   )}
                   <Td dataLabel="Name">
                     <Link to={`/contacts/${c.id}`}>{displayName(c)}</Link>
+                    {c.doNotContact && (
+                      <>
+                        {' '}
+                        <Label color="red" isCompact>
+                          Do not contact
+                        </Label>
+                      </>
+                    )}
                   </Td>
                   <Td dataLabel="Phone">{c.name || c.phone ? phoneText(c) : '—'}</Td>
                   <Td dataLabel="Labels">

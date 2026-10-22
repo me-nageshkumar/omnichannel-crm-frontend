@@ -4,7 +4,7 @@ import type { PhoneNumber } from '@app/api/phoneNumbers';
 export type ChatStatus = 'OPEN' | 'CLOSED';
 export type MessageDirection = 'IN' | 'OUT';
 /** Who produced the message: the contact, our console, or the phone / WhatsApp Web tab. */
-export type MessageSource = 'CONTACT' | 'CONSOLE' | 'WHATSAPP_WEB';
+export type MessageSource = 'CONTACT' | 'CONSOLE' | 'WHATSAPP_WEB' | 'CAMPAIGN';
 export type MessageStatus = 'PENDING' | 'SENT' | 'DELIVERED' | 'READ' | 'PLAYED' | 'FAILED';
 export type ListScope = 'MINE' | 'TEAM' | 'UNASSIGNED' | 'ALL';
 export type RoutingMode = 'NONE' | 'TEAM' | 'USER' | 'ROUND_ROBIN';
@@ -85,7 +85,8 @@ export interface MessageView {
 export interface ActionView {
   id: string;
   type: ActionType;
-  by: IdName | null;
+  /** Null id when a campaign did it: the name is then "Campaign: <name>". */
+  by: { id: string | null; name: string } | null;
   toUser: IdName | null;
   toTeam: IdName | null;
   at: string;

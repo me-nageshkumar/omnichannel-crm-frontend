@@ -43,6 +43,7 @@ export interface Contact {
   phone: string | null;
   waId: string | null;
   numberHidden: boolean;
+  doNotContact: { at: string; reason: 'STOP_REPLY' | 'MANUAL'; campaignId: string | null } | null;
   labels: string[];
   attributes: Record<string, string>;
   source: ContactSource;
@@ -76,6 +77,7 @@ export interface ContactFilterSpec {
   attributes?: AttributeCondition[];
   source?: ContactSource[];
   numberHidden?: boolean;
+  doNotContact?: boolean;
   createdFrom?: string;
   createdTo?: string;
   lastMessageFrom?: string;
@@ -159,6 +161,11 @@ export const addContactLabel = (token: string, ws: string, id: string, labelId: 
   send<Contact>(token, 'POST', `${base(ws)}/contacts/${id}/labels/${labelId}`);
 export const removeContactLabel = (token: string, ws: string, id: string, labelId: string) =>
   send<Contact>(token, 'DELETE', `${base(ws)}/contacts/${id}/labels/${labelId}`);
+
+export const markDoNotContact = (token: string, ws: string, id: string) =>
+  send<Contact>(token, 'PUT', `${base(ws)}/contacts/${id}/do-not-contact`);
+export const clearDoNotContact = (token: string, ws: string, id: string) =>
+  send<Contact>(token, 'DELETE', `${base(ws)}/contacts/${id}/do-not-contact`);
 
 // Notes
 

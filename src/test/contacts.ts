@@ -16,6 +16,7 @@ export function contact(over: Partial<Contact> & Pick<Contact, 'id'>): Contact {
     phone: null,
     waId: null,
     numberHidden: false,
+    doNotContact: null,
     labels: [],
     attributes: {},
     source: 'CHAT',
