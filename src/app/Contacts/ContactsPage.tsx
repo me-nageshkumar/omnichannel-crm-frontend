@@ -1,5 +1,5 @@
 import * as React from 'react';
-import { Link } from 'react-router-dom';
+import { Link, useLocation, useNavigate } from 'react-router-dom';
 import {
   Alert,
   AlertActionCloseButton,
@@ -31,6 +31,7 @@ import {
   deleteFilter,
   exportContacts,
   importContacts,
+  isAdvanced,
   listAttributes,
   listFilters,
   listLabels,
@@ -72,7 +73,9 @@ export const ContactsPage: React.FunctionComponent = () => {
   const [q, setQ] = React.useState('');
   const [panel, setPanel] = React.useState<ContactFilterSpec>({});
   const [panelEpoch, setPanelEpoch] = React.useState(0);
-  const [savedId, setSavedId] = React.useState<string | null>(null);
+  const navigate = useNavigate();
+  const handedOver = (useLocation().state as { filterId?: string } | null)?.filterId ?? null;
+  const [savedId, setSavedId] = React.useState<string | null>(handedOver);
   const [sort, setSort] = React.useState<ContactSort>('LAST_MESSAGE');
   const [sortOpen, setSortOpen] = React.useState(false);
   const [page, setPage] = React.useState(0);
@@ -97,13 +100,25 @@ export const ContactsPage: React.FunctionComponent = () => {
   }, [search]);
 
   const filter = React.useMemo<ContactFilterSpec>(() => cleanSpec({ ...panel, q }), [panel, q]);
+  const saved = useLoad((tk) => listFilters(tk, ws), [ws]);
+  const picked = saved.data?.find((f) => f.id === savedId);
+  const advanced = !!picked && isAdvanced(picked);
+  // The one place that decides what "the contacts in view" means, for search, export and "all matching".
+  const scope = ():
+    | { filterId: string }
+    | { filterId: string; filter: ContactFilterSpec }
+    | { filter: ContactFilterSpec } => {
+    if (!savedId) return { filter };
+    return advanced && Object.keys(filter).length > 0 ? { filterId: savedId, filter } : { filterId: savedId };
+  };
+  const scopeKey = JSON.stringify(scope());
   const contacts = useLoad(
-    (tk) => searchContacts(tk, ws, { ...(savedId ? { filterId: savedId } : { filter }), sort, page }),
-    [ws, savedId, filter, sort, page],
+    (tk) => searchContacts(tk, ws, { ...scope(), sort, page }),
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+    [ws, scopeKey, sort, page],
   );
   const labels = useLoad((tk) => listLabels(tk, ws), [ws]);
   const attributes = useLoad((tk) => listAttributes(tk, ws), [ws]);
-  const saved = useLoad((tk) => listFilters(tk, ws), [ws]);
   const labelById = new Map((labels.data ?? []).map((l) => [l.id, l]));
   const items = contacts.data?.items ?? [];
   const total = contacts.data?.total ?? 0;
@@ -115,15 +130,26 @@ export const ContactsPage: React.FunctionComponent = () => {
     setAllMatching(false);
   }, [viewKey]);
 
+  const clearPick = () => {
+    if (!advanced) setSavedId(null);
+  };
   const changeFilter = (next: ContactFilterSpec) => {
-    setSavedId(null);
+    clearPick();
     setPanel(next);
     setPage(0);
   };
   const applySaved = (id: string | null) => {
     setSavedId(id);
     setPage(0);
-    const spec = saved.data?.find((f) => f.id === id)?.filter;
+    const pick = saved.data?.find((f) => f.id === id);
+    if (pick && isAdvanced(pick)) {
+      setPanel({});
+      setSearch('');
+      setQ('');
+      setPanelEpoch((e) => e + 1);
+      return;
+    }
+    const spec = pick?.filter;
     if (spec) {
       const { q: sq, ...rest } = spec;
       setPanel(rest);
@@ -132,8 +158,19 @@ export const ContactsPage: React.FunctionComponent = () => {
       setPanelEpoch((e) => e + 1);
     }
   };
+  // The handed-over filter is applied once the list is known: a simple one fills the panel, an unknown id is dropped.
+  const handoverDone = React.useRef(false);
+  React.useEffect(() => {
+    if (!saved.data || handoverDone.current) return;
+    handoverDone.current = true;
+    if (!savedId) return;
+    const pick = saved.data.find((f) => f.id === savedId);
+    if (!pick) setSavedId(null);
+    else if (!isAdvanced(pick)) applySaved(savedId);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [saved.data]);
   const selection = (): Selection => {
-    if (allMatching) return savedId ? { filterId: savedId } : { filter };
+    if (allMatching) return scope();
     return { ids: selected };
   };
   const toggleRow = (id: string, on: boolean) => {
@@ -156,7 +193,7 @@ export const ContactsPage: React.FunctionComponent = () => {
     setExportError(null);
     setExporting(true);
     try {
-      const { blob, fileName } = await exportContacts(t, ws, savedId ? { filterId: savedId } : { filter });
+      const { blob, fileName } = await exportContacts(t, ws, scope());
       saveFile(blob, fileName);
     } catch (e) {
       setExportError(messageFor(e));
@@ -203,11 +240,11 @@ export const ContactsPage: React.FunctionComponent = () => {
               placeholder="Search by name or number"
               value={search}
               onChange={(_e, v) => {
-                setSavedId(null);
+                clearPick();
                 setSearch(v);
               }}
               onClear={() => {
-                setSavedId(null);
+                clearPick();
                 setSearch('');
               }}
             />
@@ -242,7 +279,7 @@ export const ContactsPage: React.FunctionComponent = () => {
               filters={saved.data ?? []}
               selectedId={savedId}
               canManage={canBulk}
-              canSaveCurrent={Object.keys(filter).length > 0}
+              canSaveCurrent={!advanced && Object.keys(filter).length > 0}
               onSelect={applySaved}
               onSave={() => setSaving(true)}
               onDelete={() => {
@@ -251,6 +288,13 @@ export const ContactsPage: React.FunctionComponent = () => {
               }}
             />
           </ToolbarItem>
+          {canBulk && (
+            <ToolbarItem>
+              <Button variant="secondary" onClick={() => navigate('/contacts/filters')}>
+                Filter builder
+              </Button>
+            </ToolbarItem>
+          )}
           <ToolbarItem variant="pagination">
             <Pagination
               itemCount={total}

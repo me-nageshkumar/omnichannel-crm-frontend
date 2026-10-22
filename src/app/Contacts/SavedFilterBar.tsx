@@ -1,6 +1,6 @@
 import * as React from 'react';
-import { Button, MenuToggle, Select, SelectList, SelectOption } from '@patternfly/react-core';
-import type { SavedFilter } from '@app/api/contacts';
+import { Button, Label, MenuToggle, Select, SelectList, SelectOption } from '@patternfly/react-core';
+import { SavedFilter, isAdvanced } from '@app/api/contacts';
 
 /** Picks a saved filter; people with contact:bulk can also save the current one or delete the picked one. */
 export const SavedFilterBar: React.FunctionComponent<{
@@ -35,6 +35,14 @@ export const SavedFilterBar: React.FunctionComponent<{
           {filters.map((f) => (
             <SelectOption key={f.id} value={f.id}>
               {f.name}
+              {isAdvanced(f) && (
+                <>
+                  {' '}
+                  <Label isCompact color="purple">
+                    Advanced
+                  </Label>
+                </>
+              )}
             </SelectOption>
           ))}
         </SelectList>

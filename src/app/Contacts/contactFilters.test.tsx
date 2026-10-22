@@ -1,10 +1,11 @@
+import * as React from 'react';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { screen, waitFor, within } from '@testing-library/react';
-import { renderApp } from '../../test/renderApp';
+import { LocationProbe, renderApp } from '../../test/renderApp';
 import { callsTo, mockFetch, requestTo } from '../../test/fetchMock';
 import { AGENT_IN_BRAND, TEAM_LEAD, WORKSPACE_MANAGER, meAs, storeSession } from '../../test/session';
 import { fill, rowWith } from '../../test/admin';
-import { attribute, contact, label, savedFilter } from '../../test/contacts';
+import { advancedFilter, attribute, contact, label, savedFilter } from '../../test/contacts';
 import type { CurrentUser } from '@app/api/users';
 
 const B = '/api/workspaces/w1';
@@ -17,6 +18,7 @@ const CITY = attribute({ id: 'a1', name: 'City' });
 const ASHA = contact({ id: 'c1', name: 'Asha Rao', phone: '919900000001', labels: ['l1'] });
 const RAVI = contact({ id: 'c2', name: 'Ravi Shah', phone: '919900000002' });
 const SAVED = savedFilter({ id: 'f1', name: 'Jaipur VIPs', filter: { labelsAny: ['l1'] } });
+const ADV = advancedFilter({ id: 'f2', name: 'Lapsed VIPs' });
 const page = (items: unknown[], total = items.length, n = 0) => ({ status: 200, body: { items, total, page: n } });
 
 function routes(user: CurrentUser = WORKSPACE_MANAGER, extra = {}) {
@@ -25,7 +27,7 @@ function routes(user: CurrentUser = WORKSPACE_MANAGER, extra = {}) {
     [SEARCH]: page([ASHA, RAVI]),
     [`GET ${B}/contact-labels`]: { status: 200, body: [VIP, LEAD] },
     [`GET ${B}/contact-attributes`]: { status: 200, body: [CITY] },
-    [`GET ${B}/contact-filters`]: { status: 200, body: [SAVED] },
+    [`GET ${B}/contact-filters`]: { status: 200, body: [SAVED, ADV] },
     ...extra,
   };
 }
@@ -34,6 +36,10 @@ const lastSearch = (fetch: ReturnType<typeof mockFetch>) => {
     ([i, init]) => String(i).endsWith('/contacts/search') && init?.method === 'POST',
   ).length;
   return requestTo(fetch, SEARCH, n - 1)?.body;
+};
+const pick = async (user: ReturnType<typeof renderApp>['user'], name: string) => {
+  await user.click(screen.getByRole('button', { name: /^Saved filter: / }));
+  await user.click(await screen.findByRole('option', { name: new RegExp(`^${name}`) }));
 };
 const openFilters = async (user: ReturnType<typeof renderApp>['user']) => {
   await rowWith('Asha Rao');
@@ -225,6 +231,114 @@ describe('contact filters and bulk actions', () => {
       action: 'REMOVE_LABELS',
       labelIds: ['l1'],
     });
+  });
+
+  it('advancedFilterIsLabelled', async () => {
+    mockFetch(routes());
+    const { user } = renderApp('/contacts');
+    await rowWith('Asha Rao');
+    await user.click(screen.getByRole('button', { name: 'Saved filter: None' }));
+    expect(await screen.findByRole('option', { name: /^Lapsed VIPs/ })).toHaveTextContent('Advanced');
+    expect(screen.getByRole('option', { name: 'Jaipur VIPs' })).not.toHaveTextContent('Advanced');
+  });
+
+  it('advancedFilterSendsItsId', async () => {
+    const fetch = mockFetch(routes());
+    const { user } = renderApp('/contacts');
+    await rowWith('Asha Rao');
+    await pick(user, 'Lapsed VIPs');
+    await waitFor(() => expect(lastSearch(fetch)).toEqual({ filterId: 'f2', sort: 'LAST_MESSAGE', page: 0 }));
+  });
+
+  it('panelEditsKeepTheAdvancedFilter', async () => {
+    const fetch = mockFetch(routes());
+    const { user } = renderApp('/contacts');
+    await rowWith('Asha Rao');
+    await pick(user, 'Lapsed VIPs');
+    await user.click(screen.getByRole('button', { name: 'Filters' }));
+    await user.click(screen.getByRole('checkbox', { name: 'Chat' }));
+    await waitFor(() =>
+      expect(lastSearch(fetch)).toEqual({
+        filterId: 'f2',
+        filter: { source: ['CHAT'] },
+        sort: 'LAST_MESSAGE',
+        page: 0,
+      }),
+    );
+    expect(screen.getByRole('button', { name: 'Saved filter: Lapsed VIPs' })).toBeVisible();
+    await user.type(screen.getByLabelText('Search contacts'), 'asha');
+    await waitFor(() => expect(lastSearch(fetch).filter).toEqual({ source: ['CHAT'], q: 'asha' }));
+    expect(lastSearch(fetch).filterId).toBe('f2');
+  });
+
+  it('pickingAnAdvancedFilterClearsThePanel', async () => {
+    const fetch = mockFetch(routes());
+    const { user } = renderApp('/contacts');
+    await openFilters(user);
+    await user.click(screen.getByRole('checkbox', { name: 'Chat' }));
+    await pick(user, 'Lapsed VIPs');
+    await waitFor(() => expect(lastSearch(fetch)).not.toHaveProperty('filter'));
+    expect(screen.getByRole('checkbox', { name: 'Chat' })).not.toBeChecked();
+  });
+
+  it('saveFilterIsOffForAnAdvancedFilter', async () => {
+    mockFetch(routes());
+    const { user } = renderApp('/contacts');
+    await openFilters(user);
+    await pick(user, 'Lapsed VIPs');
+    await user.click(screen.getByRole('checkbox', { name: 'Chat' }));
+    expect(screen.getByRole('button', { name: 'Save filter' })).toBeDisabled();
+    await pick(user, 'None');
+    expect(screen.getByRole('button', { name: 'Save filter' })).toBeEnabled();
+  });
+
+  it('bulkAllMatchingOnAdvancedSendsBoth', async () => {
+    const fetch = mockFetch(
+      routes(WORKSPACE_MANAGER, {
+        [SEARCH]: page([ASHA, RAVI], 300),
+        [COUNT]: { status: 200, body: { count: 300 } },
+      }),
+    );
+    const { user } = renderApp('/contacts');
+    await openFilters(user);
+    await pick(user, 'Lapsed VIPs');
+    await user.click(screen.getByRole('checkbox', { name: 'Chat' }));
+    await user.click(await screen.findByRole('checkbox', { name: 'Select all rows' }));
+    await user.click(screen.getByRole('button', { name: 'Select all 300 matching' }));
+    await user.click(screen.getByRole('button', { name: 'Delete' }));
+    await screen.findByText('Delete 300 contacts?');
+    expect(requestTo(fetch, COUNT)?.body).toEqual({ selection: { filterId: 'f2', filter: { source: ['CHAT'] } } });
+  });
+
+  it('opensWithTheHandedOverFilter', async () => {
+    const fetch = mockFetch(routes());
+    const first = renderApp({ pathname: '/contacts', state: { filterId: 'f2' } });
+    expect(await screen.findByRole('button', { name: 'Saved filter: Lapsed VIPs' })).toBeVisible();
+    await rowWith('Asha Rao');
+    for (let n = 0; n < callsTo(fetch, SEARCH); n++) expect(requestTo(fetch, SEARCH, n)?.body.filterId).toBe('f2');
+    first.unmount();
+
+    const second = mockFetch(routes());
+    const { user } = renderApp({ pathname: '/contacts', state: { filterId: 'f1' } });
+    expect(await screen.findByRole('button', { name: 'Saved filter: Jaipur VIPs' })).toBeVisible();
+    await rowWith('Asha Rao');
+    await user.click(screen.getByRole('button', { name: 'Filters' }));
+    expect(await screen.findByRole('button', { name: /^Any of these labels/ })).toHaveTextContent('1');
+    expect(callsTo(second, SEARCH)).toBeGreaterThan(0);
+  });
+
+  it('filterBuilderNeedsBulk', async () => {
+    mockFetch(routes(WORKSPACE_MANAGER, { [`GET ${B}/contacts/filters`]: { status: 404, body: {} } }));
+    const first = renderApp('/contacts', <LocationProbe />);
+    await rowWith('Asha Rao');
+    await first.user.click(screen.getByRole('button', { name: 'Filter builder' }));
+    expect(screen.getByRole('status', { name: 'Location' })).toHaveTextContent('/contacts/filters');
+    first.unmount();
+
+    mockFetch(routes(AGENT_IN_BRAND));
+    renderApp('/contacts');
+    await rowWith('Asha Rao');
+    expect(screen.queryByRole('button', { name: 'Filter builder' })).toBeNull();
   });
 
   it('bulkAllMatchingOnSavedFilterSendsFilterId', async () => {

@@ -4,7 +4,7 @@ import { renderApp } from '../../test/renderApp';
 import { callsTo, mockFetch, requestTo } from '../../test/fetchMock';
 import { AGENT_IN_BRAND, TEAM_LEAD, WORKSPACE_MANAGER, meAs, storeSession } from '../../test/session';
 import { rowWith } from '../../test/admin';
-import { contact, label, savedFilter } from '../../test/contacts';
+import { advancedFilter, contact, label, savedFilter } from '../../test/contacts';
 import type { CurrentUser } from '@app/api/users';
 
 const B = '/api/workspaces/w1';
@@ -155,6 +155,24 @@ describe('contact import and export', () => {
     await user.click(screen.getByRole('button', { name: 'Export' }));
     await waitFor(() => expect(callsTo(fetch, EXPORT)).toBe(1));
     expect(requestTo(fetch, EXPORT)?.body).toEqual({ filterId: 'f1' });
+  });
+
+  it('exportUsesAdvancedFilterAndPanel', async () => {
+    vi.stubGlobal('URL', Object.assign(URL, { createObjectURL: () => 'blob:csv', revokeObjectURL: vi.fn() }));
+    vi.spyOn(HTMLAnchorElement.prototype, 'click').mockImplementation(() => undefined);
+    const adv = advancedFilter({ id: 'f2', name: 'Lapsed VIPs' });
+    const fetch = mockFetch(
+      routes(WORKSPACE_MANAGER, { [EXPORT]: CSV, [`GET ${B}/contact-filters`]: { status: 200, body: [adv] } }),
+    );
+    const { user } = renderApp('/contacts');
+    await rowWith('Asha Rao');
+    await user.click(screen.getByRole('button', { name: 'Saved filter: None' }));
+    await user.click(await screen.findByRole('option', { name: /^Lapsed VIPs/ }));
+    await user.click(screen.getByRole('button', { name: 'Filters' }));
+    await user.click(screen.getByRole('checkbox', { name: 'Chat' }));
+    await user.click(screen.getByRole('button', { name: 'Export' }));
+    await waitFor(() => expect(callsTo(fetch, EXPORT)).toBe(1));
+    expect(requestTo(fetch, EXPORT)?.body).toEqual({ filterId: 'f2', filter: { source: ['CHAT'] } });
   });
 
   it('exportTooManyRowsShowsMessage', async () => {
