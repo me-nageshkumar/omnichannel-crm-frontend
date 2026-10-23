@@ -9,11 +9,12 @@ import {
   MenuList,
   MenuToggle,
 } from '@patternfly/react-core';
-import { Assignees, ChatView, assignChat, getAssignees, unassignChat } from '@app/api/inbox';
+import { Assignees, Availability, ChatView, assignChat, getAssignees, unassignChat } from '@app/api/inbox';
+import { AvailabilityDot } from '@app/Inbox/ReassignMenu';
 import { useSession } from '@app/session/SessionContext';
 
 const Submenu: React.FunctionComponent<{
-  entries: Array<{ id: string; name: string }>;
+  entries: Array<{ id: string; name: string; availability?: Availability }>;
   empty: string;
   onPick(id: string): void;
 }> = ({ entries, empty, onPick }) => (
@@ -26,6 +27,7 @@ const Submenu: React.FunctionComponent<{
           entries.map((e) => (
             <MenuItem key={e.id} itemId={e.id}>
               {e.name}
+              {e.availability && <AvailabilityDot status={e.availability} />}
             </MenuItem>
           ))
         )}
@@ -48,7 +50,7 @@ export const AssignMenu: React.FunctionComponent<{
   const toggle = (next: boolean) => {
     setOpen(next);
     if (next && !assignees && token) {
-      getAssignees(token, ws).then(setAssignees, onError);
+      getAssignees(token, ws, chat.phoneNumberId).then(setAssignees, onError);
     }
   };
 

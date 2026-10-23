@@ -65,6 +65,7 @@ function withAuthorities(...authorities: string[]): CurrentUser {
   return { ...base, workspaces: [{ ...BRAND_A, role: base.workspaces[0].role, authorities }] };
 }
 const AGENT = withAuthorities('inbox:view');
+const QUEUE_AGENT = withAuthorities('inbox:view', 'inbox:view-queue');
 const LEAD = withAuthorities('inbox:view', 'inbox:view-team');
 const MANAGER = withAuthorities('inbox:view', 'inbox:view-team', 'inbox:view-all');
 
@@ -169,6 +170,16 @@ describe('chat list', () => {
     expect(scope.getAllByRole('button').map((b) => b.textContent)).toEqual(['Mine', 'Team', 'Unassigned', 'All']);
     expect(pressed('All')).toBe('true');
     expect(listUrls(manager)[0].searchParams.get('scope')).toBe('ALL');
+  });
+
+  it('unassignedTabShownWithViewQueue', async () => {
+    const fetch = mockFetch({ ...meAs(QUEUE_AGENT), [`GET ${LIST}`]: page([ASHA]) });
+    renderList();
+    await rows();
+    const scope = within(screen.getByRole('group', { name: 'Scope' }));
+    expect(scope.getAllByRole('button').map((b) => b.textContent)).toEqual(['Mine', 'Unassigned']);
+    expect(pressed('Mine')).toBe('true');
+    expect(listUrls(fetch)[0].searchParams.get('scope')).toBe('MINE');
   });
 
   it('renders rows with preview, tick and unread badge', async () => {

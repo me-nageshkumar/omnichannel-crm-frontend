@@ -15,7 +15,7 @@ export function actionText(action: ActionView): string {
   const by = action.by ? ` by ${action.by.name}` : '';
   switch (action.type) {
     case 'ROUTED':
-      return `Routed to ${target ?? 'the team'}`;
+      return `Routed to ${target ?? 'the team'}${routedReason(action)}`;
     case 'ASSIGNED':
       return `Assigned to ${target ?? 'someone'}${by}`;
     case 'UNASSIGNED':
@@ -26,7 +26,23 @@ export function actionText(action: ActionView): string {
       // A campaign that reopens a chat is named (its by has no id and reads "Campaign: <name>").
       return action.by && action.by.id === null ? `Reopened by ${action.by.name}` : 'Reopened';
     case 'TRANSFERRED':
-      return `Transferred to ${action.toTeam?.name ?? 'another team'}${by}`;
+      return `Transferred ${action.fromTeam ? `from ${action.fromTeam.name} ` : ''}to ${action.toTeam?.name ?? 'another team'}${by}`;
+  }
+}
+
+/** Why routing chose as it did, when it was not the plain setting. */
+function routedReason(action: ActionView): string {
+  switch (action.reason) {
+    case 'STICKY':
+      return ' (returning customer)';
+    case 'HANDED_BACK':
+      return action.by ? ` (handed back by ${action.by.name})` : ' (handed back)';
+    case 'OWNER_CHANGED':
+      return ' (the number changed team)';
+    case 'MEMBER_REMOVED':
+      return ' (the previous agent left the team)';
+    default:
+      return '';
   }
 }
 

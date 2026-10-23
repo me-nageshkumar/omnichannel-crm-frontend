@@ -3,7 +3,7 @@ import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { act, fireEvent, render, screen, waitFor, within } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import type { ActionView, ChatView, InboxEvent, MessageView, ThreadItem } from '@app/api/inbox';
-import { Thread } from '@app/Inbox/Thread';
+import { Thread, actionText } from '@app/Inbox/Thread';
 import { dayLabel } from '@app/Inbox/chatDisplay';
 import { useThread } from '@app/Inbox/useThread';
 import { SessionProvider, useSession } from '@app/session/SessionContext';
@@ -213,6 +213,40 @@ describe('thread', () => {
     expect(screen.getByText('Poll')).toBeInTheDocument();
     expect(screen.getByText('Lunch where?')).toBeInTheDocument();
     expect(screen.getByText('Unsupported message')).toBeInTheDocument();
+  });
+
+  it('threadRendersTransferredAndRoutedReasons', () => {
+    const to = { id: 'u9', name: 'Demo Agent' };
+    const by = { id: 'u7', name: 'Ishaan' };
+    const action = (over: Partial<ActionView>): ActionView => ({
+      id: 'a',
+      type: 'CLOSED',
+      by: null,
+      toUser: null,
+      toTeam: null,
+      at: hoursAgo(1),
+      reason: null,
+      fromTeam: null,
+      ...over,
+    });
+    expect(actionText(action({ type: 'ROUTED', toUser: to, reason: 'STICKY' }))).toBe(
+      'Routed to Demo Agent (returning customer)',
+    );
+    expect(actionText(action({ type: 'ROUTED', toUser: to, reason: 'HANDED_BACK', by }))).toBe(
+      'Routed to Demo Agent (handed back by Ishaan)',
+    );
+    expect(actionText(action({ type: 'ROUTED', toTeam: { id: 't1', name: 'Sales' }, reason: 'OWNER_CHANGED' }))).toBe(
+      'Routed to Sales (the number changed team)',
+    );
+    expect(actionText(action({ type: 'ROUTED', toUser: to, reason: 'MEMBER_REMOVED' }))).toBe(
+      'Routed to Demo Agent (the previous agent left the team)',
+    );
+    expect(
+      actionText(action({ type: 'TRANSFERRED', fromTeam: { id: 't1', name: 'Sales' }, toTeam: { id: 't2', name: 'Support' }, by })),
+    ).toBe('Transferred from Sales to Support by Ishaan');
+    expect(actionText(action({ type: 'TRANSFERRED', toTeam: { id: 't2', name: 'Support' } }))).toBe(
+      'Transferred to Support',
+    );
   });
 
   it('action items render as system lines', async () => {

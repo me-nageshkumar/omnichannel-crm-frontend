@@ -24,10 +24,14 @@ export function contactName(chat: { contact: Pick<ChatContact, 'name' | 'phone'>
   return phone ? `+${phone}` : 'Number hidden';
 }
 
-/** The lists the user may look at: their own always, the team's and the unassigned with view-team, all with view-all. */
+/**
+ * The lists the user may look at: their own always; the unassigned (their teams' queue) with view-queue; the team's
+ * too with view-team; all with view-all.
+ */
 export function allowedScopes(access: Pick<Access, 'hasInWorkspace'>): ListScope[] {
   const scopes: ListScope[] = ['MINE'];
-  if (access.hasInWorkspace('inbox:view-team')) scopes.push('TEAM', 'UNASSIGNED');
+  if (access.hasInWorkspace('inbox:view-team')) scopes.push('TEAM');
+  if (access.hasInWorkspace('inbox:view-team') || access.hasInWorkspace('inbox:view-queue')) scopes.push('UNASSIGNED');
   if (access.hasInWorkspace('inbox:view-all')) scopes.push('ALL');
   return scopes;
 }

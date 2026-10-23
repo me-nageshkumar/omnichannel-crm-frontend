@@ -1,15 +1,18 @@
 import * as React from 'react';
 import { Link } from 'react-router-dom';
 import { Alert, Button, Label } from '@patternfly/react-core';
-import { ChatView, closeChat, reopenChat } from '@app/api/inbox';
+import { ChatView, claimChat, closeChat, getChat, reopenChat } from '@app/api/inbox';
 import { PhoneNumber, shown } from '@app/api/phoneNumbers';
 import { messageFor } from '@app/api/messages';
 import { AssignMenu } from '@app/Inbox/AssignMenu';
+import { ReassignMenu } from '@app/Inbox/ReassignMenu';
+import { ApiError } from '@app/api/client';
 import { contactName } from '@app/Inbox/chatDisplay';
 import { useSession } from '@app/session/SessionContext';
 import { useAccess } from '@app/session/useAccess';
 
 const GAP = 'var(--pf-t--global--spacer--sm)';
+const TAKEN = 'Someone else took this chat';
 
 /** Who the chat belongs to, as the pill shows it. */
 export function assignmentText(chat: Pick<ChatView, 'assignedUser' | 'assignedTeam'>): string {
@@ -25,7 +28,7 @@ export const ChatHeader: React.FunctionComponent<{
   number?: PhoneNumber;
   onChange(chat: ChatView): void;
 }> = ({ chat, number, onChange }) => {
-  const { token, workspace } = useSession();
+  const { token, user, workspace } = useSession();
   const ws = workspace?.id ?? '';
   const access = useAccess();
   const [error, setError] = React.useState<string | null>(null);
@@ -38,6 +41,28 @@ export const ChatHeader: React.FunctionComponent<{
     onChange(updated);
   };
   const failed = (e: unknown) => setError(messageFor(e));
+  const canSend = access.hasInWorkspace('inbox:send');
+  const manager = access.hasInWorkspace('inbox:assign');
+  const mine = Boolean(user) && chat.assignedUser?.id === user?.id;
+  const claim = async () => {
+    setBusy(true);
+    try {
+      changed(await claimChat(token as string, ws, chat.id));
+    } catch (e) {
+      if (e instanceof ApiError && e.code === 'CHAT_TAKEN') {
+        setError(TAKEN);
+        try {
+          onChange(await getChat(token as string, ws, chat.id));
+        } catch {
+          // the header keeps showing the chat it has; the next event will catch up
+        }
+      } else {
+        failed(e);
+      }
+    } finally {
+      setBusy(false);
+    }
+  };
   const toggleStatus = async () => {
     setBusy(true);
     try {
@@ -72,7 +97,15 @@ export const ChatHeader: React.FunctionComponent<{
           {assignmentText(chat)}
         </Label>
         <span style={{ marginInlineStart: 'auto', display: 'flex', gap: GAP }}>
-          {access.hasInWorkspace('inbox:assign') && <AssignMenu chat={chat} onChange={changed} onError={failed} />}
+          {canSend && !chat.assignedUser && !closed && (
+            <Button variant="primary" onClick={() => void claim()} isDisabled={busy}>
+              Claim
+            </Button>
+          )}
+          {canSend && chat.assignedUser && (mine || manager) && (
+            <ReassignMenu chat={chat} onChange={changed} onError={failed} />
+          )}
+          {manager && <AssignMenu chat={chat} onChange={changed} onError={failed} />}
           {access.hasInWorkspace('inbox:send') && (
             <Button variant="secondary" onClick={() => void toggleStatus()} isDisabled={busy}>
               {closed ? 'Reopen' : 'Close'}

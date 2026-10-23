@@ -23,6 +23,8 @@ const UNASSIGN = `POST ${B}/inbox/chats/c1/unassign`;
 const CLOSE = `POST ${B}/inbox/chats/c1/close`;
 const REOPEN = `POST ${B}/inbox/chats/c1/reopen`;
 const ASSIGNEES = `GET ${B}/inbox/assignees`;
+const CLAIM = `POST ${B}/inbox/chats/c1/claim`;
+const HANDOFF = `POST ${B}/inbox/chats/c1/handoff`;
 const START = `POST ${B}/inbox/phone-numbers/p1/chats`;
 const LOOKUP = `GET ${B}/inbox/phone-numbers/p1/number-lookup`;
 const ON_WHATSAPP = {
@@ -608,5 +610,138 @@ describe('inbox page', () => {
     renderApp('/inbox/p1', <Where />);
     await waitFor(() => expect(screen.getByLabelText('Location')).toHaveTextContent(/^\/inbox$/));
     await list();
+  });
+
+  // --- claim and reassign (design §3.5, §3.6) --------------------------------------------------------------------
+
+  const ME = { id: AGENT_IN_BRAND.id, name: AGENT_IN_BRAND.name };
+  const MINE: ChatView = { ...ASHA, assignedUser: ME, assignedTeam: { id: 't1', name: 'Support' } };
+  const PEOPLE = {
+    status: 200,
+    body: {
+      users: [
+        { id: 'u9', name: 'Demo Agent', username: 'demo', availability: 'AVAILABLE' },
+        { id: AGENT_IN_BRAND.id, name: AGENT_IN_BRAND.name, username: 'ishaan', availability: 'AVAILABLE' },
+        { id: 'u8', name: 'Away Agent', username: 'away', availability: 'AWAY' },
+      ],
+      teams: [
+        { id: 't1', name: 'Support' },
+        { id: 't2', name: 'Sales' },
+      ],
+    },
+  };
+
+  it('claimButtonForUnassignedChatWithSend', async () => {
+    const { routes: r } = routes({ [CLAIM]: { status: 200, body: MINE } }, AGENT_IN_BRAND);
+    const fetch = mockFetch(r);
+    const { user } = renderApp('/inbox/chats/c1');
+    await screen.findByText('Hello from Asha', { selector: 'div' });
+    expect(header().queryByRole('button', { name: 'Assign' })).toBeNull();
+    await user.click(header().getByRole('button', { name: 'Claim' }));
+    expect(await header().findByText('Agent: Ishaan Agent')).toBeVisible();
+    expect(callsTo(fetch, CLAIM)).toBe(1);
+    expect(header().queryByRole('button', { name: 'Claim' })).toBeNull();
+    expect(header().getByRole('button', { name: 'Reassign' })).toBeVisible();
+  });
+
+  it('claimTakenShowsNoticeAndRefreshes', async () => {
+    const taken = { ...ASHA, assignedUser: { id: 'u9', name: 'Demo Agent' } };
+    let reads = 0;
+    const { routes: r } = routes(
+      {
+        [CLAIM]: { status: 409, body: { code: 'CHAT_TAKEN', message: 'taken' } },
+        [CHAT]: () => ({ status: 200, body: ++reads > 1 ? taken : ASHA }),
+      },
+      AGENT_IN_BRAND,
+    );
+    mockFetch(r);
+    const { user } = renderApp('/inbox/chats/c1');
+    await screen.findByText('Hello from Asha', { selector: 'div' });
+    await user.click(header().getByRole('button', { name: 'Claim' }));
+    expect(await screen.findByText('Someone else took this chat')).toBeVisible();
+    expect(await header().findByText('Agent: Demo Agent')).toBeVisible();
+    expect(header().queryByRole('button', { name: 'Claim' })).toBeNull();
+  });
+
+  it('reassignMenuOnlyForAssigneeOrManager', async () => {
+    const theirs = { ...ASHA, assignedUser: { id: 'u9', name: 'Demo Agent' } };
+    const { routes: r } = routes({ [CHAT]: { status: 200, body: theirs } }, AGENT_IN_BRAND);
+    mockFetch(r);
+    const first = renderApp('/inbox/chats/c1');
+    await screen.findByText('Hello from Asha', { selector: 'div' });
+    expect(header().queryByRole('button', { name: 'Reassign' })).toBeNull();
+    expect(header().queryByRole('button', { name: 'Claim' })).toBeNull();
+    first.unmount();
+    vi.unstubAllGlobals();
+
+    const { routes: managers } = routes({ [CHAT]: { status: 200, body: theirs } });
+    mockFetch(managers);
+    renderApp('/inbox/chats/c1');
+    await screen.findByText('Hello from Asha', { selector: 'div' });
+    expect(header().getByRole('button', { name: 'Reassign' })).toBeVisible();
+    expect(header().getByRole('button', { name: 'Assign' })).toBeVisible();
+  });
+
+  it('teammateHandoffPostsToUserAndShowsAvailability', async () => {
+    const { routes: r } = routes(
+      {
+        [CHAT]: { status: 200, body: MINE },
+        [ASSIGNEES]: PEOPLE,
+        [HANDOFF]: { status: 200, body: { ...MINE, assignedUser: { id: 'u9', name: 'Demo Agent' } } },
+      },
+      AGENT_IN_BRAND,
+    );
+    const fetch = mockFetch(r);
+    const { user } = renderApp('/inbox/chats/c1');
+    await screen.findByText('Hello from Asha', { selector: 'div' });
+    await user.click(header().getByRole('button', { name: 'Reassign' }));
+    await user.click(await screen.findByRole('button', { name: 'Teammate…' }));
+    expect(await screen.findByRole('menuitem', { name: /Away Agent/ })).toHaveTextContent('Away');
+    expect(screen.queryByRole('menuitem', { name: /Ishaan Agent/ })).toBeNull();
+    await user.click(screen.getByRole('menuitem', { name: /Demo Agent/ }));
+    expect(await header().findByText('Agent: Demo Agent')).toBeVisible();
+    expect(requestTo(fetch, HANDOFF)?.body).toEqual({ kind: 'TO_USER', userId: 'u9' });
+    expect(String(fetch.mock.calls.find(([u]) => String(u).includes('/assignees'))?.[0])).toContain(
+      'phoneNumberId=p1',
+    );
+  });
+
+  it('backToTeamPostsToTeamWithoutId', async () => {
+    const { routes: r } = routes(
+      {
+        [CHAT]: { status: 200, body: MINE },
+        [ASSIGNEES]: PEOPLE,
+        [HANDOFF]: { status: 200, body: { ...MINE, assignedUser: null } },
+      },
+      AGENT_IN_BRAND,
+    );
+    const fetch = mockFetch(r);
+    const { user } = renderApp('/inbox/chats/c1');
+    await screen.findByText('Hello from Asha', { selector: 'div' });
+    await user.click(header().getByRole('button', { name: 'Reassign' }));
+    await user.click(await screen.findByRole('menuitem', { name: 'Back to team' }));
+    expect(requestTo(fetch, HANDOFF)?.body).toEqual({ kind: 'TO_TEAM' });
+    // the chat is no longer mine: the list and header follow the server's answer
+    expect(await header().findByText('Team: Support')).toBeVisible();
+  });
+
+  it('anotherTeamPostsTeamId', async () => {
+    const { routes: r } = routes(
+      {
+        [CHAT]: { status: 200, body: MINE },
+        [ASSIGNEES]: PEOPLE,
+        [HANDOFF]: { status: 200, body: { ...MINE, assignedUser: null, assignedTeam: { id: 't2', name: 'Sales' } } },
+      },
+      AGENT_IN_BRAND,
+    );
+    const fetch = mockFetch(r);
+    const { user } = renderApp('/inbox/chats/c1');
+    await screen.findByText('Hello from Asha', { selector: 'div' });
+    await user.click(header().getByRole('button', { name: 'Reassign' }));
+    await user.click(await screen.findByRole('button', { name: 'Another team…' }));
+    expect(screen.queryByRole('menuitem', { name: 'Support' })).toBeNull(); // the current team is not a target
+    await user.click(await screen.findByRole('menuitem', { name: 'Sales' }));
+    expect(requestTo(fetch, HANDOFF)?.body).toEqual({ kind: 'TO_TEAM', teamId: 't2' });
+    expect(await header().findByText('Team: Sales')).toBeVisible();
   });
 });
