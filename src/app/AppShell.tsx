@@ -5,6 +5,7 @@ import { AppRoutes } from '@app/routes';
 import { LoginPage } from '@app/Login/LoginPage';
 import { VerifyCodePage } from '@app/Login/VerifyCodePage';
 import { NewPasswordPage } from '@app/Login/NewPasswordPage';
+import { CrmStatusProvider } from '@app/Crm/status/CrmStatusContext';
 import { RequireSession } from '@app/session/RequireSession';
 import { SessionProvider } from '@app/session/SessionContext';
 import { ThemeProvider } from '@app/theme/ThemeContext';
@@ -13,22 +14,24 @@ import { ThemeProvider } from '@app/theme/ThemeContext';
 const AppShell: React.FunctionComponent<{ children?: React.ReactNode }> = ({ children }) => (
   <ThemeProvider>
     <SessionProvider>
-      {children}
-      <Routes>
-        <Route path="/login" element={<LoginPage />} />
-        <Route path="/login/verify" element={<VerifyCodePage />} />
-        <Route path="/login/new-password" element={<NewPasswordPage />} />
-        <Route
-          path="*"
-          element={
-            <RequireSession>
-              <AppLayout>
-                <AppRoutes />
-              </AppLayout>
-            </RequireSession>
-          }
-        />
-      </Routes>
+      <CrmStatusProvider>
+        {children}
+        <Routes>
+          <Route path="/login" element={<LoginPage />} />
+          <Route path="/login/verify" element={<VerifyCodePage />} />
+          <Route path="/login/new-password" element={<NewPasswordPage />} />
+          <Route
+            path="*"
+            element={
+              <RequireSession>
+                <AppLayout>
+                  <AppRoutes />
+                </AppLayout>
+              </RequireSession>
+            }
+          />
+        </Routes>
+      </CrmStatusProvider>
     </SessionProvider>
   </ThemeProvider>
 );

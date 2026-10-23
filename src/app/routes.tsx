@@ -28,6 +28,8 @@ import { CampaignDetailPage } from '@app/Campaigns/CampaignDetailPage';
 import { InboxRedirect } from '@app/Inbox/InboxRedirect';
 import { InboxPage } from '@app/Inbox/InboxPage';
 import { RoutingSettingsPage } from '@app/Inbox/RoutingSettingsPage';
+import { crmRoutes } from '@app/Crm/routes';
+import { useCrmStatus } from '@app/Crm/status/CrmStatusContext';
 import { Access, useAccess } from '@app/session/useAccess';
 
 export interface IAppRoute {
@@ -65,6 +67,15 @@ const NAV_SECTIONS: NavEntry[][] = [
       links: [
         { label: 'Inbox', path: '/inbox' },
         { label: 'Routing', path: '/inbox/routing' },
+      ],
+    },
+    {
+      label: 'CRM',
+      links: [
+        { label: 'Pipelines', path: '/crm' },
+        { label: 'Contacts', path: '/crm/contacts' },
+        { label: 'Companies', path: '/crm/companies' },
+        { label: 'Settings', path: '/crm/settings' },
       ],
     },
   ],
@@ -265,6 +276,7 @@ const routes: IAppRoute[] = [
     path: '/campaigns/:id',
     requires: (a) => a.hasInWorkspace('campaign:view'),
   },
+  ...crmRoutes,
 ];
 
 /** The routes the signed-in user may open. */
@@ -279,8 +291,10 @@ export function useAllowedRoutes(): IAppRoute[] {
  */
 export function useNavSections(): NavEntry[][] {
   const allowed = new Set(useAllowedRoutes().map((r) => r.path));
+  const crmOn = useCrmStatus().status?.enabled === true;
   return NAV_SECTIONS.map((section) =>
     section.flatMap((entry): NavEntry[] => {
+      if (!crmOn && entry.label === 'CRM') return [];
       if (!isExpandable(entry)) return allowed.has(entry.path) ? [entry] : [];
       const links = entry.links.filter((link) => allowed.has(link.path));
       return links.length > 1 ? [{ ...entry, links }] : links;
