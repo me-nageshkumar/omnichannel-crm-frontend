@@ -9,6 +9,7 @@ import {
   CardTitle,
   Flex,
   FlexItem,
+  Label,
   Spinner,
   Stack,
   StackItem,
@@ -36,6 +37,7 @@ import { EnabledLabel } from '@app/admin/EnabledLabel';
 import { TemporaryPasswordModal } from '@app/admin/TemporaryPasswordModal';
 import { useAction } from '@app/admin/useAction';
 import { upsert, useLoad } from '@app/admin/useLoad';
+import { CrmSwitchModal, useCrmSwitches } from '@app/Crm/platform/CrmSwitchModal';
 import { useSession } from '@app/session/SessionContext';
 import { useAccess } from '@app/session/useAccess';
 
@@ -46,6 +48,7 @@ type Dialog =
   | { kind: 'resetOwner'; owner: UserSummary }
   | { kind: 'toggleUser'; user: UserSummary }
   | { kind: 'toggleBrand'; brand: Workspace }
+  | { kind: 'crm'; brand: Workspace }
   | { kind: 'password'; username: string; password: string };
 
 /** "Brand A: Agent, Brand B: Team lead", or the company-wide role. */
@@ -59,10 +62,12 @@ export const CustomerDetailPage: React.FunctionComponent = () => {
   const { id = '' } = useParams();
   const { token } = useSession();
   const canManage = useAccess().has('customer:manage');
+  const canCrm = useAccess().has('crm:enable');
   const detail = useLoad((t) => getCustomer(t, id), [id]);
   const users = useLoad((t) => listCustomerUsers(t, id), [id]);
   const [dialog, setDialog] = React.useState<Dialog | null>(null);
   const toggle = useAction();
+  const crm = useCrmSwitches(id, detail.data?.workspaces ?? [], canCrm);
 
   const update = (fn: (d: CustomerDetail) => CustomerDetail) => detail.setData((d) => (d ? fn(d) : d));
   const putOwner = (owner: UserSummary) => update((d) => ({ ...d, admins: upsert(d.admins, owner) }));
@@ -168,6 +173,7 @@ export const CustomerDetailPage: React.FunctionComponent = () => {
                   <Tr>
                     <Th>Name</Th>
                     <Th>Status</Th>
+                    {canCrm && <Th>CRM</Th>}
                     <Th screenReaderText="Actions" />
                   </Tr>
                 </Thead>
@@ -178,13 +184,29 @@ export const CustomerDetailPage: React.FunctionComponent = () => {
                       <Td dataLabel="Status">
                         <EnabledLabel disabled={w.disabled} />
                       </Td>
+                      {canCrm && (
+                        <Td dataLabel="CRM">
+                          {crm.switches[w.id] && (
+                            <Label color={crm.switches[w.id].enabled ? 'green' : 'grey'}>
+                              {crm.switches[w.id].enabled ? 'On' : 'Off'}
+                            </Label>
+                          )}
+                        </Td>
+                      )}
                       <Td isActionCell>
-                        {canManage && (
+                        {(canManage || canCrm) && (
                           <ActionsColumn
                             items={[
-                              toggleItem(w.disabled ? 'Enable' : 'Disable', () =>
-                                setDialog({ kind: 'toggleBrand', brand: w }),
-                              ),
+                              ...(canManage
+                                ? [
+                                    toggleItem(w.disabled ? 'Enable' : 'Disable', () =>
+                                      setDialog({ kind: 'toggleBrand', brand: w }),
+                                    ),
+                                  ]
+                                : []),
+                              ...(canCrm
+                                ? [{ title: 'CRM settings…', onClick: () => setDialog({ kind: 'crm', brand: w }) }]
+                                : []),
                             ]}
                           />
                         )}
@@ -363,6 +385,17 @@ export const CustomerDetailPage: React.FunctionComponent = () => {
             ? 'Its people can use it again and its WhatsApp numbers can reconnect.'
             : 'Its people lose access to it and its WhatsApp numbers disconnect. Only platform staff can enable it again.'}
         </ConfirmModal>
+      )}
+      {dialog?.kind === 'crm' && (
+        <CrmSwitchModal
+          customerId={customer.id}
+          workspace={dialog.brand}
+          onClose={() => setDialog(null)}
+          onSaved={(e) => {
+            crm.put(dialog.brand.id, e);
+            setDialog(null);
+          }}
+        />
       )}
       {dialog?.kind === 'toggleUser' && (
         <ConfirmModal
