@@ -434,7 +434,6 @@ export const PipelinesPage: React.FunctionComponent = () => {
     </PageShell>
   );
 
-  if (!settings.data) return pageContent;
   return (
     <DealDrawer
       dealId={dealId}

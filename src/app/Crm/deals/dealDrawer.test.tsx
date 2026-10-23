@@ -3,8 +3,8 @@ import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { screen, waitFor, within } from '@testing-library/react';
 import { useLocation } from 'react-router-dom';
 import { renderApp } from '../../../test/renderApp';
-import { mockFetch, requestTo } from '../../../test/fetchMock';
-import { crmSettings, sampleDeal } from '../../../test/crm';
+import { callsTo, mockFetch, requestTo } from '../../../test/fetchMock';
+import { crmSettings, sampleBoard, sampleDeal } from '../../../test/crm';
 import { storeSession } from '../../../test/session';
 import { BASE, boardRoutes } from '../../../test/crmBoard';
 
@@ -49,7 +49,7 @@ describe('Deal drawer', () => {
     expect(screen.getByRole('button', { name: 'Open chat' })).toBeInTheDocument();
   });
 
-  it('stageSelectMovesToEndOfLane', async () => {
+  it('stageSelectSendsOnlyTheStageAndRefreshesTheBoard', async () => {
     const f = mockFetch(
       routes({ [`POST ${BASE}/deals/d1/move`]: { status: 200, body: sampleDeal({ stageId: 's2', version: 3 }) } }),
     );
@@ -57,6 +57,39 @@ describe('Deal drawer', () => {
     await screen.findByRole('heading', { name: 'Acme order' });
     await user.selectOptions(screen.getByLabelText('Stage'), 'Proposal');
     await waitFor(() => expect(requestTo(f, `POST ${BASE}/deals/d1/move`)?.body).toEqual({ stageId: 's2' }));
+  });
+
+  it('drawerChangeRefetchesBoardAndMovesTheCard', async () => {
+    const moved = sampleBoard();
+    moved.lanes[0].deals = moved.lanes[0].deals.filter((d) => d.id !== 'd1');
+    moved.lanes[1].deals = [sampleDeal({ stageId: 's2', version: 3 }), ...moved.lanes[1].deals];
+    let boards = 0;
+    const f = mockFetch(
+      routes({
+        [`GET ${BASE}/deals/board`]: () => ({ status: 200, body: ++boards === 1 ? sampleBoard() : moved }),
+        [`POST ${BASE}/deals/d1/move`]: { status: 200, body: sampleDeal({ stageId: 's2', version: 3 }) },
+      }),
+    );
+    const { user } = renderApp('/crm/deals/d1?pipelineId=p1');
+    await screen.findByRole('heading', { name: 'Acme order' });
+    const lane = (n: string) => screen.getByRole('region', { name: n });
+    await waitFor(() => expect(within(lane('New')).getByText('Acme order')).toBeInTheDocument());
+    await user.selectOptions(screen.getByLabelText('Stage'), 'Proposal');
+    await waitFor(() => expect(callsTo(f, `GET ${BASE}/deals/board`)).toBe(2));
+    await waitFor(() => expect(within(lane('Proposal')).getByText('Acme order')).toBeInTheDocument());
+    expect(within(lane('New')).queryByText('Acme order')).toBeNull();
+  });
+
+  it('deepLinkShowsDealWhenSettingsFailWithoutRemountingBoard', async () => {
+    const f = mockFetch(
+      routes({ [`GET ${BASE}/settings`]: { status: 500, body: { code: 'INTERNAL', message: 'x' } } }),
+    );
+    renderApp('/crm/deals/d1?pipelineId=p1');
+    expect(await screen.findByRole('heading', { name: 'Acme order' })).toBeInTheDocument();
+    expect(screen.queryByRole('button', { name: 'Edit' })).toBeNull();
+    expect(screen.getByRole('button', { name: 'Open chat' })).toBeInTheDocument();
+    await screen.findByRole('region', { name: 'Deals board' });
+    expect(callsTo(f, `GET ${BASE}/deals/board`)).toBe(1);
   });
 
   it('closeLostSendsReason', async () => {

@@ -60,7 +60,8 @@ const Detail: React.FunctionComponent<{ term: string; children: React.ReactNode 
 export const DealDrawer: React.FunctionComponent<{
   dealId?: string;
   pipelines: Pipeline[];
-  settings: CrmSettings;
+  /** Absent while settings load or when they failed: the deal still shows, without edit and lost-reason labels. */
+  settings?: CrmSettings;
   onChanged(): void;
   onClose(): void;
   children?: React.ReactNode;
@@ -89,7 +90,7 @@ export const DealDrawer: React.FunctionComponent<{
   const deal = loaded.data ?? undefined;
   const pipeline = pipelines.find((p) => p.id === deal?.pipelineId);
   const phone = status?.phones.find((p) => p.phoneNumberId === deal?.channel?.phoneNumberId);
-  const reasonLabels = Object.fromEntries(settings.lostReasons.map((r) => [r.key, r.label]));
+  const reasonLabels = Object.fromEntries((settings?.lostReasons ?? []).map((r) => [r.key, r.label]));
 
   const changed = (saved: Deal) => {
     loaded.setData(() => saved);
@@ -131,7 +132,7 @@ export const DealDrawer: React.FunctionComponent<{
     const contact = deal.primaryContact;
     actions = (
       <>
-        {canEdit && pipeline && (
+        {canEdit && pipeline && settings && (
           <Button variant="secondary" onClick={() => setModal('edit')}>
             Edit
           </Button>
@@ -184,7 +185,7 @@ export const DealDrawer: React.FunctionComponent<{
               (stage?.name ?? '')
             )}
           </Detail>
-          <Detail term="Amount">{formatMoney(deal.amount, deal.currency, settings.defaultCurrency)}</Detail>
+          <Detail term="Amount">{formatMoney(deal.amount, deal.currency, settings?.defaultCurrency)}</Detail>
           <Detail term="Probability">{deal.probability == null ? '' : `${deal.probability}%`}</Detail>
           <Detail term="Expected close">{deal.expectedCloseDate ?? ''}</Detail>
           <Detail term="Contact">
@@ -223,7 +224,7 @@ export const DealDrawer: React.FunctionComponent<{
       <RecordDrawer isOpen={!!dealId} title={title} actions={actions} tabs={tabs} onClose={onClose}>
         {children}
       </RecordDrawer>
-      {modal === 'edit' && deal && pipeline && (
+      {modal === 'edit' && deal && pipeline && settings && (
         <DealFormModal
           deal={deal}
           pipeline={pipeline}
@@ -238,7 +239,7 @@ export const DealDrawer: React.FunctionComponent<{
       {modal === 'close' && deal && (
         <CloseDealModal
           deal={deal}
-          lostReasons={settings.lostReasons}
+          lostReasons={settings?.lostReasons ?? []}
           onClose={() => setModal(null)}
           onClosed={(saved) => {
             setModal(null);
