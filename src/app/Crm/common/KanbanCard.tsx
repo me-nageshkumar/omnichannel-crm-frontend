@@ -12,6 +12,7 @@ interface Props {
   children: React.ReactNode;
   /** Phone width: no drag, a "Move to…" select instead. */
   narrow?: boolean;
+  locked?: boolean;
   laneOptions?: { key: string; title: string }[];
   onMoveTo?(laneKey: string): void;
   overlay?: boolean;
@@ -25,12 +26,13 @@ export const KanbanCard: React.FunctionComponent<Props> = ({
   label,
   children,
   narrow,
+  locked,
   laneOptions,
   onMoveTo,
 }) => {
   const { attributes, listeners, setNodeRef, setActivatorNodeRef, transform, transition, isDragging } = useSortable({
     id,
-    disabled: narrow,
+    disabled: narrow || locked,
     data: { type: 'card', laneIndex },
   });
   return (
@@ -56,6 +58,7 @@ export const KanbanCard: React.FunctionComponent<Props> = ({
                 {...attributes}
                 {...listeners}
                 ref={setActivatorNodeRef}
+                isDisabled={locked}
                 aria-label={`Move ${label}`}
                 icon={<GripVerticalIcon />}
                 style={{ touchAction: 'none', flex: '0 0 auto' }}
@@ -66,6 +69,7 @@ export const KanbanCard: React.FunctionComponent<Props> = ({
           {narrow && laneOptions && (
             <FormSelect
               aria-label="Move to…"
+              isDisabled={locked}
               value=""
               onChange={(_e, v) => v && onMoveTo?.(v)}
               className="pf-v6-u-mt-sm"

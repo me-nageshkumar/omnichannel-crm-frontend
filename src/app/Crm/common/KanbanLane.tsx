@@ -15,6 +15,8 @@ interface Props<C> {
   renderCard(c: C): React.ReactNode;
   headerExtra?: React.ReactNode;
   narrow?: boolean;
+  /** A move is being saved: no other card can be moved. */
+  locked?: boolean;
   laneOptions?: { key: string; title: string }[];
   onMoveTo?(cardId: string, laneKey: string): void;
   onLoadMore?(laneKey: string): void;
@@ -29,6 +31,7 @@ export function KanbanLane<C>({
   renderCard,
   headerExtra,
   narrow,
+  locked,
   laneOptions,
   onMoveTo,
   onLoadMore,
@@ -78,6 +81,7 @@ export function KanbanLane<C>({
               index={i}
               label={labelOf(c)}
               narrow={narrow}
+              locked={locked}
               laneOptions={laneOptions?.filter((o) => o.key !== lane.key)}
               onMoveTo={(k) => onMoveTo?.(idOf(c), k)}
             >

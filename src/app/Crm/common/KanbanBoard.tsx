@@ -13,6 +13,7 @@ import { KanbanLane, LANE_DROP_PREFIX } from './KanbanLane';
 import { type KanbanLaneData, moveCard } from './kanban';
 
 export interface KanbanBoardProps<C> {
+  /** A new reference replaces the shown board when no move is pending. */
   lanes: KanbanLaneData<C>[];
   idOf(c: C): string;
   renderCard(c: C): React.ReactNode;
@@ -50,6 +51,8 @@ interface Pending {
   cardId: string;
   toLaneKey: string;
   index: number;
+  /** The move was saved; it stays shown until the caller passes new lanes. */
+  settled: boolean;
 }
 
 /** Lanes of draggable cards. Generic: knows nothing of deals; the caller supplies cards, rendering and persistence. */
@@ -65,35 +68,29 @@ export function KanbanBoard<C>({
   ariaLabel,
 }: KanbanBoardProps<C>) {
   const narrow = useNarrow(narrowProp);
-  const [shown, setShown] = React.useState(lanes);
-  const pending = React.useRef<Pending | null>(null);
-  const latest = React.useRef(lanes);
-  const idRef = React.useRef(idOf);
-  idRef.current = idOf;
+  const [pending, setPending] = React.useState<Pending | null>(null);
+  const [seen, setSeen] = React.useState(lanes);
+  const busy = pending !== null && !pending.settled;
 
-  // A new lanes prop wins, except that a move still in flight keeps its card where it was dropped.
-  React.useEffect(() => {
-    latest.current = lanes;
-    const p = pending.current;
-    setShown(p ? moveCard(lanes, p.cardId, p.toLaneKey, p.index, idRef.current).lanes : lanes);
-  }, [lanes]);
+  // A saved move is shown only until the caller's next lanes arrive; a move in flight survives them.
+  if (seen !== lanes) {
+    setSeen(lanes);
+    if (pending?.settled) setPending(null);
+  }
+  const shown =
+    pending && !(seen !== lanes && pending.settled)
+      ? moveCard(lanes, pending.cardId, pending.toLaneKey, pending.index, idOf).lanes
+      : lanes;
 
   const move = (cardId: string, toLaneKey: string, index: number) => {
+    if (busy) return;
     const r = moveCard(shown, cardId, toLaneKey, index, idOf);
     if (r.lanes === shown) return;
-    const mine: Pending = { cardId, toLaneKey, index };
-    pending.current = mine;
-    setShown(r.lanes);
+    const mine: Pending = { cardId, toLaneKey, index, settled: false };
+    setPending(mine);
     onMove(cardId, toLaneKey, r.beforeId, r.afterId).then(
-      () => {
-        if (pending.current === mine) pending.current = null;
-      },
-      () => {
-        if (pending.current === mine) {
-          pending.current = null;
-          setShown(latest.current);
-        }
-      },
+      () => setPending((p) => (p === mine ? { ...mine, settled: true } : p)),
+      () => setPending((p) => (p === mine ? null : p)),
     );
   };
 
@@ -103,7 +100,7 @@ export function KanbanBoard<C>({
   );
 
   const onDragEnd = ({ active, over }: DragEndEvent) => {
-    if (!over || active.id === over.id) return;
+    if (busy || !over || active.id === over.id) return;
     const activeId = String(active.id);
     const overId = String(over.id);
     if (overId.startsWith(LANE_DROP_PREFIX)) {
@@ -154,6 +151,7 @@ export function KanbanBoard<C>({
             renderCard={renderCard}
             headerExtra={renderLaneHeaderExtra?.(lane)}
             narrow={narrow}
+            locked={busy}
             laneOptions={laneOptions}
             onMoveTo={(cardId, key) => move(cardId, key, Number.MAX_SAFE_INTEGER)}
             onLoadMore={onLoadMore}

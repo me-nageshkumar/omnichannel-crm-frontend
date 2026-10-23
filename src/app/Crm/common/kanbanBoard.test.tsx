@@ -121,6 +121,32 @@ describe('KanbanBoard', () => {
     expect(names('New')).toEqual(['Card 1', 'Card 2']);
   });
 
+  it('secondMoveIsBlockedWhilePending', async () => {
+    const onMove = vi.fn().mockReturnValue(new Promise<void>(() => {}));
+    const user = userEvent.setup();
+    render(board({ onMove }));
+    await keyboardMove(user, 'Move Card 1', ['{ArrowDown}']);
+    await waitFor(() => expect(onMove).toHaveBeenCalledTimes(1));
+    expect(screen.getByRole('button', { name: 'Move Card 3' })).toBeDisabled();
+    await keyboardMove(user, 'Move Card 3', ['{ArrowRight}']);
+    expect(onMove).toHaveBeenCalledTimes(1);
+    expect(names('Won')).toEqual(['Card 3']);
+  });
+
+  it('rollbackAfterRefreshShowsLatestLanes', async () => {
+    let reject: (e: Error) => void = () => {};
+    const onMove = vi.fn().mockReturnValue(new Promise<void>((_r, j) => (reject = j)));
+    const user = userEvent.setup();
+    const { rerender } = render(board({ onMove }));
+    await keyboardMove(user, 'Move Card 1', ['{ArrowDown}']);
+    await waitFor(() => expect(names('New')).toEqual(['Card 2', 'Card 1']));
+    const fresh = [{ ...lanes()[0], cards: [card('1'), card('2'), card('9')], total: 3 }, ...lanes().slice(1)];
+    rerender(board({ onMove, lanes: fresh }));
+    expect(names('New')).toEqual(['Card 2', 'Card 1', 'Card 9']);
+    await act(async () => reject(new Error('no')));
+    expect(names('New')).toEqual(['Card 1', 'Card 2', 'Card 9']);
+  });
+
   it('loadMoreShownWhenTotalExceedsCards', async () => {
     const onLoadMore = vi.fn();
     const user = userEvent.setup();
