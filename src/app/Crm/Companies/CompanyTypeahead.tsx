@@ -15,7 +15,7 @@ import type { MenuToggleElement } from '@patternfly/react-core';
 import { TimesIcon } from '@patternfly/react-icons';
 import { companyTypeahead, createCompany } from '@app/api/crm';
 import type { Ref } from '@app/api/crm';
-import { messageFor } from '@app/api/messages';
+import { crmMessage } from '@app/Crm/errors';
 import { useSession } from '@app/session/SessionContext';
 
 const DEBOUNCE_MS = 250;
@@ -60,7 +60,7 @@ export const CompanyTypeahead: React.FunctionComponent<{
         },
         (e) => {
           if (seq !== latest.current) return;
-          setError(messageFor(e));
+          setError(crmMessage(e));
           setLoading(false);
         },
       );
@@ -84,7 +84,7 @@ export const CompanyTypeahead: React.FunctionComponent<{
       const made = await createCompany(token as string, ws, { name });
       choose({ id: made.id, name: made.name });
     } catch (e) {
-      setError(messageFor(e));
+      setError(crmMessage(e));
     } finally {
       setCreating(false);
     }

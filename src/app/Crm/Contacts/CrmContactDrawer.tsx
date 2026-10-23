@@ -18,7 +18,7 @@ import {
 import { getContact, searchDeals, updateContact } from '@app/api/crm';
 import type { CrmContact, CrmSettings, Ref } from '@app/api/crm';
 import { ApiError } from '@app/api/client';
-import { messageFor } from '@app/api/messages';
+import { crmMessage } from '@app/Crm/errors';
 import { useAction } from '@app/admin/useAction';
 import { useLoad } from '@app/admin/useLoad';
 import { useSession } from '@app/session/SessionContext';
@@ -137,7 +137,7 @@ export const CrmContactDrawer: React.FunctionComponent<{
           loaded.reload();
           return 'Someone else changed this contact. It has been refreshed; try again.';
         }
-        return messageFor(e);
+        return crmMessage(e);
       },
     );
     if (saved) changed(saved);

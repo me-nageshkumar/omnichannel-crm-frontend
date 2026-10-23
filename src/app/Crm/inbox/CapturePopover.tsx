@@ -12,7 +12,7 @@ import {
 } from '@patternfly/react-core';
 import { CaptureResult, captureChat, getSettings, listPipelines } from '@app/api/crm';
 import type { CrmSettings, Pipeline } from '@app/api/crm';
-import { messageFor } from '@app/api/messages';
+import { crmMessage } from '@app/Crm/errors';
 import { useCrmStatus } from '@app/Crm/status/CrmStatusContext';
 import { useSession } from '@app/session/SessionContext';
 
@@ -41,7 +41,7 @@ export const CapturePopover: React.FunctionComponent<{
     setLoadError(null);
     Promise.all([listPipelines(token, ws), getSettings(token, ws).catch(() => null)]).then(
       ([pipelines, settings]) => live && setOptions({ pipelines, settings }),
-      (e) => live && setLoadError(messageFor(e)),
+      (e) => live && setLoadError(crmMessage(e)),
     );
     return () => {
       live = false;
@@ -66,7 +66,7 @@ export const CapturePopover: React.FunctionComponent<{
       setOpen(false);
       onCaptured(result);
     } catch (e) {
-      setError(messageFor(e));
+      setError(crmMessage(e));
     } finally {
       setBusy(false);
     }

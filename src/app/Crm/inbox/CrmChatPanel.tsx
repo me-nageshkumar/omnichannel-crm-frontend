@@ -13,7 +13,7 @@ import {
 import { ApiError } from '@app/api/client';
 import { getSettings, inboxSummary, listPipelines, updateContact } from '@app/api/crm';
 import type { CrmSettings, InboxSummary, Pipeline } from '@app/api/crm';
-import { messageFor } from '@app/api/messages';
+import { crmMessage } from '@app/Crm/errors';
 import { LogActivityForm } from '@app/Crm/activity/LogActivityForm';
 import { formatMoney } from '@app/Crm/common/money';
 import { CapturePopover } from '@app/Crm/inbox/CapturePopover';
@@ -52,7 +52,7 @@ export const CrmChatPanel: React.FunctionComponent<{ chatId: string }> = ({ chat
     let live = true;
     inboxSummary(token, ws, chatId).then(
       (summary) => live && setAnswer({ chatId, summary }),
-      (e) => live && setAnswer({ chatId, error: messageFor(e) }),
+      (e) => live && setAnswer({ chatId, error: crmMessage(e) }),
     );
     return () => {
       live = false;
@@ -94,7 +94,7 @@ export const CrmChatPanel: React.FunctionComponent<{ chatId: string }> = ({ chat
         setSaveError('Someone else changed this contact. It has been refreshed; try again.');
         setTick((t) => t + 1);
       } else {
-        setSaveError(messageFor(e));
+        setSaveError(crmMessage(e));
       }
     } finally {
       setSaving(false);

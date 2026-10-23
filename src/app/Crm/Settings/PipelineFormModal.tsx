@@ -20,6 +20,7 @@ import { ApiError } from '@app/api/client';
 import { useAction } from '@app/admin/useAction';
 import { useLoad } from '@app/admin/useLoad';
 import { useSession } from '@app/session/SessionContext';
+import { crmMessage } from '@app/Crm/errors';
 import { ConflictAlert, isCode } from '@app/Crm/Settings/ConflictAlert';
 import { type StageDraft, StageEditor, newDraft, toDrafts, toInputs } from '@app/Crm/Settings/StageEditor';
 import { StageRemovalModal } from '@app/Crm/Settings/StageRemovalModal';
@@ -131,7 +132,8 @@ const PipelineForm: React.FunctionComponent<{
       setAsk({ stageId: e.extra.stageId, count: Number(e.extra.count ?? 0) });
       return '';
     }
-    return 'Could not save the pipeline. Try again.';
+    if (isCode(e, 'LIMIT_REACHED')) return "Your plan's pipeline limit has been reached.";
+    return crmMessage(e, 'Could not save the pipeline. Try again.');
   };
 
   const save = async () => {

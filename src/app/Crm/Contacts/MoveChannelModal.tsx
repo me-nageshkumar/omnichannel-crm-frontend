@@ -15,7 +15,7 @@ import { moveChannel } from '@app/api/crm';
 import type { CrmContact, CrmPhone } from '@app/api/crm';
 import { ApiError } from '@app/api/client';
 import { useAction } from '@app/admin/useAction';
-import { messageFor } from '@app/api/messages';
+import { crmMessage } from '@app/Crm/errors';
 import { useSession } from '@app/session/SessionContext';
 import { Field } from '@app/Crm/deals/fields';
 import { CHANNEL_TAKEN_MESSAGE } from '@app/Crm/Contacts/contactColumns';
@@ -54,7 +54,7 @@ export const MoveChannelModal: React.FunctionComponent<{
           onConflict?.();
           return 'Someone else changed this contact. Close this and open it again.';
         }
-        return messageFor(e);
+        return crmMessage(e);
       },
     );
     if (moved) onMoved(moved);

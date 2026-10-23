@@ -1,7 +1,7 @@
 import * as React from 'react';
 import { useNavigate } from 'react-router-dom';
 import { getCommunication } from '@app/api/crm';
-import { messageFor } from '@app/api/messages';
+import { crmMessage } from '@app/Crm/errors';
 import { useSession } from '@app/session/SessionContext';
 
 export const CANNOT_CHAT = "You don't work this WhatsApp number, so the inbox won't open this chat.";
@@ -27,7 +27,7 @@ export function useOpenChat() {
         navigate(`/inbox?newChat=${encodeURIComponent(c.phoneNumberId)}&phone=${encodeURIComponent(c.phone)}`);
       else setAlert(CANNOT_CHAT);
     } catch (e) {
-      setAlert(messageFor(e));
+      setAlert(crmMessage(e));
     } finally {
       setBusy(false);
     }

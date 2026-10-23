@@ -1,5 +1,5 @@
 import { ApiError } from '@app/api/client';
-import { messageFor } from '@app/api/messages';
+import { crmMessage } from '@app/Crm/errors';
 
 /** The error of a failed move in the user's words. */
 export function moveMessage(e: unknown): string {
@@ -8,5 +8,5 @@ export function moveMessage(e: unknown): string {
     if (e.status === 409 && e.code === 'VERSION_CONFLICT') return 'Someone else moved this deal. Refresh to see the board.';
     if (e.serverMessage) return e.serverMessage;
   }
-  return messageFor(e);
+  return crmMessage(e);
 }

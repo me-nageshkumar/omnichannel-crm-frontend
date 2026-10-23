@@ -14,7 +14,7 @@ import {
 } from '@patternfly/react-icons';
 import { listActivities } from '@app/api/crm';
 import type { Activity, Stage, TargetType } from '@app/api/crm';
-import { messageFor } from '@app/api/messages';
+import { crmMessage } from '@app/Crm/errors';
 import { useLoad } from '@app/admin/useLoad';
 import { useSession } from '@app/session/SessionContext';
 import { Timeline } from '@app/Crm/common/Timeline';
@@ -131,7 +131,7 @@ export const CrmTimeline: React.FunctionComponent<{
       setMore((m) => [...m, ...page.items]);
       setPages((n) => n + 1);
     } catch (e) {
-      setMoreError(messageFor(e));
+      setMoreError(crmMessage(e));
     } finally {
       setLoadingMore(false);
     }

@@ -19,7 +19,7 @@ import {
 import { SyncAltIcon } from '@patternfly/react-icons';
 import { getBoard, getSettings, listPipelines, moveDeal, searchDeals } from '@app/api/crm';
 import type { Board, Deal, Lane, Page, Pipeline, Ref } from '@app/api/crm';
-import { messageFor } from '@app/api/messages';
+import { crmMessage } from '@app/Crm/errors';
 import { PageShell } from '@app/admin/PageShell';
 import { useLoad } from '@app/admin/useLoad';
 import { useSession } from '@app/session/SessionContext';
@@ -255,7 +255,7 @@ export const PipelinesPage: React.FunctionComponent = () => {
           },
       );
     } catch (e) {
-      setNotice({ variant: 'danger', text: messageFor(e) });
+      setNotice({ variant: 'danger', text: crmMessage(e) });
     } finally {
       loadingMore.current.delete(laneKey);
     }

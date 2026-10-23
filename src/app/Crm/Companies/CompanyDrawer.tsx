@@ -19,7 +19,7 @@ import {
 import { companySummary, deleteCompany } from '@app/api/crm';
 import type { Company, CompanySummary, CrmSettings, Ref } from '@app/api/crm';
 import { ApiError } from '@app/api/client';
-import { messageFor } from '@app/api/messages';
+import { crmMessage } from '@app/Crm/errors';
 import { useAction } from '@app/admin/useAction';
 import { useLoad } from '@app/admin/useLoad';
 import { useSession } from '@app/session/SessionContext';
@@ -102,7 +102,7 @@ export const CompanyDrawer: React.FunctionComponent<{
         await deleteCompany(token as string, ws, company.id);
         return true;
       },
-      (e) => (e instanceof ApiError && e.code === 'COMPANY_HAS_OPEN_DEALS' ? OPEN_DEALS_MESSAGE : messageFor(e)),
+      (e) => (e instanceof ApiError && e.code === 'COMPANY_HAS_OPEN_DEALS' ? OPEN_DEALS_MESSAGE : crmMessage(e)),
     );
     if (done) {
       setModal(null);

@@ -104,4 +104,103 @@ describe('CRM settings', () => {
     expect(urls).toEqual([`${BASE}/pipelines/p2`, `${BASE}/pipelines/p2?moveDealsToPipelineId=p1`]);
     await waitFor(() => expect(callsTo(f, `GET ${BASE}/pipelines`)).toBe(3));
   });
+
+  const CONFLICT_COPY = 'Someone else changed this. Reload to see their changes.';
+  const PUT_P2 = `PUT ${BASE}/pipelines/p2`;
+
+  async function openRowAction(user: ReturnType<typeof renderApp>['user'], pipeline: string, item: string) {
+    await user.click(await screen.findByRole('tab', { name: 'Pipelines' }));
+    await user.click(await screen.findByRole('button', { name: `Actions for ${pipeline}` }));
+    await user.click(await screen.findByRole('menuitem', { name: item }));
+  }
+
+  it('makeDefaultSendsTheWholePipeline', async () => {
+    const f = mockFetch(routes(undefined, undefined, { [PUT_P2]: { status: 200, body: SUPPORT } }));
+    const { user } = renderApp('/crm/settings');
+    await openRowAction(user, 'Support', 'Make default');
+    await waitFor(() => expect(requestTo(f, PUT_P2)).toBeDefined());
+    expect(requestTo(f, PUT_P2)?.body).toEqual({
+      name: 'Support',
+      active: true,
+      isDefault: true,
+      rottingDays: null,
+      version: 1,
+    });
+  });
+
+  it('deactivateSendsTheWholePipeline', async () => {
+    const f = mockFetch(routes(undefined, undefined, { [PUT_P2]: { status: 200, body: SUPPORT } }));
+    const { user } = renderApp('/crm/settings');
+    await openRowAction(user, 'Support', 'Deactivate');
+    await waitFor(() => expect(requestTo(f, PUT_P2)).toBeDefined());
+    expect(requestTo(f, PUT_P2)?.body).toEqual({
+      name: 'Support',
+      active: false,
+      isDefault: false,
+      rottingDays: null,
+      version: 1,
+    });
+  });
+
+  it('editSendsTheWholePipelineAndClearingRottingSendsZero', async () => {
+    const PUT_P1 = `PUT ${BASE}/pipelines/p1`;
+    const f = mockFetch(
+      routes(undefined, undefined, {
+        [`GET ${BASE}/pipelines/p1`]: { status: 200, body: SALES },
+        [PUT_P1]: { status: 200, body: SALES },
+      }),
+    );
+    const { user } = renderApp('/crm/settings');
+    await openRowAction(user, 'Sales', 'Edit');
+    const dialog = await screen.findByRole('dialog', { name: 'Edit pipeline' });
+    const rotting = await within(dialog).findByLabelText('Rotting days');
+    await waitFor(() => expect(rotting).toHaveValue(7));
+    await user.clear(rotting);
+    await user.click(within(dialog).getByRole('button', { name: 'Save' }));
+    await waitFor(() => expect(requestTo(f, PUT_P1)).toBeDefined());
+    expect(requestTo(f, PUT_P1)?.body).toEqual({
+      name: 'Sales',
+      active: true,
+      isDefault: true,
+      rottingDays: 0,
+      version: 3,
+    });
+  });
+
+  it('rowActionConflictOffersReload', async () => {
+    const f = mockFetch(
+      routes(undefined, undefined, { [PUT_P2]: { status: 409, body: { code: 'VERSION_CONFLICT', message: 'x' } } }),
+    );
+    const { user } = renderApp('/crm/settings');
+    await openRowAction(user, 'Support', 'Make default');
+    expect(await screen.findByText(CONFLICT_COPY)).toBeVisible();
+    expect(screen.queryByText(/Could not/)).toBeNull();
+    const before = callsTo(f, `GET ${BASE}/pipelines`);
+    await user.click(screen.getByRole('button', { name: 'Reload' }));
+    await waitFor(() => expect(callsTo(f, `GET ${BASE}/pipelines`)).toBe(before + 1));
+    await waitFor(() => expect(screen.queryByText(CONFLICT_COPY)).toBeNull());
+  });
+
+  it('cancellingAfterPartialSaveReloadsTheList', async () => {
+    const PUT_P1 = `PUT ${BASE}/pipelines/p1`;
+    const f = mockFetch(
+      routes(undefined, undefined, {
+        [`GET ${BASE}/pipelines/p1`]: { status: 200, body: SALES },
+        [PUT_P1]: { status: 200, body: { ...SALES, name: 'Sales 2', version: 4 } },
+        [`PUT ${BASE}/pipelines/p1/stages`]: { status: 409, body: { code: 'VERSION_CONFLICT', message: 'x' } },
+      }),
+    );
+    const { user } = renderApp('/crm/settings');
+    await openRowAction(user, 'Sales', 'Edit');
+    const dialog = await screen.findByRole('dialog', { name: 'Edit pipeline' });
+    const name = await within(dialog).findByLabelText(/^Name/);
+    await waitFor(() => expect(name).toHaveValue('Sales'));
+    await user.type(name, ' 2');
+    await user.click(within(dialog).getByRole('button', { name: 'Add lane' }));
+    await user.click(within(dialog).getByRole('button', { name: 'Save' }));
+    expect(await within(dialog).findByText(CONFLICT_COPY)).toBeVisible();
+    const before = callsTo(f, `GET ${BASE}/pipelines`);
+    await user.click(within(dialog).getByRole('button', { name: 'Cancel' }));
+    await waitFor(() => expect(callsTo(f, `GET ${BASE}/pipelines`)).toBe(before + 1));
+  });
 });

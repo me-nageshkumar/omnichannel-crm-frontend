@@ -27,11 +27,13 @@ import { EllipsisVIcon } from '@patternfly/react-icons';
 import { deletePipeline, listPipelines, updatePipeline } from '@app/api/crm';
 import type { Pipeline } from '@app/api/crm';
 import { ApiError } from '@app/api/client';
+import { crmMessage } from '@app/Crm/errors';
 import { ConfirmModal } from '@app/admin/ConfirmModal';
 import { useAction } from '@app/admin/useAction';
 import { useLoad } from '@app/admin/useLoad';
 import { useSession } from '@app/session/SessionContext';
 import { useCrmStatus } from '@app/Crm/status/CrmStatusContext';
+import { ConflictAlert, isCode } from '@app/Crm/Settings/ConflictAlert';
 import { PipelineFormModal } from '@app/Crm/Settings/PipelineFormModal';
 
 const deals = (n: number) => `${n} ${n === 1 ? 'deal' : 'deals'}`;
@@ -140,6 +142,7 @@ export const PipelinesSettings: React.FunctionComponent<{ canManage: boolean }> 
   const action = useAction();
   const [editing, setEditing] = React.useState<{ id?: string } | null>(null);
   const [deleting, setDeleting] = React.useState<Pipeline | null>(null);
+  const [conflict, setConflict] = React.useState(false);
   const [moveCount, setMoveCount] = React.useState<number | null>(null);
 
   const pipelines = loaded.data ?? [];
@@ -157,6 +160,13 @@ export const PipelinesSettings: React.FunctionComponent<{ canManage: boolean }> 
         version: p.version,
         ...patch,
       }),
+      (e) => {
+        if (isCode(e, 'VERSION_CONFLICT')) {
+          setConflict(true);
+          return '';
+        }
+        return crmMessage(e, 'Could not update the pipeline. Try again.');
+      },
     );
     if (ok) loaded.reload();
   };
@@ -200,6 +210,16 @@ export const PipelinesSettings: React.FunctionComponent<{ canManage: boolean }> 
         {canManage &&
           (atLimit ? <Tooltip content={`Your plan allows ${max} pipelines`}>{newButton}</Tooltip> : newButton)}
       </div>
+      {conflict && (
+        <div className="pf-v6-u-mb-md">
+          <ConflictAlert
+            onReload={() => {
+              setConflict(false);
+              loaded.reload();
+            }}
+          />
+        </div>
+      )}
       {(loaded.error || (action.error && !deleting)) && (
         <Alert variant="danger" isInline title={loaded.error ?? action.error} className="pf-v6-u-mb-md" />
       )}
@@ -252,7 +272,11 @@ export const PipelinesSettings: React.FunctionComponent<{ canManage: boolean }> 
         <PipelineFormModal
           pipelineId={editing.id}
           readOnly={!canManage}
-          onClose={() => setEditing(null)}
+          onClose={() => {
+            setEditing(null);
+            // A save may have gone through in part before it was cancelled.
+            loaded.reload();
+          }}
           onSaved={() => {
             setEditing(null);
             loaded.reload();
