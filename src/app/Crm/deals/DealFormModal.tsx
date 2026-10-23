@@ -12,11 +12,12 @@ import {
   ModalHeader,
   TextInput,
 } from '@patternfly/react-core';
-import { createDeal, searchCompanies, updateDeal } from '@app/api/crm';
+import { createDeal, updateDeal } from '@app/api/crm';
 import type { CrmSettings, Deal, DealInput, Pipeline, Ref } from '@app/api/crm';
 import { useAction } from '@app/admin/useAction';
-import { useLoad } from '@app/admin/useLoad';
 import { useSession } from '@app/session/SessionContext';
+import { CompanyTypeahead } from '@app/Crm/Companies/CompanyTypeahead';
+import { useCrmCan } from '@app/Crm/status/CrmStatusContext';
 import { ContactPicker } from '@app/Crm/deals/ContactPicker';
 import { Field } from '@app/Crm/deals/fields';
 import { isCode } from '@app/Crm/Settings/ConflictAlert';
@@ -60,7 +61,8 @@ export const DealFormModal: React.FunctionComponent<{
 
   const [title, setTitle] = React.useState(deal?.title ?? '');
   const [contactId, setContactId] = React.useState(deal?.primaryContact?.id ?? '');
-  const [companyId, setCompanyId] = React.useState(deal?.company?.id ?? '');
+  const [company, setCompany] = React.useState<Ref | null>(deal?.company ?? null);
+  const canCreateCompany = useCrmCan('crm:edit');
   const [amount, setAmount] = React.useState(deal?.amount == null ? '' : String(deal.amount));
   const [currency, setCurrency] = React.useState(deal?.currency || settings.defaultCurrency);
   const [stageId, setStageId] = React.useState(openStages[0]?.id ?? '');
@@ -71,16 +73,12 @@ export const DealFormModal: React.FunctionComponent<{
   const [conflict, setConflict] = React.useState(false);
   const action = useAction(FIELDS);
 
-  const companies = useLoad((t) => searchCompanies(t, ws, { sort: 'name,asc', page: 0, size: 100 }), [ws], {
-    keepOnError: true,
-  });
-  const companyOptions = withValue(
-    (companies.data?.items ?? []).map((c) => ({ id: c.id, name: c.name })),
-    deal?.company,
-  );
   const me: Ref | null = user ? { id: user.id, name: `${user.name} (you)` } : null;
   const ownerOptions = withValue(
-    withValue(owners.filter((o) => o.id !== me?.id), deal?.owner && deal.owner.id !== me?.id ? deal.owner : null),
+    withValue(
+      owners.filter((o) => o.id !== me?.id),
+      deal?.owner && deal.owner.id !== me?.id ? deal.owner : null,
+    ),
     me,
   ).sort((a, b) => a.name.localeCompare(b.name));
 
@@ -111,7 +109,7 @@ export const DealFormModal: React.FunctionComponent<{
             amount: number,
             currency,
             expectedCloseDate: close,
-            companyId,
+            companyId: company?.id ?? '',
             ownerId,
             source,
             version: deal.version,
@@ -127,7 +125,7 @@ export const DealFormModal: React.FunctionComponent<{
           amount: number,
           currency,
           expectedCloseDate: close || undefined,
-          companyId: companyId || undefined,
+          companyId: company?.id,
           ownerId: ownerId || undefined,
           source: source || undefined,
         };
@@ -189,12 +187,12 @@ export const DealFormModal: React.FunctionComponent<{
             />
           </Field>
           <Field label="Company" fieldId="crm-deal-company" error={action.fieldErrors.companyId}>
-            <FormSelect id="crm-deal-company" value={companyId} onChange={(_e, v) => setCompanyId(v)}>
-              <FormSelectOption value="" label="No company" />
-              {companyOptions.map((c) => (
-                <FormSelectOption key={c.id} value={c.id} label={c.name} />
-              ))}
-            </FormSelect>
+            <CompanyTypeahead
+              id="crm-deal-company"
+              value={company}
+              onChange={setCompany}
+              canCreate={canCreateCompany}
+            />
           </Field>
           <Field label="Amount" fieldId="crm-deal-amount" error={err('amount', errors.amount)}>
             <TextInput
@@ -247,9 +245,7 @@ export const DealFormModal: React.FunctionComponent<{
                 {sources.map((s) => (
                   <FormSelectOption key={s.key} value={s.key} label={s.label} />
                 ))}
-                {source && !sources.some((s) => s.key === source) && (
-                  <FormSelectOption value={source} label={source} />
-                )}
+                {source && !sources.some((s) => s.key === source) && <FormSelectOption value={source} label={source} />}
               </FormSelect>
             ) : (
               <TextInput id="crm-deal-source" value={source} maxLength={64} onChange={(_e, v) => setSource(v)} />

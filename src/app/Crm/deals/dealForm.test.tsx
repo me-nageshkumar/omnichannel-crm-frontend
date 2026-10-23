@@ -37,7 +37,7 @@ describe('Deal form', () => {
           status: 200,
           body: { items: [sampleCrmContact()], total: 1, page: 0 },
         },
-        [`POST ${BASE}/companies/search`]: { status: 200, body: { items: [COMPANY], total: 1, page: 0 } },
+        [`GET ${BASE}/companies/typeahead`]: { status: 200, body: [COMPANY] },
         [`POST ${BASE}/deals`]: { status: 200, body: sampleDeal({ id: 'd9' }) },
       }),
     );
@@ -46,10 +46,13 @@ describe('Deal form', () => {
     await user.click(screen.getByRole('button', { name: 'New deal' }));
     const dialog = await screen.findByRole('dialog', { name: 'New deal' });
     await user.type(within(dialog).getByLabelText(/^Title/), 'Big order');
-    await waitFor(() => expect(within(dialog).getByRole('option', { name: 'Priya Shah (919812345678)' })).toBeInTheDocument());
+    await waitFor(() =>
+      expect(within(dialog).getByRole('option', { name: 'Priya Shah (919812345678)' })).toBeInTheDocument(),
+    );
     await user.selectOptions(within(dialog).getByLabelText(/^Primary contact/), 'c1');
     await user.type(within(dialog).getByLabelText('Amount'), '2500');
-    await user.selectOptions(within(dialog).getByLabelText('Company'), 'co1');
+    await user.click(within(dialog).getByRole('combobox', { name: 'Company' }));
+    await user.click(await within(dialog).findByRole('option', { name: 'Acme Ltd' }));
     await user.selectOptions(within(dialog).getByLabelText('Source'), 'web');
     expect(within(dialog).queryByRole('option', { name: 'Retired' })).toBeNull();
     expect(within(dialog).getByLabelText('Currency')).toHaveValue('INR');
@@ -73,7 +76,6 @@ describe('Deal form', () => {
     const f = mockFetch(
       boardRoutes({
         [`POST ${BASE}/contacts/search`]: { status: 200, body: { items: [], total: 0, page: 0 } },
-        [`POST ${BASE}/companies/search`]: { status: 200, body: { items: [], total: 0, page: 0 } },
       }),
     );
     const { user } = renderApp('/crm');
@@ -88,7 +90,7 @@ describe('Deal form', () => {
 
   it('editSendsVersion', async () => {
     const f = mockFetch({
-      [`POST ${BASE}/companies/search`]: { status: 200, body: { items: [COMPANY], total: 1, page: 0 } },
+      [`GET ${BASE}/companies/typeahead`]: { status: 200, body: [COMPANY] },
       [`PUT ${BASE}/deals/d1`]: ({ body }: { body: object }) => ({ status: 200, body: { ...sampleDeal(), ...body } }),
       ...meAs(WORKSPACE_MANAGER),
     });

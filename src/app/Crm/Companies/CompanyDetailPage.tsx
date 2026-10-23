@@ -1,5 +1,5 @@
 import * as React from 'react';
-import { PageShell } from '@app/admin/PageShell';
+import { CompaniesPage } from '@app/Crm/Companies/CompaniesPage';
 
-/** Placeholder until the page is built. */
-export const CompanyDetailPage: React.FunctionComponent = () => <PageShell title="Company" />;
+/** `/crm/companies/:id`: the companies page with that company's drawer open. */
+export const CompanyDetailPage: React.FunctionComponent = () => <CompaniesPage />;

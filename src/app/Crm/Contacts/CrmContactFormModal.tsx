@@ -11,11 +11,12 @@ import {
   ModalHeader,
   TextInput,
 } from '@patternfly/react-core';
-import { searchCompanies, updateContact } from '@app/api/crm';
+import { updateContact } from '@app/api/crm';
 import type { ContactUpdate, CrmContact, CrmSettings, Ref } from '@app/api/crm';
 import { useAction } from '@app/admin/useAction';
-import { useLoad } from '@app/admin/useLoad';
 import { useSession } from '@app/session/SessionContext';
+import { CompanyTypeahead } from '@app/Crm/Companies/CompanyTypeahead';
+import { useCrmCan } from '@app/Crm/status/CrmStatusContext';
 import { Field } from '@app/Crm/deals/fields';
 import { isCode } from '@app/Crm/Settings/ConflictAlert';
 
@@ -45,21 +46,14 @@ export const CrmContactFormModal: React.FunctionComponent<{
   const [lastName, setLastName] = React.useState(contact.lastName ?? '');
   const [email, setEmail] = React.useState(contact.email ?? '');
   const [jobTitle, setJobTitle] = React.useState(contact.jobTitle ?? '');
-  const [companyId, setCompanyId] = React.useState(contact.company?.id ?? '');
+  const [company, setCompany] = React.useState<Ref | null>(contact.company);
+  const canCreateCompany = useCrmCan('crm:edit');
   const [ownerId, setOwnerId] = React.useState(contact.owner?.id ?? '');
   const [source, setSource] = React.useState(contact.source ?? '');
   const [checked, setChecked] = React.useState(false);
   const [conflict, setConflict] = React.useState(false);
   const action = useAction(FIELDS);
 
-  // Task 9 swaps this select for the company typeahead.
-  const companies = useLoad((t) => searchCompanies(t, ws, { sort: 'name,asc', page: 0, size: 100 }), [ws], {
-    keepOnError: true,
-  });
-  const companyOptions = withValue(
-    (companies.data?.items ?? []).map((c) => ({ id: c.id, name: c.name })),
-    contact.company,
-  );
   const me: Ref | null = user ? { id: user.id, name: `${user.name} (you)` } : null;
   const ownerOptions = withValue(
     withValue(
@@ -83,7 +77,7 @@ export const CrmContactFormModal: React.FunctionComponent<{
       lastName: lastName.trim(),
       email: email.trim(),
       jobTitle: jobTitle.trim(),
-      companyId,
+      companyId: company?.id ?? '',
       ownerId,
       source,
       version,
@@ -135,12 +129,12 @@ export const CrmContactFormModal: React.FunctionComponent<{
             <TextInput id="crm-contact-job" value={jobTitle} maxLength={100} onChange={(_e, v) => setJobTitle(v)} />
           </Field>
           <Field label="Company" fieldId="crm-contact-company" error={err('companyId')}>
-            <FormSelect id="crm-contact-company" value={companyId} onChange={(_e, v) => setCompanyId(v)}>
-              <FormSelectOption value="" label="No company" />
-              {companyOptions.map((c) => (
-                <FormSelectOption key={c.id} value={c.id} label={c.name} />
-              ))}
-            </FormSelect>
+            <CompanyTypeahead
+              id="crm-contact-company"
+              value={company}
+              onChange={setCompany}
+              canCreate={canCreateCompany}
+            />
           </Field>
           <Field label="Owner" fieldId="crm-contact-owner" error={err('ownerId')}>
             <FormSelect id="crm-contact-owner" value={ownerId} onChange={(_e, v) => setOwnerId(v)}>

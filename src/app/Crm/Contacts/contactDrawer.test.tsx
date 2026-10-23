@@ -188,7 +188,7 @@ describe('CRM contact drawer', () => {
   });
 
   describe('edit form', () => {
-    const edit = { [`POST ${BASE}/companies/search`]: { status: 200, body: { items: [], total: 0, page: 0 } } };
+    const edit = { [`GET ${BASE}/companies/typeahead`]: { status: 200, body: [{ id: 'co1', name: 'Acme Ltd' }] } };
     const contact = sampleCrmContact({ jobTitle: 'CEO', lifecycleStatus: 'lead', version: 3 });
 
     it('sendsAllFieldsAndBlankClears', async () => {
@@ -222,6 +222,23 @@ describe('CRM contact drawer', () => {
         }),
       );
       await waitFor(() => expect(screen.queryByRole('dialog')).toBeNull());
+    });
+
+    it('companyIsChosenWithTheTypeahead', async () => {
+      const f = mockFetch(
+        routes({
+          ...edit,
+          [CONTACT]: { status: 200, body: contact },
+          [`PUT ${BASE}/contacts/c1`]: { status: 200, body: { ...contact, version: 4 } },
+        }),
+      );
+      const { user } = renderApp('/crm/contacts/c1');
+      await user.click(await screen.findByRole('button', { name: 'Edit' }));
+      const dialog = await screen.findByRole('dialog');
+      await user.click(within(dialog).getByRole('combobox', { name: 'Company' }));
+      await user.click(await within(dialog).findByRole('option', { name: 'Acme Ltd' }));
+      await user.click(within(dialog).getByRole('button', { name: 'Save contact' }));
+      await waitFor(() => expect(requestTo(f, `PUT ${BASE}/contacts/c1`)?.body.companyId).toBe('co1'));
     });
 
     it('rejectsABadEmailWithoutSaving', async () => {
