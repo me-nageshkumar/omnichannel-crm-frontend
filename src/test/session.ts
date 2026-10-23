@@ -30,6 +30,7 @@ export const BRAND_CODES = [
   'template:view',
   'template:manage',
   'inbox:view',
+  'inbox:view-queue',
   'inbox:view-team',
   'inbox:view-all',
   'inbox:send',
@@ -50,6 +51,7 @@ const base = {
   authorities: [] as string[],
   workspaces: [] as WorkspaceAccess[],
   mustChangePassword: false,
+  availability: { status: 'AVAILABLE' as const, at: null },
 };
 
 export const SUPER_ADMIN: CurrentUser = {
@@ -100,16 +102,17 @@ export const WORKSPACE_MANAGER: CurrentUser = {
   workspaces: [{ ...BRAND_A, role: { id: 'r-wm', name: 'WORKSPACE_MANAGER' } }],
 };
 
-export const TEAM_LEAD: CurrentUser = {
+/** A custom view-only role in Brand A: sees users, numbers, contacts, templates and campaigns, changes nothing. */
+export const BRAND_VIEWER: CurrentUser = {
   ...base,
   id: 'u6',
-  name: 'Tara Lead',
+  name: 'Tara Viewer',
   username: 'tara',
   customer: { id: 'c1', name: 'Acme' },
   workspaces: [
     {
       ...BRAND_A,
-      role: { id: 'r-tl', name: 'TEAM_LEAD' },
+      role: { id: 'r-viewer', name: 'VIEWER' },
       authorities: [
         'user:view',
         'phone-number:view',
@@ -123,12 +126,15 @@ export const TEAM_LEAD: CurrentUser = {
         'template:manage',
         'campaign:view',
         'campaign:manage',
+        'inbox:view',
+        'inbox:view-queue',
+        'inbox:send',
       ],
     },
   ],
 };
 
-/** An agent in Brand A with the spec's defaults: view and annotate contacts, nothing else. */
+/** An agent in Brand A with the spec's defaults: own chats plus the team queue, view and annotate contacts. */
 export const AGENT_IN_BRAND: CurrentUser = {
   ...base,
   id: 'u7',
@@ -139,7 +145,15 @@ export const AGENT_IN_BRAND: CurrentUser = {
     {
       ...BRAND_A,
       role: { id: 'r-ag', name: 'AGENT' },
-      authorities: ['contact:view', 'contact:annotate', 'template:view', 'campaign:view'],
+      authorities: [
+        'contact:view',
+        'contact:annotate',
+        'template:view',
+        'campaign:view',
+        'inbox:view',
+        'inbox:view-queue',
+        'inbox:send',
+      ],
     },
   ],
 };

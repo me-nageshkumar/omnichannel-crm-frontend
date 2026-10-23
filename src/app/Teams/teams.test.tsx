@@ -2,7 +2,7 @@ import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { screen, waitFor, within } from '@testing-library/react';
 import { renderApp } from '../../test/renderApp';
 import { callsTo, mockFetch, requestTo } from '../../test/fetchMock';
-import { CUSTOMER_ADMIN, TEAM_LEAD, WORKSPACE_MANAGER, meAs, storeSession } from '../../test/session';
+import { BRAND_VIEWER, CUSTOMER_ADMIN, WORKSPACE_MANAGER, meAs, storeSession } from '../../test/session';
 import { fill, rowAction, rowWith, summary } from '../../test/admin';
 
 const AG_ROLE = { id: 'r-ag', name: 'AGENT' };
@@ -93,7 +93,7 @@ describe('teams page', () => {
   });
 
   it('is read-only without team:manage', async () => {
-    mockFetch({ ...meAs(TEAM_LEAD), ...routes() });
+    mockFetch({ ...meAs(BRAND_VIEWER), ...routes() });
     renderApp('/teams');
     await rowWith('General');
     expect(screen.queryByRole('button', { name: 'Add team' })).toBeNull();

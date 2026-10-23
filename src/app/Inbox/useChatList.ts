@@ -104,7 +104,7 @@ export function useChatList(phoneNumberId: string, filters: ChatListFilters): Ch
         setTick((t) => t + 1);
       }
     };
-    listChats(token, ws, phoneNumberId, { scope, status, q, unread }).then(
+    listChats(token, ws, { phoneNumberIds: [phoneNumberId], scope, status, q, unread }).then(
       (res) => {
         if (epoch.current !== mine) return;
         // A reply cannot bring back a chat that left the list after it was asked for.
@@ -136,7 +136,7 @@ export function useChatList(phoneNumberId: string, filters: ChatListFilters): Ch
     const mine = epoch.current;
     setLoading(true);
     setError(null);
-    listChats(token, ws, phoneNumberId, { scope, status, q, unread, before }).then(
+    listChats(token, ws, { phoneNumberIds: [phoneNumberId], scope, status, q, unread, before }).then(
       (res) => {
         if (epoch.current !== mine) return;
         setItems((cur) => [

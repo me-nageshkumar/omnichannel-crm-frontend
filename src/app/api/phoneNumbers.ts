@@ -45,6 +45,10 @@ export interface PhoneNumber {
   wrongNumberAt: string | null;
   hasDevice: boolean;
   creationTime: string;
+  /** The team that works this number; null until an admin sets one. */
+  team: { id: string; name: string } | null;
+  /** Only on the inbox's number list: true when the viewer sees it only through a chat handed to them. */
+  guest?: boolean;
 }
 
 export interface PhoneNumberPage {
@@ -78,6 +82,14 @@ export const addNumber = (token: string, workspaceId: string, number: string, la
     method: 'POST',
     token,
     body: { number, label: label.trim() || null },
+  });
+
+/** Sets (or clears, with null) the team that works the number. */
+export const setNumberTeam = (token: string, workspaceId: string, id: string, teamId: string | null) =>
+  apiFetch<PhoneNumber>(`${base(workspaceId)}/${encodeURIComponent(id)}/team`, {
+    method: 'PUT',
+    token,
+    body: { teamId },
   });
 
 export const relabelNumber = (token: string, workspaceId: string, id: string, label: string) =>

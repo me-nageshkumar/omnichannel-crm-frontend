@@ -2,7 +2,7 @@ import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { screen, waitFor, within } from '@testing-library/react';
 import { renderApp } from '../../test/renderApp';
 import { callsTo, mockFetch, requestTo } from '../../test/fetchMock';
-import { AGENT_IN_BRAND, TEAM_LEAD, WORKSPACE_MANAGER, meAs, storeSession } from '../../test/session';
+import { AGENT_IN_BRAND, BRAND_VIEWER, WORKSPACE_MANAGER, meAs, storeSession } from '../../test/session';
 import { fill, rowWith } from '../../test/admin';
 import { attribute, contact, label } from '../../test/contacts';
 import type { CurrentUser } from '@app/api/users';
@@ -230,7 +230,7 @@ describe('contacts page', () => {
 
   it('teamLeadEditsAttribute', async () => {
     const fetch = mockFetch(
-      routes(TEAM_LEAD, {
+      routes(BRAND_VIEWER, {
         [`PUT ${B}/contacts/c1`]: { status: 200, body: { ...ASHA, attributes: { a1: 'Delhi' } } },
       }),
     );
@@ -244,7 +244,7 @@ describe('contacts page', () => {
   });
 
   const saveEdit = async (edit: (user: ReturnType<typeof renderApp>['user']) => Promise<void>) => {
-    const fetch = mockFetch(routes(TEAM_LEAD, { [`PUT ${B}/contacts/c1`]: { status: 200, body: ASHA } }));
+    const fetch = mockFetch(routes(BRAND_VIEWER, { [`PUT ${B}/contacts/c1`]: { status: 200, body: ASHA } }));
     const { user } = renderApp('/contacts/c1');
     await user.click(await screen.findByRole('button', { name: 'Edit' }));
     await edit(user);

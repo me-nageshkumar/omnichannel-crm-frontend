@@ -2,7 +2,7 @@ import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { screen } from '@testing-library/react';
 import { renderApp } from '../../test/renderApp';
 import { callsTo, mockFetch, requestTo } from '../../test/fetchMock';
-import { TEAM_LEAD, WORKSPACE_MANAGER, meAs, storeSession } from '../../test/session';
+import { BRAND_VIEWER, WORKSPACE_MANAGER, meAs, storeSession } from '../../test/session';
 import { campaignSettings } from '../../test/campaigns';
 import type { CampaignSettings } from '@app/api/campaigns';
 
@@ -102,7 +102,7 @@ describe('campaign settings', () => {
   });
 
   it('settingsRouteIsNotFoundWithoutSettings', async () => {
-    const fn = mockFetch(routes(campaignSettings(), {}, TEAM_LEAD));
+    const fn = mockFetch(routes(campaignSettings(), {}, BRAND_VIEWER));
     renderApp('/campaigns/settings');
     expect(await screen.findByText('404 Page not found')).toBeVisible();
     expect(callsTo(fn, GET)).toBe(0);

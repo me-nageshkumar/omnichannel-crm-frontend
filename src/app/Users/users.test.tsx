@@ -2,14 +2,14 @@ import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { screen, waitFor, within } from '@testing-library/react';
 import { renderApp } from '../../test/renderApp';
 import { callsTo, mockFetch, requestTo } from '../../test/fetchMock';
-import { CUSTOMER_ADMIN, TEAM_LEAD, WORKSPACE_MANAGER, meAs, storeSession } from '../../test/session';
+import { BRAND_VIEWER, CUSTOMER_ADMIN, WORKSPACE_MANAGER, meAs, storeSession } from '../../test/session';
 import { fill, rowAction, rowWith, summary } from '../../test/admin';
 
 const OFF = { by: 'am', level: 'PLATFORM', at: '2026-10-20T10:00:00Z' };
 
 const CA_ROLE = { id: 'r-ca', name: 'CUSTOMER_ADMIN' };
 const WM_ROLE = { id: 'r-wm', name: 'WORKSPACE_MANAGER' };
-const TL_ROLE = { id: 'r-tl', name: 'TEAM_LEAD' };
+const VIEWER_ROLE = { id: 'r-viewer', name: 'VIEWER' };
 const AG_ROLE = { id: 'r-ag', name: 'AGENT' };
 
 const inA = (role: { id: string; name: string }) => [{ workspaceId: 'w1', workspaceName: 'Brand A', role }];
@@ -38,7 +38,7 @@ const PRIYA_B = {
 function routes(extra = {}) {
   return {
     'GET /api/workspaces/w1/users': { status: 200, body: [RAVI, ARUN] },
-    'GET /api/workspaces/w1/assignable-roles': { status: 200, body: [WM_ROLE, TL_ROLE, AG_ROLE] },
+    'GET /api/workspaces/w1/assignable-roles': { status: 200, body: [WM_ROLE, VIEWER_ROLE, AG_ROLE] },
     ...extra,
   };
 }
@@ -59,7 +59,7 @@ describe('brand users page', () => {
   });
 
   it('a team lead sees the list without actions', async () => {
-    const fetch = mockFetch({ ...meAs(TEAM_LEAD), ...routes() });
+    const fetch = mockFetch({ ...meAs(BRAND_VIEWER), ...routes() });
     renderApp('/users');
     await rowWith('Arun Agent');
     expect(screen.queryByRole('button', { name: 'Add user' })).toBeNull();
@@ -100,7 +100,7 @@ describe('brand users page', () => {
   });
 
   it('adds an existing person from another brand', async () => {
-    const added = { ...PRIYA_B, workspaceRoles: [...PRIYA_B.workspaceRoles, ...inA(TL_ROLE)] };
+    const added = { ...PRIYA_B, workspaceRoles: [...PRIYA_B.workspaceRoles, ...inA(VIEWER_ROLE)] };
     const fetch = mockFetch({
       ...meAs(CUSTOMER_ADMIN),
       ...routes({
@@ -112,10 +112,10 @@ describe('brand users page', () => {
     await user.click(await screen.findByRole('button', { name: 'Add user' }));
     await user.click(screen.getByRole('tab', { name: 'Existing person' }));
     await user.selectOptions(await screen.findByLabelText(/^Person/), 'u7');
-    await user.selectOptions(screen.getByLabelText(/^Role/), 'r-tl');
+    await user.selectOptions(screen.getByLabelText(/^Role/), 'r-viewer');
     await user.click(screen.getByRole('button', { name: 'Add' }));
     expect(await rowWith('Priya')).toBeVisible();
-    expect(requestTo(fetch, 'POST /api/workspaces/w1/users')?.body).toEqual({ userId: 'u7', roleId: 'r-tl' });
+    expect(requestTo(fetch, 'POST /api/workspaces/w1/users')?.body).toEqual({ userId: 'u7', roleId: 'r-viewer' });
     expect(screen.queryByText(/Temporary password for/)).toBeNull();
   });
 
@@ -123,19 +123,19 @@ describe('brand users page', () => {
     const fetch = mockFetch({
       ...meAs(WORKSPACE_MANAGER),
       ...routes({
-        'PUT /api/workspaces/w1/users/u5': { status: 200, body: { ...ARUN, workspaceRoles: inA(TL_ROLE) } },
+        'PUT /api/workspaces/w1/users/u5': { status: 200, body: { ...ARUN, workspaceRoles: inA(VIEWER_ROLE) } },
       }),
     });
     const { user } = renderApp('/users');
     await rowAction(user, 'Arun Agent', 'Edit');
-    await user.selectOptions(await screen.findByLabelText(/^Role/), 'r-tl');
+    await user.selectOptions(await screen.findByLabelText(/^Role/), 'r-viewer');
     await user.click(screen.getByRole('button', { name: 'Save' }));
-    expect(await within(await rowWith('Arun Agent')).findByText('Team lead')).toBeVisible();
+    expect(await within(await rowWith('Arun Agent')).findByText('Viewer')).toBeVisible();
     expect(requestTo(fetch, 'PUT /api/workspaces/w1/users/u5')?.body).toEqual({
       name: 'Arun Agent',
       email: '',
       mobileNumber: '',
-      roleId: 'r-tl',
+      roleId: 'r-viewer',
     });
   });
 
@@ -283,7 +283,7 @@ describe('brand users page', () => {
   });
 
   it('actionHiddenWithoutUserEnable', async () => {
-    mockFetch({ ...meAs(TEAM_LEAD), ...routes() });
+    mockFetch({ ...meAs(BRAND_VIEWER), ...routes() });
     const { user } = renderApp('/users');
     const row = await rowWith('Arun Agent');
     const kebab = within(row).queryByRole('button', { name: 'Kebab toggle' });

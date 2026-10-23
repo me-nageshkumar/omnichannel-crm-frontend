@@ -2,7 +2,7 @@ import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { screen, waitFor, within } from '@testing-library/react';
 import { renderApp } from '../../test/renderApp';
 import { callsTo, mockFetch, requestTo } from '../../test/fetchMock';
-import { AGENT_IN_BRAND, TEAM_LEAD, WORKSPACE_MANAGER, meAs, storeSession } from '../../test/session';
+import { AGENT_IN_BRAND, BRAND_VIEWER, WORKSPACE_MANAGER, meAs, storeSession } from '../../test/session';
 import { rowWith } from '../../test/admin';
 import { advancedFilter, contact, label, savedFilter } from '../../test/contacts';
 import type { CurrentUser } from '@app/api/users';
@@ -189,7 +189,7 @@ describe('contact import and export', () => {
   });
 
   it('teamLeadHasImportAndExport', async () => {
-    mockFetch(routes(TEAM_LEAD));
+    mockFetch(routes(BRAND_VIEWER));
     renderApp('/contacts');
     await rowWith('Asha Rao');
     expect(screen.getByRole('button', { name: 'Import' })).toBeVisible();

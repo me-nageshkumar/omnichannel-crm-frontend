@@ -25,6 +25,8 @@ export function actionText(action: ActionView): string {
     case 'REOPENED':
       // A campaign that reopens a chat is named (its by has no id and reads "Campaign: <name>").
       return action.by && action.by.id === null ? `Reopened by ${action.by.name}` : 'Reopened';
+    case 'TRANSFERRED':
+      return `Transferred to ${action.toTeam?.name ?? 'another team'}${by}`;
   }
 }
 

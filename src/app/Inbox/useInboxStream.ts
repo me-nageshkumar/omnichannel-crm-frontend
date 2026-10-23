@@ -82,7 +82,7 @@ export function useInboxStream(
         let sawBytes = false;
         let openedAt: number | null = null;
         try {
-          const res = await fetch(streamUrl(ws, phoneNumberId), {
+          const res = await fetch(streamUrl(ws, [phoneNumberId]), {
             headers: { Authorization: `Bearer ${token}`, Accept: 'text/event-stream' },
             signal,
           });

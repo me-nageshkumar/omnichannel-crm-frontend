@@ -2,7 +2,7 @@ import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { screen, within } from '@testing-library/react';
 import { renderApp } from '../../test/renderApp';
 import { callsTo, mockFetch, requestTo } from '../../test/fetchMock';
-import { TEAM_LEAD, WORKSPACE_MANAGER, meAs, storeSession } from '../../test/session';
+import { BRAND_VIEWER, WORKSPACE_MANAGER, meAs, storeSession } from '../../test/session';
 import { rowAction, rowWith } from '../../test/admin';
 import { sender } from '../../test/campaigns';
 import type { SenderView } from '@app/api/campaigns';
@@ -119,7 +119,7 @@ describe('senders', () => {
   });
 
   it('viewerSeesNoActions', async () => {
-    mockFetch(routes([WARMING], {}, TEAM_LEAD));
+    mockFetch(routes([WARMING], {}, BRAND_VIEWER));
     renderApp('/campaigns/senders');
     const row = await rowWith('+919800000001');
     expect(within(row).queryByRole('button', { name: 'Kebab toggle' })).toBeNull();

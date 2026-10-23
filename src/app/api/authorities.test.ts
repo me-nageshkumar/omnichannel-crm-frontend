@@ -38,7 +38,7 @@ describe('authorities api', () => {
   });
 
   it('names the roles holding an authority', () => {
-    const e = new ApiError(409, 'AUTHORITY_IN_USE', undefined, undefined, undefined, ['AGENT', 'TEAM_LEAD']);
-    expect(messageFor(e)).toContain('AGENT, TEAM_LEAD');
+    const e = new ApiError(409, 'AUTHORITY_IN_USE', undefined, undefined, undefined, ['AGENT', 'VIEWER']);
+    expect(messageFor(e)).toContain('AGENT, VIEWER');
   });
 });

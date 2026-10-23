@@ -32,6 +32,7 @@ const CHAT: ChatView = {
   lastMessageAt: hoursAgo(1),
   lastMessage: null,
   creationTime: hoursAgo(48),
+  lastAgent: null,
 };
 
 function message(over: Partial<MessageView> & { id: string }): ThreadItem {
@@ -55,7 +56,16 @@ function message(over: Partial<MessageView> & { id: string }): ThreadItem {
 }
 
 function action(over: Partial<ActionView> & { id: string }): ThreadItem {
-  const a: ActionView = { type: 'CLOSED', by: null, toUser: null, toTeam: null, at: hoursAgo(2), ...over };
+  const a: ActionView = {
+    type: 'CLOSED',
+    by: null,
+    toUser: null,
+    toTeam: null,
+    at: hoursAgo(2),
+    reason: null,
+    fromTeam: null,
+    ...over,
+  };
   return { kind: 'action', message: null, action: a, at: a.at };
 }
 

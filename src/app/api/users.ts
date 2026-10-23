@@ -28,6 +28,9 @@ export interface WorkspaceAccess {
   disabled?: Disabled | null;
 }
 
+/** Whether an agent is taking chats right now; set by the agent in the masthead. */
+export type Availability = 'AVAILABLE' | 'AWAY';
+
 export interface CurrentUser {
   id: string;
   name: string;
@@ -41,6 +44,7 @@ export interface CurrentUser {
   authorities: string[];
   workspaces: WorkspaceAccess[];
   mustChangePassword: boolean;
+  availability: { status: Availability; at: string | null };
 }
 
 /** The role to show for {@code user}: their own role, else their role in {@code workspace}. */
@@ -58,6 +62,11 @@ export interface TwoFactorSetup {
 
 export function getCurrentUser(token: string): Promise<CurrentUser> {
   return apiFetch<CurrentUser>('/api/users/me', { token });
+}
+
+/** The user's own Available / Away switch; answers with the refreshed user. */
+export function setAvailability(token: string, status: Availability): Promise<CurrentUser> {
+  return apiFetch<CurrentUser>('/api/users/me/availability', { method: 'PUT', token, body: { status } });
 }
 
 export function initiateTwoFactor(token: string): Promise<TwoFactorSetup> {

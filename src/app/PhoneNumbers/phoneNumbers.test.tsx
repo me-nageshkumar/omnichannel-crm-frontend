@@ -2,7 +2,7 @@ import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { act, screen, waitFor, within } from '@testing-library/react';
 import { renderApp } from '../../test/renderApp';
 import { callsTo, mockFetch, requestTo } from '../../test/fetchMock';
-import { CUSTOMER_ADMIN, TEAM_LEAD, WORKSPACE_MANAGER, meAs, storeSession } from '../../test/session';
+import { BRAND_VIEWER, CUSTOMER_ADMIN, WORKSPACE_MANAGER, meAs, storeSession } from '../../test/session';
 import { fill, rowAction, rowWith } from '../../test/admin';
 import { phoneNumber } from '../../test/phoneNumbers';
 import { normaliseNumber } from '@app/api/phoneNumbers';
@@ -153,8 +153,8 @@ describe('brand phone numbers page', () => {
     expect(callsTo(fetch, `DELETE ${BASE}/p1`)).toBe(1);
   });
 
-  it('teamLeadSeesNoActions', async () => {
-    mockFetch({ ...meAs(TEAM_LEAD), [`GET ${BASE}`]: { status: 200, body: [MAIN] } });
+  it('viewerSeesNoActions', async () => {
+    mockFetch({ ...meAs(BRAND_VIEWER), [`GET ${BASE}`]: { status: 200, body: [MAIN] } });
     renderApp('/phone-numbers');
     const row = await rowWith('+919928088743');
     expect(within(row).queryByRole('button', { name: 'Kebab toggle' })).toBeNull();

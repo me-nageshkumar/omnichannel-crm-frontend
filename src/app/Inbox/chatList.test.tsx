@@ -13,7 +13,7 @@ import { ThemeProvider } from '@app/theme/ThemeContext';
 import { callsTo, mockFetch } from '../../test/fetchMock';
 import { AGENT_IN_BRAND, BRAND_A, meAs, storeSession } from '../../test/session';
 
-const LIST = '/api/workspaces/w1/inbox/phone-numbers/p1/chats';
+const LIST = '/api/workspaces/w1/inbox/chats';
 const hoursAgo = (h: number) => new Date(Date.now() - h * 3600_000).toISOString();
 
 function chat(over: Partial<ChatView> & { id: string }): ChatView {
@@ -28,6 +28,7 @@ function chat(over: Partial<ChatView> & { id: string }): ChatView {
     lastMessageAt: hoursAgo(1),
     lastMessage: null,
     creationTime: hoursAgo(48),
+    lastAgent: null,
     ...over,
   };
 }

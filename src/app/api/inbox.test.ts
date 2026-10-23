@@ -3,18 +3,23 @@ import type { ActionView, MessageView } from '@app/api/inbox';
 import {
   assignChat,
   chatMediaUrl,
+  claimChat,
   closeChat,
+  deleteTeamRouting,
   fetchMedia,
   getAssignees,
   getChat,
-  getInboxSettings,
+  getRoutingDefault,
   getThread,
+  handoffChat,
   listChats,
   listInboxNumbers,
+  listTeamRouting,
   lookupNumber,
   markRead,
   parseSse,
-  putInboxSettings,
+  putRoutingDefault,
+  putTeamRouting,
   reopenChat,
   sendTemplate,
   sendText,
@@ -77,31 +82,20 @@ describe('toInboxEvent', () => {
 });
 
 describe('inbox api', () => {
-  it('listChats builds the query string', async () => {
-    const fetch = mockFetch({
-      [`GET ${B}/phone-numbers/p1/chats`]: { status: 200, body: { items: [], hasMore: false } },
-    });
-    await listChats('tok', 'w1', 'p1', { scope: 'TEAM', status: 'OPEN', unread: true, limit: 50 });
+  it('listChats joins the selected numbers and the filters into one query', async () => {
+    const fetch = mockFetch({ [`GET ${B}/chats`]: { status: 200, body: { items: [], hasMore: false } } });
+    await listChats('tok', 'w1', { phoneNumberIds: ['a', 'b'], scope: 'TEAM', status: 'OPEN', unread: true, limit: 50 });
     const url = String(fetch.mock.calls[0][0]);
-    expect(url).toContain('scope=TEAM&status=OPEN&unread=true&limit=50');
-    expect(requestTo(fetch, `GET ${B}/phone-numbers/p1/chats`)?.headers.get('Authorization')).toBe('Bearer tok');
+    expect(url).toBe(`${B}/chats?phoneNumberIds=a%2Cb&scope=TEAM&status=OPEN&unread=true&limit=50`);
+    expect(requestTo(fetch, `GET ${B}/chats`)?.headers.get('Authorization')).toBe('Bearer tok');
   });
 
-  it('listChats omits unset filters and encodes the rest', async () => {
-    const fetch = mockFetch({
-      [`GET ${B}/phone-numbers/p1/chats`]: { status: 200, body: { items: [], hasMore: false } },
-    });
-    await listChats('tok', 'w1', 'p1', { scope: 'MINE', q: 'ra j', before: '2026-01-01T00:00:00Z' });
-    const url = String(fetch.mock.calls[0][0]);
-    expect(url).toBe(`${B}/phone-numbers/p1/chats?scope=MINE&q=ra+j&before=2026-01-01T00%3A00%3A00Z`);
-  });
-
-  it('listChats without filters has no query string', async () => {
-    const fetch = mockFetch({
-      [`GET ${B}/phone-numbers/p1/chats`]: { status: 200, body: { items: [], hasMore: false } },
-    });
-    await listChats('tok', 'w1', 'p1');
-    expect(String(fetch.mock.calls[0][0])).toBe(`${B}/phone-numbers/p1/chats`);
+  it('listChats omits an empty number filter and unset filters, and encodes the rest', async () => {
+    const fetch = mockFetch({ [`GET ${B}/chats`]: { status: 200, body: { items: [], hasMore: false } } });
+    await listChats('tok', 'w1', { phoneNumberIds: [], scope: 'MINE', q: 'ra j', before: '2026-01-01T00:00:00Z' });
+    expect(String(fetch.mock.calls[0][0])).toBe(`${B}/chats?scope=MINE&q=ra+j&before=2026-01-01T00%3A00%3A00Z`);
+    await listChats('tok', 'w1');
+    expect(String(fetch.mock.calls[1][0])).toBe(`${B}/chats`);
   });
 
   it('sendText posts {text}', async () => {
@@ -169,7 +163,8 @@ describe('inbox api', () => {
     expect(await listInboxNumbers('tok', 'w1')).toEqual([]);
     expect(await getChat('tok', 'w1', 'c1')).toEqual({ id: 'c1' });
     await getThread('tok', 'w1', 'c1', '2026-01-01T00:00:00Z');
-    expect(await getAssignees('tok', 'w1')).toEqual({ users: [], teams: [] });
+    expect(await getAssignees('tok', 'w1', 'p1')).toEqual({ users: [], teams: [] });
+    expect(urlsOf(fetch, `GET ${B}/assignees`)[0]).toBe(`${B}/assignees?phoneNumberId=p1`);
     const threadUrl = String(fetch.mock.calls.find(([u]) => String(u).includes('/thread'))?.[0]);
     expect(threadUrl).toBe(`${B}/chats/c1/thread?before=2026-01-01T00%3A00%3A00Z`);
   });
@@ -214,26 +209,53 @@ describe('inbox api', () => {
     expect(requestTo(fetch, `POST ${B}/chats/c1/assign`)?.body).toEqual({ userId: 'u1' });
   });
 
-  it('gets and puts the settings', async () => {
-    const settings = {
-      mode: 'TEAM' as const,
-      teamId: 't1',
+  it('claims a chat and hands it off with the kind in the body', async () => {
+    const fetch = mockFetch({
+      [`POST ${B}/chats/c1/claim`]: { status: 200, body: { id: 'c1' } },
+      [`POST ${B}/chats/c1/handoff`]: { status: 200, body: { id: 'c1' } },
+    });
+    await claimChat('tok', 'w1', 'c1');
+    await handoffChat('tok', 'w1', 'c1', { kind: 'TO_USER', userId: 'u2' });
+    await handoffChat('tok', 'w1', 'c1', { kind: 'TO_TEAM' });
+    await handoffChat('tok', 'w1', 'c1', { kind: 'TO_TEAM', teamId: 't2' });
+    expect(callsTo(fetch, `POST ${B}/chats/c1/claim`)).toBe(1);
+    expect(requestTo(fetch, `POST ${B}/chats/c1/handoff`, 0)?.body).toEqual({ kind: 'TO_USER', userId: 'u2' });
+    expect(requestTo(fetch, `POST ${B}/chats/c1/handoff`, 1)?.body).toEqual({ kind: 'TO_TEAM' });
+    expect(requestTo(fetch, `POST ${B}/chats/c1/handoff`, 2)?.body).toEqual({ kind: 'TO_TEAM', teamId: 't2' });
+  });
+
+  it('reads and writes the brand default and team routing settings', async () => {
+    const setting = {
+      teamId: null,
+      inherited: false,
+      assignToTeam: true,
+      roundRobin: false,
       userId: null,
+      stickyDays: 30,
       claimOnReply: true,
       keepAssignmentOnClose: false,
     };
     const fetch = mockFetch({
-      [`GET ${B}/phone-numbers/p1/settings`]: { status: 200, body: settings },
-      [`PUT ${B}/phone-numbers/p1/settings`]: { status: 200, body: settings },
+      [`GET ${B}/settings`]: { status: 200, body: setting },
+      [`PUT ${B}/settings`]: { status: 200, body: setting },
+      [`GET ${B}/settings/teams`]: { status: 200, body: [{ ...setting, teamId: 't1', inherited: true }] },
+      [`PUT ${B}/settings/teams/t1`]: { status: 200, body: { ...setting, teamId: 't1' } },
+      [`DELETE ${B}/settings/teams/t1`]: { status: 204 },
     });
-    expect(await getInboxSettings('tok', 'w1', 'p1')).toEqual(settings);
-    await putInboxSettings('tok', 'w1', 'p1', settings);
-    expect(requestTo(fetch, `PUT ${B}/phone-numbers/p1/settings`)?.body).toEqual(settings);
+    expect(await getRoutingDefault('tok', 'w1')).toEqual(setting);
+    await putRoutingDefault('tok', 'w1', { ...setting, roundRobin: true });
+    expect(requestTo(fetch, `PUT ${B}/settings`)?.body).toMatchObject({ assignToTeam: true, roundRobin: true });
+    expect(await listTeamRouting('tok', 'w1')).toHaveLength(1);
+    expect((await putTeamRouting('tok', 'w1', 't1', { ...setting, userId: 'u1' })).teamId).toBe('t1');
+    expect(requestTo(fetch, `PUT ${B}/settings/teams/t1`)?.body).toMatchObject({ userId: 'u1' });
+    await deleteTeamRouting('tok', 'w1', 't1');
+    expect(callsTo(fetch, `DELETE ${B}/settings/teams/t1`)).toBe(1);
   });
 
   it('builds the media and stream paths', () => {
     expect(chatMediaUrl('w1', 'c1', 'm 1')).toBe(`${B}/chats/c1/messages/m%201/media`);
-    expect(streamUrl('w1', 'p1')).toBe(`${B}/phone-numbers/p1/stream`);
+    expect(streamUrl('w1', ['p1', 'p 2'])).toBe(`${B}/stream?phoneNumberIds=p1%2Cp+2`);
+    expect(streamUrl('w1', [])).toBe(`${B}/stream`);
   });
 
   it('fetches media as a blob with the bearer token', async () => {

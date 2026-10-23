@@ -26,6 +26,7 @@ const CHAT: ChatView = {
   lastMessageAt: null,
   lastMessage: null,
   creationTime: '2026-10-20T10:00:00Z',
+  lastAgent: null,
 };
 
 const SENT: MessageView = {

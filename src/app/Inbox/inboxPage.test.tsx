@@ -11,9 +11,9 @@ import { renderApp } from '../../test/renderApp';
 import { AGENT_IN_BRAND, BRAND_A, WORKSPACE_MANAGER, meAs, storeSession } from '../../test/session';
 
 const B = '/api/workspaces/w1';
-const LIST = `GET ${B}/inbox/phone-numbers/p1/chats`;
+const LIST = `GET ${B}/inbox/chats`;
 const NUMBERS = `GET ${B}/inbox/phone-numbers`;
-const STREAM = `GET ${B}/inbox/phone-numbers/p1/stream`;
+const STREAM = `GET ${B}/inbox/stream`;
 const CHAT = `GET ${B}/inbox/chats/c1`;
 const THREAD = `GET ${B}/inbox/chats/c1/thread`;
 const READ = `POST ${B}/inbox/chats/c1/read`;
@@ -43,6 +43,7 @@ const ASHA: ChatView = {
   lastMessageAt: new Date(Date.now() - 2 * 3600_000).toISOString(),
   lastMessage: { direction: 'IN', type: 'text', text: 'Hello from Asha', status: 'READ' },
   creationTime: '2026-10-20T10:00:00Z',
+  lastAgent: null,
 };
 const MEENA: ChatView = {
   ...ASHA,
@@ -342,7 +343,7 @@ describe('inbox page', () => {
     const fetch = mockFetch(r);
     const answer = fetch.getMockImplementation() as NonNullable<ReturnType<typeof fetch.getMockImplementation>>;
     fetch.mockImplementation((input, init) =>
-      String(input).endsWith('/stream') ? new Promise<Response>(() => undefined) : answer(input, init),
+      String(input).includes('/stream') ? new Promise<Response>(() => undefined) : answer(input, init),
     );
     renderApp('/inbox/p1');
     await list();
@@ -427,7 +428,7 @@ describe('inbox page', () => {
     const { unmount } = renderApp('/inbox/p1');
     await list();
     await streamOpened(fetch);
-    const signal = fetch.mock.calls.find(([url]) => String(url).endsWith('/stream'))?.[1]?.signal as AbortSignal;
+    const signal = fetch.mock.calls.find(([url]) => String(url).includes('/stream'))?.[1]?.signal as AbortSignal;
     expect(signal.aborted).toBe(false);
     unmount();
     expect(signal.aborted).toBe(true);

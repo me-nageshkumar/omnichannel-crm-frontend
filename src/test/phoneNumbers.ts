@@ -18,6 +18,7 @@ export function phoneNumber(over: Partial<PhoneNumber> & Pick<PhoneNumber, 'id' 
     wrongNumberAt: null,
     hasDevice: false,
     creationTime: '2026-10-20T10:00:00Z',
+    team: null,
     ...over,
   };
 }

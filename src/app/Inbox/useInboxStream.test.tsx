@@ -9,7 +9,7 @@ import { callsTo, mockFetch } from '../../test/fetchMock';
 import { frame, streamMock } from '../../test/inbox';
 import { AGENT_IN_BRAND, meAs, storeSession } from '../../test/session';
 
-const STREAM = 'GET /api/workspaces/w1/inbox/phone-numbers/p1/stream';
+const STREAM = 'GET /api/workspaces/w1/inbox/stream';
 const events: InboxEvent[] = [];
 const onReconnect = vi.fn();
 

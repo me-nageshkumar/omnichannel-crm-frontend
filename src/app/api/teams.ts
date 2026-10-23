@@ -6,10 +6,18 @@ export interface TeamMember {
   username: string;
 }
 
+export interface TeamNumber {
+  id: string;
+  number: string;
+  label: string | null;
+}
+
 export interface Team {
   id: string;
   name: string;
   members: TeamMember[];
+  /** The numbers this team works. */
+  phoneNumbers: TeamNumber[];
 }
 
 const base = (workspaceId: string) => `/api/workspaces/${encodeURIComponent(workspaceId)}/teams`;

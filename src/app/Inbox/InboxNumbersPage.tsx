@@ -6,7 +6,6 @@ import { shown } from '@app/api/phoneNumbers';
 import { listInboxNumbers } from '@app/api/inbox';
 import { PageShell } from '@app/admin/PageShell';
 import { useLoad } from '@app/admin/useLoad';
-import { RoutingSettingsModal } from '@app/Inbox/RoutingSettingsModal';
 import { PhoneNumberStatusLabel } from '@app/PhoneNumbers/PhoneNumberStatusLabel';
 import { useSession } from '@app/session/SessionContext';
 import { useAccess } from '@app/session/useAccess';
@@ -16,9 +15,7 @@ export const InboxNumbersPage: React.FunctionComponent = () => {
   const { workspace } = useSession();
   const ws = workspace?.id ?? '';
   const access = useAccess();
-  const canRoute = access.hasInWorkspace('inbox:settings');
   const numbers = useLoad((t) => listInboxNumbers(t, ws), [ws]);
-  const [routing, setRouting] = React.useState<string | null>(null);
   const items = numbers.data ?? [];
 
   return (
@@ -44,7 +41,6 @@ export const InboxNumbersPage: React.FunctionComponent = () => {
               <Th>Number</Th>
               <Th>Label</Th>
               <Th>Status</Th>
-              {canRoute && <Th screenReaderText="Actions" />}
             </Tr>
           </Thead>
           <Tbody>
@@ -63,19 +59,11 @@ export const InboxNumbersPage: React.FunctionComponent = () => {
                 <Td dataLabel="Status">
                   <PhoneNumberStatusLabel number={n} />
                 </Td>
-                {canRoute && (
-                  <Td isActionCell>
-                    <Button variant="secondary" size="sm" onClick={() => setRouting(n.id)}>
-                      Routing
-                    </Button>
-                  </Td>
-                )}
               </Tr>
             ))}
           </Tbody>
         </Table>
       )}
-      {routing && <RoutingSettingsModal phoneNumberId={routing} onClose={() => setRouting(null)} />}
     </PageShell>
   );
 };

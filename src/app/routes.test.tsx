@@ -7,9 +7,9 @@ import {
   ACCOUNT_MANAGER,
   AGENT_IN_BRAND,
   AGENT_NO_BRANDS,
+  BRAND_VIEWER,
   CUSTOMER_ADMIN,
   SUPER_ADMIN,
-  TEAM_LEAD,
   WORKSPACE_MANAGER,
   meAs,
   storeSession,
@@ -59,8 +59,8 @@ describe('authority-driven navigation', () => {
     expect(await navFor(WORKSPACE_MANAGER)).toEqual(BRAND_LINKS);
   });
 
-  it('teamLeadAndAgentSeeCampaigns', async () => {
-    expect(await navFor(TEAM_LEAD)).toContain('All campaigns');
+  it('viewerAndAgentSeeCampaigns', async () => {
+    expect(await navFor(BRAND_VIEWER)).toContain('All campaigns');
     cleanup();
     expect(await navFor(AGENT_IN_BRAND)).toContain('All campaigns');
   });

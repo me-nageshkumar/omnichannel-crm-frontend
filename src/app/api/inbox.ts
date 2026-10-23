@@ -1,5 +1,8 @@
 import { apiFetch, apiFetchBlob } from '@app/api/client';
 import type { PhoneNumber } from '@app/api/phoneNumbers';
+import type { Availability } from '@app/api/users';
+
+export type { Availability } from '@app/api/users';
 
 export type ChatStatus = 'OPEN' | 'CLOSED';
 export type MessageDirection = 'IN' | 'OUT';
@@ -8,7 +11,9 @@ export type MessageSource = 'CONTACT' | 'CONSOLE' | 'WHATSAPP_WEB' | 'CAMPAIGN';
 export type MessageStatus = 'PENDING' | 'SENT' | 'DELIVERED' | 'READ' | 'PLAYED' | 'FAILED';
 export type ListScope = 'MINE' | 'TEAM' | 'UNASSIGNED' | 'ALL';
 export type RoutingMode = 'NONE' | 'TEAM' | 'USER' | 'ROUND_ROBIN';
-export type ActionType = 'ROUTED' | 'ASSIGNED' | 'UNASSIGNED' | 'CLOSED' | 'REOPENED';
+export type ActionType = 'ROUTED' | 'ASSIGNED' | 'UNASSIGNED' | 'CLOSED' | 'REOPENED' | 'TRANSFERRED';
+/** Why a ROUTED action chose as it did, when it was not the plain routing setting. */
+export type RoutedReason = 'STICKY' | 'HANDED_BACK' | 'OWNER_CHANGED' | 'MEMBER_REMOVED';
 
 export interface IdName {
   id: string;
@@ -41,6 +46,8 @@ export interface ChatView {
   lastMessageAt: string | null;
   lastMessage: LastMessage | null;
   creationTime: string;
+  /** The user who last handled the chat; a returning customer may stick to them. */
+  lastAgent: IdName | null;
 }
 
 export interface MessageMedia {
@@ -90,6 +97,9 @@ export interface ActionView {
   toUser: IdName | null;
   toTeam: IdName | null;
   at: string;
+  reason: RoutedReason | null;
+  /** On TRANSFERRED: the team the chat left. */
+  fromTeam: IdName | null;
 }
 
 /** One line of a thread: exactly one of `message` / `action` is set, matching `kind`; `at` orders the items. */
@@ -110,18 +120,27 @@ export interface ThreadPage {
   hasMore: boolean;
 }
 
-export interface InboxSettings {
-  mode: RoutingMode;
+/**
+ * A routing setting: the brand default (teamId null) or a team's; `inherited` is true when a team has no override
+ * and the brand default is shown in its place. The server keeps a null field as it is.
+ */
+export interface RoutingSetting {
   teamId: string | null;
+  inherited: boolean;
+  assignToTeam: boolean;
+  roundRobin: boolean;
   userId: string | null;
+  stickyDays: number;
   claimOnReply: boolean;
   keepAssignmentOnClose: boolean;
 }
 
 export interface Assignees {
-  users: Array<IdName & { username: string }>;
+  users: Array<IdName & { username: string; availability: Availability }>;
   teams: IdName[];
 }
+
+export type HandoffBody = { kind: 'TO_USER'; userId: string } | { kind: 'TO_TEAM'; teamId?: string };
 
 export type InboxEvent =
   | { type: 'chat'; chat: ChatView; visible: boolean }
@@ -129,6 +148,8 @@ export type InboxEvent =
   | { type: 'action'; chatId: string; action: ActionView };
 
 export interface ChatFilters {
+  /** The numbers to list; empty or absent means every number the viewer may open. */
+  phoneNumberIds?: string[];
   scope?: ListScope;
   status?: ChatStatus | 'ALL';
   q?: string;
@@ -139,14 +160,17 @@ export interface ChatFilters {
 
 const base = (ws: string) => `/api/workspaces/${encodeURIComponent(ws)}/inbox`;
 const chatPath = (ws: string, chatId: string) => `${base(ws)}/chats/${encodeURIComponent(chatId)}`;
-const settingsPath = (ws: string, pn: string) => `${base(ws)}/phone-numbers/${encodeURIComponent(pn)}/settings`;
 const post = <T>(token: string, path: string, body?: unknown) => apiFetch<T>(path, { method: 'POST', token, body });
 
 export const listInboxNumbers = (token: string, ws: string) =>
   apiFetch<PhoneNumber[]>(`${base(ws)}/phone-numbers`, { token });
 
-export function listChats(token: string, ws: string, pn: string, filters: ChatFilters = {}): Promise<ChatsPage> {
+/** One page of the viewer's chats across their numbers, newest message first. */
+export function listChats(token: string, ws: string, filters: ChatFilters = {}): Promise<ChatsPage> {
   const query = new URLSearchParams();
+  if (filters.phoneNumberIds && filters.phoneNumberIds.length > 0) {
+    query.set('phoneNumberIds', filters.phoneNumberIds.join(','));
+  }
   if (filters.scope) query.set('scope', filters.scope);
   if (filters.status) query.set('status', filters.status);
   if (filters.q) query.set('q', filters.q);
@@ -154,9 +178,7 @@ export function listChats(token: string, ws: string, pn: string, filters: ChatFi
   if (filters.before) query.set('before', filters.before);
   if (filters.limit !== undefined) query.set('limit', String(filters.limit));
   const qs = query.toString();
-  return apiFetch<ChatsPage>(`${base(ws)}/phone-numbers/${encodeURIComponent(pn)}/chats${qs ? `?${qs}` : ''}`, {
-    token,
-  });
+  return apiFetch<ChatsPage>(`${base(ws)}/chats${qs ? `?${qs}` : ''}`, { token });
 }
 
 export const getChat = (token: string, ws: string, chatId: string) =>
@@ -219,20 +241,52 @@ export const closeChat = (token: string, ws: string, chatId: string) =>
 export const reopenChat = (token: string, ws: string, chatId: string) =>
   post<ChatView>(token, `${chatPath(ws, chatId)}/reopen`);
 
-export const getAssignees = (token: string, ws: string) => apiFetch<Assignees>(`${base(ws)}/assignees`, { token });
+/** The caller takes an unassigned chat; 409 CHAT_TAKEN when someone was quicker. */
+export const claimChat = (token: string, ws: string, chatId: string) =>
+  post<ChatView>(token, `${chatPath(ws, chatId)}/claim`);
 
-export const getInboxSettings = (token: string, ws: string, pn: string) =>
-  apiFetch<InboxSettings>(settingsPath(ws, pn), { token });
+/** The assignee passes the chat to a teammate, back to the team, or to another team. */
+export const handoffChat = (token: string, ws: string, chatId: string, body: HandoffBody) =>
+  post<ChatView>(token, `${chatPath(ws, chatId)}/handoff`, body);
 
-export const putInboxSettings = (token: string, ws: string, pn: string, settings: InboxSettings) =>
-  apiFetch<InboxSettings>(settingsPath(ws, pn), { method: 'PUT', token, body: settings });
+/** Who a chat may be assigned to; with a number, only people who can open that number. */
+export const getAssignees = (token: string, ws: string, phoneNumberId?: string) =>
+  apiFetch<Assignees>(
+    `${base(ws)}/assignees${phoneNumberId ? `?${new URLSearchParams({ phoneNumberId }).toString()}` : ''}`,
+    { token },
+  );
+
+const settingsPath = (ws: string) => `${base(ws)}/settings`;
+const teamSettingsPath = (ws: string, teamId: string) => `${settingsPath(ws)}/teams/${encodeURIComponent(teamId)}`;
+
+export const getRoutingDefault = (token: string, ws: string) => apiFetch<RoutingSetting>(settingsPath(ws), { token });
+
+export const putRoutingDefault = (token: string, ws: string, setting: RoutingSetting) =>
+  apiFetch<RoutingSetting>(settingsPath(ws), { method: 'PUT', token, body: setting });
+
+/** One entry per team: its override, or the brand default flagged inherited. */
+export const listTeamRouting = (token: string, ws: string) =>
+  apiFetch<RoutingSetting[]>(`${settingsPath(ws)}/teams`, { token });
+
+export const putTeamRouting = (token: string, ws: string, teamId: string, setting: RoutingSetting) =>
+  apiFetch<RoutingSetting>(teamSettingsPath(ws, teamId), { method: 'PUT', token, body: setting });
+
+/** Back to the brand default. */
+export const deleteTeamRouting = (token: string, ws: string, teamId: string) =>
+  apiFetch<void>(teamSettingsPath(ws, teamId), { method: 'DELETE', token });
 
 /** Where a message's media is served; fetch it with {@link fetchMedia}, since it needs the auth header. */
 export const chatMediaUrl = (ws: string, chatId: string, messageId: string) =>
   `${chatPath(ws, chatId)}/messages/${encodeURIComponent(messageId)}/media`;
 
-/** The SSE endpoint of a number; the stream hook reads it with `fetch` so the Bearer header can be sent. */
-export const streamUrl = (ws: string, pn: string) => `${base(ws)}/phone-numbers/${encodeURIComponent(pn)}/stream`;
+/**
+ * The viewer's SSE endpoint over the selected numbers (all visible ones when empty); the stream hook reads it with
+ * `fetch` so the Bearer header can be sent.
+ */
+export const streamUrl = (ws: string, phoneNumberIds: string[]) =>
+  `${base(ws)}/stream${
+    phoneNumberIds.length > 0 ? `?${new URLSearchParams({ phoneNumberIds: phoneNumberIds.join(',') }).toString()}` : ''
+  }`;
 
 export const fetchMedia = (token: string, url: string): Promise<Blob> => apiFetchBlob(url, token);
 

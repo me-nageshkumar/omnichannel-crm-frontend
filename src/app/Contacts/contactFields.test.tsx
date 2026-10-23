@@ -2,7 +2,7 @@ import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { screen, within } from '@testing-library/react';
 import { renderApp } from '../../test/renderApp';
 import { callsTo, mockFetch, requestTo } from '../../test/fetchMock';
-import { AGENT_IN_BRAND, TEAM_LEAD, WORKSPACE_MANAGER, meAs, storeSession } from '../../test/session';
+import { AGENT_IN_BRAND, BRAND_VIEWER, WORKSPACE_MANAGER, meAs, storeSession } from '../../test/session';
 import { fill, rowAction, rowWith } from '../../test/admin';
 import { attribute, label } from '../../test/contacts';
 
@@ -162,7 +162,7 @@ describe('contact fields page', () => {
   });
 
   it.each([
-    ['team lead', TEAM_LEAD],
+    ['viewer', BRAND_VIEWER],
     ['agent', AGENT_IN_BRAND],
   ])('hiddenWithoutManageAuthority (%s)', async (_n, user) => {
     mockFetch(meAs(user));

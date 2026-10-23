@@ -2,7 +2,7 @@ import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { screen, within } from '@testing-library/react';
 import { renderApp } from '../../test/renderApp';
 import { callsTo, mockFetch, requestTo } from '../../test/fetchMock';
-import { AGENT_IN_BRAND, TEAM_LEAD, WORKSPACE_MANAGER, meAs, storeSession } from '../../test/session';
+import { AGENT_IN_BRAND, BRAND_VIEWER, WORKSPACE_MANAGER, meAs, storeSession } from '../../test/session';
 import { rowAction, rowWith, urlsOf } from '../../test/admin';
 import { campaign } from '../../test/campaigns';
 import type { CampaignPage, CampaignView } from '@app/api/campaigns';
@@ -187,7 +187,7 @@ describe('campaigns list', () => {
     expect(screen.getByRole('link', { name: 'Campaign settings' })).toHaveAttribute('href', '/campaigns/settings');
     first.unmount();
 
-    mockFetch(routes([RUNNING], {}, TEAM_LEAD));
+    mockFetch(routes([RUNNING], {}, BRAND_VIEWER));
     const lead = renderApp('/campaigns');
     await rowWith('Diwali leads');
     expect(screen.getByRole('link', { name: 'New campaign' })).toBeVisible();
