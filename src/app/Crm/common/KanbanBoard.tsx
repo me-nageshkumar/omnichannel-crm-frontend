@@ -70,7 +70,8 @@ export function KanbanBoard<C>({
   const narrow = useNarrow(narrowProp);
   const [pending, setPending] = React.useState<Pending | null>(null);
   const [seen, setSeen] = React.useState(lanes);
-  const busy = pending !== null && !pending.settled;
+  // Locked from the start of a move until fresh lanes arrive after it was saved (or it is rolled back).
+  const busy = pending !== null;
 
   // A saved move is shown only until the caller's next lanes arrive; a move in flight survives them.
   if (seen !== lanes) {

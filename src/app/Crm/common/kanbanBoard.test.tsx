@@ -133,6 +133,23 @@ describe('KanbanBoard', () => {
     expect(names('Won')).toEqual(['Card 3']);
   });
 
+  it('moveAfterSuccessWaitsForFreshLanes', async () => {
+    const onMove = vi.fn().mockResolvedValue(undefined);
+    const user = userEvent.setup();
+    const { rerender } = render(board({ onMove }));
+    await keyboardMove(user, 'Move Card 1', ['{ArrowDown}']);
+    await waitFor(() => expect(onMove).toHaveBeenCalledTimes(1));
+    await waitFor(() => expect(screen.getByRole('button', { name: 'Move Card 3' })).toBeDisabled());
+    await keyboardMove(user, 'Move Card 3', ['{ArrowRight}']);
+    expect(onMove).toHaveBeenCalledTimes(1);
+    expect(names('New')).toEqual(['Card 2', 'Card 1']);
+    const fresh = [{ ...lanes()[0], cards: [card('2'), card('1')] }, ...lanes().slice(1)];
+    rerender(board({ onMove, lanes: fresh }));
+    expect(screen.getByRole('button', { name: 'Move Card 3' })).toBeEnabled();
+    await keyboardMove(user, 'Move Card 3', ['{ArrowRight}']);
+    await waitFor(() => expect(onMove).toHaveBeenCalledWith('3', 'lost', null, null));
+  });
+
   it('rollbackAfterRefreshShowsLatestLanes', async () => {
     let reject: (e: Error) => void = () => {};
     const onMove = vi.fn().mockReturnValue(new Promise<void>((_r, j) => (reject = j)));
