@@ -180,11 +180,9 @@ export const PipelinesPage: React.FunctionComponent = () => {
 
   // The lanes as shown: the loaded board, then local moves and "load more" pages on top of it.
   const [shown, setShown] = React.useState<{ pipelineId: string; lanes: Lane[] } | null>(null);
-  const pages = React.useRef<Record<string, number>>({});
   const loadingMore = React.useRef(new Set<string>());
   React.useEffect(() => {
     if (!board.data) return;
-    pages.current = {};
     setShown({ pipelineId: pipelineId ?? board.data.pipelineId, lanes: board.data.lanes });
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [board.data]);
@@ -238,7 +236,8 @@ export const PipelinesPage: React.FunctionComponent = () => {
   const onLoadMore = async (laneKey: string) => {
     if (!pipelineId || loadingMore.current.has(laneKey)) return;
     loadingMore.current.add(laneKey);
-    const next = pages.current[laneKey] ?? 1;
+    // Paged by what is loaded, not by clicks: a move shifts the server's offsets, and deduping covers the overlap.
+    const next = Math.floor((lanes?.find((l) => l.stage.id === laneKey)?.deals.length ?? 0) / PER_STAGE);
     try {
       const result = await searchDeals(t, ws, {
         pipelineId,
@@ -249,7 +248,6 @@ export const PipelinesPage: React.FunctionComponent = () => {
         page: next,
         size: PER_STAGE,
       });
-      pages.current[laneKey] = next + 1;
       setShown(
         (s) =>
           s && {

@@ -100,6 +100,15 @@ describe('Pipelines page', () => {
     expect(screen.queryByRole('button', { name: 'New deal' })).toBeNull();
   });
 
+  it('agentWithNoPipelineAccessSeesEmptyState', async () => {
+    mockFetch(boardRoutes({}, { pipelineAccess: [] }));
+    renderApp('/crm');
+    expect(await screen.findByText('No pipeline assigned to you. Ask your admin.')).toBeInTheDocument();
+    expect(screen.queryByRole('button', { name: 'New contact' })).toBeNull();
+    expect(screen.queryByRole('button', { name: 'New deal' })).toBeNull();
+    expect(screen.queryByLabelText('Pipeline')).toBeNull();
+  });
+
   it('emptyPipelineSaysSo', async () => {
     const empty = sampleBoard();
     empty.lanes = empty.lanes.map((l) => ({ ...l, total: 0, sumAmount: 0, deals: [] }));
@@ -152,6 +161,49 @@ describe('Pipelines page', () => {
     expect(requestTo(f, `POST ${BASE}/deals/d1/move`)?.body).toEqual({ stageId: 's2', beforeDealId: 'd3' });
     await waitFor(() => expect(within(lane('Proposal')).getByText('Acme order')).toBeInTheDocument());
     expect(within(lane('New')).queryByText('Acme order')).toBeNull();
+    // The board is unlocked again once the saved move has been settled.
+    await waitFor(() => {
+      const selects = screen.getAllByLabelText('Move to…');
+      expect(selects.length).toBeGreaterThan(0);
+      selects.forEach((el) => expect(el).toBeEnabled());
+    });
+  });
+
+  it('loadMoreAfterAMoveFetchesByWhatIsLoaded', async () => {
+    narrow();
+    const [s1, s2, s3] = sampleBoard().lanes.map((l) => l.stage);
+    const deal = (n: number) => sampleDeal({ id: `n${n}`, title: `Deal n${n}`, position: n * 1000 });
+    const range = (a: number, b: number) => Array.from({ length: b - a + 1 }, (_, i) => deal(a + i));
+    const big = sampleBoard({
+      lanes: [
+        { stage: s1, total: 30, sumAmount: 0, deals: range(1, 25) },
+        { stage: s2, total: 0, sumAmount: 0, deals: [] },
+        { stage: s3, total: 0, sumAmount: 0, deals: [] },
+      ],
+    });
+    const f = mockFetch(
+      boardRoutes({
+        [`GET ${BASE}/deals/board`]: { status: 200, body: big },
+        [`POST ${BASE}/deals/n1/move`]: { status: 200, body: { ...deal(1), stageId: 's2' } },
+        // The server's New lane after n1 left: n2..n30.
+        [`POST ${BASE}/deals/search`]: ({ body }: { body: { page: number } }) => ({
+          status: 200,
+          body: { items: body.page === 0 ? range(2, 26) : range(27, 30), total: 29, page: body.page },
+        }),
+      }),
+    );
+    const { user } = renderApp('/crm');
+    await screen.findByText('Deal n1');
+    await user.selectOptions(within(lane('New')).getAllByLabelText('Move to…')[0], 'Proposal');
+    await waitFor(() => expect(within(lane('Proposal')).getByText('Deal n1')).toBeInTheDocument());
+    await waitFor(() => expect(screen.getAllByLabelText('Move to…')[0]).toBeEnabled());
+    await user.click(screen.getByRole('button', { name: 'Load more in New' }));
+    expect(await within(lane('New')).findByText('Deal n26')).toBeInTheDocument();
+    await user.click(screen.getByRole('button', { name: 'Load more in New' }));
+    expect(await within(lane('New')).findByText('Deal n30')).toBeInTheDocument();
+    expect(screen.queryByRole('button', { name: 'Load more in New' })).toBeNull();
+    expect(requestTo(f, `POST ${BASE}/deals/search`, 0)?.body).toMatchObject({ stageId: 's1', page: 0 });
+    expect(requestTo(f, `POST ${BASE}/deals/search`, 1)?.body).toMatchObject({ stageId: 's1', page: 1 });
   });
 
   it('moveErrorShowsAlert', async () => {
@@ -208,7 +260,8 @@ describe('Pipelines page', () => {
       pipelineId: 'p1',
       stageId: 's2',
       sort: 'position,asc',
-      page: 1,
+      // One card loaded: still inside the first page (the next page starts at 25 loaded).
+      page: 0,
     });
   });
 
