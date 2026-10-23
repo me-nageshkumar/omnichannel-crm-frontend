@@ -26,26 +26,28 @@ const pause = (ms: number, signal: AbortSignal) =>
   });
 
 /**
- * Keeps the live event stream of one number open: every event goes to {@code onEvent}; when the
+ * Keeps the viewer's live event stream open over the selected numbers (all of theirs when none are given): every event goes to {@code onEvent}; when the
  * stream drops it is reopened with backoff and {@code onReconnect} runs after each reopening, so the
  * caller can catch up on what it missed. The backoff starts over only after a connection proved healthy
  * (it sent something, pings included, or stayed open for 10 s), so a server that accepts and drops cannot
  * be hammered. A 401 ends the session; a 403 or 404 stops the retries and reports {@code failed}.
- * Closes on unmount and when the number changes.
+ * Closes on unmount and when the selection changes.
  */
 export function useInboxStream(
-  phoneNumberId: string,
+  phoneNumberIds: string[],
   onEvent: (event: InboxEvent) => void,
   onReconnect: () => void,
+  enabled = true,
 ): { state: StreamState } {
   const { token, workspace } = useSession();
   const ws = workspace?.id ?? '';
+  const numbersKey = phoneNumberIds.join(',');
   const [state, setState] = React.useState<StreamState>('connecting');
   const handlers = React.useRef({ onEvent, onReconnect });
   handlers.current = { onEvent, onReconnect };
 
   React.useEffect(() => {
-    if (!token) return undefined;
+    if (!token || !enabled) return undefined;
     const control = new AbortController();
     const { signal } = control;
 
@@ -82,7 +84,7 @@ export function useInboxStream(
         let sawBytes = false;
         let openedAt: number | null = null;
         try {
-          const res = await fetch(streamUrl(ws, [phoneNumberId]), {
+          const res = await fetch(streamUrl(ws, numbersKey ? numbersKey.split(',') : []), {
             headers: { Authorization: `Bearer ${token}`, Accept: 'text/event-stream' },
             signal,
           });
@@ -117,7 +119,7 @@ export function useInboxStream(
     return () => {
       control.abort();
     };
-  }, [token, ws, phoneNumberId]);
+  }, [token, enabled, ws, numbersKey]);
 
   return { state };
 }

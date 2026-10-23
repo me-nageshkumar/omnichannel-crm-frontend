@@ -79,12 +79,12 @@ const Inbox: React.FunctionComponent = () => {
   const access = useAccess();
   const [filters, setFilters] = React.useState(() => defaultFilters(access));
   const [selectedId, setSelectedId] = React.useState<string | null>('b');
-  const list = useChatList('p1', filters);
+  const list = useChatList(['p1'], filters);
   apply = list.apply;
   return (
     <div style={{ height: 600 }}>
       <ChatList
-        phoneNumberId="p1"
+        numbers={[]}
         selectedId={selectedId}
         onSelect={(c) => setSelectedId(c.id)}
         filters={filters}

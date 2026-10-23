@@ -5,6 +5,8 @@ import {
   Form,
   FormGroup,
   FormHelperText,
+  FormSelect,
+  FormSelectOption,
   HelperText,
   HelperTextItem,
   Modal,
@@ -16,6 +18,7 @@ import {
 } from '@patternfly/react-core';
 import { ApiError } from '@app/api/client';
 import { MessageView, lookupNumber, startChat } from '@app/api/inbox';
+import { PhoneNumber, shown } from '@app/api/phoneNumbers';
 import { messageFor } from '@app/api/messages';
 import { COUNTER_FROM, MAX_LENGTH } from '@app/Inbox/Composer';
 import { TemplatePickerModal } from '@app/Inbox/TemplatePickerModal';
@@ -38,13 +41,16 @@ interface Answer {
 
 /** Starts a chat with a phone number by sending it a first message: text, or a template. */
 export const NewChatModal: React.FunctionComponent<{
-  phoneNumberId: string;
-  numberConnected: boolean;
+  /** The numbers the viewer may start a chat from (their teams' own, never guest ones). */
+  numbers: PhoneNumber[];
   onClose(): void;
   onStarted(message: MessageView): void;
-}> = ({ phoneNumberId, numberConnected, onClose, onStarted }) => {
+}> = ({ numbers, onClose, onStarted }) => {
   const { token, workspace } = useSession();
   const ws = workspace?.id ?? '';
+  const [phoneNumberId, setPhoneNumberId] = React.useState(numbers[0]?.id ?? '');
+  const from = numbers.find((n) => n.id === phoneNumberId) ?? numbers[0];
+  const numberConnected = from?.status === 'CONNECTED';
   const [phone, setPhone] = React.useState('');
   const [touched, setTouched] = React.useState(false);
   const [text, setText] = React.useState('');
@@ -147,6 +153,26 @@ export const NewChatModal: React.FunctionComponent<{
           {!numberConnected && <Alert variant="info" isInline isPlain title={NOT_CONNECTED} />}
           {error && <Alert variant="danger" isInline isPlain title={error} />}
           <Form onSubmit={(e) => e.preventDefault()}>
+            {numbers.length > 1 ? (
+              <FormGroup label="From number" fieldId="new-chat-number">
+                <FormSelect id="new-chat-number" value={phoneNumberId} onChange={(_e, v) => setPhoneNumberId(v)}>
+                  {numbers.map((n) => (
+                    <FormSelectOption
+                      key={n.id}
+                      value={n.id}
+                      label={n.label ? `${shown(n.number)} · ${n.label}` : shown(n.number)}
+                    />
+                  ))}
+                </FormSelect>
+              </FormGroup>
+            ) : (
+              from && (
+                <p>
+                  From {shown(from.number)}
+                  {from.label ? ` · ${from.label}` : ''}
+                </p>
+              )
+            )}
             <FormGroup label="Phone number" fieldId="new-chat-phone" isRequired>
               <TextInput
                 id="new-chat-phone"

@@ -10,6 +10,8 @@ import {
   ToggleGroupItem,
 } from '@patternfly/react-core';
 import type { ChatView } from '@app/api/inbox';
+import type { PhoneNumber } from '@app/api/phoneNumbers';
+import { NumberChip } from '@app/Inbox/NumberChip';
 import { ChatListFilters, SCOPE_TEXT, STATUS_TICK, allowedScopes, contactName } from '@app/Inbox/chatDisplay';
 import type { ChatList as ChatListState } from '@app/Inbox/useChatList';
 import { relative } from '@app/PhoneNumbers/PhoneNumberStatusLabel';
@@ -18,11 +20,12 @@ import { useAccess } from '@app/session/useAccess';
 const GAP = 'var(--pf-t--global--spacer--sm)';
 const TICK_BLUE = 'var(--pf-t--global--icon--color--status--info--default)';
 
-const Row: React.FunctionComponent<{ chat: ChatView; selected: boolean; onSelect: (chat: ChatView) => void }> = ({
-  chat,
-  selected,
-  onSelect,
-}) => {
+const Row: React.FunctionComponent<{
+  chat: ChatView;
+  selected: boolean;
+  onSelect: (chat: ChatView) => void;
+  number: PhoneNumber | undefined;
+}> = ({ chat, selected, onSelect, number }) => {
   const last = chat.lastMessage;
   const tick = last?.direction === 'OUT' ? STATUS_TICK[last.status] : null;
   const read = last?.status === 'READ' || last?.status === 'PLAYED';
@@ -69,6 +72,7 @@ const Row: React.FunctionComponent<{ chat: ChatView; selected: boolean; onSelect
             <strong style={{ overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
               {contactName(chat)}
             </strong>
+            <NumberChip number={number} />
             {chat.lastMessageAt && <small style={{ flex: '0 0 auto' }}>{relative(chat.lastMessageAt)}</small>}
           </span>
           <span style={{ display: 'flex', justifyContent: 'space-between', gap: GAP }}>
@@ -90,7 +94,8 @@ const Row: React.FunctionComponent<{ chat: ChatView; selected: boolean; onSelect
 };
 
 export interface ChatListProps {
-  phoneNumberId: string;
+  /** The numbers the viewer looks at; rows carry a chip when there is more than one. */
+  numbers: PhoneNumber[];
   selectedId: string | null;
   onSelect: (chat: ChatView) => void;
   filters: ChatListFilters;
@@ -100,7 +105,7 @@ export interface ChatListProps {
 
 /** The left pane of the inbox: filters on top, the chats below, scrolling on their own. */
 export const ChatList: React.FunctionComponent<ChatListProps> = ({
-  phoneNumberId,
+  numbers,
   selectedId,
   onSelect,
   filters,
@@ -110,10 +115,7 @@ export const ChatList: React.FunctionComponent<ChatListProps> = ({
   const scopes = allowedScopes(useAccess());
   const set = (change: Partial<ChatListFilters>) => onFilters({ ...filters, ...change });
   return (
-    <div
-      data-phone-number={phoneNumberId}
-      style={{ display: 'flex', flexDirection: 'column', height: '100%', minHeight: 0 }}
-    >
+    <div style={{ display: 'flex', flexDirection: 'column', height: '100%', minHeight: 0 }}>
       <div style={{ display: 'flex', flexDirection: 'column', gap: GAP, padding: GAP, flex: '0 0 auto' }}>
         <SearchInput
           aria-label="Search chats"
@@ -158,7 +160,13 @@ export const ChatList: React.FunctionComponent<ChatListProps> = ({
         {list.items.length > 0 && (
           <ul aria-label="Chats" style={{ listStyle: 'none', margin: 0, padding: 0 }}>
             {list.items.map((chat) => (
-              <Row key={chat.id} chat={chat} selected={chat.id === selectedId} onSelect={onSelect} />
+              <Row
+                key={chat.id}
+                chat={chat}
+                selected={chat.id === selectedId}
+                onSelect={onSelect}
+                number={numbers.length > 1 ? numbers.find((n) => n.id === chat.phoneNumberId) : undefined}
+              />
             ))}
           </ul>
         )}

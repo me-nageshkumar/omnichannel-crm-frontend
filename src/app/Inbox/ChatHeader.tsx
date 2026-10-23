@@ -2,6 +2,7 @@ import * as React from 'react';
 import { Link } from 'react-router-dom';
 import { Alert, Button, Label } from '@patternfly/react-core';
 import { ChatView, closeChat, reopenChat } from '@app/api/inbox';
+import { PhoneNumber, shown } from '@app/api/phoneNumbers';
 import { messageFor } from '@app/api/messages';
 import { AssignMenu } from '@app/Inbox/AssignMenu';
 import { contactName } from '@app/Inbox/chatDisplay';
@@ -18,10 +19,12 @@ export function assignmentText(chat: Pick<ChatView, 'assignedUser' | 'assignedTe
 }
 
 /** The strip above a thread: who the contact is, who has the chat, and what may be done with it. */
-export const ChatHeader: React.FunctionComponent<{ chat: ChatView; onChange(chat: ChatView): void }> = ({
-  chat,
-  onChange,
-}) => {
+export const ChatHeader: React.FunctionComponent<{
+  chat: ChatView;
+  /** The number the chat is on, when the viewer looks at more than one. */
+  number?: PhoneNumber;
+  onChange(chat: ChatView): void;
+}> = ({ chat, number, onChange }) => {
   const { token, workspace } = useSession();
   const ws = workspace?.id ?? '';
   const access = useAccess();
@@ -60,6 +63,11 @@ export const ChatHeader: React.FunctionComponent<{ chat: ChatView; onChange(chat
         <strong>{name}</strong>
         {chat.contact.name && <span>{chat.contact.phone ? `+${chat.contact.phone}` : 'Number hidden'}</span>}
         {access.hasInWorkspace('contact:view') && <Link to={`/contacts/${chat.contact.id}`}>Open contact</Link>}
+        {number && (
+          <Label isCompact color="teal" title={number.label ?? undefined}>
+            {shown(number.number)}
+          </Label>
+        )}
         <Label isCompact color={chat.assignedUser || chat.assignedTeam ? 'blue' : 'grey'}>
           {assignmentText(chat)}
         </Label>

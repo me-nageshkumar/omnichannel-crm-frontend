@@ -1,21 +1,30 @@
 import * as React from 'react';
 import { Link, useNavigate, useParams } from 'react-router-dom';
-import { Alert, Button, EmptyState, Label, PageSection, Spinner } from '@patternfly/react-core';
+import {
+  Alert,
+  Button,
+  EmptyState,
+  EmptyStateBody,
+  EmptyStateFooter,
+  Label,
+  PageSection,
+  Spinner,
+} from '@patternfly/react-core';
 import { useLoad } from '@app/admin/useLoad';
 import { ApiError } from '@app/api/client';
 import { ChatView, InboxEvent, getChat, listInboxNumbers, markRead } from '@app/api/inbox';
 import { messageFor } from '@app/api/messages';
-import { shown } from '@app/api/phoneNumbers';
 import { ChatHeader } from '@app/Inbox/ChatHeader';
 import { ChatList } from '@app/Inbox/ChatList';
 import { Composer } from '@app/Inbox/Composer';
 import { NewChatModal } from '@app/Inbox/NewChatModal';
+import { NumberFilter } from '@app/Inbox/NumberFilter';
 import { Thread } from '@app/Inbox/Thread';
 import { defaultFilters } from '@app/Inbox/chatDisplay';
+import { readInboxFilter, writeInboxFilter } from '@app/Inbox/inboxFilterStore';
 import { useChatList } from '@app/Inbox/useChatList';
 import { useInboxStream } from '@app/Inbox/useInboxStream';
 import { useThread } from '@app/Inbox/useThread';
-import { PhoneNumberStatusLabel } from '@app/PhoneNumbers/PhoneNumberStatusLabel';
 import { useSession } from '@app/session/SessionContext';
 import { useAccess } from '@app/session/useAccess';
 import { useDocumentTitle } from '@app/utils/useDocumentTitle';
@@ -23,23 +32,45 @@ import { useDocumentTitle } from '@app/utils/useDocumentTitle';
 const GAP = 'var(--pf-t--global--spacer--sm)';
 const BORDER = '1px solid var(--pf-t--global--border--color--default)';
 const REASSIGNED = 'This chat was reassigned and is no longer in your inbox';
+const NO_NUMBERS = 'No numbers assigned to your teams yet';
 
-/** The inbox of one number: the chats on the left, the open chat on the right, kept live by the event stream. */
+/**
+ * The inbox over every number the user may open (design §3.7): the chats on the left, narrowed by the number filter,
+ * the open chat on the right, kept live by one event stream over the selected numbers.
+ */
 export const InboxPage: React.FunctionComponent = () => {
   useDocumentTitle('Inbox | Omnichannel CRM');
-  const { phoneNumberId = '', chatId } = useParams();
+  const { chatId } = useParams();
   const navigate = useNavigate();
   const { token, user, workspace } = useSession();
   const ws = workspace?.id ?? '';
+  const meId = user?.id ?? '';
   const access = useAccess();
 
-  const [filters, setFilters] = React.useState(() => defaultFilters(access));
-  const list = useChatList(phoneNumberId, filters);
-  const thread = useThread(chatId ?? null);
   const numbers = useLoad((t) => listInboxNumbers(t, ws), [ws]);
-  const number = numbers.data?.find((n) => n.id === phoneNumberId);
-  // Until the numbers are known, do not tell the agent the number is down.
-  const numberConnected = number ? number.status === 'CONNECTED' : true;
+  const visible = numbers.data ?? [];
+  // The stored selection, less any number the user can no longer see; an empty selection is every number.
+  const [stored, setStored] = React.useState(() => readInboxFilter(meId, ws));
+  const selected = React.useMemo(
+    () => (numbers.data ? stored.filter((id) => visible.some((n) => n.id === id)) : stored),
+    [numbers.data, stored, visible],
+  );
+  React.useEffect(() => {
+    if (numbers.data && selected.length !== stored.length) {
+      setStored(selected);
+      writeInboxFilter(meId, ws, selected);
+    }
+  }, [numbers.data, selected, stored.length, meId, ws]);
+  const select = (ids: string[]) => {
+    setStored(ids);
+    writeInboxFilter(meId, ws, ids);
+  };
+  const ready = Boolean(numbers.data) && visible.length > 0;
+  const startable = visible.filter((n) => !n.guest);
+
+  const [filters, setFilters] = React.useState(() => defaultFilters(access));
+  const list = useChatList(selected, filters, ready);
+  const thread = useThread(chatId ?? null);
 
   const [chat, setChat] = React.useState<ChatView | null>(null);
   const [openError, setOpenError] = React.useState<string | null>(null);
@@ -83,7 +114,7 @@ export const InboxPage: React.FunctionComponent = () => {
   // The chat leaves this inbox: say so, and go back to the empty pane.
   const leave = () => {
     setNotice(REASSIGNED);
-    navigate(`/inbox/${encodeURIComponent(phoneNumberId)}`);
+    navigate('/inbox');
   };
 
   const onEvent = (event: InboxEvent) => {
@@ -100,7 +131,7 @@ export const InboxPage: React.FunctionComponent = () => {
     list.apply(event);
     thread.apply(event);
   };
-  const { state: stream } = useInboxStream(phoneNumberId, onEvent, () => {
+  const { state: stream } = useInboxStream(selected, onEvent, () => {
     list.reload();
     numbers.reload();
     thread.reload();
@@ -116,14 +147,36 @@ export const InboxPage: React.FunctionComponent = () => {
         },
       );
     }
-  });
+  }, ready);
 
-  const select = (picked: ChatView) => {
+  const pick = (picked: ChatView) => {
     setNotice(null);
-    navigate(`/inbox/${encodeURIComponent(phoneNumberId)}/${encodeURIComponent(picked.id)}`);
+    navigate(`/inbox/chats/${encodeURIComponent(picked.id)}`);
   };
 
   const open = chat && chat.id === chatId ? chat : null;
+  const openNumber = open ? visible.find((n) => n.id === open.phoneNumberId) : undefined;
+  // Until the numbers are known, do not tell the agent the number is down.
+  const numberConnected = openNumber ? openNumber.status === 'CONNECTED' : true;
+
+  if (numbers.data && visible.length === 0) {
+    return (
+      <PageSection aria-label="Inbox">
+        {numbers.error && <Alert variant="danger" isInline title={numbers.error} />}
+        <EmptyState titleText={NO_NUMBERS} headingLevel="h2">
+          <EmptyStateBody>
+            Your teams work no WhatsApp number yet. An admin sets a number&apos;s team on the Phone numbers page.
+          </EmptyStateBody>
+          <EmptyStateFooter>
+            <Button variant="link" component={(props) => <Link {...props} to="/phone-numbers" />}>
+              Go to phone numbers
+            </Button>
+          </EmptyStateFooter>
+        </EmptyState>
+      </PageSection>
+    );
+  }
+
   return (
     <PageSection
       aria-label="Inbox"
@@ -135,7 +188,7 @@ export const InboxPage: React.FunctionComponent = () => {
       <div style={{ flex: '1 1 0', minHeight: 0, display: 'flex', flexDirection: 'column' }}>
         <div
           role="group"
-          aria-label="Inbox number"
+          aria-label="Inbox numbers"
           style={{
             flex: '0 0 auto',
             display: 'flex',
@@ -145,17 +198,14 @@ export const InboxPage: React.FunctionComponent = () => {
             borderBottom: BORDER,
           }}
         >
-          {number ? (
-            <>
-              <strong>{shown(number.number)}</strong>
-              {number.label && <span>{number.label}</span>}
-              <PhoneNumberStatusLabel number={number} />
-            </>
+          <strong>Inbox</strong>
+          {numbers.error && <Alert variant="danger" isInline isPlain title={numbers.error} />}
+          {ready ? (
+            <NumberFilter numbers={visible} selected={selected} onChange={select} />
           ) : (
-            <strong>Inbox</strong>
+            !numbers.error && <Spinner size="md" aria-label="Loading numbers" />
           )}
-          <Link to="/inbox">Change number</Link>
-          {access.hasInWorkspace('inbox:send') && (
+          {ready && startable.length > 0 && access.hasInWorkspace('inbox:send') && (
             <Button variant="secondary" size="sm" onClick={() => setStarting(true)}>
               New chat
             </Button>
@@ -169,9 +219,9 @@ export const InboxPage: React.FunctionComponent = () => {
         <div style={{ flex: '1 1 0', minHeight: 0, display: 'flex' }}>
           <div style={{ flex: '0 0 360px', minHeight: 0, borderInlineEnd: BORDER }}>
             <ChatList
-              phoneNumberId={phoneNumberId}
+              numbers={selected.length > 0 ? visible.filter((n) => selected.includes(n.id)) : visible}
               selectedId={chatId ?? null}
-              onSelect={select}
+              onSelect={pick}
               filters={filters}
               onFilters={setFilters}
               list={list}
@@ -182,7 +232,7 @@ export const InboxPage: React.FunctionComponent = () => {
               <Alert
                 variant="danger"
                 isInline
-                title="Live updates are unavailable for this number; reload the page to try again"
+                title="Live updates are unavailable; reload the page to try again"
               />
             )}
             {notice && <Alert variant="warning" isInline title={notice} />}
@@ -193,6 +243,7 @@ export const InboxPage: React.FunctionComponent = () => {
               <>
                 <ChatHeader
                   chat={open}
+                  number={visible.length > 1 ? openNumber : undefined}
                   onChange={(updated) => {
                     // The answer may come after another chat was opened; it still belongs in the list.
                     if (updated.id === openId.current) setChat(updated);
@@ -200,7 +251,7 @@ export const InboxPage: React.FunctionComponent = () => {
                   }}
                 />
                 <div style={{ flex: '1 1 0', minHeight: 0 }}>
-                  <Thread chat={open} thread={thread} meId={user?.id ?? ''} />
+                  <Thread chat={open} thread={thread} meId={meId} />
                 </div>
                 <div style={{ flex: '0 0 auto', padding: GAP, borderTop: BORDER }}>
                   <Composer
@@ -218,8 +269,7 @@ export const InboxPage: React.FunctionComponent = () => {
       </div>
       {starting && (
         <NewChatModal
-          phoneNumberId={phoneNumberId}
-          numberConnected={numberConnected}
+          numbers={startable}
           onClose={() => setStarting(false)}
           onStarted={(started) => {
             setStarting(false);
@@ -235,7 +285,7 @@ export const InboxPage: React.FunctionComponent = () => {
                 () => undefined,
               );
             }
-            navigate(`/inbox/${encodeURIComponent(phoneNumberId)}/${encodeURIComponent(started.chatId)}`);
+            navigate(`/inbox/chats/${encodeURIComponent(started.chatId)}`);
           }}
         />
       )}

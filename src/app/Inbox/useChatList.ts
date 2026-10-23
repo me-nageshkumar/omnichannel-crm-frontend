@@ -16,7 +16,7 @@ export interface ChatList {
   /** Fetches the list again from the top. */
   reload(): void;
   /**
-   * Folds a live event into the list; only `chat` events of this number matter here. The list decides whether
+   * Folds a live event into the list; only `chat` events on the listed numbers matter here. The list decides whether
    * the chat belongs (status, scope, search), so the caller just forwards events.
    */
   apply(event: InboxEvent): void;
@@ -49,8 +49,13 @@ function matchesSearch(chat: ChatView, q: string, unread: boolean): boolean {
 const time = (chat: ChatView) => (chat.lastMessageAt ? Date.parse(chat.lastMessageAt) : 0);
 const byRecent = (a: ChatView, b: ChatView) => time(b) - time(a);
 
-/** The chats of one number for {@code filters}, newest first, kept current by {@link ChatList.apply}. */
-export function useChatList(phoneNumberId: string, filters: ChatListFilters): ChatList {
+/**
+ * The chats across {@code phoneNumberIds} (empty: every number the viewer may open) for {@code filters}, newest
+ * first, kept current by {@link ChatList.apply}.
+ */
+export function useChatList(phoneNumberIds: string[], filters: ChatListFilters, enabled = true): ChatList {
+  // the array identity changes per render; the key is what matters
+  const numbersKey = phoneNumberIds.join(',');
   const { token, user, workspace } = useSession();
   const meId = user?.id ?? '';
   const ws = workspace?.id ?? '';
@@ -66,8 +71,8 @@ export function useChatList(phoneNumberId: string, filters: ChatListFilters): Ch
   const fetching = React.useRef(false);
   const dirty = React.useRef(false);
   const removed = React.useRef(new Set<string>());
-  const latest = React.useRef({ items, hasMore, loading, phoneNumberId, status, scope, q, unread, meId });
-  latest.current = { items, hasMore, loading, phoneNumberId, status, scope, q, unread, meId };
+  const latest = React.useRef({ items, hasMore, loading, numbersKey, status, scope, q, unread, meId });
+  latest.current = { items, hasMore, loading, numbersKey, status, scope, q, unread, meId };
 
   React.useEffect(() => {
     const timer = setTimeout(() => setQ(filters.q), SEARCH_DEBOUNCE_MS);
@@ -75,7 +80,7 @@ export function useChatList(phoneNumberId: string, filters: ChatListFilters): Ch
   }, [filters.q]);
 
   // Chats loaded for other filters must not be shown while the new ones load.
-  const keyId = JSON.stringify([ws, phoneNumberId, scope, status, q, unread]);
+  const keyId = JSON.stringify([ws, numbersKey, scope, status, q, unread]);
   const shownKey = React.useRef(keyId);
   if (shownKey.current !== keyId) {
     shownKey.current = keyId;
@@ -85,8 +90,9 @@ export function useChatList(phoneNumberId: string, filters: ChatListFilters): Ch
   }
 
   React.useEffect(() => {
-    if (!token) {
+    if (!token || !enabled) {
       fetching.current = false;
+      setLoading(false);
       return undefined;
     }
     const mine = ++epoch.current;
@@ -104,7 +110,7 @@ export function useChatList(phoneNumberId: string, filters: ChatListFilters): Ch
         setTick((t) => t + 1);
       }
     };
-    listChats(token, ws, { phoneNumberIds: [phoneNumberId], scope, status, q, unread }).then(
+    listChats(token, ws, { phoneNumberIds: numbersKey ? numbersKey.split(',') : [], scope, status, q, unread }).then(
       (res) => {
         if (epoch.current !== mine) return;
         // A reply cannot bring back a chat that left the list after it was asked for.
@@ -125,7 +131,7 @@ export function useChatList(phoneNumberId: string, filters: ChatListFilters): Ch
     return () => {
       epoch.current++;
     };
-  }, [token, ws, phoneNumberId, scope, status, q, unread, tick]);
+  }, [token, enabled, ws, numbersKey, scope, status, q, unread, tick]);
 
   const reload = React.useCallback(() => setTick((t) => t + 1), []);
 
@@ -136,7 +142,14 @@ export function useChatList(phoneNumberId: string, filters: ChatListFilters): Ch
     const mine = epoch.current;
     setLoading(true);
     setError(null);
-    listChats(token, ws, { phoneNumberIds: [phoneNumberId], scope, status, q, unread, before }).then(
+    listChats(token, ws, {
+      phoneNumberIds: numbersKey ? numbersKey.split(',') : [],
+      scope,
+      status,
+      q,
+      unread,
+      before,
+    }).then(
       (res) => {
         if (epoch.current !== mine) return;
         setItems((cur) => [
@@ -152,7 +165,7 @@ export function useChatList(phoneNumberId: string, filters: ChatListFilters): Ch
         setLoading(false);
       },
     );
-  }, [token, ws, phoneNumberId, scope, status, q, unread]);
+  }, [token, ws, numbersKey, scope, status, q, unread]);
 
   /** Asks for a fresh list, once: while one is on its way it is fetched again when it lands. */
   const reloadSoon = React.useCallback(() => {
@@ -169,7 +182,7 @@ export function useChatList(phoneNumberId: string, filters: ChatListFilters): Ch
       if (event.type !== 'chat') return;
       const { chat, visible } = event;
       const now = latest.current;
-      if (chat.phoneNumberId !== now.phoneNumberId) return;
+      if (now.numbersKey && !now.numbersKey.split(',').includes(chat.phoneNumberId)) return;
       if (!visible || !belongs(chat, now.status, now.scope, now.meId)) {
         removed.current.add(chat.id);
         setItems((cur) => (cur.some((c) => c.id === chat.id) ? cur.filter((c) => c.id !== chat.id) : cur));

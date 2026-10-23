@@ -14,7 +14,7 @@ const events: InboxEvent[] = [];
 const onReconnect = vi.fn();
 
 const Probe: React.FunctionComponent = () => {
-  const { state } = useInboxStream('p1', (e) => events.push(e), onReconnect);
+  const { state } = useInboxStream(['p1'], (e) => events.push(e), onReconnect);
   return <output aria-label="State">{state}</output>;
 };
 

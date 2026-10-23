@@ -25,7 +25,7 @@ import { SendersPage } from '@app/Campaigns/SendersPage';
 import { CampaignSettingsPage } from '@app/Campaigns/CampaignSettingsPage';
 import { NewCampaignPage } from '@app/Campaigns/NewCampaign/NewCampaignPage';
 import { CampaignDetailPage } from '@app/Campaigns/CampaignDetailPage';
-import { InboxNumbersPage } from '@app/Inbox/InboxNumbersPage';
+import { InboxRedirect } from '@app/Inbox/InboxRedirect';
 import { InboxPage } from '@app/Inbox/InboxPage';
 import { Access, useAccess } from '@app/session/useAccess';
 
@@ -147,17 +147,22 @@ const routes: IAppRoute[] = [
     requires: (a) => a.has('workspace:create'),
   },
   {
-    element: <InboxNumbersPage />,
+    element: <InboxPage />,
     path: '/inbox',
     requires: (a) => a.hasInWorkspace('inbox:view'),
   },
   {
     element: <InboxPage />,
+    path: '/inbox/chats/:chatId',
+    requires: (a) => a.hasInWorkspace('inbox:view'),
+  },
+  {
+    element: <InboxRedirect />,
     path: '/inbox/:phoneNumberId',
     requires: (a) => a.hasInWorkspace('inbox:view'),
   },
   {
-    element: <InboxPage />,
+    element: <InboxRedirect />,
     path: '/inbox/:phoneNumberId/:chatId',
     requires: (a) => a.hasInWorkspace('inbox:view'),
   },

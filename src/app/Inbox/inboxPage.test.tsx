@@ -7,6 +7,7 @@ import type { CurrentUser } from '@app/api/users';
 import { callsTo, mockFetch, requestTo } from '../../test/fetchMock';
 import { frame, streamMock } from '../../test/inbox';
 import { phoneNumber } from '../../test/phoneNumbers';
+import { filterKey, readInboxFilter } from '@app/Inbox/inboxFilterStore';
 import { renderApp } from '../../test/renderApp';
 import { AGENT_IN_BRAND, BRAND_A, WORKSPACE_MANAGER, meAs, storeSession } from '../../test/session';
 
@@ -119,7 +120,7 @@ describe('inbox page', () => {
   it('opening a chat loads thread and marks read', async () => {
     const { routes: r } = routes();
     const fetch = mockFetch(r);
-    const { user } = renderApp('/inbox/p1', <Where />);
+    const { user } = renderApp('/inbox', <Where />);
     expect(await screen.findByText('Pick a chat')).toBeVisible();
     const rows = within(await list());
     expect(within(rows.getByRole('button', { name: /Asha Rao/ })).getByText('2')).toBeVisible();
@@ -127,7 +128,7 @@ describe('inbox page', () => {
     await user.click(rows.getByRole('button', { name: /Asha Rao/ }));
 
     expect(await screen.findByText('Hello from Asha', { selector: 'div' })).toBeVisible();
-    expect(screen.getByLabelText('Location')).toHaveTextContent('/inbox/p1/c1');
+    expect(screen.getByLabelText('Location')).toHaveTextContent('/inbox/chats/c1');
     await waitFor(() => expect(callsTo(fetch, READ)).toBe(1));
     expect(callsTo(fetch, CHAT)).toBe(1);
     // Picking a chat moves within the same page: the list and the stream stay as they are.
@@ -145,7 +146,7 @@ describe('inbox page', () => {
   it('message event appends to the open thread and updates the list preview', async () => {
     const { routes: r, stream } = routes();
     const fetch = mockFetch(r);
-    renderApp('/inbox/p1/c1');
+    renderApp('/inbox/chats/c1');
     await screen.findByText('Hello from Asha', { selector: 'div' });
     await streamOpened(fetch);
 
@@ -176,7 +177,7 @@ describe('inbox page', () => {
   it('chat event with visible:false closes the open chat with the reassigned notice', async () => {
     const { routes: r, stream } = routes();
     const fetch = mockFetch(r);
-    renderApp('/inbox/p1/c1', <Where />);
+    renderApp('/inbox/chats/c1', <Where />);
     await screen.findByText('Hello from Asha', { selector: 'div' });
     await streamOpened(fetch);
 
@@ -186,7 +187,7 @@ describe('inbox page', () => {
 
     expect(await screen.findByText('This chat was reassigned and is no longer in your inbox')).toBeVisible();
     expect(await screen.findByText('Pick a chat')).toBeVisible();
-    expect(screen.getByLabelText('Location')).toHaveTextContent(/^\/inbox\/p1$/);
+    expect(screen.getByLabelText('Location')).toHaveTextContent(/^\/inbox$/);
     expect(within(await list()).queryByRole('button', { name: /Asha Rao/ })).toBeNull();
   });
 
@@ -205,7 +206,7 @@ describe('inbox page', () => {
       [UNASSIGN]: { status: 200, body: ASHA },
     });
     const fetch = mockFetch(r);
-    const { user } = renderApp('/inbox/p1/c1');
+    const { user } = renderApp('/inbox/chats/c1');
     await screen.findByText('Hello from Asha', { selector: 'div' });
     expect(header().getByText('Unassigned')).toBeVisible();
 
@@ -234,7 +235,7 @@ describe('inbox page', () => {
       [REOPEN]: { status: 200, body: ASHA },
     });
     mockFetch(r);
-    const { user } = renderApp('/inbox/p1/c1');
+    const { user } = renderApp('/inbox/chats/c1');
     await screen.findByText('Hello from Asha', { selector: 'div' });
     expect(screen.getByRole('textbox', { name: 'Message' })).toBeEnabled();
 
@@ -262,7 +263,7 @@ describe('inbox page', () => {
       [REOPEN]: { status: 200, body: ASHA },
     });
     mockFetch(r);
-    const { user } = renderApp('/inbox/p1/c1');
+    const { user } = renderApp('/inbox/chats/c1');
     await screen.findByText('Hello from Asha', { selector: 'div' });
     showClosed = true;
     await user.click(screen.getByRole('button', { name: 'Closed' }));
@@ -277,7 +278,7 @@ describe('inbox page', () => {
   it('shows assign and close controls only to those allowed', async () => {
     const { routes: r } = routes({}, VIEWER);
     mockFetch(r);
-    renderApp('/inbox/p1/c1');
+    renderApp('/inbox/chats/c1');
     await screen.findByText('Hello from Asha', { selector: 'div' });
     expect(header().getByText('Asha Rao')).toBeVisible();
     expect(header().queryByRole('button', { name: 'Assign' })).toBeNull();
@@ -287,7 +288,7 @@ describe('inbox page', () => {
   it('warns that the number is not connected from the number list', async () => {
     const { routes: r } = routes({ [NUMBERS]: { status: 200, body: [{ ...NUMBER, status: 'DISCONNECTED' }] } });
     mockFetch(r);
-    renderApp('/inbox/p1/c1');
+    renderApp('/inbox/chats/c1');
     expect(await screen.findByText('WhatsApp is not connected on this number')).toBeVisible();
   });
 
@@ -311,7 +312,7 @@ describe('inbox page', () => {
       }),
     });
     const fetch = mockFetch(r);
-    renderApp('/inbox/p1/c1');
+    renderApp('/inbox/chats/c1');
     await list();
     await screen.findByText('Hello from Asha', { selector: 'div' });
     await streamOpened(fetch);
@@ -345,7 +346,7 @@ describe('inbox page', () => {
     fetch.mockImplementation((input, init) =>
       String(input).includes('/stream') ? new Promise<Response>(() => undefined) : answer(input, init),
     );
-    renderApp('/inbox/p1');
+    renderApp('/inbox');
     await list();
     await streamOpened(fetch);
     expect(screen.queryByText('Reconnecting…')).toBeNull();
@@ -355,7 +356,7 @@ describe('inbox page', () => {
   it('says so, and does not keep retrying, when the stream is refused', async () => {
     const { routes: r } = routes({ [STREAM]: { status: 404, body: { code: 'NOT_FOUND' } } });
     const fetch = mockFetch(r);
-    renderApp('/inbox/p1');
+    renderApp('/inbox');
     expect(await screen.findByText(/Live updates are unavailable/)).toBeVisible();
     expect(screen.queryByText('Reconnecting…')).toBeNull();
     expect(callsTo(fetch, STREAM)).toBe(1);
@@ -373,7 +374,7 @@ describe('inbox page', () => {
       [CHAT]: () => (streams.length > 1 ? { status: 404, body: { code: 'NOT_FOUND' } } : { status: 200, body: ASHA }),
     });
     const fetch = mockFetch(r);
-    renderApp('/inbox/p1/c1', <Where />);
+    renderApp('/inbox/chats/c1', <Where />);
     await screen.findByText('Hello from Asha', { selector: 'div' });
     await streamOpened(fetch);
 
@@ -383,7 +384,7 @@ describe('inbox page', () => {
 
     expect(await screen.findByText('This chat was reassigned and is no longer in your inbox')).toBeVisible();
     expect(await screen.findByText('Pick a chat')).toBeVisible();
-    expect(screen.getByLabelText('Location')).toHaveTextContent(/^\/inbox\/p1$/);
+    expect(screen.getByLabelText('Location')).toHaveTextContent(/^\/inbox$/);
   });
 
   it('a close that answers after another chat was opened leaves the open chat alone', async () => {
@@ -403,7 +404,7 @@ describe('inbox page', () => {
       [`POST ${B}/inbox/chats/c2/read`]: { status: 204 },
     });
     mockFetch(r);
-    const { user } = renderApp('/inbox/p1/c1', <Where />);
+    const { user } = renderApp('/inbox/chats/c1', <Where />);
     await screen.findByText('Hello from Asha', { selector: 'div' });
     await user.click(header().getByRole('button', { name: 'Close' }));
     await user.click(within(await list()).getByRole('button', { name: /Meena/ }));
@@ -419,35 +420,19 @@ describe('inbox page', () => {
     );
     expect(header().getByText('Meena')).toBeVisible();
     expect(screen.queryByRole('progressbar', { name: 'Loading chat' })).toBeNull();
-    expect(screen.getByLabelText('Location')).toHaveTextContent('/inbox/p1/c2');
+    expect(screen.getByLabelText('Location')).toHaveTextContent('/inbox/chats/c2');
   });
 
   it('stops the stream when the page goes away', async () => {
     const { routes: r } = routes();
     const fetch = mockFetch(r);
-    const { unmount } = renderApp('/inbox/p1');
+    const { unmount } = renderApp('/inbox');
     await list();
     await streamOpened(fetch);
     const signal = fetch.mock.calls.find(([url]) => String(url).includes('/stream'))?.[1]?.signal as AbortSignal;
     expect(signal.aborted).toBe(false);
     unmount();
     expect(signal.aborted).toBe(true);
-  });
-
-  it('change number link goes back to the picker', async () => {
-    const { routes: r } = routes();
-    mockFetch(r);
-    const { user } = renderApp('/inbox/p1');
-    const top = await screen.findByRole('group', { name: 'Inbox number' });
-    expect(within(top).getByText('+919928088743')).toBeVisible();
-    expect(within(top).getByText('Sales')).toBeVisible();
-    expect(await within(top).findByText('Connected')).toBeVisible();
-    const link = within(top).getByRole('link', { name: 'Change number' });
-    expect(link).toHaveAttribute('href', '/inbox');
-
-    await user.click(link);
-
-    expect(await screen.findByRole('grid', { name: 'Inbox numbers' })).toBeVisible();
   });
 
   it('starts a chat and opens it', async () => {
@@ -460,7 +445,7 @@ describe('inbox page', () => {
       [`POST ${B}/inbox/chats/c9/read`]: { status: 204 },
     });
     const fetch = mockFetch(r);
-    const { user } = renderApp('/inbox/p1', <Where />);
+    const { user } = renderApp('/inbox', <Where />);
     await list();
     expect(callsTo(fetch, LIST)).toBe(1);
 
@@ -469,7 +454,7 @@ describe('inbox page', () => {
     await user.type(screen.getByRole('textbox', { name: 'Message' }), 'Hello there');
     await user.click(screen.getByRole('button', { name: 'Send' }));
 
-    await waitFor(() => expect(screen.getByLabelText('Location')).toHaveTextContent(/^\/inbox\/p1\/c9$/));
+    await waitFor(() => expect(screen.getByLabelText('Location')).toHaveTextContent(/^\/inbox\/chats\/c9$/));
     expect(requestTo(fetch, START)?.body).toEqual({ phone: '919900000009', text: 'Hello there' });
     await waitFor(() => expect(callsTo(fetch, `GET ${B}/inbox/chats/c9`)).toBe(1));
     await waitFor(() => expect(callsTo(fetch, LIST)).toBe(2));
@@ -482,7 +467,7 @@ describe('inbox page', () => {
       [START]: { status: 200, body: message({ id: 'm9', chatId: 'c1', direction: 'OUT', body: 'Fresh start' }) },
     });
     const fetch = mockFetch(r);
-    const { user } = renderApp('/inbox/p1', <Where />);
+    const { user } = renderApp('/inbox', <Where />);
     await user.click(within(await list()).getByRole('button', { name: /Asha Rao/ }));
     expect(await screen.findByText('Hello from Asha', { selector: 'div' })).toBeVisible();
     expect(callsTo(fetch, CHAT)).toBe(1);
@@ -494,15 +479,134 @@ describe('inbox page', () => {
 
     await waitFor(() => expect(callsTo(fetch, CHAT)).toBe(2));
     expect(await screen.findByText('Fresh start', { selector: 'div' })).toBeVisible();
-    expect(screen.getByLabelText('Location')).toHaveTextContent(/^\/inbox\/p1\/c1$/);
+    expect(screen.getByLabelText('Location')).toHaveTextContent(/^\/inbox\/chats\/c1$/);
   });
 
   it('hides New chat without inbox:send', async () => {
     const { routes: r } = routes({}, VIEWER);
     mockFetch(r);
-    renderApp('/inbox/p1');
+    renderApp('/inbox');
     await list();
-    expect(screen.getByRole('link', { name: 'Change number' })).toBeVisible();
     expect(screen.queryByRole('button', { name: 'New chat' })).toBeNull();
+  });
+
+  // --- all the user's numbers in one list, with a filter (design §3.7) ------------------------------------------
+
+  const SUPPORT = phoneNumber({ id: 'p2', number: '910000000002', label: 'Support', status: 'CONNECTED' });
+  const GUEST = phoneNumber({ id: 'p3', number: '910000000003', label: null, status: 'CONNECTED', guest: true });
+  const ON_P2: ChatView = { ...MEENA, id: 'c2', phoneNumberId: 'p2' };
+  const filterToggle = () => screen.findByRole('button', { name: /numbers$/ });
+
+  it('listsChatsAcrossAllVisibleNumbersWithChips', async () => {
+    const { routes: r } = routes({
+      [NUMBERS]: { status: 200, body: [NUMBER, SUPPORT] },
+      [LIST]: { status: 200, body: { items: [ASHA, ON_P2], hasMore: false } },
+    });
+    const fetch = mockFetch(r);
+    renderApp('/inbox');
+    const rows = within(await list()).getAllByRole('listitem');
+    expect(rows).toHaveLength(2);
+    expect(within(rows[0]).getByText('+919928088743')).toBeVisible();
+    expect(within(rows[1]).getByText('+910000000002')).toBeVisible();
+    expect(String(fetch.mock.calls.find(([u]) => String(u).includes('/inbox/chats?'))?.[0] ?? '')).not.toContain(
+      'phoneNumberIds',
+    );
+    expect(await filterToggle()).toHaveTextContent('All numbers');
+  });
+
+  it('singleNumberShowsNoChips', async () => {
+    const { routes: r } = routes();
+    mockFetch(r);
+    renderApp('/inbox');
+    const rows = within(await list()).getAllByRole('listitem');
+    expect(within(rows[0]).queryByText('+919928088743')).toBeNull();
+  });
+
+  it('filterToOneNumberRefetchesAndReconnectsStream', async () => {
+    const { routes: r } = routes({ [NUMBERS]: { status: 200, body: [NUMBER, SUPPORT] } });
+    const fetch = mockFetch(r);
+    const { user } = renderApp('/inbox');
+    await list();
+    await streamOpened(fetch);
+    await user.click(await filterToggle());
+    await user.click(await screen.findByRole('checkbox', { name: /\+910000000002/ }));
+    await waitFor(() => expect(callsTo(fetch, LIST)).toBe(2));
+    const second = fetch.mock.calls.filter(([u]) => String(u).includes('/inbox/chats?')).map(([u]) => String(u))[1];
+    expect(second).toContain('phoneNumberIds=p2');
+    await streamOpened(fetch, 2);
+    const streams = fetch.mock.calls.map(([u]) => String(u)).filter((u) => u.includes('/inbox/stream'));
+    expect(streams[1]).toContain('phoneNumberIds=p2');
+    expect(await filterToggle()).toHaveTextContent('1 of 2 numbers');
+    expect(readInboxFilter('u4', 'w1')).toEqual(['p2']);
+  });
+
+  it('staleFilterFallsBackToAll', async () => {
+    localStorage.setItem(filterKey('u4', 'w1'), '["p9"]');
+    const { routes: r } = routes({ [NUMBERS]: { status: 200, body: [NUMBER, SUPPORT] } });
+    const fetch = mockFetch(r);
+    renderApp('/inbox');
+    await list();
+    expect(String(fetch.mock.calls.find(([u]) => String(u).includes('/inbox/chats'))?.[0] ?? '')).not.toContain(
+      'phoneNumberIds',
+    );
+    expect(readInboxFilter('u4', 'w1')).toEqual([]);
+    expect(await filterToggle()).toHaveTextContent('All numbers');
+  });
+
+  it('showsEmptyStateWhenNoNumbersVisible', async () => {
+    const { routes: r } = routes({ [NUMBERS]: { status: 200, body: [] } });
+    const fetch = mockFetch(r);
+    renderApp('/inbox');
+    expect(await screen.findByText('No numbers assigned to your teams yet')).toBeVisible();
+    expect(screen.getByRole('link', { name: 'Go to phone numbers' })).toHaveAttribute('href', '/phone-numbers');
+    expect(callsTo(fetch, LIST)).toBe(0);
+    expect(callsTo(fetch, STREAM)).toBe(0);
+    expect(screen.queryByRole('button', { name: 'New chat' })).toBeNull();
+  });
+
+  it('guestNumberIsMarkedAndNotStartable', async () => {
+    const { routes: r } = routes({ [NUMBERS]: { status: 200, body: [NUMBER, GUEST] } });
+    mockFetch(r);
+    const { user } = renderApp('/inbox');
+    await list();
+    await user.click(await filterToggle());
+    const guest = await screen.findByRole('menuitem', { name: /\+910000000003/ });
+    expect(within(guest).getByText('via transfer')).toBeVisible();
+    await user.keyboard('{Escape}');
+    await user.click(screen.getByRole('button', { name: 'New chat' }));
+    const dialog = await screen.findByRole('dialog');
+    // one startable number: it is taken, no picker
+    expect(within(dialog).queryByLabelText('From number')).toBeNull();
+    expect(within(dialog).getByText(/\+919928088743/)).toBeVisible();
+  });
+
+  it('newChatOffersAPickerWhenSeveralNumbersCanStartOne', async () => {
+    const { routes: r } = routes({ [NUMBERS]: { status: 200, body: [NUMBER, SUPPORT] } });
+    mockFetch(r);
+    const { user } = renderApp('/inbox');
+    await list();
+    await user.click(screen.getByRole('button', { name: 'New chat' }));
+    const dialog = await screen.findByRole('dialog');
+    const picker = within(dialog).getByLabelText('From number');
+    expect(picker).toHaveValue('p1');
+    await user.selectOptions(picker, 'p2');
+    expect(picker).toHaveValue('p2');
+  });
+
+  it('oldUrlRedirectsToFilteredInbox', async () => {
+    const { routes: r } = routes({ [NUMBERS]: { status: 200, body: [NUMBER, SUPPORT] } });
+    mockFetch(r);
+    renderApp('/inbox/p1/c1', <Where />);
+    await waitFor(() => expect(screen.getByLabelText('Location')).toHaveTextContent(/^\/inbox\/chats\/c1$/));
+    expect(readInboxFilter('u4', 'w1')).toEqual(['p1']);
+    expect(await filterToggle()).toHaveTextContent('1 of 2 numbers');
+  });
+
+  it('oldNumberUrlRedirectsToTheInbox', async () => {
+    const { routes: r } = routes();
+    mockFetch(r);
+    renderApp('/inbox/p1', <Where />);
+    await waitFor(() => expect(screen.getByLabelText('Location')).toHaveTextContent(/^\/inbox$/));
+    await list();
   });
 });

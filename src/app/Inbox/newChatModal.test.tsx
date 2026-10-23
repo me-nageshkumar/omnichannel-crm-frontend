@@ -10,6 +10,7 @@ import { urlsOf } from '../../test/admin';
 import { callsTo, mockFetch, requestTo } from '../../test/fetchMock';
 import { AGENT_IN_BRAND, meAs, storeSession } from '../../test/session';
 import { content, template } from '../../test/templates';
+import { phoneNumber } from '../../test/phoneNumbers';
 
 const LOOKUP = 'GET /api/workspaces/w1/inbox/phone-numbers/p1/number-lookup';
 const START = 'POST /api/workspaces/w1/inbox/phone-numbers/p1/chats';
@@ -45,7 +46,9 @@ const Host: React.FunctionComponent<{
   onStarted(m: MessageView): void;
 }> = (props) => {
   const { status } = useSession();
-  return status === 'signedIn' ? <NewChatModal phoneNumberId="p1" {...props} /> : null;
+  const { numberConnected, ...rest } = props;
+  const number = phoneNumber({ id: 'p1', number: '919928088743', status: numberConnected ? 'CONNECTED' : 'DISCONNECTED' });
+  return status === 'signedIn' ? <NewChatModal numbers={[number]} {...rest} /> : null;
 };
 
 function renderModal(over: { numberConnected?: boolean } = {}) {
