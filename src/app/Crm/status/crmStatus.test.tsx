@@ -1,6 +1,6 @@
 import * as React from 'react';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
-import { act, screen, waitFor, within } from '@testing-library/react';
+import { act, fireEvent, screen, waitFor, within } from '@testing-library/react';
 import { callsTo, mockFetch } from '../../../test/fetchMock';
 import { crmStatus } from '../../../test/crm';
 import { AGENT_IN_BRAND, BRAND_A, BRAND_B, CUSTOMER_ADMIN, meAs, storeSession } from '../../../test/session';
@@ -103,5 +103,37 @@ describe('CRM status gate', () => {
     await waitFor(() => expect(screen.queryByRole('link', { name: 'Pipelines', hidden: true })).toBeNull());
     expect(callsTo(f, 'GET /api/workspaces/w2/crm/status')).toBe(1);
     expect(callsTo(f, STATUS_W1)).toBe(1);
+  });
+
+  it('failedStatusShowsRetryNotOffCopy', async () => {
+    let answer = { status: 500, body: { error: 'boom' } } as { status: number; body: unknown };
+    mockFetch({ ...meAs(AGENT_IN_BRAND), [STATUS_W1]: () => answer });
+    const { renderApp } = await fresh();
+    renderApp('/crm');
+    expect(await screen.findByText("Couldn't check whether the CRM is on")).toBeInTheDocument();
+    expect(screen.queryByText('CRM is not switched on for this brand')).toBeNull();
+    expect(screen.queryByRole('link', { name: 'Pipelines', hidden: true })).toBeNull();
+    answer = { status: 200, body: crmStatus() };
+    fireEvent.click(screen.getByRole('button', { name: 'Retry' }));
+    expect(await screen.findByRole('heading', { name: 'Pipelines page' })).toBeInTheDocument();
+  });
+
+  it('brandSwitchOnCrmPageShowsNewBrandState', async () => {
+    const f = mockFetch({
+      ...meAs(CUSTOMER_ADMIN),
+      [STATUS_W1]: { status: 200, body: crmStatus() },
+      'GET /api/workspaces/w2/crm/status': { status: 200, body: crmStatus({ enabled: false }) },
+    });
+    let select: (id: string) => void = () => undefined;
+    const { renderApp, useSession } = await fresh();
+    const Probe = (): null => {
+      select = useSession().selectWorkspace;
+      return null;
+    };
+    renderApp('/crm', <Probe />);
+    expect(await screen.findByRole('heading', { name: 'Pipelines page' })).toBeInTheDocument();
+    act(() => select(BRAND_B.id));
+    expect(await screen.findByText('CRM is not switched on for this brand')).toBeInTheDocument();
+    expect(callsTo(f, 'GET /api/workspaces/w2/crm/status')).toBe(1);
   });
 });

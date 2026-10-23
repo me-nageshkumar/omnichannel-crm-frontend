@@ -6,10 +6,12 @@ interface CrmStatusValue {
   /** The brand's CRM status; null while unknown, without the CRM view authority, or when loading failed. */
   status: CrmStatus | null;
   loading: boolean;
+  /** True when the status call failed: the status is then unknown, which is not the same as the CRM being off. */
+  error: boolean;
   reload(): void;
 }
 
-const NONE: CrmStatusValue = { status: null, loading: false, reload: () => undefined };
+const NONE: CrmStatusValue = { status: null, loading: false, error: false, reload: () => undefined };
 const CrmStatusContext = React.createContext<CrmStatusValue>(NONE);
 
 /** Loads the current brand's CRM status once per brand (and on reload); a brand's users without crm:view make no call. */
@@ -17,7 +19,7 @@ export const CrmStatusProvider: React.FunctionComponent<{ children: React.ReactN
   const { token, workspace } = useSession();
   const wsId = workspace?.id ?? null;
   const allowed = !!token && !!wsId && workspace?.authorities.includes('crm:view') === true;
-  const [loaded, setLoaded] = React.useState<{ key: string; status: CrmStatus | null } | null>(null);
+  const [loaded, setLoaded] = React.useState<{ key: string; status: CrmStatus | null; error: boolean } | null>(null);
   const [tick, setTick] = React.useState(0);
   const key = `${wsId}#${tick}`;
 
@@ -25,8 +27,8 @@ export const CrmStatusProvider: React.FunctionComponent<{ children: React.ReactN
     if (!allowed || !token || !wsId) return undefined;
     let live = true;
     getStatus(token, wsId).then(
-      (status) => live && setLoaded({ key, status }),
-      () => live && setLoaded({ key, status: null }),
+      (status) => live && setLoaded({ key, status, error: false }),
+      () => live && setLoaded({ key, status: null, error: true }),
     );
     return () => {
       live = false;
@@ -39,7 +41,7 @@ export const CrmStatusProvider: React.FunctionComponent<{ children: React.ReactN
     if (!allowed) return NONE;
     // Anything loaded for another brand (or before a reload) is not this brand's answer.
     const current = loaded?.key === key;
-    return { status: current ? loaded.status : null, loading: !current, reload };
+    return { status: current ? loaded.status : null, loading: !current, error: current && loaded.error, reload };
   }, [allowed, loaded, key, reload]);
 
   return <CrmStatusContext.Provider value={value}>{children}</CrmStatusContext.Provider>;
