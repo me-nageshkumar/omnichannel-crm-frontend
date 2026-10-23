@@ -138,7 +138,13 @@ export const CrmChatPanel: React.FunctionComponent<{ chatId: string }> = ({ chat
           <div>
             <CapturePopover
               chatId={chatId}
-              onCaptured={(result) =>
+              onCaptured={(result) => {
+                // A match with an existing CRM contact may carry other open deals: ask the server for them.
+                if (!result.createdContact) {
+                  setAnswer(null);
+                  setTick((t) => t + 1);
+                  return;
+                }
                 setAnswer({
                   chatId,
                   summary: {
@@ -148,8 +154,8 @@ export const CrmChatPanel: React.FunctionComponent<{ chatId: string }> = ({ chat
                     contact: result.contact,
                     openDeals: result.deal ? [result.deal] : s.openDeals,
                   },
-                })
-              }
+                });
+              }}
             />
           </div>
         ) : (

@@ -11,6 +11,7 @@ import {
   Spinner,
 } from '@patternfly/react-core';
 import { useLoad } from '@app/admin/useLoad';
+import { PanelErrorBoundary } from '@app/Crm/common/PanelErrorBoundary';
 import { useCrmStatus } from '@app/Crm/status/CrmStatusContext';
 import { ApiError } from '@app/api/client';
 import { ChatView, InboxEvent, getChat, listInboxNumbers, markRead } from '@app/api/inbox';
@@ -31,11 +32,11 @@ import { useAccess } from '@app/session/useAccess';
 import { useDocumentTitle } from '@app/utils/useDocumentTitle';
 
 // The panel is its own chunk, fetched only for a brand with the CRM and an open chat.
-const CrmChatPanelLazy = React.lazy(() =>
-  import('@app/Crm/inbox/CrmChatPanel').then((m) => ({ default: m.CrmChatPanel })),
-);
+const lazyPanel = () =>
+  React.lazy(() => import('@app/Crm/inbox/CrmChatPanel').then((m) => ({ default: m.CrmChatPanel })));
 
-const NARROW = '(max-width: 767px)';
+// Below this the thread would be squeezed by the list and the panel, so the panel becomes a drawer.
+const NARROW = '(max-width: 1099px)';
 const panelKey = (userId: string) => `crm.panel.${userId}`;
 const readCollapsed = (userId: string): boolean => {
   try {
@@ -118,6 +119,10 @@ export const InboxPage: React.FunctionComponent = () => {
   const crm = useCrmStatus();
   const crmOn = crm.status?.enabled === true;
   const narrow = useNarrow();
+  // A new lazy component per retry: a failed import is cached by React.lazy.
+  const [panelTry, setPanelTry] = React.useState(0);
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  const CrmChatPanelLazy = React.useMemo(lazyPanel, [panelTry]);
   const [collapsed, setCollapsed] = React.useState(() => readCollapsed(meId));
   const [drawerOpen, setDrawerOpen] = React.useState(false);
   const [params] = useSearchParams();
@@ -321,7 +326,15 @@ export const InboxPage: React.FunctionComponent = () => {
               list={list}
             />
           </div>
-          <div style={{ flex: '1 1 0', minWidth: 0, minHeight: 0, display: 'flex', flexDirection: 'column' }}>
+          <div
+            style={{
+              flex: '1 1 0',
+              minWidth: panelShown && !narrow ? 320 : 0,
+              minHeight: 0,
+              display: 'flex',
+              flexDirection: 'column',
+            }}
+          >
             {stream === 'failed' && (
               <Alert
                 variant="danger"
@@ -379,9 +392,11 @@ export const InboxPage: React.FunctionComponent = () => {
                 borderInlineStart: BORDER,
               }}
             >
-              <React.Suspense fallback={<Spinner size="lg" aria-label="Loading CRM" style={{ margin: GAP }} />}>
-                <CrmChatPanelLazy chatId={open.id} />
-              </React.Suspense>
+              <PanelErrorBoundary onRetry={() => setPanelTry((t) => t + 1)}>
+                <React.Suspense fallback={<Spinner size="lg" aria-label="Loading CRM" style={{ margin: GAP }} />}>
+                  <CrmChatPanelLazy chatId={open.id} />
+                </React.Suspense>
+              </PanelErrorBoundary>
             </aside>
           )}
         </div>

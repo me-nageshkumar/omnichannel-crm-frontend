@@ -140,6 +140,30 @@ describe('CRM chat panel', () => {
     await waitFor(() => expect(requestTo(f, CAPTURE)?.body).toEqual({ chatId: 'c1', pipelineId: 'p2', dealTitle: 'Big one' }));
   });
 
+  it('captureOfAnExistingContactRefetchesTheSummary', async () => {
+    let n = 0;
+    const f = mockFetch(
+      routes({
+        [SUMMARY1]: () =>
+          ++n === 1
+            ? { status: 200, body: summary() }
+            : {
+                status: 200,
+                body: {
+                  ...captured('Asha Rao'),
+                  openDeals: [sampleDeal(), sampleDeal({ id: 'd9', title: 'Older deal' })],
+                },
+              },
+        [CAPTURE]: { status: 200, body: { contact: captured('Asha Rao').contact, deal: null, createdContact: false, createdDeal: false } },
+      }),
+    );
+    const { user } = renderApp('/inbox/chats/c1');
+    await user.click(await screen.findByRole('button', { name: 'Capture to CRM' }));
+    await user.click(await within(await screen.findByRole('dialog')).findByRole('button', { name: 'Capture' }));
+    expect(await screen.findByRole('link', { name: 'Older deal' })).toBeVisible();
+    expect(callsTo(f, SUMMARY1)).toBe(2);
+  });
+
   it('restrictedUserOnlyGetsTheirPipelines', async () => {
     mockFetch(
       routes({
@@ -281,9 +305,9 @@ describe('CRM chat panel', () => {
     expect(localStorage.getItem('crm.panel.u4')).toBe('collapsed');
   });
 
-  it('underNarrowWidthThePanelIsADrawerOpenedByTheToggle', async () => {
+  it('underElevenHundredPixelsThePanelIsADrawerOpenedByTheToggle', async () => {
     vi.stubGlobal('matchMedia', (query: string) => ({
-      matches: true,
+      matches: query === '(max-width: 1099px)',
       media: query,
       addEventListener: () => undefined,
       removeEventListener: () => undefined,
