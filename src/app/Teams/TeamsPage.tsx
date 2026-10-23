@@ -1,6 +1,7 @@
 import * as React from 'react';
 import { Alert, Button, Spinner } from '@patternfly/react-core';
 import { ActionsColumn, Table, Tbody, Td, Th, Thead, Tr } from '@patternfly/react-table';
+import { shown } from '@app/api/phoneNumbers';
 import { Team, createTeam, listTeams } from '@app/api/teams';
 import { listWorkspaceUsers } from '@app/api/workspaceUsers';
 import { NameModal } from '@app/admin/NameModal';
@@ -49,6 +50,7 @@ export const TeamsPage: React.FunctionComponent = () => {
             <Tr>
               <Th>Name</Th>
               <Th>Members</Th>
+              <Th>Numbers</Th>
               <Th screenReaderText="Actions" />
             </Tr>
           </Thead>
@@ -57,6 +59,13 @@ export const TeamsPage: React.FunctionComponent = () => {
               <Tr key={team.id}>
                 <Td dataLabel="Name">{team.name}</Td>
                 <Td dataLabel="Members">{team.members.length}</Td>
+                <Td dataLabel="Numbers">
+                  {(team.phoneNumbers ?? []).length === 0
+                    ? '—'
+                    : (team.phoneNumbers ?? [])
+                        .map((n) => (n.label ? `${shown(n.number)} (${n.label})` : shown(n.number)))
+                        .join(', ')}
+                </Td>
                 <Td isActionCell>
                   {canManage && (
                     <ActionsColumn items={[{ title: 'Edit', onClick: () => setDialog({ kind: 'edit', team }) }]} />

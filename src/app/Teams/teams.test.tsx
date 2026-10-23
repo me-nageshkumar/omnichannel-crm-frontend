@@ -13,8 +13,16 @@ const person = (id: string, name: string, username: string) => ({
 });
 const ARUN = person('u5', 'Arun Agent', 'arun');
 const KIRAN = person('u8', 'Kiran', 'kiran');
-const GENERAL = { id: 't1', name: 'General', members: [{ id: 'u5', name: 'Arun Agent', username: 'arun' }] };
-const RETURNS = { id: 't2', name: 'Returns', members: [] };
+const GENERAL = {
+  id: 't1',
+  name: 'General',
+  members: [{ id: 'u5', name: 'Arun Agent', username: 'arun' }],
+  phoneNumbers: [
+    { id: 'p1', number: '919928088743', label: 'Main line' },
+    { id: 'p2', number: '910000000002', label: null },
+  ],
+};
+const RETURNS = { id: 't2', name: 'Returns', members: [], phoneNumbers: [] };
 
 function routes(extra = {}) {
   return {
@@ -36,6 +44,13 @@ describe('teams page', () => {
     renderApp('/teams');
     expect(within(await rowWith('General')).getByText('1')).toBeVisible();
     expect(within(await rowWith('Returns')).getByText('0')).toBeVisible();
+  });
+
+  it('teamsPageListsNumbers', async () => {
+    mockFetch({ ...meAs(WORKSPACE_MANAGER), ...routes() });
+    renderApp('/teams');
+    expect(within(await rowWith('General')).getByText('+919928088743 (Main line), +910000000002')).toBeVisible();
+    expect(within(await rowWith('Returns')).getByText('—')).toBeVisible();
   });
 
   it('creates a team', async () => {

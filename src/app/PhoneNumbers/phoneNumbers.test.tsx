@@ -183,4 +183,56 @@ describe('brand phone numbers page', () => {
     renderApp('/phone-numbers');
     expect(await screen.findByRole('heading', { name: 'Phone numbers' })).toBeVisible();
   });
+
+  // --- owning team (chat-assignment design §3.1) --------------------------------------------------------------
+
+  const TEAMS = 'GET /api/workspaces/w1/teams';
+  const SALES = { id: 't1', name: 'Sales', members: [], phoneNumbers: [] };
+  const SUPPORT = { id: 't2', name: 'Support', members: [], phoneNumbers: [] };
+
+  it('showsTeamColumnAndWarningForUnowned', async () => {
+    const owned = phoneNumber({ id: 'p2', number: '910000000002', team: { id: 't1', name: 'Sales' } });
+    mockFetch(routes([MAIN, owned], { [TEAMS]: { status: 200, body: [SALES, SUPPORT] } }));
+    renderApp('/phone-numbers');
+    const unowned = await rowWith('+919928088743');
+    expect(within(unowned).getByText('No team')).toBeVisible();
+    expect(within(unowned).getByLabelText('No team — nobody but admins sees this number')).toBeVisible();
+    expect(within(await rowWith('+910000000002')).getByText('Sales')).toBeVisible();
+  });
+
+  it('setTeamSavesAndRefreshes', async () => {
+    const fetch = mockFetch(
+      routes([MAIN], {
+        [TEAMS]: { status: 200, body: [SALES, SUPPORT] },
+        [`PUT ${BASE}/p1/team`]: { status: 200, body: { ...MAIN, team: { id: 't2', name: 'Support' } } },
+      }),
+    );
+    const { user } = renderApp('/phone-numbers');
+    await rowAction(user, '+919928088743', 'Set team');
+    const dialog = await screen.findByRole('dialog');
+    await user.selectOptions(within(dialog).getByLabelText('Team'), 'Support');
+    await user.click(within(dialog).getByRole('button', { name: 'Save' }));
+    await waitFor(() => expect(screen.queryByRole('dialog')).toBeNull());
+    expect(requestTo(fetch, `PUT ${BASE}/p1/team`)?.body).toEqual({ teamId: 't2' });
+    expect(within(await rowWith('+919928088743')).getByText('Support')).toBeVisible();
+  });
+
+  it('clearTeamSendsNull', async () => {
+    const owned = phoneNumber({ id: 'p2', number: '910000000002', team: { id: 't1', name: 'Sales' } });
+    const fetch = mockFetch(
+      routes([owned], {
+        [TEAMS]: { status: 200, body: [SALES, SUPPORT] },
+        [`PUT ${BASE}/p2/team`]: { status: 200, body: { ...owned, team: null } },
+      }),
+    );
+    const { user } = renderApp('/phone-numbers');
+    await rowAction(user, '+910000000002', 'Set team');
+    const dialog = await screen.findByRole('dialog');
+    expect(within(dialog).getByLabelText('Team')).toHaveValue('t1');
+    await user.selectOptions(within(dialog).getByLabelText('Team'), 'No team');
+    await user.click(within(dialog).getByRole('button', { name: 'Save' }));
+    await waitFor(() => expect(screen.queryByRole('dialog')).toBeNull());
+    expect(requestTo(fetch, `PUT ${BASE}/p2/team`)?.body).toEqual({ teamId: null });
+    expect(within(await rowWith('+910000000002')).getByText('No team')).toBeVisible();
+  });
 });

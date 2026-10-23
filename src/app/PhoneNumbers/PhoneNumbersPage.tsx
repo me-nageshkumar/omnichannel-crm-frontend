@@ -1,5 +1,6 @@
 import * as React from 'react';
-import { Alert, Button, Spinner } from '@patternfly/react-core';
+import { Alert, Button, Icon, Spinner, Tooltip } from '@patternfly/react-core';
+import { ExclamationTriangleIcon } from '@patternfly/react-icons';
 import { ActionsColumn, IAction, Table, Tbody, Td, Th, Thead, Tr } from '@patternfly/react-table';
 import {
   CONNECTION_LABELS,
@@ -22,6 +23,7 @@ import { useAccess } from '@app/session/useAccess';
 import { ConnectCodeModal } from '@app/PhoneNumbers/ConnectCodeModal';
 import { PhoneNumberModal } from '@app/PhoneNumbers/PhoneNumberModal';
 import { PhoneNumberStatusLabel, relative } from '@app/PhoneNumbers/PhoneNumberStatusLabel';
+import { TeamSelectModal } from '@app/PhoneNumbers/TeamSelectModal';
 
 /** How often the page refreshes connection status while open. */
 export const POLL_MS = 10_000;
@@ -29,6 +31,7 @@ export const POLL_MS = 10_000;
 type Dialog =
   | { kind: 'add' }
   | { kind: 'edit'; number: PhoneNumber }
+  | { kind: 'team'; number: PhoneNumber }
   | { kind: 'code'; number: PhoneNumber }
   | { kind: 'revoke'; number: PhoneNumber }
   | { kind: 'toggle'; number: PhoneNumber }
@@ -67,6 +70,7 @@ export const PhoneNumbersPage: React.FunctionComponent = () => {
     };
     return [
       { title: 'Edit label', onClick: open({ kind: 'edit', number: n }) },
+      { title: 'Set team', onClick: open({ kind: 'team', number: n }) },
       { title: 'Get connect code', onClick: open({ kind: 'code', number: n }) },
       ...(n.hasDevice ? [{ title: 'Revoke device', onClick: open({ kind: 'revoke', number: n }) }] : []),
       { title: n.disabled ? 'Enable' : 'Disable', onClick: open({ kind: 'toggle', number: n }) },
@@ -94,6 +98,7 @@ export const PhoneNumbersPage: React.FunctionComponent = () => {
             <Tr>
               <Th>Number</Th>
               <Th>Label</Th>
+              <Th>Team</Th>
               <Th>Type</Th>
               <Th>Status</Th>
               <Th>Last seen</Th>
@@ -105,6 +110,20 @@ export const PhoneNumbersPage: React.FunctionComponent = () => {
               <Tr key={n.id}>
                 <Td dataLabel="Number">{shown(n.number)}</Td>
                 <Td dataLabel="Label">{n.label ?? '—'}</Td>
+                <Td dataLabel="Team">
+                  {n.team ? (
+                    n.team.name
+                  ) : (
+                    <>
+                      No team{' '}
+                      <Tooltip content="No team — nobody but admins sees this number">
+                        <Icon status="warning" aria-label="No team — nobody but admins sees this number">
+                          <ExclamationTriangleIcon />
+                        </Icon>
+                      </Tooltip>
+                    </>
+                  )}
+                </Td>
                 <Td dataLabel="Type">{CONNECTION_LABELS[n.connectionType] ?? n.connectionType}</Td>
                 <Td dataLabel="Status">
                   <PhoneNumberStatusLabel number={n} />
@@ -131,6 +150,17 @@ export const PhoneNumbersPage: React.FunctionComponent = () => {
         <PhoneNumberModal
           existing={dialog.number}
           save={(_number, label) => relabelNumber(t, workspaceId, dialog.number.id, label)}
+          onSaved={(n) => {
+            put(n);
+            close();
+          }}
+          onCancel={close}
+        />
+      )}
+      {dialog?.kind === 'team' && (
+        <TeamSelectModal
+          workspaceId={workspaceId}
+          number={dialog.number}
           onSaved={(n) => {
             put(n);
             close();
