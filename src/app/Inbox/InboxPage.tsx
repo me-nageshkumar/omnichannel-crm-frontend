@@ -48,7 +48,7 @@ export const InboxPage: React.FunctionComponent = () => {
   const access = useAccess();
 
   const numbers = useLoad((t) => listInboxNumbers(t, ws), [ws]);
-  const visible = numbers.data ?? [];
+  const visible = React.useMemo(() => numbers.data ?? [], [numbers.data]);
   // The stored selection, less any number the user can no longer see; an empty selection is every number.
   const [stored, setStored] = React.useState(() => readInboxFilter(meId, ws));
   const selected = React.useMemo(

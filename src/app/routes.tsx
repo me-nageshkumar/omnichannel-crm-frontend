@@ -27,6 +27,7 @@ import { NewCampaignPage } from '@app/Campaigns/NewCampaign/NewCampaignPage';
 import { CampaignDetailPage } from '@app/Campaigns/CampaignDetailPage';
 import { InboxRedirect } from '@app/Inbox/InboxRedirect';
 import { InboxPage } from '@app/Inbox/InboxPage';
+import { RoutingSettingsPage } from '@app/Inbox/RoutingSettingsPage';
 import { Access, useAccess } from '@app/session/useAccess';
 
 export interface IAppRoute {
@@ -59,7 +60,13 @@ export const isExpandable = (entry: NavEntry): entry is NavExpandableEntry => 'l
 const NAV_SECTIONS: NavEntry[][] = [
   [
     { label: 'Dashboard', path: '/' },
-    { label: 'Inbox', path: '/inbox' },
+    {
+      label: 'Inbox',
+      links: [
+        { label: 'Inbox', path: '/inbox' },
+        { label: 'Routing', path: '/inbox/routing' },
+      ],
+    },
   ],
   [
     {
@@ -155,6 +162,11 @@ const routes: IAppRoute[] = [
     element: <InboxPage />,
     path: '/inbox/chats/:chatId',
     requires: (a) => a.hasInWorkspace('inbox:view'),
+  },
+  {
+    element: <RoutingSettingsPage />,
+    path: '/inbox/routing',
+    requires: (a) => a.hasInWorkspace('inbox:settings'),
   },
   {
     element: <InboxRedirect />,

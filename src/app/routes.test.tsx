@@ -31,6 +31,7 @@ const sidebarNav = (): HTMLElement => document.getElementById('nav-primary') as 
 
 const BRAND_LINKS = [
   'Inbox',
+  'Routing',
   'All contacts',
   'Saved filters',
   'Contact fields',
