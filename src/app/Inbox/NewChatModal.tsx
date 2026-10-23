@@ -45,13 +45,19 @@ export const NewChatModal: React.FunctionComponent<{
   numbers: PhoneNumber[];
   onClose(): void;
   onStarted(message: MessageView): void;
-}> = ({ numbers, onClose, onStarted }) => {
+  /** The number to start from, when it is one of {@code numbers} (e.g. from a CRM link). */
+  initialNumberId?: string;
+  /** The phone number to fill in. */
+  initialPhone?: string;
+}> = ({ numbers, onClose, onStarted, initialNumberId, initialPhone }) => {
   const { token, workspace } = useSession();
   const ws = workspace?.id ?? '';
-  const [phoneNumberId, setPhoneNumberId] = React.useState(numbers[0]?.id ?? '');
+  const [phoneNumberId, setPhoneNumberId] = React.useState(
+    numbers.find((n) => n.id === initialNumberId)?.id ?? numbers[0]?.id ?? '',
+  );
   const from = numbers.find((n) => n.id === phoneNumberId) ?? numbers[0];
   const numberConnected = from?.status === 'CONNECTED';
-  const [phone, setPhone] = React.useState('');
+  const [phone, setPhone] = React.useState(initialPhone ?? '');
   const [touched, setTouched] = React.useState(false);
   const [text, setText] = React.useState('');
   const [sending, setSending] = React.useState(false);
