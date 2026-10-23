@@ -51,6 +51,7 @@ export const CompanyTypeahead: React.FunctionComponent<{
     const seq = ++latest.current;
     const timer = setTimeout(() => {
       setLoading(true);
+      setError(null);
       companyTypeahead(token, ws, q).then(
         (found) => {
           if (seq !== latest.current) return;
@@ -69,6 +70,7 @@ export const CompanyTypeahead: React.FunctionComponent<{
 
   const choose = (ref: Ref | null) => {
     latest.current++;
+    setError(null);
     onChange(ref);
     setText(null);
     setOpen(false);

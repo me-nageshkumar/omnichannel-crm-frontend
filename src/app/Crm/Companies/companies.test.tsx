@@ -8,6 +8,13 @@ import { crmSettings, sampleCrmContact, sampleDeal } from '../../../test/crm';
 import { storeSession } from '../../../test/session';
 import { BASE, boardRoutes } from '../../../test/crmBoard';
 import type { Company } from '@app/api/crm';
+import { render } from '@testing-library/react';
+import userEvent from '@testing-library/user-event';
+import { MemoryRouter } from 'react-router-dom';
+import { SessionProvider } from '@app/session/SessionContext';
+import { WORKSPACE_MANAGER, meAs } from '../../../test/session';
+import { gate } from '../../../test/gate';
+import { CompanyTypeahead } from '@app/Crm/Companies/CompanyTypeahead';
 
 const SEARCH = `POST ${BASE}/companies/search`;
 const SUMMARY = `GET ${BASE}/companies/co1/summary`;
@@ -146,7 +153,6 @@ describe('CRM companies', () => {
     await user.click(await screen.findByRole('button', { name: 'Delete' }));
     await user.click(within(await screen.findByRole('dialog')).getByRole('button', { name: 'Delete company' }));
     await waitFor(() => expect(screen.queryByRole('dialog')).toBeNull());
-    console.log('SEARCH', callsTo(f, SEARCH));
     await waitFor(() => expect(callsTo(f, SEARCH)).toBeGreaterThanOrEqual(2));
     expect(screen.queryByRole('heading', { name: 'Acme Ltd' })).toBeNull();
   });
@@ -288,8 +294,7 @@ describe('CRM companies', () => {
       expect(queries).toEqual(['acm']);
     });
 
-    it('noCreateOptionWithoutEditAuthority', async () => {
-      // The deal form is only reachable with crm:edit, so this checks the component's flag via the contact form.
+    it('createOptionShowsWithEditAuthority', async () => {
       const { dialog, user } = await open({}, ['crm:view', 'crm:edit']);
       await user.type(within(dialog).getByRole('combobox', { name: 'Company' }), 'Zed');
       expect(await within(dialog).findByRole('option', { name: 'Create "Zed"' })).toBeInTheDocument();
@@ -302,6 +307,90 @@ describe('CRM companies', () => {
       expect(within(dialog).getByRole('combobox', { name: 'Company' })).toHaveValue('Acorn');
       await user.click(within(dialog).getByRole('button', { name: 'Clear company' }));
       expect(within(dialog).getByRole('combobox', { name: 'Company' })).toHaveValue('');
+    });
+  });
+
+  describe('CompanyTypeahead on its own', () => {
+    const mount = (canCreate: boolean) => {
+      const onChange = vi.fn();
+      const user = userEvent.setup();
+      render(
+        <MemoryRouter>
+          <SessionProvider>
+            <CompanyTypeahead value={null} onChange={onChange} canCreate={canCreate} />
+          </SessionProvider>
+        </MemoryRouter>,
+      );
+      return { user, onChange, box: () => screen.findByRole('combobox', { name: 'Company' }) };
+    };
+    const base = { ...meAs(WORKSPACE_MANAGER) };
+
+    it('withoutCanCreateThereIsNoCreateOption', async () => {
+      mockFetch({ ...base, [TYPEAHEAD]: { status: 200, body: [] } });
+      const { user, box } = mount(false);
+      await user.type(await box(), 'Zed');
+      expect(await screen.findByRole('option', { name: 'No companies found' })).toBeInTheDocument();
+      expect(screen.queryByRole('option', { name: /Create/ })).toBeNull();
+    });
+
+    it('failedSearchShowsAnErrorThatClearsOnTheNextGoodSearch', async () => {
+      let n = 0;
+      mockFetch({
+        ...base,
+        [TYPEAHEAD]: () =>
+          ++n === 1
+            ? { status: 500, body: { code: 'INTERNAL', message: 'boom' } }
+            : { status: 200, body: [{ id: 'co2', name: 'Acorn' }] },
+      });
+      const { user, box } = mount(true);
+      await user.type(await box(), 'a');
+      expect(await screen.findByText(/./, { selector: '.pf-v6-c-alert__title' })).toBeInTheDocument();
+      await user.type(await box(), 'c');
+      expect(await screen.findByRole('option', { name: 'Acorn' })).toBeInTheDocument();
+      expect(document.querySelector('.pf-v6-c-alert')).toBeNull();
+    });
+
+    it('failedCreateShowsAnInlineErrorAndSelectsNothing', async () => {
+      mockFetch({
+        ...base,
+        [TYPEAHEAD]: { status: 200, body: [] },
+        [`POST ${BASE}/companies`]: { status: 500, body: { code: 'INTERNAL', message: 'boom' } },
+      });
+      const { user, onChange, box } = mount(true);
+      await user.type(await box(), 'Zed');
+      await user.click(await screen.findByRole('option', { name: 'Create "Zed"' }));
+      expect(await screen.findByText(/./, { selector: '.pf-v6-c-alert__title' })).toBeInTheDocument();
+      expect(onChange).not.toHaveBeenCalled();
+    });
+
+    it('anOutOfOrderResponseIsIgnored', async () => {
+      const f = mockFetch({
+        ...base,
+        [TYPEAHEAD]: { status: 200, body: [] },
+      });
+      // Answer by the q in the URL: the first query is held back, the second returns first.
+      const answer = f.getMockImplementation() as NonNullable<ReturnType<typeof f.getMockImplementation>>;
+      f.mockImplementation(async (input, init) => {
+        const url = new URL(String(input), 'http://localhost');
+        if (url.pathname !== `${BASE}/companies/typeahead`) return answer(input, init);
+        const q = url.searchParams.get('q');
+        return new Response(JSON.stringify([{ id: `id-${q}`, name: q === 'a' ? 'Stale Co' : 'Fresh Co' }]), {
+          status: 200,
+          headers: { 'Content-Type': 'application/json' },
+        });
+      });
+      const held = gate(f, `GET ${BASE}/companies/typeahead`, 1);
+      const { user, box } = mount(false);
+      await user.type(await box(), 'a');
+      await waitFor(() => expect(callsTo(f, `GET ${BASE}/companies/typeahead`)).toBe(1));
+      await user.type(await box(), 'b');
+      expect(await screen.findByRole('option', { name: 'Fresh Co' })).toBeInTheDocument();
+      await act(async () => {
+        held.release();
+        await Promise.resolve();
+      });
+      expect(screen.queryByRole('option', { name: 'Stale Co' })).toBeNull();
+      expect(screen.getByRole('option', { name: 'Fresh Co' })).toBeInTheDocument();
     });
   });
 });
