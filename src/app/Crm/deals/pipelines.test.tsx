@@ -1,7 +1,7 @@
 import * as React from 'react';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { act, screen, waitFor, within } from '@testing-library/react';
-import { useLocation } from 'react-router-dom';
+import { useLocation, useNavigate } from 'react-router-dom';
 import { renderApp } from '../../../test/renderApp';
 import { callsTo, mockFetch, requestTo } from '../../../test/fetchMock';
 import { sampleBoard, sampleDeal } from '../../../test/crm';
@@ -329,5 +329,46 @@ describe('Pipelines page', () => {
     renderApp('/crm');
     await screen.findByText('Acme order');
     expect(within(lane('New')).queryByText('Sales line')).toBeNull();
+  });
+
+  const where = () => screen.getByLabelText('Where').textContent ?? '';
+  const searchOf = () => new URLSearchParams(where().split('?')[1] ?? '');
+
+  it('openingAndClosingADealFromTheBoardKeepsViewAndFilters', async () => {
+    mockFetch(boardRoutes());
+    const { user } = renderApp('/crm?owner=u1&q=acme', <Probe />);
+    await user.click(await screen.findByText('Acme order'));
+    expect(where()).toMatch(/^\/crm\/deals\/d1\?/);
+    expect(Object.fromEntries(searchOf())).toEqual({ owner: 'u1', q: 'acme', pipelineId: 'p1' });
+    await user.click(await screen.findByRole('button', { name: 'Close' }));
+    await waitFor(() => expect(where()).toMatch(/^\/crm\?/));
+    expect(Object.fromEntries(searchOf())).toEqual({ owner: 'u1', q: 'acme', pipelineId: 'p1' });
+  });
+
+  it('openingAndClosingADealFromTheTableKeepsViewAndFilters', async () => {
+    mockFetch(boardRoutes());
+    const { user } = renderApp('/crm?view=table&owner=u1&q=acme', <Probe />);
+    await user.click(await screen.findByRole('link', { name: 'Acme order' }));
+    expect(where()).toMatch(/^\/crm\/deals\/d1\?/);
+    expect(Object.fromEntries(searchOf())).toEqual({ view: 'table', owner: 'u1', q: 'acme', pipelineId: 'p1' });
+    await user.click(await screen.findByRole('button', { name: 'Close' }));
+    await waitFor(() => expect(where()).toMatch(/^\/crm\?/));
+    expect(Object.fromEntries(searchOf())).toEqual({ view: 'table', owner: 'u1', q: 'acme', pipelineId: 'p1' });
+  });
+
+  it('searchBoxFollowsTheUrl', async () => {
+    mockFetch(boardRoutes());
+    let go: (to: string) => void = () => undefined;
+    const Nav = (): null => {
+      go = useNavigate();
+      return null;
+    };
+    renderApp('/crm?q=acme', <Nav />);
+    const box = await screen.findByLabelText('Search deals');
+    expect(box).toHaveValue('acme');
+    act(() => go('/crm?q=globex'));
+    await waitFor(() => expect(box).toHaveValue('globex'));
+    act(() => go('/crm'));
+    await waitFor(() => expect(box).toHaveValue(''));
   });
 });

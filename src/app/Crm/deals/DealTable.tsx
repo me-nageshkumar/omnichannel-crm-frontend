@@ -30,6 +30,13 @@ const closeDate = (iso: string | null): string => {
   return Number.isNaN(d.getTime()) ? iso : DATE.format(d);
 };
 
+/** The deal's route, keeping the page's view and filters ({@code search}) and naming the pipeline. */
+export function dealPath(dealId: string, pipelineId: string, search: string): string {
+  const params = new URLSearchParams(search);
+  params.set('pipelineId', pipelineId);
+  return `/crm/deals/${dealId}?${params.toString()}`;
+}
+
 /** The deals of a pipeline as a table: sortable on title, amount and last activity, paged. */
 export const DealTable: React.FunctionComponent<{
   pipeline: Pipeline;
@@ -39,9 +46,11 @@ export const DealTable: React.FunctionComponent<{
   sort: DealSort;
   defaultCurrency?: string | null;
   emptyText: string;
+  /** The page's current query string, carried into each deal link. */
+  search: string;
   onSort(sort: DealSort): void;
   onSetPage(page: number): void;
-}> = ({ pipeline, deals, total, page, sort, defaultCurrency, emptyText, onSort, onSetPage }) => {
+}> = ({ pipeline, deals, total, page, sort, defaultCurrency, emptyText, search, onSort, onSetPage }) => {
   const stageName = (id: string) => pipeline.stages.find((s) => s.id === id)?.name ?? '—';
   const activeIndex = COLUMNS.findIndex((c) => c.field === sort.field);
   return (
@@ -76,7 +85,7 @@ export const DealTable: React.FunctionComponent<{
             deals.map((d) => (
               <Tr key={d.id}>
                 <Td dataLabel="Title">
-                  <Link to={`/crm/deals/${d.id}?pipelineId=${encodeURIComponent(pipeline.id)}`}>{d.title}</Link>
+                  <Link to={dealPath(d.id, pipeline.id, search)}>{d.title}</Link>
                 </Td>
                 <Td dataLabel="Contact">{d.primaryContact?.name || d.primaryContact?.phone || '—'}</Td>
                 <Td dataLabel="Stage">{stageName(d.stageId)}</Td>

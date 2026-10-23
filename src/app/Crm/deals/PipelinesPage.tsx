@@ -29,7 +29,7 @@ import { formatMoney } from '@app/Crm/common/money';
 import { useRefetchOnFocus } from '@app/Crm/common/useRefetchOnFocus';
 import { useCrmCan, useCrmStatus } from '@app/Crm/status/CrmStatusContext';
 import { DealCard } from '@app/Crm/deals/DealCard';
-import { DEAL_PAGE_SIZE, DealSort, DealTable } from '@app/Crm/deals/DealTable';
+import { DEAL_PAGE_SIZE, DealSort, DealTable, dealPath } from '@app/Crm/deals/DealTable';
 import { DealFormModal } from '@app/Crm/deals/DealFormModal';
 import { NewContactModal } from '@app/Crm/deals/NewContactModal';
 import { DealDrawer } from '@app/Crm/deals/DealDrawer';
@@ -137,6 +137,11 @@ export const PipelinesPage: React.FunctionComponent = () => {
   const setOrDelete = (next: URLSearchParams, name: string, value: string) =>
     value ? next.set(name, value) : next.delete(name);
 
+  // Back and forward change the query: the box shows what is applied.
+  React.useEffect(() => {
+    setSearch(qParam);
+  }, [qParam]);
+
   React.useEffect(() => {
     const timer = setTimeout(() => {
       if (search === qParam) return;
@@ -209,7 +214,7 @@ export const PipelinesPage: React.FunctionComponent = () => {
     [lanes, defaultCurrency],
   );
 
-  const open = (d: Deal) => navigate(`/crm/deals/${d.id}?pipelineId=${encodeURIComponent(d.pipelineId)}`);
+  const open = (d: Deal) => navigate(dealPath(d.id, d.pipelineId, location.search));
 
   const onMove = async (id: string, to: string, before: string | null, after: string | null) => {
     setNotice(null);
@@ -304,6 +309,7 @@ export const PipelinesPage: React.FunctionComponent = () => {
         page={page}
         sort={sort}
         defaultCurrency={defaultCurrency}
+        search={location.search}
         emptyText={filtering ? 'No deals match.' : 'No deals in this pipeline yet'}
         onSort={(s) => {
           setSort(s);
