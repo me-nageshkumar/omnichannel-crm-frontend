@@ -68,7 +68,7 @@ export const KanbanCard: React.FunctionComponent<Props> = ({
           </div>
           {narrow && laneOptions && (
             <FormSelect
-              aria-label="Move to…"
+              aria-label={`Move ${label} to…`}
               isDisabled={locked}
               value=""
               onChange={(_e, v) => v && onMoveTo?.(v)}

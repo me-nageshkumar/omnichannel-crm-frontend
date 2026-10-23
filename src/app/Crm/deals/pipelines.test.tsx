@@ -145,7 +145,7 @@ describe('Pipelines page', () => {
   }
   const moveFirstCardToProposal = async (user: ReturnType<typeof renderApp>['user']) => {
     await screen.findByText('Acme order');
-    await user.selectOptions(within(lane('New')).getAllByLabelText('Move to…')[0], 'Proposal');
+    await user.selectOptions(within(lane('New')).getAllByLabelText(/^Move .* to…$/)[0], 'Proposal');
   };
 
   it('moveSendsNeighboursAndKeepsCard', async () => {
@@ -163,7 +163,7 @@ describe('Pipelines page', () => {
     expect(within(lane('New')).queryByText('Acme order')).toBeNull();
     // The board is unlocked again once the saved move has been settled.
     await waitFor(() => {
-      const selects = screen.getAllByLabelText('Move to…');
+      const selects = screen.getAllByLabelText(/^Move .* to…$/);
       expect(selects.length).toBeGreaterThan(0);
       selects.forEach((el) => expect(el).toBeEnabled());
     });
@@ -194,9 +194,9 @@ describe('Pipelines page', () => {
     );
     const { user } = renderApp('/crm');
     await screen.findByText('Deal n1');
-    await user.selectOptions(within(lane('New')).getAllByLabelText('Move to…')[0], 'Proposal');
+    await user.selectOptions(within(lane('New')).getAllByLabelText(/^Move .* to…$/)[0], 'Proposal');
     await waitFor(() => expect(within(lane('Proposal')).getByText('Deal n1')).toBeInTheDocument());
-    await waitFor(() => expect(screen.getAllByLabelText('Move to…')[0]).toBeEnabled());
+    await waitFor(() => expect(screen.getAllByLabelText(/^Move .* to…$/)[0]).toBeEnabled());
     await user.click(screen.getByRole('button', { name: 'Load more in New' }));
     expect(await within(lane('New')).findByText('Deal n26')).toBeInTheDocument();
     await user.click(screen.getByRole('button', { name: 'Load more in New' }));

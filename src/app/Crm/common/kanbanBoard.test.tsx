@@ -180,7 +180,7 @@ describe('KanbanBoard', () => {
     const user = userEvent.setup();
     render(board({ narrow: true, onMove }));
     expect(screen.queryByRole('button', { name: 'Move Card 1' })).toBeNull();
-    const select = within(screen.getByRole('region', { name: 'New' })).getAllByLabelText('Move to…')[0];
+    const select = within(screen.getByRole('region', { name: 'New' })).getAllByLabelText(/^Move .* to…$/)[0];
     await user.selectOptions(select, 'Won');
     expect(onMove).toHaveBeenCalledWith('1', 'won', '3', null);
     expect(names('Won')).toEqual(['Card 3', 'Card 1']);
@@ -195,6 +195,21 @@ describe('KanbanBoard', () => {
     }));
     render(board());
     expect(screen.queryByRole('button', { name: 'Move Card 1' })).toBeNull();
-    expect(screen.getAllByLabelText('Move to…').length).toBe(3);
+    expect(screen.getAllByLabelText(/^Move .* to…$/).length).toBe(3);
+  });
+
+  it('announcesMovesWithCardAndLaneNamesNotIds', async () => {
+    const user = userEvent.setup();
+    render(board());
+    await keyboardMove(user, 'Move Card 1', ['{ArrowRight}']);
+    const live = Array.from(document.querySelectorAll('[id^="DndLiveRegion"]')).map((e) => e.textContent).join(' ');
+    expect(live).toContain('Card 1');
+    expect(live).toMatch(/lane (Won|New)/);
+    expect(live).not.toMatch(/Draggable item|droppable|item [123]\b/);
+  });
+
+  it('narrowSelectNamesItsCard', () => {
+    render(board({ narrow: true }));
+    expect(screen.getByLabelText('Move Card 2 to…')).toBeInTheDocument();
   });
 });

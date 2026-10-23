@@ -347,6 +347,7 @@ export const PipelinesPage: React.FunctionComponent = () => {
         <Alert
           variant={notice.variant}
           isInline
+          isLiveRegion
           title={notice.text}
           actionClose={<AlertActionCloseButton onClose={() => setNotice(null)} />}
         />

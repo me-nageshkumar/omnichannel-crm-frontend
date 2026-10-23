@@ -1,5 +1,6 @@
 import * as React from 'react';
 import {
+  type Announcements,
   DndContext,
   type DragEndEvent,
   KeyboardSensor,
@@ -127,8 +128,39 @@ export function KanbanBoard<C>({
   const laneOptions = shown.map((l) => ({ key: l.key, title: l.title }));
   const label = labelOf ?? ((c: C) => 'card ' + idOf(c));
 
+  // Screen readers hear card and lane names, never ids.
+  const cardName = (id: string | number): string => {
+    for (const l of shown) {
+      const c = l.cards.find((x) => idOf(x) === String(id));
+      if (c) return label(c);
+    }
+    return 'card';
+  };
+  const targetName = (id: string | number | undefined): string => {
+    if (id === undefined) return 'no lane';
+    const s = String(id);
+    if (s.startsWith(LANE_DROP_PREFIX)) {
+      const lane = shown.find((l) => l.key === s.slice(LANE_DROP_PREFIX.length));
+      return lane ? `lane ${lane.title}` : 'a lane';
+    }
+    const lane = shown.find((l) => l.cards.some((c) => idOf(c) === s));
+    return lane ? `${cardName(s)} in lane ${lane.title}` : 'a lane';
+  };
+  const announcements: Announcements = {
+    onDragStart: ({ active }) => `Picked up ${cardName(active.id)}.`,
+    onDragOver: ({ active, over }) => `${cardName(active.id)} is over ${targetName(over?.id)}.`,
+    onDragEnd: ({ active, over }) =>
+      over ? `${cardName(active.id)} was dropped on ${targetName(over.id)}.` : `${cardName(active.id)} was dropped.`,
+    onDragCancel: ({ active }) => `Moving ${cardName(active.id)} was cancelled.`,
+  };
+
   return (
-    <DndContext sensors={sensors} collisionDetection={closestCorners} onDragEnd={onDragEnd}>
+    <DndContext
+      sensors={sensors}
+      collisionDetection={closestCorners}
+      onDragEnd={onDragEnd}
+      accessibility={{ announcements }}
+    >
       <div
         role="region"
         aria-label={ariaLabel}

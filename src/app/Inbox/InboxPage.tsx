@@ -52,9 +52,12 @@ const writeCollapsed = (userId: string, collapsed: boolean) => {
     // The choice just does not outlive this page.
   }
 };
-/** Whether the viewport is narrower than 768px (a drawer instead of a column). */
+/** Whether the viewport is narrower than 1100px (a drawer instead of a column). */
 function useNarrow(): boolean {
-  const query = typeof window !== 'undefined' && window.matchMedia ? window.matchMedia(NARROW) : null;
+  const query = React.useMemo(
+    () => (typeof window !== 'undefined' && window.matchMedia ? window.matchMedia(NARROW) : null),
+    [],
+  );
   const [narrow, setNarrow] = React.useState(query?.matches ?? false);
   React.useEffect(() => {
     if (!query) return undefined;
