@@ -1,4 +1,4 @@
-import type { CrmSettings, CrmStatus, Pipeline } from '@app/api/crm';
+import type { Board, CrmContact, CrmSettings, CrmStatus, Deal, Pipeline } from '@app/api/crm';
 
 /** A CRM status as the server sends it for a brand with the CRM switched on. */
 export function crmStatus(overrides: Partial<CrmStatus> = {}): CrmStatus {
@@ -47,6 +47,100 @@ export function samplePipeline(overrides: Partial<Pipeline> = {}): Pipeline {
       { id: 's2', name: 'Proposal', color: '#dca614', position: 2000, probability: 50, type: 'OPEN', wipLimit: 5 },
       { id: 's3', name: 'Won', color: '#87bb62', position: 3000, probability: 100, type: 'WON', wipLimit: null },
     ],
+    ...overrides,
+  };
+}
+
+/** An open deal in the first lane of {@link samplePipeline}. */
+export function sampleDeal(overrides: Partial<Deal> = {}): Deal {
+  return {
+    id: 'd1',
+    title: 'Acme order',
+    pipelineId: 'p1',
+    stageId: 's1',
+    position: 1000,
+    status: 'OPEN',
+    amount: 1500,
+    currency: 'INR',
+    probability: 10,
+    probabilityOverridden: false,
+    expectedCloseDate: '2026-11-12',
+    closedAt: null,
+    lostReason: null,
+    company: null,
+    primaryContact: { id: 'c1', name: 'Priya Shah', phone: '919812345678' },
+    crmContactIds: ['c1'],
+    owner: { id: 'o1', name: 'Asha Rao' },
+    source: null,
+    labelIds: [],
+    customFields: {},
+    channel: { phoneNumberId: 'pn1', number: '919800000001' },
+    stageEnteredAt: '2026-10-20T10:00:00Z',
+    rotting: false,
+    overdue: false,
+    lastActivityAt: '2026-10-22T10:00:00Z',
+    nextTaskDueAt: null,
+    creationTime: '2026-10-01T10:00:00Z',
+    version: 2,
+    ...overrides,
+  };
+}
+
+/**
+ * The board of {@link samplePipeline}: New holds two deals, Proposal one (of six, one over its limit of five),
+ * Won none.
+ */
+export function sampleBoard(overrides: Partial<Board> = {}): Board {
+  const [s1, s2, s3] = samplePipeline().stages;
+  return {
+    pipelineId: 'p1',
+    lanes: [
+      {
+        stage: s1,
+        total: 2,
+        sumAmount: 2500,
+        deals: [sampleDeal(), sampleDeal({ id: 'd2', title: 'Globex renewal', amount: 1000, overdue: true, position: 2000 })],
+      },
+      {
+        stage: s2,
+        total: 6,
+        sumAmount: 9000,
+        deals: [
+          sampleDeal({ id: 'd3', title: 'Initech rollout', stageId: 's2', amount: 4000, rotting: true, position: 1000 }),
+        ],
+      },
+      { stage: s3, total: 0, sumAmount: 0, deals: [] },
+    ],
+    ...overrides,
+  };
+}
+
+/** A CRM contact as the search answers it. */
+export function sampleCrmContact(overrides: Partial<CrmContact> = {}): CrmContact {
+  return {
+    id: 'c1',
+    contactId: 'k1',
+    channel: { phoneNumberId: 'pn1', number: '919800000001' },
+    phone: '919812345678',
+    name: 'Priya Shah',
+    firstName: 'Priya',
+    lastName: 'Shah',
+    email: null,
+    jobTitle: null,
+    company: null,
+    owner: null,
+    lifecycleStatus: null,
+    source: null,
+    origin: null,
+    customFields: {},
+    openDealCount: 0,
+    openDealAmount: 0,
+    lastActivityAt: null,
+    nextTaskDueAt: null,
+    contactDeleted: false,
+    channelHistory: [],
+    creationTime: '2026-10-01T10:00:00Z',
+    version: 1,
     ...overrides,
   };
 }
