@@ -51,11 +51,15 @@ export const DealFormModal: React.FunctionComponent<{
   /** People who may own the deal besides the user (e.g. the owners seen on the board). */
   owners?: Ref[];
   onSaved(deal: Deal): void;
+  /** The server refused the save because the deal changed meanwhile; the caller fetches the fresh one. */
+  onConflict?(): void;
   onClose(): void;
-}> = ({ deal, pipeline, settings, owners = [], onSaved, onClose }) => {
+}> = ({ deal, pipeline, settings, owners = [], onSaved, onConflict, onClose }) => {
   const { token, workspace, user } = useSession();
   const ws = workspace?.id ?? '';
   const isEdit = !!deal;
+  // The version the fields were seeded from: a refetch while the form is open must not make stale fields look current.
+  const [version] = React.useState(deal?.version);
   const openStages = pipeline.stages.filter((s) => s.type === 'OPEN');
   const sources = settings.dealSources.filter((s) => s.active).sort((a, b) => a.position - b.position);
 
@@ -112,7 +116,7 @@ export const DealFormModal: React.FunctionComponent<{
             companyId: company?.id ?? '',
             ownerId,
             source,
-            version: deal.version,
+            version,
           };
           return updateDeal(t, ws, deal.id, body);
         }
@@ -134,6 +138,7 @@ export const DealFormModal: React.FunctionComponent<{
       (e) => {
         if (isCode(e, 'VERSION_CONFLICT')) {
           setConflict(true);
+          onConflict?.();
           return '';
         }
         return (e as { serverMessage?: string }).serverMessage ?? 'Could not save the deal. Try again.';

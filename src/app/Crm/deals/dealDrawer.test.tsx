@@ -1,7 +1,7 @@
 import * as React from 'react';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
-import { screen, waitFor, within } from '@testing-library/react';
-import { useLocation } from 'react-router-dom';
+import { act, screen, waitFor, within } from '@testing-library/react';
+import { useLocation, useNavigate } from 'react-router-dom';
 import { renderApp } from '../../../test/renderApp';
 import { callsTo, mockFetch, requestTo } from '../../../test/fetchMock';
 import { crmSettings, sampleBoard, sampleDeal } from '../../../test/crm';
@@ -187,5 +187,59 @@ describe('Deal drawer', () => {
         "This deal is not available. It may have been deleted or moved to a pipeline you can't see.",
       ),
     ).toBeInTheDocument();
+  });
+
+  const CONFLICT = { status: 409, body: { code: 'VERSION_CONFLICT', message: 'x' } };
+
+  it('editConflictReloadsTheDealAndReopenSendsTheFreshVersion', async () => {
+    const get = vi
+      .fn()
+      .mockReturnValueOnce({ status: 200, body: sampleDeal({ version: 2 }) })
+      .mockReturnValue({ status: 200, body: sampleDeal({ version: 5 }) });
+    const put = vi.fn().mockReturnValueOnce(CONFLICT).mockReturnValue({ status: 200, body: sampleDeal({ version: 6 }) });
+    const f = mockFetch(routes({ [`GET ${BASE}/deals/d1`]: () => get(), [`PUT ${BASE}/deals/d1`]: () => put() }));
+    const { user } = renderApp('/crm/deals/d1?pipelineId=p1');
+    await screen.findByRole('heading', { name: 'Acme order' });
+    await user.click(screen.getByRole('button', { name: 'Edit' }));
+    let dialog = await screen.findByRole('dialog', { name: 'Edit deal' });
+    await user.click(within(dialog).getByRole('button', { name: 'Save deal' }));
+    await within(dialog).findByText(/Someone else changed this deal/);
+    expect(requestTo(f, `PUT ${BASE}/deals/d1`)?.body).toMatchObject({ version: 2 });
+    await waitFor(() => expect(get).toHaveBeenCalledTimes(2));
+    await user.click(within(dialog).getByRole('button', { name: 'Cancel' }));
+    await user.click(screen.getByRole('button', { name: 'Edit' }));
+    dialog = await screen.findByRole('dialog', { name: 'Edit deal' });
+    await user.click(within(dialog).getByRole('button', { name: 'Save deal' }));
+    await waitFor(() => expect(requestTo(f, `PUT ${BASE}/deals/d1`, 1)).toBeDefined());
+    expect(requestTo(f, `PUT ${BASE}/deals/d1`, 1)?.body).toMatchObject({ version: 5 });
+  });
+
+  it('stageSelectConflictReloadsTheDeal', async () => {
+    const f = mockFetch(routes({ [`POST ${BASE}/deals/d1/move`]: CONFLICT }));
+    const { user } = renderApp('/crm/deals/d1?pipelineId=p1');
+    await screen.findByRole('heading', { name: 'Acme order' });
+    await user.selectOptions(screen.getByLabelText('Stage'), 'Proposal');
+    await waitFor(() => expect(callsTo(f, `GET ${BASE}/deals/d1`)).toBe(2));
+  });
+
+  it('moveErrorOfOneDealIsNotShownOnAnother', async () => {
+    mockFetch(
+      routes({
+        [`GET ${BASE}/deals/d2`]: { status: 200, body: sampleDeal({ id: 'd2', title: 'Globex renewal' }) },
+        [`POST ${BASE}/deals/d1/move`]: { status: 500, body: { code: 'BOOM', message: 'Boom happened' } },
+      }),
+    );
+    let go: (to: string) => void = () => undefined;
+    const Nav = (): null => {
+      go = useNavigate();
+      return null;
+    };
+    const { user } = renderApp('/crm/deals/d1?pipelineId=p1', <Nav />);
+    await screen.findByRole('heading', { name: 'Acme order' });
+    await user.selectOptions(screen.getByLabelText('Stage'), 'Proposal');
+    expect((await screen.findAllByText(/Boom happened/)).length).toBeGreaterThan(0);
+    act(() => go('/crm/deals/d2?pipelineId=p1'));
+    await screen.findByRole('heading', { name: 'Globex renewal' });
+    expect(screen.queryByText(/Boom happened/)).toBeNull();
   });
 });

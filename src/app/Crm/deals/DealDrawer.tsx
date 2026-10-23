@@ -22,6 +22,7 @@ import type { CrmSettings, Deal, Pipeline } from '@app/api/crm';
 import { ApiError } from '@app/api/client';
 import { useAction } from '@app/admin/useAction';
 import { useLoad } from '@app/admin/useLoad';
+import { isCode } from '@app/Crm/Settings/ConflictAlert';
 import { useSession } from '@app/session/SessionContext';
 import { CrmTimeline } from '@app/Crm/activity/CrmTimeline';
 import { ChannelChip } from '@app/Crm/common/ChannelChip';
@@ -83,6 +84,7 @@ export const DealDrawer: React.FunctionComponent<{
   React.useEffect(() => {
     setModal(null);
     setNotice(null);
+    action.reset();
     open.clearAlert();
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [dealId]);
@@ -100,7 +102,14 @@ export const DealDrawer: React.FunctionComponent<{
   const onStage = async (stageId: string) => {
     if (!deal) return;
     setNotice(null);
-    const moved = await action.run(() => moveDeal(token as string, ws, deal.id, { stageId }), moveMessage);
+    const moved = await action.run(
+      () => moveDeal(token as string, ws, deal.id, { stageId }),
+      (e) => {
+        // The shown stage is stale: fetch the deal as it is now.
+        if (isCode(e, 'VERSION_CONFLICT')) loaded.reload();
+        return moveMessage(e);
+      },
+    );
     if (moved) changed(moved);
   };
 
@@ -230,6 +239,7 @@ export const DealDrawer: React.FunctionComponent<{
           pipeline={pipeline}
           settings={settings}
           onClose={() => setModal(null)}
+          onConflict={() => loaded.reload()}
           onSaved={(saved) => {
             setModal(null);
             changed(saved);
