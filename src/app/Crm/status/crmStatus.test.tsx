@@ -1,8 +1,6 @@
 import * as React from 'react';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { act, screen, waitFor, within } from '@testing-library/react';
-import { useSession } from '@app/session/SessionContext';
-import { renderApp } from '../../../test/renderApp';
 import { callsTo, mockFetch } from '../../../test/fetchMock';
 import { crmStatus } from '../../../test/crm';
 import { AGENT_IN_BRAND, BRAND_A, BRAND_B, CUSTOMER_ADMIN, meAs, storeSession } from '../../../test/session';
@@ -13,6 +11,15 @@ vi.mock('@app/Crm/Pipelines/PipelinesPage', () => {
   return { PipelinesPage: () => <h1>Pipelines page</h1> };
 });
 
+/**
+ * The modules are loaded afresh for every test, so the mocked page module's factory (which counts imports) and
+ * React.lazy's cache start empty each time; the counter is then independent of test order.
+ */
+const fresh = async () => ({
+  ...(await import('../../../test/renderApp')),
+  ...(await import('@app/session/SessionContext')),
+});
+
 const STATUS_W1 = 'GET /api/workspaces/w1/crm/status';
 const crmCalls = (f: ReturnType<typeof mockFetch>) =>
   f.mock.calls.filter(([url]) => String(url).includes('/crm/')).length;
@@ -20,6 +27,7 @@ const nav = (): HTMLElement => document.getElementById('nav-primary') as HTMLEle
 
 describe('CRM status gate', () => {
   beforeEach(() => {
+    vi.resetModules();
     localStorage.clear();
     loaded.pipelines = 0;
     storeSession();
@@ -28,6 +36,7 @@ describe('CRM status gate', () => {
 
   it('navShowsCrmGroupWhenEnabled', async () => {
     mockFetch({ ...meAs(AGENT_IN_BRAND), [STATUS_W1]: { status: 200, body: crmStatus() } });
+    const { renderApp } = await fresh();
     renderApp('/');
     await screen.findByRole('link', { name: 'Pipelines', hidden: true });
     const links = within(nav())
@@ -39,8 +48,9 @@ describe('CRM status gate', () => {
 
   it('navHidesCrmWhenDisabled', async () => {
     const f = mockFetch({ ...meAs(AGENT_IN_BRAND), [STATUS_W1]: { status: 200, body: crmStatus({ enabled: false }) } });
-    renderApp('/');
-    await screen.findByRole('link', { name: 'Dashboard', hidden: true });
+    const { renderApp } = await fresh();
+    renderApp('/crm');
+    expect(await screen.findByText('CRM is not switched on for this brand')).toBeInTheDocument();
     await waitFor(() => expect(callsTo(f, STATUS_W1)).toBe(1));
     expect(screen.queryByRole('link', { name: 'Pipelines', hidden: true })).toBeNull();
     expect(crmCalls(f)).toBe(1);
@@ -50,6 +60,7 @@ describe('CRM status gate', () => {
   it('noStatusCallWithoutCrmView', async () => {
     const user = { ...AGENT_IN_BRAND, workspaces: [{ ...BRAND_A, authorities: ['inbox:view'] }] };
     const f = mockFetch(meAs(user));
+    const { renderApp } = await fresh();
     renderApp('/');
     await screen.findByRole('link', { name: 'Dashboard', hidden: true });
     expect(crmCalls(f)).toBe(0);
@@ -58,6 +69,7 @@ describe('CRM status gate', () => {
 
   it('directLinkWhenOffShowsOffState', async () => {
     const f = mockFetch({ ...meAs(AGENT_IN_BRAND), [STATUS_W1]: { status: 200, body: crmStatus({ enabled: false }) } });
+    const { renderApp } = await fresh();
     renderApp('/crm');
     expect(await screen.findByText('CRM is not switched on for this brand')).toBeInTheDocument();
     expect(screen.getByText('Ask your account manager to switch it on.')).toBeInTheDocument();
@@ -67,6 +79,7 @@ describe('CRM status gate', () => {
 
   it('directLinkWhenOnLoadsThePage', async () => {
     mockFetch({ ...meAs(AGENT_IN_BRAND), [STATUS_W1]: { status: 200, body: crmStatus() } });
+    const { renderApp } = await fresh();
     renderApp('/crm');
     expect(await screen.findByRole('heading', { name: 'Pipelines page' })).toBeInTheDocument();
     expect(loaded.pipelines).toBe(1);
@@ -79,6 +92,7 @@ describe('CRM status gate', () => {
       'GET /api/workspaces/w2/crm/status': { status: 200, body: crmStatus({ enabled: false }) },
     });
     let select: (id: string) => void = () => undefined;
+    const { renderApp, useSession } = await fresh();
     const Probe = (): null => {
       select = useSession().selectWorkspace;
       return null;
