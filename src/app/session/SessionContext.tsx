@@ -26,6 +26,8 @@ export interface Session {
   signIn(token: string, expiresAt: string): Promise<boolean>;
   signOut(notice?: string): Promise<void>;
   refreshUser(): Promise<void>;
+  /** Replaces the signed-in user with a fresher copy the caller already holds (e.g. an API answer). */
+  setUser(user: CurrentUser): void;
   showNotice(notice: string | null): void;
 }
 
@@ -174,6 +176,7 @@ export const SessionProvider: React.FunctionComponent<{ children: React.ReactNod
     signIn: establish,
     signOut,
     refreshUser,
+    setUser: (user) => setState((s) => ({ ...s, user })),
     showNotice: (notice) => setState((s) => ({ ...s, notice })),
   };
 

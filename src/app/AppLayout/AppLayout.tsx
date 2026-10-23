@@ -32,6 +32,7 @@ import {
 import { NavEntry, NavLinkEntry, isExpandable, useNavSections } from '@app/routes';
 import { BarsIcon, UserIcon } from '@patternfly/react-icons';
 import { userRoleLabel } from '@app/api/users';
+import { AvailabilitySwitch } from '@app/AppLayout/AvailabilitySwitch';
 import { WorkspaceSwitcher } from '@app/AppLayout/WorkspaceSwitcher';
 import { ThemeSwitcher } from '@app/theme/ThemeSwitcher';
 import { useSession } from '@app/session/SessionContext';
@@ -108,6 +109,9 @@ const AppLayout: React.FunctionComponent<IAppLayout> = ({ children }) => {
               </ToolbarItem>
               <ToolbarItem>
                 <ThemeSwitcher />
+              </ToolbarItem>
+              <ToolbarItem>
+                <AvailabilitySwitch />
               </ToolbarItem>
               <ToolbarItem>
                 <UserMenu />
