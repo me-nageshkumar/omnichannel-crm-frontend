@@ -1,5 +1,5 @@
 import * as React from 'react';
-import { useNavigate, useSearchParams } from 'react-router-dom';
+import { useLocation, useNavigate, useParams, useSearchParams } from 'react-router-dom';
 import {
   Alert,
   AlertActionCloseButton,
@@ -19,7 +19,6 @@ import {
 import { SyncAltIcon } from '@patternfly/react-icons';
 import { getBoard, getSettings, listPipelines, moveDeal, searchDeals } from '@app/api/crm';
 import type { Board, Deal, Lane, Page, Pipeline, Ref } from '@app/api/crm';
-import { ApiError } from '@app/api/client';
 import { messageFor } from '@app/api/messages';
 import { PageShell } from '@app/admin/PageShell';
 import { useLoad } from '@app/admin/useLoad';
@@ -33,6 +32,10 @@ import { DealCard } from '@app/Crm/deals/DealCard';
 import { DEAL_PAGE_SIZE, DealSort, DealTable } from '@app/Crm/deals/DealTable';
 import { DealFormModal } from '@app/Crm/deals/DealFormModal';
 import { NewContactModal } from '@app/Crm/deals/NewContactModal';
+import { DealDrawer } from '@app/Crm/deals/DealDrawer';
+import { moveMessage } from '@app/Crm/deals/moveMessage';
+
+export { moveMessage };
 
 const PER_STAGE = 25;
 const NEVER = <T,>(): Promise<T> => new Promise<T>(() => undefined);
@@ -51,16 +54,6 @@ function writeStored(key: string, value: string): void {
   } catch {
     // Remembering the pipeline is a convenience only.
   }
-}
-
-/** The error of a failed move in the user's words. */
-export function moveMessage(e: unknown): string {
-  if (e instanceof ApiError) {
-    if (e.status === 404) return 'This deal is no longer in a pipeline you can see.';
-    if (e.status === 409 && e.code === 'VERSION_CONFLICT') return 'Someone else moved this deal. Refresh to see the board.';
-    if (e.serverMessage) return e.serverMessage;
-  }
-  return messageFor(e);
 }
 
 /**
@@ -99,6 +92,8 @@ export const PipelinesPage: React.FunctionComponent = () => {
   const { status } = useCrmStatus();
   const canEdit = useCrmCan('crm:edit');
   const navigate = useNavigate();
+  const location = useLocation();
+  const { dealId } = useParams();
   const [params, setParams] = useSearchParams();
 
   const pipelines = useLoad((tk) => listPipelines(tk, ws), [ws]);
@@ -340,7 +335,7 @@ export const PipelinesPage: React.FunctionComponent = () => {
     body = board.error ? <Alert variant="danger" isInline title={board.error} /> : <Spinner aria-label="Loading board" />;
   }
 
-  return (
+  const pageContent = (
     <PageShell title="Pipelines" actions={actions}>
       {notice && (
         <Alert
@@ -437,5 +432,19 @@ export const PipelinesPage: React.FunctionComponent = () => {
         />
       )}
     </PageShell>
+  );
+
+  if (!settings.data) return pageContent;
+  return (
+    <DealDrawer
+      dealId={dealId}
+      pipelines={pipelines.data ?? []}
+      settings={settings.data}
+      // A reload hands the board a new lanes reference, so it settles on what the server now has.
+      onChanged={() => active.reload()}
+      onClose={() => navigate({ pathname: '/crm', search: location.search })}
+    >
+      {pageContent}
+    </DealDrawer>
   );
 };

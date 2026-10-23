@@ -1,0 +1,158 @@
+import * as React from 'react';
+import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
+import { screen, waitFor, within } from '@testing-library/react';
+import { useLocation } from 'react-router-dom';
+import { renderApp } from '../../../test/renderApp';
+import { mockFetch, requestTo } from '../../../test/fetchMock';
+import { crmSettings, sampleDeal } from '../../../test/crm';
+import { storeSession } from '../../../test/session';
+import { BASE, boardRoutes } from '../../../test/crmBoard';
+
+const Probe: React.FunctionComponent = () => {
+  const l = useLocation();
+  return <output aria-label="Where">{l.pathname + l.search}</output>;
+};
+
+const AUTH = ['crm:view', 'crm:edit', 'crm:delete'];
+const reasons = [
+  { key: 'price', label: 'Too expensive', color: null, position: 1, active: true, isDefault: false },
+  { key: 'old', label: 'Retired reason', color: null, position: 2, active: false, isDefault: false },
+];
+const routes = (extra = {}, authorities = AUTH) =>
+  boardRoutes(
+    {
+      [`GET ${BASE}/deals/d1`]: { status: 200, body: sampleDeal() },
+      [`GET ${BASE}/activities`]: { status: 200, body: { items: [], total: 0, page: 0 } },
+      [`GET ${BASE}/settings`]: { status: 200, body: crmSettings({ lostReasons: reasons }) },
+      ...extra,
+    },
+    { authorities },
+  );
+
+describe('Deal drawer', () => {
+  beforeEach(() => {
+    localStorage.clear();
+    storeSession();
+  });
+  afterEach(() => vi.unstubAllGlobals());
+
+  it('opensFromUrlAndShowsDetails', async () => {
+    mockFetch(routes());
+    renderApp('/crm/deals/d1?pipelineId=p1');
+    const title = await screen.findByRole('heading', { name: 'Acme order' });
+    expect(title).toBeInTheDocument();
+    expect(screen.getByRole('link', { name: 'Priya Shah' })).toHaveAttribute('href', '/crm/contacts/c1');
+    expect(screen.getByText('919800000001')).toBeInTheDocument();
+    expect(screen.getAllByText('₹1,500').length).toBeGreaterThan(0);
+    expect(screen.getByText('Amount').closest('.pf-v6-c-description-list__group')).toHaveTextContent('₹1,500');
+    expect(screen.getByRole('button', { name: 'Edit' })).toBeInTheDocument();
+    expect(screen.getByRole('button', { name: 'Open chat' })).toBeInTheDocument();
+  });
+
+  it('stageSelectMovesToEndOfLane', async () => {
+    const f = mockFetch(
+      routes({ [`POST ${BASE}/deals/d1/move`]: { status: 200, body: sampleDeal({ stageId: 's2', version: 3 }) } }),
+    );
+    const { user } = renderApp('/crm/deals/d1?pipelineId=p1');
+    await screen.findByRole('heading', { name: 'Acme order' });
+    await user.selectOptions(screen.getByLabelText('Stage'), 'Proposal');
+    await waitFor(() => expect(requestTo(f, `POST ${BASE}/deals/d1/move`)?.body).toEqual({ stageId: 's2' }));
+  });
+
+  it('closeLostSendsReason', async () => {
+    const f = mockFetch(
+      routes({ [`POST ${BASE}/deals/d1/close`]: { status: 200, body: sampleDeal({ status: 'LOST', stageId: 's3' }) } }),
+    );
+    const { user } = renderApp('/crm/deals/d1?pipelineId=p1');
+    await screen.findByRole('heading', { name: 'Acme order' });
+    await user.click(screen.getByRole('button', { name: 'Close deal' }));
+    const dialog = await screen.findByRole('dialog');
+    await user.click(within(dialog).getByRole('radio', { name: 'Lost' }));
+    const select = within(dialog).getByLabelText('Lost reason');
+    expect(within(select).queryByText('Retired reason')).toBeNull();
+    await user.selectOptions(select, 'Too expensive');
+    await user.click(within(dialog).getByRole('button', { name: 'Close deal' }));
+    await waitFor(() =>
+      expect(requestTo(f, `POST ${BASE}/deals/d1/close`)?.body).toEqual({ outcome: 'LOST', lostReason: 'price' }),
+    );
+  });
+
+  it('openChatNavigatesToInboxChat', async () => {
+    mockFetch(
+      routes({
+        [`GET ${BASE}/contacts/c1/communication`]: {
+          status: 200,
+          body: { phoneNumberId: 'pn1', number: '919800000001', phone: '919812345678', chatId: 'ch9', canChat: true },
+        },
+      }),
+    );
+    const { user } = renderApp('/crm/deals/d1?pipelineId=p1', <Probe />);
+    await screen.findByRole('heading', { name: 'Acme order' });
+    await user.click(screen.getByRole('button', { name: 'Open chat' }));
+    await waitFor(() => expect(screen.getByLabelText('Where')).toHaveTextContent('/inbox/chats/ch9'));
+  });
+
+  it('openChatWithoutChatOpensNewChat', async () => {
+    mockFetch(
+      routes({
+        [`GET ${BASE}/contacts/c1/communication`]: {
+          status: 200,
+          body: { phoneNumberId: 'pn1', number: '919800000001', phone: '919812345678', chatId: null, canChat: true },
+        },
+      }),
+    );
+    const { user } = renderApp('/crm/deals/d1?pipelineId=p1', <Probe />);
+    await screen.findByRole('heading', { name: 'Acme order' });
+    await user.click(screen.getByRole('button', { name: 'Open chat' }));
+    await waitFor(() =>
+      expect(screen.getByLabelText('Where')).toHaveTextContent('/inbox?newChat=pn1&phone=919812345678'),
+    );
+  });
+
+  it('openChatShowsAlertWhenNumberNotWorked', async () => {
+    mockFetch(
+      routes({
+        [`GET ${BASE}/contacts/c1/communication`]: {
+          status: 200,
+          body: { phoneNumberId: 'pn1', number: '919800000001', phone: '919812345678', chatId: null, canChat: false },
+        },
+      }),
+    );
+    const { user } = renderApp('/crm/deals/d1?pipelineId=p1');
+    await screen.findByRole('heading', { name: 'Acme order' });
+    await user.click(screen.getByRole('button', { name: 'Open chat' }));
+    expect(
+      await screen.findByText("You don't work this WhatsApp number, so the inbox won't open this chat."),
+    ).toBeInTheDocument();
+  });
+
+  it('deleteNeedsAuthority', async () => {
+    mockFetch(routes({}, ['crm:view', 'crm:edit']));
+    renderApp('/crm/deals/d1?pipelineId=p1');
+    await screen.findByRole('heading', { name: 'Acme order' });
+    expect(screen.queryByRole('button', { name: 'Delete' })).toBeNull();
+  });
+
+  it('deleteConfirmsThenRemoves', async () => {
+    const f = mockFetch(routes({ [`DELETE ${BASE}/deals/d1`]: { status: 204 } }));
+    const { user } = renderApp('/crm/deals/d1?pipelineId=p1', <Probe />);
+    await screen.findByRole('heading', { name: 'Acme order' });
+    await user.click(screen.getByRole('button', { name: 'Delete' }));
+    const dialog = await screen.findByRole('dialog');
+    await user.click(within(dialog).getByRole('button', { name: 'Delete' }));
+    await waitFor(() => expect(requestTo(f, `DELETE ${BASE}/deals/d1`)).toBeDefined());
+    await waitFor(() => expect(screen.getByLabelText('Where')).toHaveTextContent(/^\/crm\?pipelineId=p1$/));
+  });
+
+  it('missingDealShowsUnavailable', async () => {
+    mockFetch(
+      routes({ [`GET ${BASE}/deals/d1`]: { status: 404, body: { code: 'NOT_FOUND', message: 'No such deal' } } }),
+    );
+    renderApp('/crm/deals/d1?pipelineId=p1');
+    expect(
+      await screen.findByText(
+        "This deal is not available. It may have been deleted or moved to a pipeline you can't see.",
+      ),
+    ).toBeInTheDocument();
+  });
+});
