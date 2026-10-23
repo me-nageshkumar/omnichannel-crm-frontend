@@ -25,10 +25,14 @@ export const MoveChannelModal: React.FunctionComponent<{
   contact: CrmContact;
   numbers: CrmPhone[];
   onMoved(contact: CrmContact): void;
+  /** The server refused because the contact changed meanwhile; the caller fetches the fresh one. */
+  onConflict?(): void;
   onClose(): void;
-}> = ({ contact, numbers, onMoved, onClose }) => {
+}> = ({ contact, numbers, onMoved, onConflict, onClose }) => {
   const { token, workspace } = useSession();
   const ws = workspace?.id ?? '';
+  // The version the dialog opened on; a refetch while it is open must not advance it.
+  const [version] = React.useState(contact.version);
   const targets = numbers.filter((n) => n.phoneNumberId !== contact.channel?.phoneNumberId);
   const [target, setTarget] = React.useState(targets[0]?.phoneNumberId ?? '');
   const [reason, setReason] = React.useState('');
@@ -42,12 +46,14 @@ export const MoveChannelModal: React.FunctionComponent<{
         moveChannel(token as string, ws, contact.id, {
           toPhoneNumberId: target,
           ...(reason.trim() ? { reason: reason.trim() } : {}),
-          version: contact.version,
+          version,
         }),
       (e) => {
         if (e instanceof ApiError && e.status === 409 && e.code === 'CHANNEL_TAKEN') return CHANNEL_TAKEN_MESSAGE;
-        if (e instanceof ApiError && e.status === 409 && e.code === 'VERSION_CONFLICT')
+        if (e instanceof ApiError && e.status === 409 && e.code === 'VERSION_CONFLICT') {
+          onConflict?.();
           return 'Someone else changed this contact. Close this and open it again.';
+        }
         return messageFor(e);
       },
     );

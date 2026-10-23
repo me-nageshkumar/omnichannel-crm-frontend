@@ -46,7 +46,9 @@ export const CrmContactsPage: React.FunctionComponent = () => {
   const access = status?.pipelineAccess ?? [];
   const accessible = (pipelines.data ?? []).filter((p) => p.active && (access === 'ALL' || access.includes(p.id)));
   const phones = status?.phones ?? [];
-  const lifecycles = (settings.data?.lifecycleStatuses ?? []).filter((l) => l.active).sort((a, b) => a.position - b.position);
+  const lifecycles = (settings.data?.lifecycleStatuses ?? [])
+    .filter((l) => l.active)
+    .sort((a, b) => a.position - b.position);
 
   const lifecycle = params.get('lifecycle') ?? '';
   const ownerId = params.get('owner') ?? '';
@@ -101,7 +103,9 @@ export const CrmContactsPage: React.FunctionComponent = () => {
   React.useEffect(() => {
     const owners = (list.data?.items ?? []).flatMap((c) => (c.owner ? [c.owner] : []));
     setSeenOwners((cur) => {
-      const fresh = owners.filter((o, i) => !cur.some((x) => x.id === o.id) && owners.findIndex((x) => x.id === o.id) === i);
+      const fresh = owners.filter(
+        (o, i) => !cur.some((x) => x.id === o.id) && owners.findIndex((x) => x.id === o.id) === i,
+      );
       return fresh.length > 0 ? [...cur, ...fresh] : cur;
     });
   }, [list.data]);
@@ -153,9 +157,18 @@ export const CrmContactsPage: React.FunctionComponent = () => {
               </Tr>
             ) : (
               list.data.items.map((c) => (
-                <Tr key={c.id} isClickable onRowClick={() => navigate({ pathname: `/crm/contacts/${c.id}`, search: location.search })}>
+                <Tr
+                  key={c.id}
+                  isClickable
+                  onRowClick={() => navigate({ pathname: `/crm/contacts/${c.id}`, search: location.search })}
+                >
                   <Td dataLabel="Name">
-                    <Link to={{ pathname: `/crm/contacts/${c.id}`, search: location.search }}>{contactName(c)}</Link>
+                    <Link
+                      to={{ pathname: `/crm/contacts/${c.id}`, search: location.search }}
+                      onClick={(e) => e.stopPropagation()}
+                    >
+                      {contactName(c)}
+                    </Link>
                   </Td>
                   <Td dataLabel="WhatsApp number">{c.phone ?? '—'}</Td>
                   {showChannel && (

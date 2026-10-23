@@ -1,5 +1,7 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
-import { screen, waitFor, within } from '@testing-library/react';
+import { act, screen, waitFor, within } from '@testing-library/react';
+import * as React from 'react';
+import { useLocation, useNavigate } from 'react-router-dom';
 import { renderApp } from '../../../test/renderApp';
 import { mockFetch, requestTo } from '../../../test/fetchMock';
 import { crmSettings, sampleCrmContact } from '../../../test/crm';
@@ -29,7 +31,15 @@ describe('CRM contacts page', () => {
       routes({
         [SEARCH]: ({ body }) =>
           body.lifecycleStatus === 'customer'
-            ? page([sampleCrmContact({ id: 'c2', name: 'Ravi Kumar', lifecycleStatus: 'customer', openDealCount: 2, openDealAmount: 3000 })])
+            ? page([
+                sampleCrmContact({
+                  id: 'c2',
+                  name: 'Ravi Kumar',
+                  lifecycleStatus: 'customer',
+                  openDealCount: 2,
+                  openDealAmount: 3000,
+                }),
+              ])
             : page([sampleCrmContact({ lifecycleStatus: 'lead' })]),
       }),
     );
@@ -61,5 +71,38 @@ describe('CRM contacts page', () => {
     expect(
       await screen.findByText('No CRM contacts yet. Capture one from the inbox or add one from Pipelines.'),
     ).toBeInTheDocument();
+  });
+
+  it('nameLinkPushesExactlyOneHistoryEntry', async () => {
+    let back: () => void = () => undefined;
+    const Probe: React.FunctionComponent = () => {
+      const navigate = useNavigate();
+      back = () => navigate(-1);
+      return <output aria-label="Where">{useLocation().pathname}</output>;
+    };
+    mockFetch(
+      routes({
+        [`GET ${BASE}/contacts/c1`]: { status: 200, body: sampleCrmContact() },
+        [`GET ${BASE}/activities`]: { status: 200, body: { items: [], total: 0, page: 0 } },
+      }),
+    );
+    const { user } = renderApp('/crm/contacts', <Probe />);
+    await user.click(await screen.findByRole('link', { name: 'Priya Shah' }));
+    await waitFor(() => expect(screen.getByLabelText('Where')).toHaveTextContent('/crm/contacts/c1'));
+    act(() => back());
+    // A second push would leave us on the contact after one step back.
+    await waitFor(() => expect(screen.getByLabelText('Where')).toHaveTextContent(/^\/crm\/contacts$/));
+  });
+
+  it('rowClickOpensTheDrawer', async () => {
+    mockFetch(
+      routes({
+        [`GET ${BASE}/contacts/c1`]: { status: 200, body: sampleCrmContact() },
+        [`GET ${BASE}/activities`]: { status: 200, body: { items: [], total: 0, page: 0 } },
+      }),
+    );
+    const { user } = renderApp('/crm/contacts');
+    await user.click(await screen.findByText('919812345678'));
+    expect(await screen.findByRole('heading', { name: 'Priya Shah' })).toBeInTheDocument();
   });
 });

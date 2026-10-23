@@ -1,7 +1,8 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { screen, waitFor, within } from '@testing-library/react';
+import { act } from '@testing-library/react';
 import { renderApp } from '../../../test/renderApp';
-import { mockFetch, requestTo } from '../../../test/fetchMock';
+import { callsTo, mockFetch, requestTo } from '../../../test/fetchMock';
 import { crmSettings, sampleCrmContact, sampleDeal } from '../../../test/crm';
 import { storeSession } from '../../../test/session';
 import { BASE, boardRoutes } from '../../../test/crmBoard';
@@ -42,7 +43,10 @@ describe('CRM contact drawer', () => {
   it('lifecycleChangeSavesWithVersion', async () => {
     const f = mockFetch(
       routes({
-        [`PUT ${BASE}/contacts/c1`]: { status: 200, body: sampleCrmContact({ lifecycleStatus: 'customer', version: 4 }) },
+        [`PUT ${BASE}/contacts/c1`]: {
+          status: 200,
+          body: sampleCrmContact({ lifecycleStatus: 'customer', version: 4 }),
+        },
       }),
     );
     const { user } = renderApp('/crm/contacts/c1');
@@ -100,7 +104,9 @@ describe('CRM contact drawer', () => {
     await user.click(await screen.findByRole('button', { name: 'Move channel…' }));
     const dialog = await screen.findByRole('dialog');
     await user.click(within(dialog).getByRole('button', { name: 'Move' }));
-    expect(await within(dialog).findByText('This person already has a CRM contact on that number.')).toBeInTheDocument();
+    expect(
+      await within(dialog).findByText('This person already has a CRM contact on that number.'),
+    ).toBeInTheDocument();
   });
 
   it('deletedContactShowsNotice', async () => {
@@ -148,5 +154,150 @@ describe('CRM contact drawer', () => {
     const link = await screen.findByRole('link', { name: 'Bulk order' });
     expect(link).toHaveAttribute('href', '/crm/deals/d7?pipelineId=p1');
     expect(requestTo(f, `POST ${BASE}/deals/search`)?.body).toMatchObject({ crmContactId: 'c1' });
+  });
+
+  it('lifecycleVersionAdvancesAcrossChanges', async () => {
+    let n = 0;
+    const f = mockFetch(
+      routes({
+        [`PUT ${BASE}/contacts/c1`]: () => ({
+          status: 200,
+          body: sampleCrmContact({ lifecycleStatus: ++n === 1 ? 'customer' : 'lead', version: 3 + n }),
+        }),
+      }),
+    );
+    const { user } = renderApp('/crm/contacts/c1');
+    await screen.findByRole('heading', { name: 'Priya Shah' });
+    await user.selectOptions(await screen.findByLabelText('Lifecycle status'), 'Customer');
+    await waitFor(() => expect(requestTo(f, `PUT ${BASE}/contacts/c1`, 0)?.body.version).toBe(3));
+    await waitFor(() => expect(screen.getByLabelText('Lifecycle status')).toHaveValue('customer'));
+    await user.selectOptions(screen.getByLabelText('Lifecycle status'), 'Lead');
+    await waitFor(() =>
+      expect(requestTo(f, `PUT ${BASE}/contacts/c1`, 1)?.body).toEqual({ lifecycleStatus: 'lead', version: 4 }),
+    );
+  });
+
+  it('lifecycleConflictReloadsTheContact', async () => {
+    const f = mockFetch(
+      routes({ [`PUT ${BASE}/contacts/c1`]: { status: 409, body: { code: 'VERSION_CONFLICT', message: 'x' } } }),
+    );
+    const { user } = renderApp('/crm/contacts/c1');
+    await screen.findByRole('heading', { name: 'Priya Shah' });
+    await user.selectOptions(await screen.findByLabelText('Lifecycle status'), 'Customer');
+    await waitFor(() => expect(callsTo(f, CONTACT)).toBe(2));
+  });
+
+  describe('edit form', () => {
+    const edit = { [`POST ${BASE}/companies/search`]: { status: 200, body: { items: [], total: 0, page: 0 } } };
+    const contact = sampleCrmContact({ jobTitle: 'CEO', lifecycleStatus: 'lead', version: 3 });
+
+    it('sendsAllFieldsAndBlankClears', async () => {
+      const f = mockFetch(
+        routes({
+          ...edit,
+          [CONTACT]: { status: 200, body: contact },
+          [`PUT ${BASE}/contacts/c1`]: {
+            status: 200,
+            body: { ...contact, firstName: 'Priyanka', jobTitle: null, version: 4 },
+          },
+        }),
+      );
+      const { user } = renderApp('/crm/contacts/c1');
+      await user.click(await screen.findByRole('button', { name: 'Edit' }));
+      const dialog = await screen.findByRole('dialog');
+      await user.clear(within(dialog).getByLabelText('First name'));
+      await user.type(within(dialog).getByLabelText('First name'), 'Priyanka');
+      await user.clear(within(dialog).getByLabelText('Job title'));
+      await user.click(within(dialog).getByRole('button', { name: 'Save contact' }));
+      await waitFor(() =>
+        expect(requestTo(f, `PUT ${BASE}/contacts/c1`)?.body).toEqual({
+          firstName: 'Priyanka',
+          lastName: 'Shah',
+          email: '',
+          jobTitle: '',
+          companyId: '',
+          ownerId: '',
+          source: '',
+          version: 3,
+        }),
+      );
+      await waitFor(() => expect(screen.queryByRole('dialog')).toBeNull());
+    });
+
+    it('rejectsABadEmailWithoutSaving', async () => {
+      const f = mockFetch(routes({ ...edit, [CONTACT]: { status: 200, body: contact } }));
+      const { user } = renderApp('/crm/contacts/c1');
+      await user.click(await screen.findByRole('button', { name: 'Edit' }));
+      const dialog = await screen.findByRole('dialog');
+      await user.type(within(dialog).getByLabelText('Email'), 'nope');
+      await user.click(within(dialog).getByRole('button', { name: 'Save contact' }));
+      expect(await within(dialog).findByText('Enter a valid email address.')).toBeInTheDocument();
+      expect(requestTo(f, `PUT ${BASE}/contacts/c1`)).toBeUndefined();
+    });
+
+    it('conflictShowsCopyAndReloadsSoReopeningUsesTheFreshVersion', async () => {
+      let puts = 0;
+      let gets = 0;
+      const f = mockFetch(
+        routes({
+          ...edit,
+          [CONTACT]: () => ({ status: 200, body: { ...contact, version: ++gets === 1 ? 3 : 5 } }),
+          [`PUT ${BASE}/contacts/c1`]: () =>
+            ++puts === 1
+              ? { status: 409, body: { code: 'VERSION_CONFLICT', message: 'x' } }
+              : { status: 200, body: { ...contact, version: 6 } },
+        }),
+      );
+      const { user } = renderApp('/crm/contacts/c1');
+      await user.click(await screen.findByRole('button', { name: 'Edit' }));
+      let dialog = await screen.findByRole('dialog');
+      await user.click(within(dialog).getByRole('button', { name: 'Save contact' }));
+      expect(await within(dialog).findByText(/Someone else changed this contact/)).toBeInTheDocument();
+      await waitFor(() => expect(callsTo(f, CONTACT)).toBe(2));
+      await user.click(within(dialog).getByRole('button', { name: 'Cancel' }));
+      await user.click(await screen.findByRole('button', { name: 'Edit' }));
+      dialog = await screen.findByRole('dialog');
+      await user.click(within(dialog).getByRole('button', { name: 'Save contact' }));
+      await waitFor(() => expect(requestTo(f, `PUT ${BASE}/contacts/c1`, 1)?.body.version).toBe(5));
+    });
+
+    it('focusRefetchPausedWhileAFormIsOpen', async () => {
+      vi.useFakeTimers({ toFake: ['Date'], now: Date.now() });
+      try {
+        const f = mockFetch(routes({ ...edit, [CONTACT]: { status: 200, body: contact } }));
+        const { user } = renderApp('/crm/contacts/c1');
+        await user.click(await screen.findByRole('button', { name: 'Edit' }));
+        const dialog = await screen.findByRole('dialog');
+        const focus = () => {
+          vi.setSystemTime(Date.now() + 10_000);
+          act(() => {
+            document.dispatchEvent(new Event('visibilitychange'));
+          });
+        };
+        focus();
+        expect(callsTo(f, CONTACT)).toBe(1);
+        await user.click(within(dialog).getByRole('button', { name: 'Cancel' }));
+        focus();
+        await waitFor(() => expect(callsTo(f, CONTACT)).toBe(2));
+      } finally {
+        vi.useRealTimers();
+      }
+    });
+  });
+
+  it('moveChannelConflictReloadsAndKeepsTheOpenVersion', async () => {
+    let gets = 0;
+    const f = mockFetch(
+      routes({
+        [CONTACT]: () => ({ status: 200, body: sampleCrmContact({ version: ++gets === 1 ? 3 : 7 }) }),
+        [`POST ${BASE}/contacts/c1/move-channel`]: { status: 409, body: { code: 'VERSION_CONFLICT', message: 'x' } },
+      }),
+    );
+    const { user } = renderApp('/crm/contacts/c1');
+    await user.click(await screen.findByRole('button', { name: 'Move channel…' }));
+    const dialog = await screen.findByRole('dialog');
+    await user.click(within(dialog).getByRole('button', { name: 'Move' }));
+    await waitFor(() => expect(callsTo(f, CONTACT)).toBe(2));
+    expect(requestTo(f, `POST ${BASE}/contacts/c1/move-channel`)?.body.version).toBe(3);
   });
 });

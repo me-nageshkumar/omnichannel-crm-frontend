@@ -32,10 +32,14 @@ export const CrmContactFormModal: React.FunctionComponent<{
   /** People who may own the contact besides the user. */
   owners?: Ref[];
   onSaved(contact: CrmContact): void;
+  /** The server refused the save because the contact changed meanwhile; the caller fetches the fresh one. */
+  onConflict?(): void;
   onClose(): void;
-}> = ({ contact, settings, owners = [], onSaved, onClose }) => {
+}> = ({ contact, settings, owners = [], onSaved, onConflict, onClose }) => {
   const { token, workspace, user } = useSession();
   const ws = workspace?.id ?? '';
+  // The version the fields were seeded from: a refetch while the form is open must not make stale fields look current.
+  const [version] = React.useState(contact.version);
   const sources = settings.dealSources.filter((s) => s.active).sort((a, b) => a.position - b.position);
   const [firstName, setFirstName] = React.useState(contact.firstName ?? '');
   const [lastName, setLastName] = React.useState(contact.lastName ?? '');
@@ -58,11 +62,15 @@ export const CrmContactFormModal: React.FunctionComponent<{
   );
   const me: Ref | null = user ? { id: user.id, name: `${user.name} (you)` } : null;
   const ownerOptions = withValue(
-    withValue(owners.filter((o) => o.id !== me?.id), contact.owner && contact.owner.id !== me?.id ? contact.owner : null),
+    withValue(
+      owners.filter((o) => o.id !== me?.id),
+      contact.owner && contact.owner.id !== me?.id ? contact.owner : null,
+    ),
     me,
   ).sort((a, b) => a.name.localeCompare(b.name));
 
-  const emailError = checked && email.trim() !== '' && !EMAIL.test(email.trim()) ? 'Enter a valid email address.' : null;
+  const emailError =
+    checked && email.trim() !== '' && !EMAIL.test(email.trim()) ? 'Enter a valid email address.' : null;
   const err = (key: string, own: string | null = null) => own ?? action.fieldErrors[key] ?? null;
 
   const onSubmit = async (event?: React.FormEvent) => {
@@ -78,13 +86,14 @@ export const CrmContactFormModal: React.FunctionComponent<{
       companyId,
       ownerId,
       source,
-      version: contact.version,
+      version,
     };
     const saved = await action.run(
       () => updateContact(token as string, ws, contact.id, body),
       (e) => {
         if (isCode(e, 'VERSION_CONFLICT')) {
           setConflict(true);
+          onConflict?.();
           return '';
         }
         return (e as { serverMessage?: string }).serverMessage ?? 'Could not save the contact. Try again.';

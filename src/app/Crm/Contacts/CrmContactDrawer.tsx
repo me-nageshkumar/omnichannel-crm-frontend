@@ -18,6 +18,7 @@ import {
 import { getContact, searchDeals, updateContact } from '@app/api/crm';
 import type { CrmContact, CrmSettings, Ref } from '@app/api/crm';
 import { ApiError } from '@app/api/client';
+import { messageFor } from '@app/api/messages';
 import { useAction } from '@app/admin/useAction';
 import { useLoad } from '@app/admin/useLoad';
 import { useSession } from '@app/session/SessionContext';
@@ -108,7 +109,10 @@ export const CrmContactDrawer: React.FunctionComponent<{
     (t) => (contactId ? fetchContact(t, ws, contactId) : NEVER<CrmContact | null>()),
     [ws, contactId ?? ''],
   );
-  useRefetchOnFocus(() => contactId && loaded.reload());
+  // A refetch under an open form would hand it a newer version than the values it was filled from.
+  useRefetchOnFocus(() => {
+    if (contactId && !modal) loaded.reload();
+  });
   React.useEffect(() => {
     setModal(null);
     action.reset();
@@ -126,8 +130,15 @@ export const CrmContactDrawer: React.FunctionComponent<{
 
   const onLifecycle = async (key: string) => {
     if (!contact) return;
-    const saved = await action.run(() =>
-      updateContact(token as string, ws, contact.id, { lifecycleStatus: key, version: contact.version }),
+    const saved = await action.run(
+      () => updateContact(token as string, ws, contact.id, { lifecycleStatus: key, version: contact.version }),
+      (e) => {
+        if (e instanceof ApiError && e.status === 409 && e.code === 'VERSION_CONFLICT') {
+          loaded.reload();
+          return 'Someone else changed this contact. It has been refreshed; try again.';
+        }
+        return messageFor(e);
+      },
     );
     if (saved) changed(saved);
   };
@@ -190,7 +201,11 @@ export const CrmContactDrawer: React.FunctionComponent<{
           <Detail term="Last name">{contact.lastName ?? ''}</Detail>
           <Detail term="WhatsApp number">{contact.phone ?? ''}</Detail>
           <Detail term="Channel">
-            {contact.channel ? <ChannelChip number={contact.channel.number} label={labelOf(contact.channel.number)} /> : ''}
+            {contact.channel ? (
+              <ChannelChip number={contact.channel.number} label={labelOf(contact.channel.number)} />
+            ) : (
+              ''
+            )}
           </Detail>
           <Detail term="Email">{contact.email ?? ''}</Detail>
           <Detail term="Job title">{contact.jobTitle ?? ''}</Detail>
@@ -258,6 +273,7 @@ export const CrmContactDrawer: React.FunctionComponent<{
           contact={contact}
           settings={settings}
           owners={owners}
+          onConflict={() => loaded.reload()}
           onClose={() => setModal(null)}
           onSaved={(saved) => {
             setModal(null);
@@ -269,6 +285,7 @@ export const CrmContactDrawer: React.FunctionComponent<{
         <MoveChannelModal
           contact={contact}
           numbers={phones}
+          onConflict={() => loaded.reload()}
           onClose={() => setModal(null)}
           onMoved={(saved) => {
             setModal(null);
