@@ -217,6 +217,24 @@ describe('brand phone numbers page', () => {
     expect(within(await rowWith('+919928088743')).getByText('Support')).toBeVisible();
   });
 
+  it('setTeamShowsTheServersFieldError', async () => {
+    mockFetch(
+      routes([MAIN], {
+        [TEAMS]: { status: 200, body: [SALES, SUPPORT] },
+        [`PUT ${BASE}/p1/team`]: {
+          status: 400,
+          body: { code: 'VALIDATION', message: 'Invalid request', fields: { teamId: 'is not a team of this brand' } },
+        },
+      }),
+    );
+    const { user } = renderApp('/phone-numbers');
+    await rowAction(user, '+919928088743', 'Set team');
+    const dialog = await screen.findByRole('dialog');
+    await user.selectOptions(within(dialog).getByLabelText('Team'), 'Support');
+    await user.click(within(dialog).getByRole('button', { name: 'Save' }));
+    expect(await within(dialog).findByText('is not a team of this brand')).toBeVisible();
+  });
+
   it('clearTeamSendsNull', async () => {
     const owned = phoneNumber({ id: 'p2', number: '910000000002', team: { id: 't1', name: 'Sales' } });
     const fetch = mockFetch(

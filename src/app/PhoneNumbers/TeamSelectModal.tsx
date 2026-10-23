@@ -58,7 +58,9 @@ export const TeamSelectModal: React.FunctionComponent<{
               </FormSelect>
               <FormHelperText>
                 <HelperText>
-                  <HelperTextItem>Only this team&apos;s members and brand admins see the number in the inbox.</HelperTextItem>
+                  <HelperTextItem variant={action.fieldErrors.teamId ? 'error' : 'default'}>
+                    {action.fieldErrors.teamId ?? "Only this team's members and brand admins see the number in the inbox."}
+                  </HelperTextItem>
                 </HelperText>
               </FormHelperText>
             </FormGroup>

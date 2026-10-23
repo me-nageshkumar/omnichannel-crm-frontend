@@ -157,6 +157,32 @@ describe('inbox routing settings', () => {
     });
   });
 
+  it('showsTheServersErrorsForFieldsTheFormDoesNotEdit', async () => {
+    mockFetch(
+      routes({
+        [`PUT ${B}/inbox/settings/teams/t1`]: {
+          status: 400,
+          body: { code: 'VALIDATION', message: 'Invalid request', fields: { userId: 'is not a member of the team' } },
+        },
+        [PUT_DEFAULT]: {
+          status: 400,
+          body: { code: 'VALIDATION', message: 'Invalid request', fields: { routing: 'is not allowed here' } },
+        },
+      }),
+    );
+    const { user } = renderApp('/inbox/routing');
+    const support = await card('Support');
+    await user.click(support.getByRole('button', { name: 'Override' }));
+    await user.click(support.getByRole('button', { name: 'Advanced' }));
+    await user.selectOptions(support.getByLabelText('Always assign to one member'), 'Demo Agent');
+    await user.click(support.getByRole('button', { name: 'Save' }));
+    expect(await support.findByText('is not a member of the team')).toBeVisible();
+
+    const brand = await card('Brand default');
+    await user.click(brand.getByRole('button', { name: 'Save' }));
+    expect(await brand.findByText(/is not allowed here/)).toBeVisible();
+  });
+
   it('isNotFoundWithoutInboxSettings', async () => {
     mockFetch(routes({}, AGENT_IN_BRAND));
     renderApp('/inbox/routing');

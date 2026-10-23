@@ -47,7 +47,8 @@ export const InboxPage: React.FunctionComponent = () => {
   const meId = user?.id ?? '';
   const access = useAccess();
 
-  const numbers = useLoad((t) => listInboxNumbers(t, ws), [ws]);
+  // A failed reload (after a stream outage) keeps the last known numbers, so the inbox keeps working.
+  const numbers = useLoad((t) => listInboxNumbers(t, ws), [ws], { keepOnError: true });
   const visible = React.useMemo(() => numbers.data ?? [], [numbers.data]);
   // The stored selection, less any number the user can no longer see; an empty selection is every number.
   const [stored, setStored] = React.useState(() => readInboxFilter(meId, ws));
@@ -131,7 +132,13 @@ export const InboxPage: React.FunctionComponent = () => {
     list.apply(event);
     thread.apply(event);
   };
-  const { state: stream } = useInboxStream(selected, onEvent, () => {
+  // The open chat stays live even when its number is filtered out of the list.
+  const openNumberId = chat && chat.id === chatId ? chat.phoneNumberId : null;
+  const streamIds = React.useMemo(
+    () => (selected.length === 0 || !openNumberId || selected.includes(openNumberId) ? selected : [...selected, openNumberId]),
+    [selected, openNumberId],
+  );
+  const { state: stream } = useInboxStream(streamIds, onEvent, () => {
     list.reload();
     numbers.reload();
     thread.reload();
@@ -164,14 +171,20 @@ export const InboxPage: React.FunctionComponent = () => {
       <PageSection aria-label="Inbox">
         {numbers.error && <Alert variant="danger" isInline title={numbers.error} />}
         <EmptyState titleText={NO_NUMBERS} headingLevel="h2">
-          <EmptyStateBody>
-            Your teams work no WhatsApp number yet. An admin sets a number&apos;s team on the Phone numbers page.
-          </EmptyStateBody>
-          <EmptyStateFooter>
-            <Button variant="link" component={(props) => <Link {...props} to="/phone-numbers" />}>
-              Go to phone numbers
-            </Button>
-          </EmptyStateFooter>
+          {access.hasInWorkspace('phone-number:view') ? (
+            <>
+              <EmptyStateBody>
+                Your teams work no WhatsApp number yet. An admin sets a number&apos;s team on the Phone numbers page.
+              </EmptyStateBody>
+              <EmptyStateFooter>
+                <Button variant="link" component={(props) => <Link {...props} to="/phone-numbers" />}>
+                  Go to phone numbers
+                </Button>
+              </EmptyStateFooter>
+            </>
+          ) : (
+            <EmptyStateBody>Your teams work no WhatsApp number yet. Ask an admin to set your team on a number.</EmptyStateBody>
+          )}
         </EmptyState>
       </PageSection>
     );

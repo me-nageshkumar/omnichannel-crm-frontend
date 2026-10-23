@@ -13,7 +13,9 @@ export const NumberFilter: React.FunctionComponent<{
   const all = selected.length === 0;
   const text = all ? 'All numbers' : `${selected.length} of ${numbers.length} numbers`;
   const toggle = (id: string) => {
-    const next = selected.includes(id) ? selected.filter((x) => x !== id) : [...selected, id];
+    // "All" shows every box checked, so a click there unchecks that one number and keeps the rest
+    const current = all ? numbers.map((n) => n.id) : selected;
+    const next = current.includes(id) ? current.filter((x) => x !== id) : [...current, id];
     // selecting every number is the same as selecting none: show all, store nothing
     onChange(next.length === numbers.length ? [] : next);
   };

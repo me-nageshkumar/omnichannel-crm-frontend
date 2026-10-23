@@ -9,6 +9,12 @@ describe('messageFor', () => {
     );
   });
 
+  it('says the assignee cannot see the chat number', () => {
+    expect(messageFor(new ApiError(422, 'ASSIGNEE_CANNOT_SEE_NUMBER'))).toBe(
+      "This person cannot see the chat's number. Add them to the team that owns it first.",
+    );
+  });
+
   it('says when a number is not on WhatsApp', () => {
     expect(messageFor(new ApiError(404, 'NOT_ON_WHATSAPP'))).toBe('This number is not on WhatsApp.');
   });

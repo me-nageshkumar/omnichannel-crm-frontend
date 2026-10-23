@@ -41,7 +41,8 @@ export const RoutingSettingsCard: React.FunctionComponent<{
   const [editing, setEditing] = React.useState(!setting.inherited);
   const [advanced, setAdvanced] = React.useState(Boolean(setting.userId));
   const [saved, setSaved] = React.useState(false);
-  const action = useAction(['stickyDays', 'userId', 'routing']);
+  // Only the fields this card renders an error under; any other field the server names goes to the banner.
+  const action = useAction(members ? ['stickyDays', 'userId'] : ['stickyDays']);
   React.useEffect(() => {
     setDraft(setting);
     setDays(String(setting.stickyDays));
@@ -120,7 +121,9 @@ export const RoutingSettingsCard: React.FunctionComponent<{
                 </FormSelect>
                 <FormHelperText>
                   <HelperText>
-                    <HelperTextItem>When that member is away, chats wait in the team queue.</HelperTextItem>
+                    <HelperTextItem variant={action.fieldErrors.userId ? 'error' : 'default'}>
+                      {action.fieldErrors.userId ?? 'When that member is away, chats wait in the team queue.'}
+                    </HelperTextItem>
                   </HelperText>
                 </FormHelperText>
               </FormGroup>

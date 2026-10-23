@@ -531,7 +531,8 @@ describe('inbox page', () => {
     await list();
     await streamOpened(fetch);
     await user.click(await filterToggle());
-    await user.click(await screen.findByRole('checkbox', { name: /\+910000000002/ }));
+    // unchecking one number while all are shown keeps the others
+    await user.click(await screen.findByRole('checkbox', { name: /\+919928088743/ }));
     await waitFor(() => expect(callsTo(fetch, LIST)).toBe(2));
     const second = fetch.mock.calls.filter(([u]) => String(u).includes('/inbox/chats?')).map(([u]) => String(u))[1];
     expect(second).toContain('phoneNumberIds=p2');
@@ -540,6 +541,50 @@ describe('inbox page', () => {
     expect(streams[1]).toContain('phoneNumberIds=p2');
     expect(await filterToggle()).toHaveTextContent('1 of 2 numbers');
     expect(readInboxFilter('u4', 'w1')).toEqual(['p2']);
+  });
+
+  it('openChatOnADeselectedNumberStaysLive', async () => {
+    const { routes: r } = routes({ [NUMBERS]: { status: 200, body: [NUMBER, SUPPORT] } });
+    const fetch = mockFetch(r);
+    const { user } = renderApp('/inbox/chats/c1');
+    await list();
+    await screen.findByText('Hello from Asha', { selector: 'div' });
+    await streamOpened(fetch);
+    await user.click(await filterToggle());
+    // c1 is on p1: filtering to p2 must not cut the open chat off its events
+    await user.click(await screen.findByRole('checkbox', { name: /\+919928088743/ }));
+    await streamOpened(fetch, 2);
+    const streams = fetch.mock.calls.map(([u]) => String(u)).filter((u) => u.includes('/inbox/stream'));
+    const ids = new URL(streams[1], 'http://localhost').searchParams.get('phoneNumberIds')?.split(',') ?? [];
+    expect(ids.sort()).toEqual(['p1', 'p2']);
+  });
+
+  it('aFailedNumbersReloadKeepsTheInboxWorking', async () => {
+    vi.useFakeTimers({ shouldAdvanceTime: true });
+    const streams: Array<ReturnType<typeof streamMock>> = [];
+    let numberCalls = 0;
+    const { routes: r } = routes({
+      [NUMBERS]: () => (numberCalls++ === 0 ? { status: 200, body: [NUMBER, SUPPORT] } : { status: 500, body: {} }),
+      [STREAM]: () => {
+        const s = streamMock();
+        streams.push(s);
+        return s.response;
+      },
+    });
+    const fetch = mockFetch(r);
+    renderApp('/inbox');
+    await list();
+    await streamOpened(fetch);
+    act(() => streams[0].close());
+    await act(() => vi.advanceTimersByTimeAsync(1100));
+    await streamOpened(fetch, 2);
+    await waitFor(() => expect(callsTo(fetch, NUMBERS)).toBe(2));
+    // the last known numbers stay: the filter, the list and the stream are still there
+    expect(await filterToggle()).toHaveTextContent('All numbers');
+    expect(within(await list()).getAllByRole('listitem')).toHaveLength(2);
+    act(() => streams[1].close());
+    await act(() => vi.advanceTimersByTimeAsync(1100));
+    await streamOpened(fetch, 3);
   });
 
   it('staleFilterFallsBackToAll', async () => {
@@ -564,6 +609,15 @@ describe('inbox page', () => {
     expect(callsTo(fetch, LIST)).toBe(0);
     expect(callsTo(fetch, STREAM)).toBe(0);
     expect(screen.queryByRole('button', { name: 'New chat' })).toBeNull();
+  });
+
+  it('emptyStateTellsAgentsToAskAnAdmin', async () => {
+    const { routes: r } = routes({ [NUMBERS]: { status: 200, body: [] } }, AGENT_IN_BRAND);
+    mockFetch(r);
+    renderApp('/inbox');
+    expect(await screen.findByText('No numbers assigned to your teams yet')).toBeVisible();
+    expect(screen.getByText(/Ask an admin to set your team on a number/)).toBeVisible();
+    expect(screen.queryByRole('link', { name: 'Go to phone numbers' })).toBeNull();
   });
 
   it('guestNumberIsMarkedAndNotStartable', async () => {
