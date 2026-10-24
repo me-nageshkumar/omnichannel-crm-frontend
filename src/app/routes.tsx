@@ -29,7 +29,7 @@ import { InboxRedirect } from '@app/Inbox/InboxRedirect';
 import { InboxPage } from '@app/Inbox/InboxPage';
 import { RoutingSettingsPage } from '@app/Inbox/RoutingSettingsPage';
 import { crmRoutes } from '@app/Crm/routes';
-import { useCrmStatus } from '@app/Crm/status/CrmStatusContext';
+import { useCrmReminderCount, useCrmStatus } from '@app/Crm/status/CrmStatusContext';
 import { Access, useAccess } from '@app/session/useAccess';
 
 export interface IAppRoute {
@@ -293,11 +293,14 @@ export function useAllowedRoutes(): IAppRoute[] {
 export function useNavSections(): NavEntry[][] {
   const allowed = new Set(useAllowedRoutes().map((r) => r.path));
   const crmOn = useCrmStatus().status?.enabled === true;
+  const reminders = useCrmReminderCount();
+  const label = (link: NavLinkEntry): NavLinkEntry =>
+    link.path === '/crm/tasks' && reminders > 0 ? { ...link, label: `${link.label} (${reminders})` } : link;
   return NAV_SECTIONS.map((section) =>
     section.flatMap((entry): NavEntry[] => {
       if (!crmOn && entry.label === 'CRM') return [];
       if (!isExpandable(entry)) return allowed.has(entry.path) ? [entry] : [];
-      const links = entry.links.filter((link) => allowed.has(link.path));
+      const links = entry.links.filter((link) => allowed.has(link.path)).map(label);
       return links.length > 1 ? [{ ...entry, links }] : links;
     }),
   ).filter((section) => section.length > 0);

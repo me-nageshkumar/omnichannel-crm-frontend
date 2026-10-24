@@ -400,6 +400,14 @@ export interface TaskInput {
   version?: number;
 }
 
+/** A due follow-up the assignee has not dismissed. */
+export interface Reminder {
+  taskId: string;
+  title: string;
+  dueAt: string | null;
+  target: Task['target'];
+}
+
 export interface TaskCounts {
   overdue: number;
   today: number;
@@ -609,6 +617,10 @@ export const myTasks = (
 ) => get<Task[]>(token, `${base(ws)}/tasks/mine${query({ ...q })}`);
 export const myTaskCounts = (token: string, ws: string, q: { tz: string; assigneeId?: string }) =>
   get<TaskCounts>(token, `${base(ws)}/tasks/mine/counts${query({ ...q })}`);
+
+export const listReminders = (token: string, ws: string) => get<Reminder[]>(token, `${base(ws)}/reminders`);
+export const markReminderSeen = (token: string, ws: string, taskId: string) =>
+  send<void>(token, 'POST', `${base(ws)}/reminders/${enc(taskId)}/seen`);
 
 const switchPath = (customerId: string, ws: string) => `/api/customers/${enc(customerId)}/workspaces/${enc(ws)}/crm`;
 export const getCrmSwitch = (token: string, customerId: string, ws: string) =>

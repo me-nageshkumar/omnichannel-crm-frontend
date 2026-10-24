@@ -1,6 +1,7 @@
 import * as React from 'react';
 import { CrmStatus, getStatus } from '@app/api/crm';
 import { useSession } from '@app/session/SessionContext';
+import { CrmReminders } from '@app/Crm/tasks/CrmReminders';
 
 interface CrmStatusValue {
   /** The brand's CRM status; null while unknown, without the CRM view authority, or when loading failed. */
@@ -13,6 +14,7 @@ interface CrmStatusValue {
 
 const NONE: CrmStatusValue = { status: null, loading: false, error: false, reload: () => undefined };
 const CrmStatusContext = React.createContext<CrmStatusValue>(NONE);
+const ReminderCountContext = React.createContext(0);
 
 /** Loads the current brand's CRM status once per brand (and on reload); a brand's users without crm:view make no call. */
 export const CrmStatusProvider: React.FunctionComponent<{ children: React.ReactNode }> = ({ children }) => {
@@ -44,8 +46,24 @@ export const CrmStatusProvider: React.FunctionComponent<{ children: React.ReactN
     return { status: current ? loaded.status : null, loading: !current, error: current && loaded.error, reload };
   }, [allowed, loaded, key, reload]);
 
-  return <CrmStatusContext.Provider value={value}>{children}</CrmStatusContext.Provider>;
+  const [reminders, setReminders] = React.useState(0);
+  const remindersOn = value.status?.enabled === true;
+  React.useEffect(() => {
+    if (!remindersOn) setReminders(0);
+  }, [remindersOn]);
+
+  return (
+    <CrmStatusContext.Provider value={value}>
+      <ReminderCountContext.Provider value={remindersOn ? reminders : 0}>
+        {children}
+        {remindersOn && <CrmReminders key={wsId ?? ''} onCount={setReminders} />}
+      </ReminderCountContext.Provider>
+    </CrmStatusContext.Provider>
+  );
 };
+
+/** How many task reminders of the signed-in user are due and not yet seen, as of the last poll. */
+export const useCrmReminderCount = (): number => React.useContext(ReminderCountContext);
 
 export const useCrmStatus = (): CrmStatusValue => React.useContext(CrmStatusContext);
 
