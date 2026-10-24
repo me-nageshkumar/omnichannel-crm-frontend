@@ -21,6 +21,8 @@ export class ApiError extends Error {
     public readonly number?: string,
     /** The saved filters and campaigns that use the item, on FILTER_IN_USE. */
     public readonly usedBy?: { filters: NamedRef[]; campaigns: NamedRef[] },
+    /** The server's string-valued extras of a coded error, e.g. {@code stageId} and {@code count} on STAGE_HAS_DEALS. */
+    public readonly extra?: Record<string, string>,
   ) {
     super(code ?? `HTTP ${status}`);
     this.name = 'ApiError';
@@ -45,6 +47,22 @@ export function signalUnauthorized(): void {
   onUnauthorized?.();
 }
 
+const KNOWN_KEYS = new Set([
+  'error',
+  'code',
+  'message',
+  'field',
+  'fields',
+  'roles',
+  'number',
+  'retryAfterSeconds',
+  'filters',
+  'campaigns',
+  'status',
+  'timestamp',
+  'path',
+]);
+
 /** Turns a non-2xx reply into the {@link ApiError} callers handle; also signals an expired session. */
 function failure(res: Response, path: string, text: string): ApiError {
   let data: Record<string, unknown> | undefined;
@@ -68,7 +86,22 @@ function failure(res: Response, path: string, text: string): ApiError {
           campaigns: Array.isArray(data?.campaigns) ? (data.campaigns as NamedRef[]) : [],
         }
       : undefined;
-  return new ApiError(res.status, code, retry, field, fields, roles, serverMessage, number, usedBy);
+  const extra: Record<string, string> = {};
+  for (const [k, v] of Object.entries(data ?? {})) {
+    if (!KNOWN_KEYS.has(k) && (typeof v === 'string' || typeof v === 'number')) extra[k] = String(v);
+  }
+  return new ApiError(
+    res.status,
+    code,
+    retry,
+    field,
+    fields,
+    roles,
+    serverMessage,
+    number,
+    usedBy,
+    Object.keys(extra).length > 0 ? extra : undefined,
+  );
 }
 
 export async function apiFetch<T>(path: string, init: ApiFetchInit = {}): Promise<T> {

@@ -1,5 +1,5 @@
 import * as React from 'react';
-import { Link, useNavigate, useParams } from 'react-router-dom';
+import { Link, useLocation, useNavigate, useParams, useSearchParams } from 'react-router-dom';
 import {
   Alert,
   Button,
@@ -11,6 +11,8 @@ import {
   Spinner,
 } from '@patternfly/react-core';
 import { useLoad } from '@app/admin/useLoad';
+import { PanelErrorBoundary } from '@app/Crm/common/PanelErrorBoundary';
+import { useCrmStatus } from '@app/Crm/status/CrmStatusContext';
 import { ApiError } from '@app/api/client';
 import { ChatView, InboxEvent, getChat, listInboxNumbers, markRead } from '@app/api/inbox';
 import { messageFor } from '@app/api/messages';
@@ -28,6 +30,44 @@ import { useThread } from '@app/Inbox/useThread';
 import { useSession } from '@app/session/SessionContext';
 import { useAccess } from '@app/session/useAccess';
 import { useDocumentTitle } from '@app/utils/useDocumentTitle';
+
+// The panel is its own chunk, fetched only for a brand with the CRM and an open chat.
+const lazyPanel = () =>
+  React.lazy(() => import('@app/Crm/inbox/CrmChatPanel').then((m) => ({ default: m.CrmChatPanel })));
+
+// Below this the thread would be squeezed by the list and the panel, so the panel becomes a drawer.
+const NARROW = '(max-width: 1099px)';
+const panelKey = (userId: string) => `crm.panel.${userId}`;
+const readCollapsed = (userId: string): boolean => {
+  try {
+    return localStorage.getItem(panelKey(userId)) === 'collapsed';
+  } catch {
+    return false;
+  }
+};
+const writeCollapsed = (userId: string, collapsed: boolean) => {
+  try {
+    localStorage.setItem(panelKey(userId), collapsed ? 'collapsed' : 'open');
+  } catch {
+    // The choice just does not outlive this page.
+  }
+};
+/** Whether the viewport is narrower than 1100px (a drawer instead of a column). */
+function useNarrow(): boolean {
+  const query = React.useMemo(
+    () => (typeof window !== 'undefined' && window.matchMedia ? window.matchMedia(NARROW) : null),
+    [],
+  );
+  const [narrow, setNarrow] = React.useState(query?.matches ?? false);
+  React.useEffect(() => {
+    if (!query) return undefined;
+    const on = (e: MediaQueryListEvent) => setNarrow(e.matches);
+    setNarrow(query.matches);
+    query.addEventListener('change', on);
+    return () => query.removeEventListener('change', on);
+  }, [query]);
+  return narrow;
+}
 
 const GAP = 'var(--pf-t--global--spacer--sm)';
 const BORDER = '1px solid var(--pf-t--global--border--color--default)';
@@ -78,6 +118,18 @@ export const InboxPage: React.FunctionComponent = () => {
   const [notice, setNotice] = React.useState<string | null>(null);
   const [readId, setReadId] = React.useState<string | null>(null);
   const [starting, setStarting] = React.useState(false);
+  const [prefill, setPrefill] = React.useState<{ numberId: string; phone: string } | null>(null);
+  const crm = useCrmStatus();
+  const crmOn = crm.status?.enabled === true;
+  const narrow = useNarrow();
+  // A new lazy component per retry: a failed import is cached by React.lazy.
+  const [panelTry, setPanelTry] = React.useState(0);
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  const CrmChatPanelLazy = React.useMemo(lazyPanel, [panelTry]);
+  const [collapsed, setCollapsed] = React.useState(() => readCollapsed(meId));
+  const [drawerOpen, setDrawerOpen] = React.useState(false);
+  const [params] = useSearchParams();
+  const location = useLocation();
   const openId = React.useRef(chatId);
   openId.current = chatId;
 
@@ -156,6 +208,26 @@ export const InboxPage: React.FunctionComponent = () => {
     }
   }, ready);
 
+  // A CRM link (?newChat=<phoneNumberId>&phone=<phone>) opens the New chat modal filled in, once, and is then consumed.
+  const wantedNumber = params.get('newChat');
+  const wantedPhone = params.get('phone');
+  const canStart = access.hasInWorkspace('inbox:send');
+  const consumed = React.useRef<string | null>(null);
+  React.useEffect(() => {
+    if (wantedNumber === null || !numbers.data || consumed.current === `${wantedNumber}#${wantedPhone}`) return;
+    // Once per link: the navigation below lands a render later, and must not be started again meanwhile.
+    consumed.current = `${wantedNumber}#${wantedPhone}`;
+    if (canStart && startable.some((n) => n.id === wantedNumber)) {
+      setPrefill({ numberId: wantedNumber, phone: wantedPhone ?? '' });
+      setStarting(true);
+    }
+    const next = new URLSearchParams(params);
+    next.delete('newChat');
+    next.delete('phone');
+    // navigate() rather than setSearchParams(): an empty search must really drop the query, not keep it.
+    navigate({ pathname: location.pathname, search: next.toString() }, { replace: true });
+  }, [wantedNumber, wantedPhone, numbers.data, canStart, startable, params, navigate, location.pathname]);
+
   const pick = (picked: ChatView) => {
     setNotice(null);
     navigate(`/inbox/chats/${encodeURIComponent(picked.id)}`);
@@ -165,6 +237,18 @@ export const InboxPage: React.FunctionComponent = () => {
   const openNumber = open ? visible.find((n) => n.id === open.phoneNumberId) : undefined;
   // Until the numbers are known, do not tell the agent the number is down.
   const numberConnected = openNumber ? openNumber.status === 'CONNECTED' : true;
+
+  const showPanel = crmOn && open !== null;
+  const toggle = () => {
+    if (narrow) {
+      setDrawerOpen((o) => !o);
+    } else {
+      const next = !collapsed;
+      setCollapsed(next);
+      writeCollapsed(meId, next);
+    }
+  };
+  const panelShown = showPanel && (narrow ? drawerOpen : !collapsed);
 
   if (numbers.data && visible.length === 0) {
     return (
@@ -223,13 +307,18 @@ export const InboxPage: React.FunctionComponent = () => {
               New chat
             </Button>
           )}
+          {showPanel && (
+            <Button variant="control" size="sm" aria-label="CRM panel" aria-pressed={panelShown} onClick={toggle}>
+              CRM
+            </Button>
+          )}
           {stream === 'retrying' && (
             <Label isCompact color="orange">
               Reconnecting…
             </Label>
           )}
         </div>
-        <div style={{ flex: '1 1 0', minHeight: 0, display: 'flex' }}>
+        <div style={{ flex: '1 1 0', minHeight: 0, display: 'flex', position: 'relative' }}>
           <div style={{ flex: '0 0 360px', minHeight: 0, borderInlineEnd: BORDER }}>
             <ChatList
               numbers={selected.length > 0 ? visible.filter((n) => selected.includes(n.id)) : visible}
@@ -240,7 +329,15 @@ export const InboxPage: React.FunctionComponent = () => {
               list={list}
             />
           </div>
-          <div style={{ flex: '1 1 0', minWidth: 0, minHeight: 0, display: 'flex', flexDirection: 'column' }}>
+          <div
+            style={{
+              flex: '1 1 0',
+              minWidth: panelShown && !narrow ? 320 : 0,
+              minHeight: 0,
+              display: 'flex',
+              flexDirection: 'column',
+            }}
+          >
             {stream === 'failed' && (
               <Alert
                 variant="danger"
@@ -278,12 +375,44 @@ export const InboxPage: React.FunctionComponent = () => {
               !openError && <Spinner aria-label="Loading chat" style={{ margin: 'auto' }} />
             )}
           </div>
+          {panelShown && open && (
+            <aside
+              aria-label="CRM"
+              style={{
+                ...(narrow
+                  ? {
+                      position: 'absolute',
+                      insetBlock: 0,
+                      insetInlineEnd: 0,
+                      width: 'min(320px, 100%)',
+                      zIndex: 10,
+                      boxShadow: 'var(--pf-t--global--box-shadow--lg)',
+                    }
+                  : { flex: '0 0 320px' }),
+                minHeight: 0,
+                overflowY: 'auto',
+                background: 'var(--pf-t--global--background--color--primary--default)',
+                borderInlineStart: BORDER,
+              }}
+            >
+              <PanelErrorBoundary onRetry={() => setPanelTry((t) => t + 1)}>
+                <React.Suspense fallback={<Spinner size="lg" aria-label="Loading CRM" style={{ margin: GAP }} />}>
+                  <CrmChatPanelLazy chatId={open.id} />
+                </React.Suspense>
+              </PanelErrorBoundary>
+            </aside>
+          )}
         </div>
       </div>
       {starting && (
         <NewChatModal
           numbers={startable}
-          onClose={() => setStarting(false)}
+          initialNumberId={prefill?.numberId}
+          initialPhone={prefill?.phone}
+          onClose={() => {
+            setStarting(false);
+            setPrefill(null);
+          }}
           onStarted={(started) => {
             setStarting(false);
             setNotice(null);

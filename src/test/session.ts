@@ -39,6 +39,12 @@ export const BRAND_CODES = [
   'campaign:view',
   'campaign:manage',
   'campaign:settings',
+  'crm:view',
+  'crm:view-all',
+  'crm:edit',
+  'crm:delete',
+  'crm:settings',
+  'crm:export',
 ];
 
 const base = {
@@ -76,6 +82,7 @@ export const ACCOUNT_MANAGER: CurrentUser = {
     'customer:manage',
     'phone-number:view-all',
     'phone-number:manage-all',
+    'crm:enable',
   ],
 };
 
@@ -153,6 +160,8 @@ export const AGENT_IN_BRAND: CurrentUser = {
         'inbox:view',
         'inbox:view-queue',
         'inbox:send',
+        'crm:view',
+        'crm:edit',
       ],
     },
   ],

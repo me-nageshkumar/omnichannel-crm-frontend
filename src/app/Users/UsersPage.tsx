@@ -18,6 +18,8 @@ import { PersonModal, personOf } from '@app/admin/PersonModal';
 import { ResetPasswordModal } from '@app/admin/ResetPasswordModal';
 import { EnabledLabel } from '@app/admin/EnabledLabel';
 import { TemporaryPasswordModal } from '@app/admin/TemporaryPasswordModal';
+import { UserPipelinesModal } from '@app/Crm/access/UserPipelinesModal';
+import { useCrmCan, useCrmStatus } from '@app/Crm/status/CrmStatusContext';
 import { useAction } from '@app/admin/useAction';
 import { useLoad } from '@app/admin/useLoad';
 import { useSession } from '@app/session/SessionContext';
@@ -31,6 +33,7 @@ type Dialog =
   | { kind: 'remove'; user: WorkspaceUser }
   | { kind: 'toggle'; user: WorkspaceUser }
   | { kind: 'toggleBrand'; user: WorkspaceUser }
+  | { kind: 'crmPipelines'; user: WorkspaceUser }
   | { kind: 'password'; username: string; password: string };
 
 const roleHere = (u: UserSummary, workspaceId: string) =>
@@ -49,6 +52,8 @@ export const UsersPage: React.FunctionComponent = () => {
     (t) => (canManage ? workspaceAssignableRoles(t, workspaceId) : Promise.resolve([])),
     [workspaceId, canManage],
   );
+  const crmEnabled = useCrmStatus().status?.enabled === true;
+  const canAssignPipelines = useCrmCan('crm:settings') && crmEnabled;
   const [dialog, setDialog] = React.useState<Dialog | null>(null);
   const confirm = useAction();
   const t = token as string;
@@ -109,6 +114,7 @@ export const UsersPage: React.FunctionComponent = () => {
         onClick: open({ kind: 'toggleBrand', user: u }),
       });
     }
+    if (canAssignPipelines) items.push({ title: 'CRM pipelines…', onClick: open({ kind: 'crmPipelines', user: u }) });
     if (canDisable) items.push({ title: u.active ? 'Disable' : 'Enable', onClick: open({ kind: 'toggle', user: u }) });
     return items;
   };
@@ -260,6 +266,7 @@ export const UsersPage: React.FunctionComponent = () => {
             : `${dialog.user.name} loses access to ${workspace?.name} until enabled. Their other brands are not affected.`}
         </ConfirmModal>
       )}
+      {dialog?.kind === 'crmPipelines' && <UserPipelinesModal user={dialog.user} onClose={() => setDialog(null)} />}
       {dialog?.kind === 'password' && (
         <TemporaryPasswordModal username={dialog.username} password={dialog.password} onClose={() => setDialog(null)} />
       )}
