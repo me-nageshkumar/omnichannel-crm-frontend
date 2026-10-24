@@ -36,12 +36,13 @@ export const CrmNotes: React.FunctionComponent<{ target: { type: TaskTargetType;
   const ws = workspace?.id ?? '';
   const canDelete = useCrmCan('crm:delete');
   const attachments = useCrmStatus().status?.attachmentsEnabled !== false;
-  const [pages, setPages] = React.useState(1);
   const loaded = useLoad(
-    (t) => listNotes(t, ws, { targetType: target.type, targetId: target.id, page: 0, size: PAGE * pages }),
-    [ws, target.type, target.id, pages],
+    (t) => listNotes(t, ws, { targetType: target.type, targetId: target.id, page: 0, size: PAGE }),
+    [ws, target.type, target.id],
     { keepOnError: true },
   );
+  const [nextPage, setNextPage] = React.useState(1);
+  React.useEffect(() => setNextPage(1), [ws, target.type, target.id]);
   const action = useAction();
   const [deleting, setDeleting] = React.useState<Note | null>(null);
 
@@ -72,6 +73,24 @@ export const CrmNotes: React.FunctionComponent<{ target: { type: TaskTargetType;
   const download = async (note: Note, a: NoteAttachment) => {
     const blob = await action.run(() => downloadAttachment(t, ws, note.id, a.id), fail('download the file'));
     if (blob) saveFile(blob, a.fileName);
+  };
+
+  // The next page is appended, so the list, the composer and any edit in progress stay as they are.
+  const loadMore = async () => {
+    const more = await action.run(
+      () => listNotes(t, ws, { targetType: target.type, targetId: target.id, page: nextPage, size: PAGE }),
+      fail('load more notes'),
+    );
+    if (!more) return;
+    loaded.setData(
+      (p) =>
+        p && {
+          ...p,
+          items: [...p.items, ...more.items.filter((x) => !p.items.some((y) => y.id === x.id))],
+          total: more.total,
+        },
+    );
+    setNextPage((n) => n + 1);
   };
 
   if (loaded.loading && !loaded.data) return <Spinner aria-label="Loading notes" />;
@@ -130,7 +149,7 @@ export const CrmNotes: React.FunctionComponent<{ target: { type: TaskTargetType;
       )}
       {loaded.data && loaded.data.total > notes.length && (
         <div>
-          <Button variant="link" isInline isDisabled={loaded.loading} onClick={() => setPages((p) => p + 1)}>
+          <Button variant="link" isInline isDisabled={action.busy} onClick={() => void loadMore()}>
             Load more
           </Button>
         </div>

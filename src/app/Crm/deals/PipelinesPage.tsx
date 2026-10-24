@@ -23,6 +23,7 @@ import { crmMessage } from '@app/Crm/errors';
 import { PageShell } from '@app/admin/PageShell';
 import { useLoad } from '@app/admin/useLoad';
 import { useFieldDefinitions } from '@app/Crm/fields/useFieldDefinitions';
+import { useBrandUsers } from '@app/Crm/fields/useBrandUsers';
 import { ExportButton } from '@app/Crm/csv/ExportButton';
 import { useSession } from '@app/session/SessionContext';
 import { KanbanBoard } from '@app/Crm/common/KanbanBoard';
@@ -104,6 +105,7 @@ export const PipelinesPage: React.FunctionComponent = () => {
   const access = status?.pipelineAccess ?? [];
   const phones = status?.phones ?? [];
   const dealFields = useFieldDefinitions('DEAL');
+  const brandUsers = useBrandUsers();
   const cardFields = dealFields.defs.filter((d) => d.active && d.showInCard).slice(0, 3);
   const accessible = (pipelines.data ?? []).filter((p) => p.active && (access === 'ALL' || access.includes(p.id)));
   const ready = !!pipelines.data && !settings.loading;
@@ -349,6 +351,7 @@ export const PipelinesPage: React.FunctionComponent = () => {
               defaultCurrency={defaultCurrency}
               phones={phones}
               cardFields={cardFields}
+              users={brandUsers}
               onOpen={open}
             />
           )}

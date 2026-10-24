@@ -73,6 +73,32 @@ describe('CRM reminders', () => {
     expect(screen.queryByText('Follow-up due: Call back')).toBeNull();
   });
 
+  it('rescheduledReminderToastsAgain', async () => {
+    vi.useFakeTimers({ shouldAdvanceTime: true });
+    let poll = 0;
+    // shown, dismissed, gone after the dismissal, then back once its reminder was moved
+    const answers = [[reminder()], [], [reminder()]];
+    mockFetch(
+      boardRoutes({
+        [LIST]: () => ({ status: 200, body: answers[Math.min(poll++, answers.length - 1)] }),
+        [`POST ${BASE}/reminders/t1/seen`]: { status: 204 },
+      }),
+    );
+    const user = (await import('@testing-library/user-event')).default.setup({ advanceTimers: vi.advanceTimersByTime });
+    renderApp('/');
+    const alert = (await screen.findByText('Follow-up due: Call back')).closest('.pf-v6-c-alert') as HTMLElement;
+    await user.click(within(alert).getByRole('button', { name: /Close/ }));
+    expect(screen.queryByText('Follow-up due: Call back')).toBeNull();
+    await act(async () => {
+      await vi.advanceTimersByTimeAsync(60_000);
+    });
+    expect(screen.queryByText('Follow-up due: Call back')).toBeNull();
+    await act(async () => {
+      await vi.advanceTimersByTimeAsync(60_000);
+    });
+    expect(await screen.findByText('Follow-up due: Call back')).toBeInTheDocument();
+  });
+
   it('noPollWhenCrmOff', async () => {
     const f = mockFetch(boardRoutes({ [LIST]: { status: 200, body: [] } }, { enabled: false }));
     renderApp('/');

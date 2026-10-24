@@ -2,6 +2,7 @@ import * as React from 'react';
 import { listFields } from '@app/api/crm';
 import type { FieldDefinition, FieldEntityType } from '@app/api/crm';
 import { useSession } from '@app/session/SessionContext';
+import { resetBrandUsers } from '@app/Crm/fields/useBrandUsers';
 
 // Definitions change rarely: one fetch per brand and record type for the session, dropped when Settings saves.
 const cache = new Map<string, FieldDefinition[]>();
@@ -14,7 +15,10 @@ export function invalidateFieldDefinitions(ws?: string): void {
 }
 
 /** For tests: starts each one with no cached definitions. */
-export const resetFieldDefinitions = (): void => invalidateFieldDefinitions();
+export const resetFieldDefinitions = (): void => {
+  invalidateFieldDefinitions();
+  resetBrandUsers();
+};
 
 /**
  * The custom field definitions of a record type in the current brand, inactive ones included (a record may still hold

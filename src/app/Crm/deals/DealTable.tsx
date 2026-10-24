@@ -4,6 +4,7 @@ import { Pagination } from '@patternfly/react-core';
 import { Table, Tbody, Td, Th, Thead, Tr } from '@patternfly/react-table';
 import type { Deal, Pipeline } from '@app/api/crm';
 import { useFieldDefinitions } from '@app/Crm/fields/useFieldDefinitions';
+import { useBrandUsers } from '@app/Crm/fields/useBrandUsers';
 import { fieldColumns } from '@app/Crm/common/fields/fieldColumns';
 import { formatMoney } from '@app/Crm/common/money';
 import { relative } from '@app/PhoneNumbers/PhoneNumberStatusLabel';
@@ -54,7 +55,7 @@ export const DealTable: React.FunctionComponent<{
   onSetPage(page: number): void;
 }> = ({ pipeline, deals, total, page, sort, defaultCurrency, emptyText, search, onSort, onSetPage }) => {
   const stageName = (id: string) => pipeline.stages.find((s) => s.id === id)?.name ?? '—';
-  const extraColumns = fieldColumns(useFieldDefinitions('DEAL').defs);
+  const extraColumns = fieldColumns(useFieldDefinitions('DEAL').defs, useBrandUsers());
   const activeIndex = COLUMNS.findIndex((c) => c.field === sort.field);
   return (
     <>

@@ -154,6 +154,58 @@ describe('CRM custom fields on records', () => {
     expect(requestTo(f, `PUT ${BASE}/deals/d1`)?.body.customFields).toEqual({ tier: 'silver' });
   });
 
+  it('userFieldOffersBrandUsers', async () => {
+    const MANAGER = sampleField({
+      id: 'f7',
+      entityType: 'DEAL',
+      key: 'accountManager',
+      label: 'Account manager',
+      type: 'USER',
+    });
+    const deal = sampleDeal({ customFields: {} });
+    const { f, user } = renderForm(deal, [MANAGER], {
+      [`GET /api/workspaces/w1/users`]: { status: 200, body: [{ id: 'u7', name: 'Ravi Kumar' }] },
+      [`PUT ${BASE}/deals/d1`]: { status: 200, body: deal },
+    });
+    const dialog = await screen.findByRole('dialog', { name: 'Edit deal' });
+    await user.click(await within(dialog).findByRole('button', { name: 'More fields' }));
+    const select = within(dialog).getByLabelText('Account manager');
+    await waitFor(() => expect(within(select).getByRole('option', { name: 'Ravi Kumar' })).toBeInTheDocument());
+    await user.selectOptions(select, 'u7');
+    await user.click(within(dialog).getByRole('button', { name: 'Save deal' }));
+    await waitFor(() => expect(requestTo(f, `PUT ${BASE}/deals/d1`)).toBeDefined());
+    expect(requestTo(f, `PUT ${BASE}/deals/d1`)?.body.customFields).toEqual({ accountManager: 'u7' });
+  });
+
+  it('serverErrorOnUnknownFieldRefetchesDefinitions', async () => {
+    const BUDGET_REQ = sampleField({
+      id: 'f8',
+      entityType: 'DEAL',
+      key: 'budget',
+      label: 'Budget',
+      type: 'CURRENCY',
+      required: true,
+    });
+    let gets = 0;
+    const { f, user } = renderForm(undefined, [], {
+      [`GET ${BASE}/fields`]: () => ({ status: 200, body: ++gets === 1 ? [] : [BUDGET_REQ] }),
+      [`POST ${BASE}/deals`]: {
+        status: 400,
+        body: { code: 'VALIDATION', message: 'x', fields: { 'customFields.budget': 'is required' } },
+      },
+    });
+    const dialog = await screen.findByRole('dialog', { name: 'New deal' });
+    await user.type(within(dialog).getByLabelText(/^Title/), 'Big order');
+    await waitFor(() => expect(within(dialog).getByRole('option', { name: /Priya Shah/ })).toBeInTheDocument());
+    await user.selectOptions(within(dialog).getByLabelText(/^Primary contact/), 'c1');
+    await user.click(within(dialog).getByRole('button', { name: 'Create deal' }));
+    // an admin added the field meanwhile: the form fetches the definitions again and shows it with the error
+    expect(await within(dialog).findByLabelText(/^Budget/)).toBeInTheDocument();
+    expect(within(dialog).getByText(/^(is required|This field is required\.)$/)).toBeInTheDocument();
+    expect(gets).toBe(2);
+    expect(f).toBeDefined();
+  });
+
   it('contactsTableShowsListColumns', async () => {
     const BIRTHDAY = sampleField({ key: 'birthday', label: 'Birthday', type: 'TEXT', showInList: true });
     const HIDDEN = sampleField({ id: 'f9', key: 'secret', label: 'Secret', showInList: false });

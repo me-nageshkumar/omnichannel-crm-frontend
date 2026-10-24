@@ -17,6 +17,7 @@ import { Table, Tbody, Td, Th, Thead, Tr } from '@patternfly/react-table';
 import { SyncAltIcon } from '@patternfly/react-icons';
 import { getSettings, searchCompanies } from '@app/api/crm';
 import { useFieldDefinitions } from '@app/Crm/fields/useFieldDefinitions';
+import { useBrandUsers } from '@app/Crm/fields/useBrandUsers';
 import { fieldColumns } from '@app/Crm/common/fields/fieldColumns';
 import type { Ref } from '@app/api/crm';
 import { PageShell } from '@app/admin/PageShell';
@@ -129,7 +130,7 @@ export const CompaniesPage: React.FunctionComponent = () => {
     key ? (settings.data?.industries.find((i) => i.key === key)?.label ?? key) : '—';
   const currency = settings.data?.defaultCurrency;
 
-  const extraColumns = fieldColumns(useFieldDefinitions('COMPANY').defs);
+  const extraColumns = fieldColumns(useFieldDefinitions('COMPANY').defs, useBrandUsers());
   let body: React.ReactNode;
   if (list.error) body = <Alert variant="danger" isInline title={list.error} />;
   else if (!list.data) body = <Spinner aria-label="Loading companies" />;

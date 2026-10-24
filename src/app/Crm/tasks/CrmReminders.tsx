@@ -20,7 +20,7 @@ export const CrmReminders: React.FunctionComponent<{ onCount(n: number): void }>
   const ws = workspace?.id ?? '';
   const navigate = useNavigate();
   const [shown, setShown] = React.useState<Reminder[]>([]);
-  // ids handled this session: never toasted again, even if a poll raced the "seen" call
+  // ids closed or opened: not toasted again while the server still returns them (a poll may race the "seen" call)
   const done = React.useRef(new Set<string>());
   const onCountRef = React.useRef(onCount);
   onCountRef.current = onCount;
@@ -33,6 +33,9 @@ export const CrmReminders: React.FunctionComponent<{ onCount(n: number): void }>
       listReminders(token, ws).then(
         (list) => {
           if (!live) return;
+          // a handled reminder the server stopped returning was seen; if it comes back it was re-armed
+          const returned = new Set(list.map((r) => r.taskId));
+          done.current.forEach((id) => !returned.has(id) && done.current.delete(id));
           const fresh = list.filter((r) => !done.current.has(r.taskId));
           onCountRef.current(fresh.length);
           setShown((cur) => [...cur, ...fresh.filter((r) => !cur.some((c) => c.taskId === r.taskId))]);

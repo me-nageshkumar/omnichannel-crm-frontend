@@ -76,6 +76,28 @@ describe('CRM notes', () => {
     expect(box).toHaveValue('');
   });
 
+  it('loadMoreKeepsTheDraft', async () => {
+    const first = Array.from({ length: 20 }, (_, i) =>
+      note({ id: `n${i}`, body: `Note ${i}`, creationTime: new Date(Date.UTC(2026, 9, 20, 0, 40 - i)).toISOString() }),
+    );
+    const rest = Array.from({ length: 5 }, (_, i) =>
+      note({ id: `m${i}`, body: `Older ${i}`, creationTime: new Date(Date.UTC(2026, 9, 1, 0, 10 - i)).toISOString() }),
+    );
+    let gets = 0;
+    mockFetch(
+      routes({
+        [NOTES]: () => ({ status: 200, body: { items: ++gets === 1 ? first : rest, total: 25, page: gets - 1 } }),
+      }),
+    );
+    const { user } = renderApp('/crm/deals/d1?pipelineId=p1');
+    const list = await openNotes(user);
+    await user.type(screen.getByLabelText('New note'), 'Half a thought');
+    await user.click(screen.getByRole('button', { name: 'Load more' }));
+    await waitFor(() => expect(within(list).getAllByText(/^(Note|Older) \d+$/)).toHaveLength(25));
+    expect(screen.getByLabelText('New note')).toHaveValue('Half a thought');
+    expect(screen.queryByRole('button', { name: 'Load more' })).toBeNull();
+  });
+
   it('pinnedNotesFirst', async () => {
     mockFetch(
       routes({

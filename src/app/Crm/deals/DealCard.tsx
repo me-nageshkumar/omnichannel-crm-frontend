@@ -1,6 +1,7 @@
 import * as React from 'react';
 import { Button, Label } from '@patternfly/react-core';
 import type { CrmPhone, Deal, FieldDefinition } from '@app/api/crm';
+import type { FieldUser } from '@app/Crm/common/fields/types';
 import { ChannelChip } from '@app/Crm/common/ChannelChip';
 import { formatMoney } from '@app/Crm/common/money';
 import { FieldValue } from '@app/Crm/common/fields/FieldValue';
@@ -25,8 +26,10 @@ export const DealCard: React.FunctionComponent<{
   phones?: CrmPhone[];
   /** Custom fields to show on cards (the first three with a value). */
   cardFields?: FieldDefinition[];
+  /** Names for USER field values. */
+  users?: FieldUser[];
   onOpen(deal: Deal): void;
-}> = ({ deal, defaultCurrency, phones = [], cardFields = [], onOpen }) => {
+}> = ({ deal, defaultCurrency, phones = [], cardFields = [], users = [], onOpen }) => {
   const amount = formatMoney(deal.amount, deal.currency, defaultCurrency);
   const contact = deal.primaryContact?.name || deal.primaryContact?.phone || '';
   const channelLabel = phones.find((p) => p.phoneNumberId === deal.channel?.phoneNumberId)?.label ?? null;
@@ -63,7 +66,7 @@ export const DealCard: React.FunctionComponent<{
             <div key={f.key} style={{ display: 'flex', gap: 'var(--pf-t--global--spacer--xs)' }}>
               <dt style={{ color: 'var(--pf-t--global--text--color--subtle)' }}>{f.label}:</dt>
               <dd style={{ margin: 0, overflowWrap: 'anywhere' }}>
-                <FieldValue def={f} value={deal.customFields[f.key]} />
+                <FieldValue def={f} value={deal.customFields[f.key]} users={users} />
               </dd>
             </div>
           ))}

@@ -22,6 +22,7 @@ import { FieldInput } from '@app/Crm/common/fields/FieldInput';
 import { isBlank, validateFieldValue } from '@app/Crm/common/fields/validateFieldValue';
 import type { FieldDef } from '@app/Crm/common/fields/types';
 import { OptionDraft, OptionsEditor } from '@app/Crm/Settings/OptionsEditor';
+import { useBrandUsers } from '@app/Crm/fields/useBrandUsers';
 import { isCode } from '@app/Crm/Settings/ConflictAlert';
 
 export const FIELD_TYPES: { type: FieldType; label: string }[] = [
@@ -87,6 +88,7 @@ export const FieldFormModal: React.FunctionComponent<{
   const [showInCard, setShowInCard] = React.useState(field?.showInCard ?? false);
   const [checked, setChecked] = React.useState(false);
   const action = useAction(FIELDS);
+  const users = useBrandUsers();
 
   const draftDef: FieldDef = {
     key: key || 'default',
@@ -219,6 +221,7 @@ export const FieldFormModal: React.FunctionComponent<{
             onChange={setDefaultValue}
             error={shown('defaultValue')}
             readOnly={readOnly}
+            users={users}
           />
           <Checkbox
             id="crm-field-required"

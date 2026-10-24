@@ -21,6 +21,7 @@ import { Field } from '@app/Crm/deals/fields';
 import { isCode } from '@app/Crm/Settings/ConflictAlert';
 import { crmMessage } from '@app/Crm/errors';
 import { PRIORITY_LABELS } from '@app/Crm/tasks/taskDisplay';
+import { useBrandUsers } from '@app/Crm/fields/useBrandUsers';
 
 const FIELDS = ['title', 'description', 'type', 'priority', 'dueAt', 'reminderAt', 'assigneeId'];
 const DEFAULT_TIME = '09:00';
@@ -64,6 +65,7 @@ export const TaskFormModal: React.FunctionComponent<{
   const [description, setDescription] = React.useState(task?.description ?? '');
   const [checked, setChecked] = React.useState(false);
   const action = useAction(FIELDS);
+  const brandUsers = useBrandUsers();
 
   const types = taskTypes.filter((t) => t.active || t.key === task?.type).sort((a, b) => a.position - b.position);
   const assignees: Ref[] = [];
@@ -71,6 +73,7 @@ export const TaskFormModal: React.FunctionComponent<{
   if (user) add({ id: user.id, name: `${user.name} (you)` });
   add(task?.assignee);
   people.forEach(add);
+  brandUsers.forEach(add);
 
   const dueAt = instant(due.date, due.time);
   const reminderAt = instant(reminder.date, reminder.time);

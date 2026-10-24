@@ -27,6 +27,7 @@ import { useCrmCan, useCrmStatus } from '@app/Crm/status/CrmStatusContext';
 import { CrmContactDrawer } from '@app/Crm/Contacts/CrmContactDrawer';
 import { CONTACT_COLUMNS, CONTACT_PAGE_SIZE, contactName } from '@app/Crm/Contacts/contactColumns';
 import { useFieldDefinitions } from '@app/Crm/fields/useFieldDefinitions';
+import { useBrandUsers } from '@app/Crm/fields/useBrandUsers';
 import { ExportButton } from '@app/Crm/csv/ExportButton';
 import { ContactImportModal } from '@app/Crm/csv/ContactImportModal';
 import { fieldColumns } from '@app/Crm/common/fields/fieldColumns';
@@ -114,6 +115,7 @@ export const CrmContactsPage: React.FunctionComponent = () => {
   );
   useRefetchOnFocus(() => list.reload());
   const contactFields = useFieldDefinitions('CONTACT');
+  const brandUsers = useBrandUsers();
 
   React.useEffect(() => {
     const owners = (list.data?.items ?? []).flatMap((c) => (c.owner ? [c.owner] : []));
@@ -128,7 +130,7 @@ export const CrmContactsPage: React.FunctionComponent = () => {
 
   const showChannel = phones.length > 1;
   const columns = CONTACT_COLUMNS.filter((c) => !c.multiNumberOnly || showChannel);
-  const extraColumns = fieldColumns(contactFields.defs);
+  const extraColumns = fieldColumns(contactFields.defs, brandUsers);
   const activeIndex = columns.findIndex((c) => c.field === sort.field);
   const filtering = !!qParam || !!ownerId || !!lifecycle || !!pipelineId;
   const lifecycleLabel = (key: string | null) =>

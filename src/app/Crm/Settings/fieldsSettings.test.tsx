@@ -1,7 +1,7 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { screen, waitFor, within } from '@testing-library/react';
 import { renderApp } from '../../../test/renderApp';
-import { mockFetch, requestTo } from '../../../test/fetchMock';
+import { callsTo, mockFetch, requestTo } from '../../../test/fetchMock';
 import { crmSettings, crmStatus, sampleField } from '../../../test/crm';
 import { WORKSPACE_MANAGER, meAs, storeSession } from '../../../test/session';
 import type { FieldDefinition } from '@app/api/crm';
@@ -139,6 +139,8 @@ describe('CRM fields settings', () => {
     await user.keyboard(' ');
     await waitFor(() => expect(requestTo(f, `PUT ${BASE}/fields/reorder`)).toBeDefined());
     expect(requestTo(f, `PUT ${BASE}/fields/reorder`)?.body).toEqual({ entityType: 'CONTACT', ids: ['f2', 'f1'] });
+    // the reorder bumps every field's version: the list is fetched again so the next edit is not a conflict
+    await waitFor(() => expect(callsTo(f, `GET ${BASE}/fields`)).toBeGreaterThanOrEqual(2));
   });
 
   it('deactivateSendsDelete', async () => {

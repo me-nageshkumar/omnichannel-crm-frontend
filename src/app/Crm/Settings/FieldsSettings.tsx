@@ -133,7 +133,7 @@ const EntityFields: React.FunctionComponent<{ entity: FieldEntityType; canManage
     if (from < 0 || to < 0) return;
     const next = arrayMove(fields, from, to).map((f, i) => ({ ...f, position: i }));
     loaded.setData((all) => [...(all ?? []).filter((f) => f.entityType !== entity), ...next]);
-    const ok = await action.run(
+    await action.run(
       async () => {
         await reorderFields(
           token as string,
@@ -145,7 +145,8 @@ const EntityFields: React.FunctionComponent<{ entity: FieldEntityType; canManage
       },
       (e) => crmMessage(e, 'Could not save the new order. Try again.'),
     );
-    if (!ok) loaded.reload();
+    // a reorder bumps every listed field's version; failed or not, show what the server has now
+    loaded.reload();
     invalidateFieldDefinitions(ws);
   };
 

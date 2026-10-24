@@ -3,6 +3,7 @@ import { DescriptionListDescription, DescriptionListGroup, DescriptionListTerm }
 import type { FieldEntityType } from '@app/api/crm';
 import { FieldValue } from '@app/Crm/common/fields/FieldValue';
 import { useFieldDefinitions } from '@app/Crm/fields/useFieldDefinitions';
+import { useBrandUsers } from '@app/Crm/fields/useBrandUsers';
 
 /** Description-list rows for the record's active custom fields marked "show on card", in their order. */
 export const CardFieldDetails: React.FunctionComponent<{
@@ -10,6 +11,7 @@ export const CardFieldDetails: React.FunctionComponent<{
   values: Record<string, unknown> | null | undefined;
 }> = ({ entity, values }) => {
   const { defs } = useFieldDefinitions(entity);
+  const users = useBrandUsers();
   return (
     <>
       {defs
@@ -18,7 +20,7 @@ export const CardFieldDetails: React.FunctionComponent<{
           <DescriptionListGroup key={d.key}>
             <DescriptionListTerm>{d.label}</DescriptionListTerm>
             <DescriptionListDescription>
-              <FieldValue def={d} value={values?.[d.key]} />
+              <FieldValue def={d} value={values?.[d.key]} users={users} />
             </DescriptionListDescription>
           </DescriptionListGroup>
         ))}
