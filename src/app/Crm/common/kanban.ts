@@ -5,6 +5,8 @@ export interface KanbanLaneData<C> {
   title: string;
   color?: string;
   total: number;
+  /** Shown in the header under the title (e.g. the lane's total value). */
+  summary?: React.ReactNode;
   footer?: React.ReactNode;
   badge?: React.ReactNode;
   cards: C[];

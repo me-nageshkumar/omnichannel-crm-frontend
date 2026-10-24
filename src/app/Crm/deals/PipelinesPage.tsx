@@ -211,7 +211,7 @@ export const PipelinesPage: React.FunctionComponent = () => {
         color: l.stage.color ?? undefined,
         total: l.total,
         cards: l.deals,
-        footer: <span title="Total value">{formatMoney(l.sumAmount, null, defaultCurrency)}</span>,
+        summary: <span title="Total value">{formatMoney(l.sumAmount, null, defaultCurrency)}</span>,
         badge:
           l.stage.wipLimit != null && l.total > l.stage.wipLimit ? (
             <Label isCompact color="red">{`Over the WIP limit of ${l.stage.wipLimit}`}</Label>

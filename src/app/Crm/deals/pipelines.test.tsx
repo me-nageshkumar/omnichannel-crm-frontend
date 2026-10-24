@@ -45,6 +45,17 @@ describe('Pipelines page', () => {
     expect(screen.getByRole('button', { name: 'New deal' })).toBeInTheDocument();
   });
 
+  it('laneTotalShowsAtTheTop', async () => {
+    mockFetch(boardRoutes());
+    renderApp('/crm');
+    const lane = await screen.findByRole('region', { name: 'New' });
+    const total = within(lane).getByText('₹2,500');
+    const firstCard = within(lane).getByText('Acme order');
+    // the total sits in the lane header, above the first card
+    expect(total.compareDocumentPosition(firstCard) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy();
+    expect(total.closest('[data-lane-header]')).not.toBeNull();
+  });
+
   it('switchingPipelineUpdatesUrlAndStorage', async () => {
     const f = mockFetch(boardRoutes());
     const { user } = renderApp('/crm', <Probe />);

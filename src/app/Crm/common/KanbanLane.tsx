@@ -22,7 +22,10 @@ interface Props<C> {
   onLoadMore?(laneKey: string): void;
 }
 
-/** One 280px lane: header with the total, its sortable cards, and a Load more button while more remain. */
+/**
+ * One 280px lane: header with the card count and the lane's summary (e.g. its total value), its sortable cards, and a
+ * Load more button while more remain.
+ */
 export function KanbanLane<C>({
   lane,
   index,
@@ -56,13 +59,18 @@ export function KanbanLane<C>({
         borderRadius: 'var(--pf-t--global--border--radius--medium)',
       }}
     >
-      <div style={{ display: 'flex', alignItems: 'center', gap: 'var(--pf-t--global--spacer--sm)' }}>
-        <Title headingLevel="h3" size="md" style={{ flex: '1 1 auto' }}>
-          {lane.title}
-        </Title>
-        {lane.badge}
-        <Badge isRead>{lane.total}</Badge>
-        {headerExtra}
+      <div data-lane-header style={{ display: 'grid', gap: 'var(--pf-t--global--spacer--xs)' }}>
+        <div style={{ display: 'flex', alignItems: 'center', gap: 'var(--pf-t--global--spacer--sm)' }}>
+          <Title headingLevel="h3" size="md" style={{ flex: '1 1 auto' }}>
+            {lane.title}
+          </Title>
+          {lane.badge}
+          <Badge isRead>{lane.total}</Badge>
+          {headerExtra}
+        </div>
+        {lane.summary && (
+          <div style={{ fontWeight: 'var(--pf-t--global--font--weight--body--bold)' }}>{lane.summary}</div>
+        )}
       </div>
       <SortableContext items={ids} strategy={verticalListSortingStrategy}>
         <div
