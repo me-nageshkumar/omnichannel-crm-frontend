@@ -19,6 +19,7 @@ import {
 import { companySummary, deleteCompany } from '@app/api/crm';
 import { CardFieldDetails } from '@app/Crm/fields/CardFieldDetails';
 import { TaskList } from '@app/Crm/tasks/TaskList';
+import { CrmNotes } from '@app/Crm/notes/CrmNotes';
 import type { Company, CompanySummary, CrmSettings, Ref } from '@app/api/crm';
 import { ApiError } from '@app/api/client';
 import { crmMessage } from '@app/Crm/errors';
@@ -200,6 +201,11 @@ export const CompanyDrawer: React.FunctionComponent<{
         key: 'tasks',
         title: 'Tasks',
         content: <TaskList target={{ type: 'COMPANY', id: company.id }} canEdit={canEdit} />,
+      },
+      {
+        key: 'notes',
+        title: 'Notes',
+        content: <CrmNotes target={{ type: 'COMPANY', id: company.id }} canEdit={canEdit} />,
       },
       { key: 'contacts', title: 'Contacts', content: contacts },
       { key: 'deals', title: 'Deals', content: deals },

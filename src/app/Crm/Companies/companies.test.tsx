@@ -154,7 +154,8 @@ describe('CRM companies', () => {
     await user.click(within(await screen.findByRole('dialog')).getByRole('button', { name: 'Delete company' }));
     await waitFor(() => expect(screen.queryByRole('dialog')).toBeNull());
     await waitFor(() => expect(callsTo(f, SEARCH)).toBeGreaterThanOrEqual(2));
-    expect(screen.queryByRole('heading', { name: 'Acme Ltd' })).toBeNull();
+    // the drawer closes in a render after the list refetch starts
+    await waitFor(() => expect(screen.queryByRole('heading', { name: 'Acme Ltd' })).toBeNull());
   });
 
   it('deleteNeedsDeleteAndEditAuthorities', async () => {

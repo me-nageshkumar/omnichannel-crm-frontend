@@ -1,4 +1,4 @@
-import { apiFetch } from '@app/api/client';
+import { apiFetch, apiFetchBlob, apiFetchFile } from '@app/api/client';
 import type { FieldOptionDef, FieldType } from '@app/Crm/common/fields/types';
 
 export type { FieldType } from '@app/Crm/common/fields/types';
@@ -408,6 +408,26 @@ export interface Reminder {
   target: Task['target'];
 }
 
+export interface NoteAttachment {
+  id: string;
+  fileName: string;
+  contentType: string;
+  size: number;
+}
+
+export interface Note {
+  id: string;
+  target: { type: TaskTargetType; id: string };
+  /** Markdown. */
+  body: string;
+  pinned: boolean;
+  attachments: NoteAttachment[];
+  author: Ref | null;
+  creationTime: string;
+  lastUpdateTime: string | null;
+  version: number;
+}
+
 export interface TaskCounts {
   overdue: number;
   today: number;
@@ -621,6 +641,33 @@ export const myTaskCounts = (token: string, ws: string, q: { tz: string; assigne
 export const listReminders = (token: string, ws: string) => get<Reminder[]>(token, `${base(ws)}/reminders`);
 export const markReminderSeen = (token: string, ws: string, taskId: string) =>
   send<void>(token, 'POST', `${base(ws)}/reminders/${enc(taskId)}/seen`);
+
+export const listNotes = (
+  token: string,
+  ws: string,
+  q: { targetType: TaskTargetType; targetId: string; page?: number; size?: number },
+) => get<Page<Note>>(token, `${base(ws)}/notes${query({ ...q })}`);
+export const createNote = (
+  token: string,
+  ws: string,
+  body: { target: { type: TaskTargetType; id: string }; body: string; pinned?: boolean },
+) => send<Note>(token, 'POST', `${base(ws)}/notes`, body);
+export const updateNote = (token: string, ws: string, id: string, body: { body: string; version: number }) =>
+  send<Note>(token, 'PUT', `${base(ws)}/notes/${enc(id)}`, body);
+export const deleteNote = (token: string, ws: string, id: string) =>
+  send<void>(token, 'DELETE', `${base(ws)}/notes/${enc(id)}`);
+export const pinNote = (token: string, ws: string, id: string, pinned: boolean) =>
+  send<Note>(token, 'POST', `${base(ws)}/notes/${enc(id)}/pin`, { pinned });
+export const uploadAttachment = async (token: string, ws: string, noteId: string, file: File): Promise<Note> => {
+  const body = new FormData();
+  body.append('file', file);
+  const res = await apiFetchFile(`${base(ws)}/notes/${enc(noteId)}/attachments`, { token, body });
+  return (await res.json()) as Note;
+};
+export const deleteAttachment = (token: string, ws: string, noteId: string, attachmentId: string) =>
+  send<Note>(token, 'DELETE', `${base(ws)}/notes/${enc(noteId)}/attachments/${enc(attachmentId)}`);
+export const downloadAttachment = (token: string, ws: string, noteId: string, attachmentId: string) =>
+  apiFetchBlob(`${base(ws)}/notes/${enc(noteId)}/attachments/${enc(attachmentId)}`, token);
 
 const switchPath = (customerId: string, ws: string) => `/api/customers/${enc(customerId)}/workspaces/${enc(ws)}/crm`;
 export const getCrmSwitch = (token: string, customerId: string, ws: string) =>

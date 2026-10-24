@@ -18,6 +18,7 @@ import {
 import { getContact, searchDeals, updateContact } from '@app/api/crm';
 import { CardFieldDetails } from '@app/Crm/fields/CardFieldDetails';
 import { TaskList } from '@app/Crm/tasks/TaskList';
+import { CrmNotes } from '@app/Crm/notes/CrmNotes';
 import type { CrmContact, CrmSettings, Ref } from '@app/api/crm';
 import { ApiError } from '@app/api/client';
 import { crmMessage } from '@app/Crm/errors';
@@ -257,6 +258,11 @@ export const CrmContactDrawer: React.FunctionComponent<{
         key: 'tasks',
         title: 'Tasks',
         content: <TaskList target={{ type: 'CONTACT', id: contact.id }} canEdit={canEdit} />,
+      },
+      {
+        key: 'notes',
+        title: 'Notes',
+        content: <CrmNotes target={{ type: 'CONTACT', id: contact.id }} canEdit={canEdit} />,
       },
       {
         key: 'deals',
