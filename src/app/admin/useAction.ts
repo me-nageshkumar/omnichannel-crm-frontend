@@ -41,6 +41,9 @@ export function useAction(shownFields: string[] = []): Action {
   const [error, setError] = React.useState<string | null>(null);
   const [fieldErrors, setFieldErrors] = React.useState<Record<string, string>>({});
   const [busy, setBusy] = React.useState(false);
+  // Read when a run fails, so a form whose fields arrive later (e.g. custom fields) still counts them as shown.
+  const shown = React.useRef(shownFields);
+  shown.current = shownFields;
 
   const reset = React.useCallback(() => {
     setError(null);
@@ -60,7 +63,7 @@ export function useAction(shownFields: string[] = []): Action {
           setError(describe(e));
         } else {
           setFieldErrors(fields);
-          const hidden = keys.filter((k) => !shownFields.includes(k));
+          const hidden = keys.filter((k) => !shown.current.includes(k));
           if (hidden.length > 0) setError(hidden.map((k) => `${k}: ${fields[k]}`).join('; '));
         }
         return undefined;

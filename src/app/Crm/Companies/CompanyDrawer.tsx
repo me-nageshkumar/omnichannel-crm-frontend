@@ -17,6 +17,7 @@ import {
   Spinner,
 } from '@patternfly/react-core';
 import { companySummary, deleteCompany } from '@app/api/crm';
+import { CardFieldDetails } from '@app/Crm/fields/CardFieldDetails';
 import type { Company, CompanySummary, CrmSettings, Ref } from '@app/api/crm';
 import { ApiError } from '@app/api/client';
 import { crmMessage } from '@app/Crm/errors';
@@ -160,6 +161,7 @@ export const CompanyDrawer: React.FunctionComponent<{
         <Detail term="Description">{company.description ?? ''}</Detail>
         <Detail term="Owner">{company.owner?.name ?? ''}</Detail>
         <Detail term="Created">{formatDate(company.creationTime)}</Detail>
+        <CardFieldDetails entity="COMPANY" values={company.customFields} />
       </DescriptionList>
     );
     const contacts =

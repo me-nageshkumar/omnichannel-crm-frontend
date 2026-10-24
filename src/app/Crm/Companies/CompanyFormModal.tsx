@@ -15,6 +15,9 @@ import {
 import { createCompany, updateCompany } from '@app/api/crm';
 import type { Address, Company, CompanyInput, CrmSettings, Ref } from '@app/api/crm';
 import { useAction } from '@app/admin/useAction';
+import { useFieldDefinitions } from '@app/Crm/fields/useFieldDefinitions';
+import { MoreFieldsSection } from '@app/Crm/fields/MoreFieldsSection';
+import { customFieldErrors, customFieldNames, customFieldPayload } from '@app/Crm/fields/customFieldPayload';
 import { useSession } from '@app/session/SessionContext';
 import { Field } from '@app/Crm/deals/fields';
 import { isCode } from '@app/Crm/Settings/ConflictAlert';
@@ -73,7 +76,9 @@ export const CompanyFormModal: React.FunctionComponent<{
   const [ownerId, setOwnerId] = React.useState(isEdit ? (company?.owner?.id ?? '') : (user?.id ?? ''));
   const [checked, setChecked] = React.useState(false);
   const [conflict, setConflict] = React.useState(false);
-  const action = useAction(FIELDS);
+  const { defs } = useFieldDefinitions('COMPANY');
+  const [custom, setCustom] = React.useState<Record<string, unknown>>(company?.customFields ?? {});
+  const action = useAction([...FIELDS, ...customFieldNames(defs)]);
 
   const me: Ref | null = user ? { id: user.id, name: `${user.name} (you)` } : null;
   const ownerOptions = withValue(
@@ -92,6 +97,8 @@ export const CompanyFormModal: React.FunctionComponent<{
     email: checked && !emailOk ? 'Enter a valid email address.' : null,
   };
   const err = (key: keyof typeof errors) => errors[key] ?? action.fieldErrors[key] ?? null;
+  const customFields = customFieldPayload(defs, company?.customFields, custom, !company);
+  const customErrors = { ...customFieldErrors(action.fieldErrors), ...(checked ? customFields.errors : {}) };
   const setPart = (key: keyof Address) => (_e: unknown, v: string) => setAddress((a) => ({ ...a, [key]: v }));
 
   const onSubmit = async (event?: React.FormEvent) => {
@@ -99,6 +106,7 @@ export const CompanyFormModal: React.FunctionComponent<{
     setChecked(true);
     setConflict(false);
     if (!name.trim() || !revenueOk || !emailOk) return;
+    if (Object.keys(customFields.errors).length > 0) return;
     const trimmed = (v: string) => v.trim();
     const parts = Object.fromEntries(
       (Object.keys(address) as (keyof Address)[]).map((k) => [k, trimmed(address[k])]),
@@ -121,6 +129,7 @@ export const CompanyFormModal: React.FunctionComponent<{
             address: parts,
             description: trimmed(description),
             ownerId,
+            customFields: customFields.payload,
             version,
           };
           return updateCompany(t, ws, company.id, body);
@@ -136,6 +145,7 @@ export const CompanyFormModal: React.FunctionComponent<{
         if (hasAddress) body.address = Object.fromEntries(Object.entries(parts).filter(([, v]) => v !== ''));
         if (trimmed(description)) body.description = trimmed(description);
         if (ownerId) body.ownerId = ownerId;
+        if (customFields.payload) body.customFields = customFields.payload;
         return createCompany(t, ws, body);
       },
       (e) => {
@@ -249,6 +259,13 @@ export const CompanyFormModal: React.FunctionComponent<{
               ))}
             </FormSelect>
           </Field>
+          <MoreFieldsSection
+            defs={defs}
+            values={custom}
+            stored={company?.customFields}
+            onChange={setCustom}
+            errors={customErrors}
+          />
         </Form>
       </ModalBody>
       <ModalFooter>

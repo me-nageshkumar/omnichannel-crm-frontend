@@ -16,6 +16,7 @@ import {
   Spinner,
 } from '@patternfly/react-core';
 import { getContact, searchDeals, updateContact } from '@app/api/crm';
+import { CardFieldDetails } from '@app/Crm/fields/CardFieldDetails';
 import type { CrmContact, CrmSettings, Ref } from '@app/api/crm';
 import { ApiError } from '@app/api/client';
 import { crmMessage } from '@app/Crm/errors';
@@ -245,6 +246,7 @@ export const CrmContactDrawer: React.FunctionComponent<{
               </List>
             )}
           </Detail>
+          <CardFieldDetails entity="CONTACT" values={contact.customFields} />
         </DescriptionList>
       </>
     );

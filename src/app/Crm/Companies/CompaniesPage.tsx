@@ -16,6 +16,8 @@ import {
 import { Table, Tbody, Td, Th, Thead, Tr } from '@patternfly/react-table';
 import { SyncAltIcon } from '@patternfly/react-icons';
 import { getSettings, searchCompanies } from '@app/api/crm';
+import { useFieldDefinitions } from '@app/Crm/fields/useFieldDefinitions';
+import { fieldColumns } from '@app/Crm/common/fields/fieldColumns';
 import type { Ref } from '@app/api/crm';
 import { PageShell } from '@app/admin/PageShell';
 import { useLoad } from '@app/admin/useLoad';
@@ -117,6 +119,7 @@ export const CompaniesPage: React.FunctionComponent = () => {
     key ? (settings.data?.industries.find((i) => i.key === key)?.label ?? key) : '—';
   const currency = settings.data?.defaultCurrency;
 
+  const extraColumns = fieldColumns(useFieldDefinitions('COMPANY').defs);
   let body: React.ReactNode;
   if (list.error) body = <Alert variant="danger" isInline title={list.error} />;
   else if (!list.data) body = <Spinner aria-label="Loading companies" />;
@@ -146,12 +149,15 @@ export const CompaniesPage: React.FunctionComponent = () => {
                   {c.label}
                 </Th>
               ))}
+              {extraColumns.map((col) => (
+                <Th key={`cf-${col.key}`}>{col.title}</Th>
+              ))}
             </Tr>
           </Thead>
           <Tbody>
             {list.data.items.length === 0 ? (
               <Tr>
-                <Td colSpan={COLUMNS.length}>No companies match.</Td>
+                <Td colSpan={COLUMNS.length + extraColumns.length}>No companies match.</Td>
               </Tr>
             ) : (
               list.data.items.map((c) => (
@@ -172,6 +178,11 @@ export const CompaniesPage: React.FunctionComponent = () => {
                   <Td dataLabel="Contacts">{c.contactCount}</Td>
                   <Td dataLabel="Open deal amount">{formatMoney(c.openDealAmount, null, currency) || '0'}</Td>
                   <Td dataLabel="Owner">{c.owner?.name ?? '—'}</Td>
+                  {extraColumns.map((col) => (
+                    <Td key={`cf-${col.key}`} dataLabel={col.title}>
+                      {col.render(c)}
+                    </Td>
+                  ))}
                 </Tr>
               ))
             )}

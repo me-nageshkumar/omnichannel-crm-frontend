@@ -21,6 +21,9 @@ import { useCrmCan } from '@app/Crm/status/CrmStatusContext';
 import { ContactPicker } from '@app/Crm/deals/ContactPicker';
 import { Field } from '@app/Crm/deals/fields';
 import { isCode } from '@app/Crm/Settings/ConflictAlert';
+import { useFieldDefinitions } from '@app/Crm/fields/useFieldDefinitions';
+import { MoreFieldsSection } from '@app/Crm/fields/MoreFieldsSection';
+import { customFieldErrors, customFieldNames, customFieldPayload } from '@app/Crm/fields/customFieldPayload';
 
 const CURRENCY = /^[A-Z]{3}$/;
 const ISO_DATE = /^\d{4}-\d{2}-\d{2}$/;
@@ -75,7 +78,9 @@ export const DealFormModal: React.FunctionComponent<{
   const [source, setSource] = React.useState(deal?.source ?? '');
   const [checked, setChecked] = React.useState(false);
   const [conflict, setConflict] = React.useState(false);
-  const action = useAction(FIELDS);
+  const { defs } = useFieldDefinitions('DEAL');
+  const [custom, setCustom] = React.useState<Record<string, unknown>>(deal?.customFields ?? {});
+  const action = useAction([...FIELDS, ...customFieldNames(defs)]);
 
   const me: Ref | null = user ? { id: user.id, name: `${user.name} (you)` } : null;
   const ownerOptions = withValue(
@@ -95,6 +100,8 @@ export const DealFormModal: React.FunctionComponent<{
     close: checked && close !== '' && !ISO_DATE.test(close) ? 'Use the format yyyy-mm-dd.' : null,
   };
   const shown = (key: string, own: string | null) => own ?? action.fieldErrors[key] ?? null;
+  const customFields = customFieldPayload(defs, deal?.customFields, custom, !isEdit);
+  const customErrors = { ...customFieldErrors(action.fieldErrors), ...(checked ? customFields.errors : {}) };
 
   const onSubmit = async (event?: React.FormEvent) => {
     event?.preventDefault();
@@ -102,6 +109,7 @@ export const DealFormModal: React.FunctionComponent<{
     setConflict(false);
     if (!title.trim() || (!isEdit && !contactId) || !amountOk || !CURRENCY.test(currency)) return;
     if (close !== '' && !ISO_DATE.test(close)) return;
+    if (Object.keys(customFields.errors).length > 0) return;
     const number = amount.trim() === '' ? undefined : Number(amount);
     const t = token as string;
     const result = await action.run(
@@ -116,6 +124,7 @@ export const DealFormModal: React.FunctionComponent<{
             companyId: company?.id ?? '',
             ownerId,
             source,
+            customFields: customFields.payload,
             version,
           };
           return updateDeal(t, ws, deal.id, body);
@@ -132,6 +141,7 @@ export const DealFormModal: React.FunctionComponent<{
           companyId: company?.id,
           ownerId: ownerId || undefined,
           source: source || undefined,
+          customFields: customFields.payload,
         };
         return createDeal(t, ws, body);
       },
@@ -256,6 +266,13 @@ export const DealFormModal: React.FunctionComponent<{
               <TextInput id="crm-deal-source" value={source} maxLength={64} onChange={(_e, v) => setSource(v)} />
             )}
           </Field>
+          <MoreFieldsSection
+            defs={defs}
+            values={custom}
+            stored={deal?.customFields}
+            onChange={setCustom}
+            errors={customErrors}
+          />
         </Form>
       </ModalBody>
       <ModalFooter>

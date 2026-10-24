@@ -3,6 +3,8 @@ import { Link } from 'react-router-dom';
 import { Pagination } from '@patternfly/react-core';
 import { Table, Tbody, Td, Th, Thead, Tr } from '@patternfly/react-table';
 import type { Deal, Pipeline } from '@app/api/crm';
+import { useFieldDefinitions } from '@app/Crm/fields/useFieldDefinitions';
+import { fieldColumns } from '@app/Crm/common/fields/fieldColumns';
 import { formatMoney } from '@app/Crm/common/money';
 import { relative } from '@app/PhoneNumbers/PhoneNumberStatusLabel';
 
@@ -52,6 +54,7 @@ export const DealTable: React.FunctionComponent<{
   onSetPage(page: number): void;
 }> = ({ pipeline, deals, total, page, sort, defaultCurrency, emptyText, search, onSort, onSetPage }) => {
   const stageName = (id: string) => pipeline.stages.find((s) => s.id === id)?.name ?? '—';
+  const extraColumns = fieldColumns(useFieldDefinitions('DEAL').defs);
   const activeIndex = COLUMNS.findIndex((c) => c.field === sort.field);
   return (
     <>
@@ -74,12 +77,15 @@ export const DealTable: React.FunctionComponent<{
                 {c.label}
               </Th>
             ))}
+            {extraColumns.map((col) => (
+              <Th key={`cf-${col.key}`}>{col.title}</Th>
+            ))}
           </Tr>
         </Thead>
         <Tbody>
           {deals.length === 0 ? (
             <Tr>
-              <Td colSpan={COLUMNS.length}>{emptyText}</Td>
+              <Td colSpan={COLUMNS.length + extraColumns.length}>{emptyText}</Td>
             </Tr>
           ) : (
             deals.map((d) => (
@@ -93,6 +99,11 @@ export const DealTable: React.FunctionComponent<{
                 <Td dataLabel="Owner">{d.owner?.name ?? '—'}</Td>
                 <Td dataLabel="Expected close">{closeDate(d.expectedCloseDate)}</Td>
                 <Td dataLabel="Last activity">{d.lastActivityAt ? relative(d.lastActivityAt) : '—'}</Td>
+                {extraColumns.map((col) => (
+                  <Td key={`cf-${col.key}`} dataLabel={col.title}>
+                    {col.render(d)}
+                  </Td>
+                ))}
               </Tr>
             ))
           )}

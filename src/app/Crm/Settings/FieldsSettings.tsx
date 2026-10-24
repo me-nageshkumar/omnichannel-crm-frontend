@@ -27,6 +27,7 @@ import { useSession } from '@app/session/SessionContext';
 import { useCrmStatus } from '@app/Crm/status/CrmStatusContext';
 import { crmMessage } from '@app/Crm/errors';
 import { FIELD_TYPES, FieldFormModal } from '@app/Crm/Settings/FieldFormModal';
+import { invalidateFieldDefinitions } from '@app/Crm/fields/useFieldDefinitions';
 
 export const FIELD_ENTITIES: { entity: FieldEntityType; title: string }[] = [
   { entity: 'CONTACT', title: 'Contact' },
@@ -145,6 +146,7 @@ const EntityFields: React.FunctionComponent<{ entity: FieldEntityType; canManage
       (e) => crmMessage(e, 'Could not save the new order. Try again.'),
     );
     if (!ok) loaded.reload();
+    invalidateFieldDefinitions(ws);
   };
 
   const setActive = async (f: FieldDefinition, on: boolean) => {
@@ -167,7 +169,10 @@ const EntityFields: React.FunctionComponent<{ entity: FieldEntityType; canManage
       (e) =>
         crmMessage(e, on ? 'Could not switch the field on. Try again.' : 'Could not switch the field off. Try again.'),
     );
-    if (ok) loaded.reload();
+    if (ok) {
+      loaded.reload();
+      invalidateFieldDefinitions(ws);
+    }
   };
 
   const addButton = (
@@ -244,6 +249,7 @@ const EntityFields: React.FunctionComponent<{ entity: FieldEntityType; canManage
           onSaved={() => {
             setEditing(null);
             loaded.reload();
+            invalidateFieldDefinitions(ws);
           }}
         />
       )}

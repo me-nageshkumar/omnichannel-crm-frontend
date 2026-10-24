@@ -22,6 +22,7 @@ import type { Board, Deal, Lane, Page, Pipeline, Ref } from '@app/api/crm';
 import { crmMessage } from '@app/Crm/errors';
 import { PageShell } from '@app/admin/PageShell';
 import { useLoad } from '@app/admin/useLoad';
+import { useFieldDefinitions } from '@app/Crm/fields/useFieldDefinitions';
 import { useSession } from '@app/session/SessionContext';
 import { KanbanBoard } from '@app/Crm/common/KanbanBoard';
 import type { KanbanLaneData } from '@app/Crm/common/kanban';
@@ -100,9 +101,9 @@ export const PipelinesPage: React.FunctionComponent = () => {
   const settings = useLoad((tk) => getSettings(tk, ws), [ws]);
   const access = status?.pipelineAccess ?? [];
   const phones = status?.phones ?? [];
-  const accessible = (pipelines.data ?? []).filter(
-    (p) => p.active && (access === 'ALL' || access.includes(p.id)),
-  );
+  const dealFields = useFieldDefinitions('DEAL');
+  const cardFields = dealFields.defs.filter((d) => d.active && d.showInCard).slice(0, 3);
+  const accessible = (pipelines.data ?? []).filter((p) => p.active && (access === 'ALL' || access.includes(p.id)));
   const ready = !!pipelines.data && !settings.loading;
   const key = storageKey(user?.id ?? '', ws);
   const find = (id: string | null | undefined) => accessible.find((p) => p.id === id);
@@ -298,7 +299,8 @@ export const PipelinesPage: React.FunctionComponent = () => {
 
   let body: React.ReactNode;
   if (pipelines.error) body = <Alert variant="danger" isInline title={pipelines.error} />;
-  else if (noPipelines) body = <EmptyState headingLevel="h2" titleText="No pipeline assigned to you. Ask your admin." />;
+  else if (noPipelines)
+    body = <EmptyState headingLevel="h2" titleText="No pipeline assigned to you. Ask your admin." />;
   else if (!pipeline) body = <Spinner aria-label="Loading pipelines" />;
   else if (view === 'table') {
     body = table.data ? (
@@ -331,14 +333,26 @@ export const PipelinesPage: React.FunctionComponent = () => {
           lanes={kanbanLanes}
           idOf={(d) => d.id}
           labelOf={(d) => d.title}
-          renderCard={(d) => <DealCard deal={d} defaultCurrency={defaultCurrency} phones={phones} onOpen={open} />}
+          renderCard={(d) => (
+            <DealCard
+              deal={d}
+              defaultCurrency={defaultCurrency}
+              phones={phones}
+              cardFields={cardFields}
+              onOpen={open}
+            />
+          )}
           onMove={onMove}
           onLoadMore={onLoadMore}
           ariaLabel="Deals board"
         />
       );
   } else {
-    body = board.error ? <Alert variant="danger" isInline title={board.error} /> : <Spinner aria-label="Loading board" />;
+    body = board.error ? (
+      <Alert variant="danger" isInline title={board.error} />
+    ) : (
+      <Spinner aria-label="Loading board" />
+    );
   }
 
   const pageContent = (

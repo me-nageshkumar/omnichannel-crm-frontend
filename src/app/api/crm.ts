@@ -193,6 +193,8 @@ export interface ContactUpdate {
   ownerId?: string;
   lifecycleStatus?: string;
   source?: string;
+  /** Only the keys to change; null clears one. */
+  customFields?: Record<string, unknown>;
   version: number;
 }
 

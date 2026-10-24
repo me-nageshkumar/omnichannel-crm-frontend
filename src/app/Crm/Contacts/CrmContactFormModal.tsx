@@ -19,6 +19,9 @@ import { CompanyTypeahead } from '@app/Crm/Companies/CompanyTypeahead';
 import { useCrmCan } from '@app/Crm/status/CrmStatusContext';
 import { Field } from '@app/Crm/deals/fields';
 import { isCode } from '@app/Crm/Settings/ConflictAlert';
+import { useFieldDefinitions } from '@app/Crm/fields/useFieldDefinitions';
+import { MoreFieldsSection } from '@app/Crm/fields/MoreFieldsSection';
+import { customFieldErrors, customFieldNames, customFieldPayload } from '@app/Crm/fields/customFieldPayload';
 
 const FIELDS = ['firstName', 'lastName', 'email', 'jobTitle', 'companyId', 'ownerId', 'source'];
 const EMAIL = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
@@ -52,7 +55,9 @@ export const CrmContactFormModal: React.FunctionComponent<{
   const [source, setSource] = React.useState(contact.source ?? '');
   const [checked, setChecked] = React.useState(false);
   const [conflict, setConflict] = React.useState(false);
-  const action = useAction(FIELDS);
+  const { defs } = useFieldDefinitions('CONTACT');
+  const [custom, setCustom] = React.useState<Record<string, unknown>>(contact.customFields ?? {});
+  const action = useAction([...FIELDS, ...customFieldNames(defs)]);
 
   const me: Ref | null = user ? { id: user.id, name: `${user.name} (you)` } : null;
   const ownerOptions = withValue(
@@ -66,12 +71,15 @@ export const CrmContactFormModal: React.FunctionComponent<{
   const emailError =
     checked && email.trim() !== '' && !EMAIL.test(email.trim()) ? 'Enter a valid email address.' : null;
   const err = (key: string, own: string | null = null) => own ?? action.fieldErrors[key] ?? null;
+  const customFields = customFieldPayload(defs, contact.customFields, custom, false);
+  const customErrors = { ...customFieldErrors(action.fieldErrors), ...(checked ? customFields.errors : {}) };
 
   const onSubmit = async (event?: React.FormEvent) => {
     event?.preventDefault();
     setChecked(true);
     setConflict(false);
     if (email.trim() !== '' && !EMAIL.test(email.trim())) return;
+    if (Object.keys(customFields.errors).length > 0) return;
     const body: ContactUpdate = {
       firstName: firstName.trim(),
       lastName: lastName.trim(),
@@ -80,6 +88,7 @@ export const CrmContactFormModal: React.FunctionComponent<{
       companyId: company?.id ?? '',
       ownerId,
       source,
+      customFields: customFields.payload,
       version,
     };
     const saved = await action.run(
@@ -157,6 +166,13 @@ export const CrmContactFormModal: React.FunctionComponent<{
               <TextInput id="crm-contact-source" value={source} maxLength={64} onChange={(_e, v) => setSource(v)} />
             )}
           </Field>
+          <MoreFieldsSection
+            defs={defs}
+            values={custom}
+            stored={contact.customFields}
+            onChange={setCustom}
+            errors={customErrors}
+          />
         </Form>
       </ModalBody>
       <ModalFooter>

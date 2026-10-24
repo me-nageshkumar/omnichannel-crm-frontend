@@ -18,6 +18,7 @@ import {
   Spinner,
 } from '@patternfly/react-core';
 import { deleteDeal, getDeal, moveDeal } from '@app/api/crm';
+import { CardFieldDetails } from '@app/Crm/fields/CardFieldDetails';
 import type { CrmSettings, Deal, Pipeline } from '@app/api/crm';
 import { ApiError } from '@app/api/client';
 import { useAction } from '@app/admin/useAction';
@@ -77,10 +78,7 @@ export const DealDrawer: React.FunctionComponent<{
   const [modal, setModal] = React.useState<'edit' | 'close' | 'delete' | null>(null);
   const [notice, setNotice] = React.useState<string | null>(null);
 
-  const loaded = useLoad(
-    (t) => (dealId ? fetchDeal(t, ws, dealId) : NEVER<Deal | null>()),
-    [ws, dealId ?? ''],
-  );
+  const loaded = useLoad((t) => (dealId ? fetchDeal(t, ws, dealId) : NEVER<Deal | null>()), [ws, dealId ?? '']);
   React.useEffect(() => {
     setModal(null);
     setNotice(null);
@@ -169,7 +167,14 @@ export const DealDrawer: React.FunctionComponent<{
     );
     const details = (
       <>
-        {open.alert && <Alert variant="warning" isInline title={open.alert} actionClose={<AlertActionCloseButton onClose={open.clearAlert} />} />}
+        {open.alert && (
+          <Alert
+            variant="warning"
+            isInline
+            title={open.alert}
+            actionClose={<AlertActionCloseButton onClose={open.clearAlert} />}
+          />
+        )}
         {(notice || action.error) && <Alert variant="danger" isInline title={notice ?? action.error} />}
         <DescriptionList isHorizontal isCompact>
           <Detail term="Status">
@@ -198,7 +203,11 @@ export const DealDrawer: React.FunctionComponent<{
           <Detail term="Probability">{deal.probability == null ? '' : `${deal.probability}%`}</Detail>
           <Detail term="Expected close">{deal.expectedCloseDate ?? ''}</Detail>
           <Detail term="Contact">
-            {contact ? <Link to={`/crm/contacts/${contact.id}`}>{contact.name || contact.phone || 'Contact'}</Link> : ''}
+            {contact ? (
+              <Link to={`/crm/contacts/${contact.id}`}>{contact.name || contact.phone || 'Contact'}</Link>
+            ) : (
+              ''
+            )}
           </Detail>
           <Detail term="Company">
             {deal.company ? <Link to={`/crm/companies/${deal.company.id}`}>{deal.company.name}</Link> : ''}
@@ -208,6 +217,7 @@ export const DealDrawer: React.FunctionComponent<{
           </Detail>
           <Detail term="Owner">{deal.owner?.name ?? ''}</Detail>
           <Detail term="Source">{deal.source ?? ''}</Detail>
+          <CardFieldDetails entity="DEAL" values={deal.customFields} />
         </DescriptionList>
       </>
     );

@@ -26,6 +26,8 @@ import { useRefetchOnFocus } from '@app/Crm/common/useRefetchOnFocus';
 import { useCrmStatus } from '@app/Crm/status/CrmStatusContext';
 import { CrmContactDrawer } from '@app/Crm/Contacts/CrmContactDrawer';
 import { CONTACT_COLUMNS, CONTACT_PAGE_SIZE, contactName } from '@app/Crm/Contacts/contactColumns';
+import { useFieldDefinitions } from '@app/Crm/fields/useFieldDefinitions';
+import { fieldColumns } from '@app/Crm/common/fields/fieldColumns';
 import type { ContactSort } from '@app/Crm/Contacts/contactColumns';
 import { relative } from '@app/PhoneNumbers/PhoneNumberStatusLabel';
 
@@ -99,6 +101,7 @@ export const CrmContactsPage: React.FunctionComponent = () => {
     [ws, qParam, ownerId, lifecycle, pipelineId, sort.field, sort.dir, page],
   );
   useRefetchOnFocus(() => list.reload());
+  const contactFields = useFieldDefinitions('CONTACT');
 
   React.useEffect(() => {
     const owners = (list.data?.items ?? []).flatMap((c) => (c.owner ? [c.owner] : []));
@@ -113,6 +116,7 @@ export const CrmContactsPage: React.FunctionComponent = () => {
 
   const showChannel = phones.length > 1;
   const columns = CONTACT_COLUMNS.filter((c) => !c.multiNumberOnly || showChannel);
+  const extraColumns = fieldColumns(contactFields.defs);
   const activeIndex = columns.findIndex((c) => c.field === sort.field);
   const filtering = !!qParam || !!ownerId || !!lifecycle || !!pipelineId;
   const lifecycleLabel = (key: string | null) =>
@@ -148,12 +152,15 @@ export const CrmContactsPage: React.FunctionComponent = () => {
                   {c.label}
                 </Th>
               ))}
+              {extraColumns.map((c) => (
+                <Th key={`cf-${c.key}`}>{c.title}</Th>
+              ))}
             </Tr>
           </Thead>
           <Tbody>
             {list.data.items.length === 0 ? (
               <Tr>
-                <Td colSpan={columns.length}>No contacts match.</Td>
+                <Td colSpan={columns.length + extraColumns.length}>No contacts match.</Td>
               </Tr>
             ) : (
               list.data.items.map((c) => (
@@ -192,6 +199,11 @@ export const CrmContactsPage: React.FunctionComponent = () => {
                       : `${c.openDealCount} · ${formatMoney(c.openDealAmount, null, currency) || '—'}`}
                   </Td>
                   <Td dataLabel="Last activity">{c.lastActivityAt ? relative(c.lastActivityAt) : '—'}</Td>
+                  {extraColumns.map((col) => (
+                    <Td key={`cf-${col.key}`} dataLabel={col.title}>
+                      {col.render(c)}
+                    </Td>
+                  ))}
                 </Tr>
               ))
             )}
