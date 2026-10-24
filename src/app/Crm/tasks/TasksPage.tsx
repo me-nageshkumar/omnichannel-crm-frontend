@@ -18,6 +18,7 @@ import { Table, Tbody, Td, Th, Thead, Tr } from '@patternfly/react-table';
 import { SyncAltIcon } from '@patternfly/react-icons';
 import { Link } from 'react-router-dom';
 import { completeTask, myTaskCounts, myTasks } from '@app/api/crm';
+import { personName } from '@app/Crm/personName';
 import type { Ref, Task, TaskBucket } from '@app/api/crm';
 import { listWorkspaceUsers } from '@app/api/workspaceUsers';
 import { PageShell } from '@app/admin/PageShell';
@@ -66,7 +67,7 @@ export const TasksPage: React.FunctionComponent = () => {
     r && r.id !== user?.id && !people.some((p) => p.id === r.id) && people.push(r);
   (users.data ?? []).forEach((u) => add({ id: u.id, name: u.name }));
   (list.data ?? []).forEach((t) => add(t.assignee));
-  people.sort((a, b) => a.name.localeCompare(b.name));
+  people.sort((a, b) => personName(a).localeCompare(personName(b)));
 
   const complete = async (task: Task) => {
     const done = await action.run(
@@ -127,7 +128,7 @@ export const TasksPage: React.FunctionComponent = () => {
                   {PRIORITY_LABELS[t.priority]}
                 </Label>
               </Td>
-              {who && <Td dataLabel="Assignee">{t.assignee?.name ?? '—'}</Td>}
+              {who && <Td dataLabel="Assignee">{personName(t.assignee) || '—'}</Td>}
             </Tr>
           ))}
         </Tbody>
@@ -144,7 +145,7 @@ export const TasksPage: React.FunctionComponent = () => {
               <FormSelect aria-label="Assignee" value={assigneeId} onChange={(_e, v) => setAssigneeId(v)}>
                 <FormSelectOption value="" label="Me" />
                 {people.map((p) => (
-                  <FormSelectOption key={p.id} value={p.id} label={p.name} />
+                  <FormSelectOption key={p.id} value={p.id} label={personName(p)} />
                 ))}
               </FormSelect>
             </ToolbarItem>

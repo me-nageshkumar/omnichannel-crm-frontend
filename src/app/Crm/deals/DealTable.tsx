@@ -8,6 +8,7 @@ import { useBrandUsers } from '@app/Crm/fields/useBrandUsers';
 import { fieldColumns } from '@app/Crm/common/fields/fieldColumns';
 import { formatMoney } from '@app/Crm/common/money';
 import { relative } from '@app/PhoneNumbers/PhoneNumberStatusLabel';
+import { personName } from '@app/Crm/personName';
 
 export const DEAL_PAGE_SIZE = 25;
 export type DealSortField = 'title' | 'amount' | 'lastActivityAt';
@@ -97,7 +98,7 @@ export const DealTable: React.FunctionComponent<{
                 <Td dataLabel="Contact">{d.primaryContact?.name || d.primaryContact?.phone || '—'}</Td>
                 <Td dataLabel="Stage">{stageName(d.stageId)}</Td>
                 <Td dataLabel="Amount">{formatMoney(d.amount, d.currency, defaultCurrency) || '—'}</Td>
-                <Td dataLabel="Owner">{d.owner?.name ?? '—'}</Td>
+                <Td dataLabel="Owner">{personName(d.owner) || '—'}</Td>
                 <Td dataLabel="Expected close">{closeDate(d.expectedCloseDate)}</Td>
                 <Td dataLabel="Last activity">{d.lastActivityAt ? relative(d.lastActivityAt) : '—'}</Td>
                 {extraColumns.map((col) => (

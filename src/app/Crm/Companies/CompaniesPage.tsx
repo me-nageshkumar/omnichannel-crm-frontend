@@ -16,6 +16,7 @@ import {
 import { Table, Tbody, Td, Th, Thead, Tr } from '@patternfly/react-table';
 import { SyncAltIcon } from '@patternfly/react-icons';
 import { getSettings, searchCompanies } from '@app/api/crm';
+import { personName } from '@app/Crm/personName';
 import { useFieldDefinitions } from '@app/Crm/fields/useFieldDefinitions';
 import { useBrandUsers } from '@app/Crm/fields/useBrandUsers';
 import { fieldColumns } from '@app/Crm/common/fields/fieldColumns';
@@ -188,7 +189,7 @@ export const CompaniesPage: React.FunctionComponent = () => {
                   <Td dataLabel="Industry">{industryLabel(c.industry)}</Td>
                   <Td dataLabel="Contacts">{c.contactCount}</Td>
                   <Td dataLabel="Open deal amount">{formatMoney(c.openDealAmount, null, currency) || '0'}</Td>
-                  <Td dataLabel="Owner">{c.owner?.name ?? '—'}</Td>
+                  <Td dataLabel="Owner">{personName(c.owner) || '—'}</Td>
                   {extraColumns.map((col) => (
                     <Td key={`cf-${col.key}`} dataLabel={col.title}>
                       {col.render(c)}
@@ -257,7 +258,7 @@ export const CompaniesPage: React.FunctionComponent = () => {
                 <FormSelectOption value="" label="Anyone" />
                 {user && <FormSelectOption value={user.id} label="Me" />}
                 {ownerChoices.map((o) => (
-                  <FormSelectOption key={o.id} value={o.id} label={o.name} />
+                  <FormSelectOption key={o.id} value={o.id} label={personName(o)} />
                 ))}
               </FormSelect>
             </ToolbarItem>

@@ -1,4 +1,5 @@
 import type { CrmContact } from '@app/api/crm';
+import { personName } from '@app/Crm/personName';
 
 export const CONTACT_PAGE_SIZE = 50;
 export type ContactSortField = 'firstName' | 'lastActivityAt';
@@ -46,7 +47,7 @@ export function originLine(c: CrmContact): string {
   if (kind === 'IMPORT') return 'Imported';
   if (kind === 'API') return 'Added through the API';
   if (kind === 'INBOUND_CHAT' || kind === 'CTWA_AD' || kind === 'FACEBOOK_LEAD' || kind === 'WEBSITE_LEAD') {
-    const by = c.origin?.capturedBy?.name;
+    const by = c.origin?.capturedBy ? personName(c.origin.capturedBy) : null;
     return `Captured from a chat${by ? ` by ${by}` : ''} on ${formatDate(c.creationTime)}`;
   }
   return '';

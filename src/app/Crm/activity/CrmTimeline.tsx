@@ -13,6 +13,7 @@ import {
   UsersIcon,
 } from '@patternfly/react-icons';
 import { listActivities } from '@app/api/crm';
+import { personName } from '@app/Crm/personName';
 import type { Activity, Stage, TargetType } from '@app/api/crm';
 import { crmMessage } from '@app/Crm/errors';
 import { useLoad } from '@app/admin/useLoad';
@@ -28,7 +29,7 @@ const show = (v: unknown): string => (v === null || v === undefined || v === '' 
 
 /** The timeline rows an activity stands for (a field change with several diffs makes one row each). */
 export function itemsFor(a: Activity, stages: Stage[], reasonLabels: Record<string, string>): TimelineItem[] {
-  const base = { id: a.id, at: a.happenedAt, by: a.actor?.name };
+  const base = { id: a.id, at: a.happenedAt, by: a.actor ? personName(a.actor) : undefined };
   const p = a.payload ?? {};
   const stageName = (name: unknown, id: unknown) =>
     str(name) ?? stages.find((s) => s.id === id)?.name ?? 'a removed stage';
@@ -42,7 +43,13 @@ export function itemsFor(a: Activity, stages: Stage[], reasonLabels: Record<stri
         },
       ];
     case 'DEAL_WON':
-      return [{ ...base, icon: <CheckCircleIcon color="var(--pf-t--global--icon--color--status--success--default)" />, title: 'Won' }];
+      return [
+        {
+          ...base,
+          icon: <CheckCircleIcon color="var(--pf-t--global--icon--color--status--success--default)" />,
+          title: 'Won',
+        },
+      ];
     case 'DEAL_LOST': {
       const reason = str(p.lostReason);
       return [
@@ -69,7 +76,9 @@ export function itemsFor(a: Activity, stages: Stage[], reasonLabels: Record<stri
     case 'RECORD_CREATED':
       return [{ ...base, icon: <PlusCircleIcon />, title: 'Created', body: a.summary ?? undefined }];
     case 'FIELD_CHANGED': {
-      const changes = Array.isArray(p.changes) ? (p.changes as { field?: unknown; from?: unknown; to?: unknown }[]) : [];
+      const changes = Array.isArray(p.changes)
+        ? (p.changes as { field?: unknown; from?: unknown; to?: unknown }[])
+        : [];
       if (changes.length === 0) return [{ ...base, icon: <PencilAltIcon />, title: a.summary ?? 'Changed' }];
       return changes.map((c, i) => ({
         ...base,
@@ -96,11 +105,10 @@ export const CrmTimeline: React.FunctionComponent<{
 }> = ({ target, canLog, stages = [], reasonLabels = {} }) => {
   const { token, workspace } = useSession();
   const ws = workspace?.id ?? '';
-  const first = useLoad((t) => listActivities(t, ws, { targetType: target.type, targetId: target.id, page: 0, size: SIZE }), [
-    ws,
-    target.type,
-    target.id,
-  ]);
+  const first = useLoad(
+    (t) => listActivities(t, ws, { targetType: target.type, targetId: target.id, page: 0, size: SIZE }),
+    [ws, target.type, target.id],
+  );
   const [more, setMore] = React.useState<Activity[]>([]);
   const [logged, setLogged] = React.useState<Activity[]>([]);
   const [pages, setPages] = React.useState(1);
@@ -146,7 +154,13 @@ export const CrmTimeline: React.FunctionComponent<{
         <Spinner aria-label="Loading timeline" />
       ) : (
         first.data && (
-          <Timeline items={items} hasMore={hasMore} onLoadMore={loadMore} loadingMore={loadingMore} emptyText="No activity yet." />
+          <Timeline
+            items={items}
+            hasMore={hasMore}
+            onLoadMore={loadMore}
+            loadingMore={loadingMore}
+            emptyText="No activity yet."
+          />
         )
       )}
     </div>

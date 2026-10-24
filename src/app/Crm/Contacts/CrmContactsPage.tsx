@@ -16,6 +16,7 @@ import {
 import { Table, Tbody, Td, Th, Thead, Tr } from '@patternfly/react-table';
 import { SyncAltIcon } from '@patternfly/react-icons';
 import { getSettings, listPipelines, searchContacts } from '@app/api/crm';
+import { personName } from '@app/Crm/personName';
 import type { Ref } from '@app/api/crm';
 import { PageShell } from '@app/admin/PageShell';
 import { useLoad } from '@app/admin/useLoad';
@@ -206,7 +207,7 @@ export const CrmContactsPage: React.FunctionComponent = () => {
                   )}
                   <Td dataLabel="Lifecycle">{lifecycleLabel(c.lifecycleStatus)}</Td>
                   <Td dataLabel="Company">{c.company?.name ?? '—'}</Td>
-                  <Td dataLabel="Owner">{c.owner?.name ?? '—'}</Td>
+                  <Td dataLabel="Owner">{personName(c.owner) || '—'}</Td>
                   <Td dataLabel="Open deals">
                     {c.openDealCount === 0
                       ? '0'
@@ -280,7 +281,7 @@ export const CrmContactsPage: React.FunctionComponent = () => {
                 <FormSelectOption value="" label="Anyone" />
                 {user && <FormSelectOption value={user.id} label="Me" />}
                 {ownerChoices.map((o) => (
-                  <FormSelectOption key={o.id} value={o.id} label={o.name} />
+                  <FormSelectOption key={o.id} value={o.id} label={personName(o)} />
                 ))}
               </FormSelect>
             </ToolbarItem>

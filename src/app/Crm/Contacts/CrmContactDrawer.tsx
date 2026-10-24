@@ -36,6 +36,7 @@ import { useOpenChat } from '@app/Crm/deals/useOpenChat';
 import { CrmContactFormModal } from '@app/Crm/Contacts/CrmContactFormModal';
 import { MoveChannelModal } from '@app/Crm/Contacts/MoveChannelModal';
 import { DELETED_NOTICE, contactName, formatDate, originLine } from '@app/Crm/Contacts/contactColumns';
+import { personName } from '@app/Crm/personName';
 
 const UNAVAILABLE = 'This contact is not available. It may have been removed.';
 const NEVER = <T,>(): Promise<T> => new Promise<T>(() => undefined);
@@ -215,7 +216,7 @@ export const CrmContactDrawer: React.FunctionComponent<{
           <Detail term="Company">
             {contact.company ? <Link to={`/crm/companies/${contact.company.id}`}>{contact.company.name}</Link> : ''}
           </Detail>
-          <Detail term="Owner">{contact.owner?.name ?? ''}</Detail>
+          <Detail term="Owner">{personName(contact.owner)}</Detail>
           <Detail term="Lifecycle">
             {canEdit && lifecycles.length > 0 ? (
               <FormSelect
@@ -241,7 +242,7 @@ export const CrmContactDrawer: React.FunctionComponent<{
                 {contact.channelHistory.map((h) => (
                   <ListItem key={`${h.at}-${h.to}`}>
                     {`${formatDate(h.at)}: ${h.from ?? 'none'} to ${h.to ?? 'none'}`}
-                    {h.by ? ` by ${h.by.name}` : ''}
+                    {h.by ? ` by ${personName(h.by)}` : ''}
                     {h.reason ? ` (${h.reason})` : ''}
                   </ListItem>
                 ))}

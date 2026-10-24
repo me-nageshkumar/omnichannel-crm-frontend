@@ -34,6 +34,7 @@ import { useRefetchOnFocus } from '@app/Crm/common/useRefetchOnFocus';
 import { useCrmCan } from '@app/Crm/status/CrmStatusContext';
 import { CompanyFormModal } from '@app/Crm/Companies/CompanyFormModal';
 import { contactName, formatDate } from '@app/Crm/Contacts/contactColumns';
+import { personName } from '@app/Crm/personName';
 
 export const OPEN_DEALS_MESSAGE = 'This company still has open deals. Close or move them first.';
 const UNAVAILABLE = 'This company is not available. It may have been removed.';
@@ -161,7 +162,7 @@ export const CompanyDrawer: React.FunctionComponent<{
         <Detail term="Email">{company.email ?? ''}</Detail>
         <Detail term="Address">{addressLine(company)}</Detail>
         <Detail term="Description">{company.description ?? ''}</Detail>
-        <Detail term="Owner">{company.owner?.name ?? ''}</Detail>
+        <Detail term="Owner">{personName(company.owner)}</Detail>
         <Detail term="Created">{formatDate(company.creationTime)}</Detail>
         <CardFieldDetails entity="COMPANY" values={company.customFields} />
       </DescriptionList>

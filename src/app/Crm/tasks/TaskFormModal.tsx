@@ -14,6 +14,7 @@ import {
   TextInput,
 } from '@patternfly/react-core';
 import { createTask, updateTask } from '@app/api/crm';
+import { personName } from '@app/Crm/personName';
 import type { PicklistItem, Ref, Task, TaskInput, TaskPriority, TaskTargetType } from '@app/api/crm';
 import { useAction } from '@app/admin/useAction';
 import { useSession } from '@app/session/SessionContext';
@@ -190,7 +191,7 @@ export const TaskFormModal: React.FunctionComponent<{
           <Field label="Assignee" fieldId="crm-task-assignee" error={action.fieldErrors.assigneeId}>
             <FormSelect id="crm-task-assignee" value={assigneeId} onChange={(_e, v) => setAssigneeId(v)}>
               {assignees.map((a) => (
-                <FormSelectOption key={a.id} value={a.id} label={a.name} />
+                <FormSelectOption key={a.id} value={a.id} label={personName(a)} />
               ))}
             </FormSelect>
           </Field>

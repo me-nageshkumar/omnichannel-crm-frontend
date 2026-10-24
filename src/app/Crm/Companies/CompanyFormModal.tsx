@@ -13,6 +13,7 @@ import {
   TextInput,
 } from '@patternfly/react-core';
 import { createCompany, updateCompany } from '@app/api/crm';
+import { personName } from '@app/Crm/personName';
 import type { Address, Company, CompanyInput, CrmSettings, Ref } from '@app/api/crm';
 import { useAction } from '@app/admin/useAction';
 import { useFieldDefinitions } from '@app/Crm/fields/useFieldDefinitions';
@@ -87,7 +88,7 @@ export const CompanyFormModal: React.FunctionComponent<{
       company?.owner && company.owner.id !== me?.id ? company.owner : null,
     ),
     me,
-  ).sort((a, b) => a.name.localeCompare(b.name));
+  ).sort((a, b) => personName(a).localeCompare(personName(b)));
 
   const revenueOk = revenue.trim() === '' || (Number.isFinite(Number(revenue)) && Number(revenue) >= 0);
   const emailOk = email.trim() === '' || EMAIL.test(email.trim());
@@ -255,7 +256,7 @@ export const CompanyFormModal: React.FunctionComponent<{
             <FormSelect id="crm-company-owner" value={ownerId} onChange={(_e, v) => setOwnerId(v)}>
               <FormSelectOption value="" label="Unassigned" />
               {ownerOptions.map((o) => (
-                <FormSelectOption key={o.id} value={o.id} label={o.name} />
+                <FormSelectOption key={o.id} value={o.id} label={personName(o)} />
               ))}
             </FormSelect>
           </Field>

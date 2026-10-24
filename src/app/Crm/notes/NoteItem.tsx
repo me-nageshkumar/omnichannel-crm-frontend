@@ -5,6 +5,7 @@ import Markdown from 'react-markdown';
 import type { Note, NoteAttachment } from '@app/api/crm';
 import { ACCEPT, rejectReason, sizeLabel } from '@app/Crm/notes/attachmentRules';
 import { NoteComposer } from '@app/Crm/notes/NoteComposer';
+import { personName } from '@app/Crm/personName';
 
 const WHEN = new Intl.DateTimeFormat(undefined, { dateStyle: 'medium', timeStyle: 'short' });
 
@@ -61,7 +62,7 @@ export const NoteItem: React.FunctionComponent<{
           </Label>
         )}
         <small style={{ color: 'var(--pf-t--global--text--color--subtle)' }}>
-          {note.author?.name ?? 'Someone'} · {WHEN.format(new Date(note.creationTime))}
+          {note.author ? personName(note.author) : 'Someone'} · {WHEN.format(new Date(note.creationTime))}
         </small>
         <span style={{ flex: 1 }} />
         {canPin && (

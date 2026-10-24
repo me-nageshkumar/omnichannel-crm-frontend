@@ -12,6 +12,7 @@ import {
   TextInput,
 } from '@patternfly/react-core';
 import { updateContact } from '@app/api/crm';
+import { personName } from '@app/Crm/personName';
 import type { ContactUpdate, CrmContact, CrmSettings, Ref } from '@app/api/crm';
 import { useAction } from '@app/admin/useAction';
 import { useSession } from '@app/session/SessionContext';
@@ -66,7 +67,7 @@ export const CrmContactFormModal: React.FunctionComponent<{
       contact.owner && contact.owner.id !== me?.id ? contact.owner : null,
     ),
     me,
-  ).sort((a, b) => a.name.localeCompare(b.name));
+  ).sort((a, b) => personName(a).localeCompare(personName(b)));
 
   const emailError =
     checked && email.trim() !== '' && !EMAIL.test(email.trim()) ? 'Enter a valid email address.' : null;
@@ -149,7 +150,7 @@ export const CrmContactFormModal: React.FunctionComponent<{
             <FormSelect id="crm-contact-owner" value={ownerId} onChange={(_e, v) => setOwnerId(v)}>
               <FormSelectOption value="" label="Unassigned" />
               {ownerOptions.map((o) => (
-                <FormSelectOption key={o.id} value={o.id} label={o.name} />
+                <FormSelectOption key={o.id} value={o.id} label={personName(o)} />
               ))}
             </FormSelect>
           </Field>

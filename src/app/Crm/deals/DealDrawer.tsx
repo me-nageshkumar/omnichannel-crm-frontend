@@ -18,6 +18,7 @@ import {
   Spinner,
 } from '@patternfly/react-core';
 import { deleteDeal, getDeal, moveDeal } from '@app/api/crm';
+import { personName } from '@app/Crm/personName';
 import { CardFieldDetails } from '@app/Crm/fields/CardFieldDetails';
 import { TaskList } from '@app/Crm/tasks/TaskList';
 import { CrmNotes } from '@app/Crm/notes/CrmNotes';
@@ -217,7 +218,7 @@ export const DealDrawer: React.FunctionComponent<{
           <Detail term="Number">
             {deal.channel ? <ChannelChip number={deal.channel.number} label={phone?.label} /> : ''}
           </Detail>
-          <Detail term="Owner">{deal.owner?.name ?? ''}</Detail>
+          <Detail term="Owner">{personName(deal.owner)}</Detail>
           <Detail term="Source">{deal.source ?? ''}</Detail>
           <CardFieldDetails entity="DEAL" values={deal.customFields} />
         </DescriptionList>

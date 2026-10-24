@@ -1,6 +1,7 @@
 import * as React from 'react';
 import { Alert, Button, Checkbox, Label, Spinner } from '@patternfly/react-core';
 import { completeTask, deleteTask, getSettings, listTasks, reopenTask } from '@app/api/crm';
+import { personName } from '@app/Crm/personName';
 import type { Ref, Task, TaskTargetType } from '@app/api/crm';
 import { ConfirmModal } from '@app/admin/ConfirmModal';
 import { useAction } from '@app/admin/useAction';
@@ -114,7 +115,7 @@ export const TaskList: React.FunctionComponent<{ target: { type: TaskTargetType;
                 >
                   {t.status === 'DONE' ? 'Done' : dueLabel(t.dueAt)}
                   {typeLabel(t.type) && ` · ${typeLabel(t.type)}`}
-                  {t.assignee && ` · ${t.assignee.name}`}
+                  {t.assignee && ` · ${personName(t.assignee)}`}
                 </small>
               </div>
               {t.priority === 'HIGH' && (

@@ -13,6 +13,7 @@ import {
   TextInput,
 } from '@patternfly/react-core';
 import { createDeal, updateDeal } from '@app/api/crm';
+import { personName } from '@app/Crm/personName';
 import type { CrmSettings, Deal, DealInput, Pipeline, Ref } from '@app/api/crm';
 import { useAction } from '@app/admin/useAction';
 import { useSession } from '@app/session/SessionContext';
@@ -89,7 +90,7 @@ export const DealFormModal: React.FunctionComponent<{
       deal?.owner && deal.owner.id !== me?.id ? deal.owner : null,
     ),
     me,
-  ).sort((a, b) => a.name.localeCompare(b.name));
+  ).sort((a, b) => personName(a).localeCompare(personName(b)));
 
   const amountOk = amount.trim() === '' || (Number.isFinite(Number(amount)) && Number(amount) >= 0);
   const errors = {
@@ -249,7 +250,7 @@ export const DealFormModal: React.FunctionComponent<{
             <FormSelect id="crm-deal-owner" value={ownerId} onChange={(_e, v) => setOwnerId(v)}>
               <FormSelectOption value="" label="Unassigned" />
               {ownerOptions.map((o) => (
-                <FormSelectOption key={o.id} value={o.id} label={o.name} />
+                <FormSelectOption key={o.id} value={o.id} label={personName(o)} />
               ))}
             </FormSelect>
           </Field>

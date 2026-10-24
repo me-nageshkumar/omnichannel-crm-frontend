@@ -1,6 +1,7 @@
 import * as React from 'react';
 import { Button, Label } from '@patternfly/react-core';
 import type { CrmPhone, Deal, FieldDefinition } from '@app/api/crm';
+import { personName } from '@app/Crm/personName';
 import type { FieldUser } from '@app/Crm/common/fields/types';
 import { ChannelChip } from '@app/Crm/common/ChannelChip';
 import { formatMoney } from '@app/Crm/common/money';
@@ -55,8 +56,8 @@ export const DealCard: React.FunctionComponent<{
       >
         <strong>{amount || '—'}</strong>
         {deal.owner && (
-          <Label isCompact variant="outline" title={`Owner: ${deal.owner.name}`}>
-            <span aria-label={`Owner ${deal.owner.name}`}>{initialsOf(deal.owner.name)}</span>
+          <Label isCompact variant="outline" title={`Owner: ${personName(deal.owner)}`}>
+            <span aria-label={`Owner ${personName(deal.owner)}`}>{initialsOf(personName(deal.owner))}</span>
           </Label>
         )}
       </div>

@@ -11,7 +11,8 @@ export type ManualActivityType = 'CALL' | 'MEETING' | 'EMAIL';
 
 export interface Ref {
   id: string;
-  name: string;
+  /** null when the person can't be named (removed, or the system actor). */
+  name: string | null;
 }
 
 export interface CrmPhone {

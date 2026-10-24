@@ -18,6 +18,7 @@ import {
 } from '@patternfly/react-core';
 import { SyncAltIcon } from '@patternfly/react-icons';
 import { getBoard, getSettings, listPipelines, moveDeal, searchDeals } from '@app/api/crm';
+import { personName } from '@app/Crm/personName';
 import type { Board, Deal, Lane, Page, Pipeline, Ref } from '@app/api/crm';
 import { crmMessage } from '@app/Crm/errors';
 import { PageShell } from '@app/admin/PageShell';
@@ -426,7 +427,7 @@ export const PipelinesPage: React.FunctionComponent = () => {
                 <FormSelectOption value="" label="Anyone" />
                 {user && <FormSelectOption value={user.id} label="Me" />}
                 {ownerChoices.map((o) => (
-                  <FormSelectOption key={o.id} value={o.id} label={o.name} />
+                  <FormSelectOption key={o.id} value={o.id} label={personName(o)} />
                 ))}
               </FormSelect>
             </ToolbarItem>
