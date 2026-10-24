@@ -19,6 +19,7 @@ import {
 } from '@patternfly/react-core';
 import { deleteDeal, getDeal, moveDeal } from '@app/api/crm';
 import { CardFieldDetails } from '@app/Crm/fields/CardFieldDetails';
+import { TaskList } from '@app/Crm/tasks/TaskList';
 import type { CrmSettings, Deal, Pipeline } from '@app/api/crm';
 import { ApiError } from '@app/api/client';
 import { useAction } from '@app/admin/useAction';
@@ -223,6 +224,7 @@ export const DealDrawer: React.FunctionComponent<{
     );
     tabs = [
       { key: 'details', title: 'Details', content: details },
+      { key: 'tasks', title: 'Tasks', content: <TaskList target={{ type: 'DEAL', id: deal.id }} canEdit={canEdit} /> },
       {
         key: 'timeline',
         title: 'Timeline',

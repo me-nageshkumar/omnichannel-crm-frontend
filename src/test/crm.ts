@@ -1,4 +1,4 @@
-import type { Board, CrmContact, CrmSettings, CrmStatus, Deal, FieldDefinition, Pipeline } from '@app/api/crm';
+import type { Board, CrmContact, CrmSettings, CrmStatus, Deal, FieldDefinition, Pipeline, Task } from '@app/api/crm';
 
 /** A CRM status as the server sends it for a brand with the CRM switched on. */
 export function crmStatus(overrides: Partial<CrmStatus> = {}): CrmStatus {
@@ -170,6 +170,27 @@ export function sampleField(overrides: Partial<FieldDefinition> = {}): FieldDefi
     showInList: false,
     showInCard: false,
     active: true,
+    version: 0,
+    ...overrides,
+  };
+}
+
+/** An open task on deal d1 assigned to the signed-in manager (u4), due in one hour unless overridden. */
+export function sampleTask(overrides: Partial<Task> = {}): Task {
+  return {
+    id: 't1',
+    title: 'Call back',
+    description: null,
+    type: null,
+    priority: 'NORMAL',
+    dueAt: new Date(Date.now() + 3600_000).toISOString(),
+    reminderAt: null,
+    status: 'OPEN',
+    completedAt: null,
+    completedBy: null,
+    assignee: { id: 'u4', name: 'Meera Manager' },
+    target: { type: 'DEAL', id: 'd1', name: 'Acme order' },
+    overdue: false,
     version: 0,
     ...overrides,
   };

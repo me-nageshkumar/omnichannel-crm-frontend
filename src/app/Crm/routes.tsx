@@ -19,6 +19,7 @@ const CompaniesPage = React.lazy(() =>
 const CompanyDetailPage = React.lazy(() =>
   import('@app/Crm/Companies/CompanyDetailPage').then((m) => ({ default: m.CompanyDetailPage })),
 );
+const TasksPage = React.lazy(() => import('@app/Crm/tasks/TasksPage').then((m) => ({ default: m.TasksPage })));
 const CrmSettingsPage = React.lazy(() =>
   import('@app/Crm/Settings/CrmSettingsPage').then((m) => ({ default: m.CrmSettingsPage })),
 );
@@ -49,5 +50,6 @@ export const crmRoutes: IAppRoute[] = [
   page('/crm/contacts/:id', CrmContactDetailPage),
   page('/crm/companies', CompaniesPage),
   page('/crm/companies/:id', CompanyDetailPage),
+  page('/crm/tasks', TasksPage),
   page('/crm/settings', CrmSettingsPage),
 ];

@@ -361,7 +361,49 @@ export interface InboxSummary {
   captureBlockedReason: string | null;
   contact: CrmContact | null;
   openDeals: Deal[];
-  nextTask: null;
+  nextTask: Task | null;
+}
+
+export type TaskStatus = 'OPEN' | 'DONE';
+export type TaskPriority = 'LOW' | 'NORMAL' | 'HIGH';
+export type TaskBucket = 'overdue' | 'today' | 'upcoming';
+export type TaskTargetType = 'CONTACT' | 'COMPANY' | 'DEAL';
+
+export interface Task {
+  id: string;
+  title: string;
+  description: string | null;
+  /** A taskTypes key, or null. */
+  type: string | null;
+  priority: TaskPriority;
+  dueAt: string | null;
+  reminderAt: string | null;
+  status: TaskStatus;
+  completedAt: string | null;
+  completedBy: Ref | null;
+  assignee: Ref | null;
+  target: { type: TaskTargetType; id: string; name: string | null };
+  overdue: boolean;
+  version: number;
+}
+
+/** A new task (target required) or the whole editable state of one: on update null clears, except assigneeId. */
+export interface TaskInput {
+  title: string;
+  description?: string | null;
+  type?: string | null;
+  priority?: TaskPriority;
+  dueAt?: string | null;
+  reminderAt?: string | null;
+  assigneeId?: string | null;
+  target?: { type: TaskTargetType; id: string };
+  version?: number;
+}
+
+export interface TaskCounts {
+  overdue: number;
+  today: number;
+  upcoming: number;
 }
 
 export interface ContactSearch {
@@ -543,6 +585,30 @@ export const logActivity = (
   ws: string,
   body: { target: { type: TargetType; id: string }; type: ManualActivityType; summary: string; happenedAt?: string },
 ) => send<Activity>(token, 'POST', `${base(ws)}/activities/log`, body);
+
+export const listTasks = (
+  token: string,
+  ws: string,
+  q: { targetType: TaskTargetType; targetId: string; status?: TaskStatus; page?: number; size?: number },
+) => get<Page<Task>>(token, `${base(ws)}/tasks${query({ ...q })}`);
+export const createTask = (token: string, ws: string, body: TaskInput) =>
+  send<Task>(token, 'POST', `${base(ws)}/tasks`, body);
+export const updateTask = (token: string, ws: string, id: string, body: TaskInput) =>
+  send<Task>(token, 'PUT', `${base(ws)}/tasks/${enc(id)}`, body);
+export const completeTask = (token: string, ws: string, id: string) =>
+  send<Task>(token, 'POST', `${base(ws)}/tasks/${enc(id)}/complete`);
+export const reopenTask = (token: string, ws: string, id: string) =>
+  send<Task>(token, 'POST', `${base(ws)}/tasks/${enc(id)}/reopen`);
+export const deleteTask = (token: string, ws: string, id: string) =>
+  send<void>(token, 'DELETE', `${base(ws)}/tasks/${enc(id)}`);
+/** {@code tz} is an IANA zone (the browser's); it decides where "today" starts and ends. */
+export const myTasks = (
+  token: string,
+  ws: string,
+  q: { bucket: TaskBucket; tz: string; assigneeId?: string; limit?: number },
+) => get<Task[]>(token, `${base(ws)}/tasks/mine${query({ ...q })}`);
+export const myTaskCounts = (token: string, ws: string, q: { tz: string; assigneeId?: string }) =>
+  get<TaskCounts>(token, `${base(ws)}/tasks/mine/counts${query({ ...q })}`);
 
 const switchPath = (customerId: string, ws: string) => `/api/customers/${enc(customerId)}/workspaces/${enc(ws)}/crm`;
 export const getCrmSwitch = (token: string, customerId: string, ws: string) =>

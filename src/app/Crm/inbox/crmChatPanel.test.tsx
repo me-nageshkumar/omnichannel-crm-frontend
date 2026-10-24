@@ -5,7 +5,7 @@ import type { ChatView, ThreadItem } from '@app/api/inbox';
 import type { InboxSummary } from '@app/api/crm';
 import type { CurrentUser } from '@app/api/users';
 import { callsTo, mockFetch, requestTo } from '../../../test/fetchMock';
-import { crmSettings, crmStatus, sampleCrmContact, sampleDeal, samplePipeline } from '../../../test/crm';
+import { crmSettings, crmStatus, sampleCrmContact, sampleDeal, samplePipeline, sampleTask } from '../../../test/crm';
 import { gate } from '../../../test/gate';
 import { streamMock } from '../../../test/inbox';
 import { phoneNumber } from '../../../test/phoneNumbers';
@@ -224,6 +224,29 @@ describe('CRM chat panel', () => {
     const panel = within(await screen.findByRole('complementary', { name: 'CRM' }));
     await user.selectOptions(await panel.findByLabelText('Lifecycle status'), 'customer');
     await waitFor(() => expect(callsTo(f, SUMMARY1)).toBe(2));
+  });
+
+  it('inboxPanelShowsNextTaskAndAddsFollowUp', async () => {
+    const next = sampleTask({ title: 'Send catalogue', target: { type: 'CONTACT', id: 'k1', name: 'Asha Rao' } });
+    const f = mockFetch(
+      routes({
+        [SUMMARY1]: { status: 200, body: { ...captured('Asha Rao'), nextTask: next } },
+        [`POST ${B}/crm/tasks`]: { status: 200, body: sampleTask({ title: 'Follow up' }) },
+      }),
+    );
+    const { user } = renderApp('/inbox/chats/c1');
+    const panel = document.body;
+    expect(await within(panel).findByText('Send catalogue')).toBeInTheDocument();
+    expect(within(panel).getByText(/^in (59 minutes|1 hour)$/)).toBeInTheDocument();
+    await user.click(within(panel).getByRole('button', { name: 'Add follow-up' }));
+    const dialog = await screen.findByRole('dialog', { name: 'New task' });
+    await user.type(within(dialog).getByLabelText(/^Title/), 'Follow up');
+    await user.click(within(dialog).getByRole('button', { name: 'Save task' }));
+    await waitFor(() => expect(requestTo(f, `POST ${B}/crm/tasks`)).toBeDefined());
+    expect(requestTo(f, `POST ${B}/crm/tasks`)?.body).toMatchObject({
+      title: 'Follow up',
+      target: { type: 'CONTACT', id: 'k1' },
+    });
   });
 
   it('logCallOpensTheFormOnTheContact', async () => {

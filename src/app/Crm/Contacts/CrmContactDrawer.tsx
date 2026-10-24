@@ -17,6 +17,7 @@ import {
 } from '@patternfly/react-core';
 import { getContact, searchDeals, updateContact } from '@app/api/crm';
 import { CardFieldDetails } from '@app/Crm/fields/CardFieldDetails';
+import { TaskList } from '@app/Crm/tasks/TaskList';
 import type { CrmContact, CrmSettings, Ref } from '@app/api/crm';
 import { ApiError } from '@app/api/client';
 import { crmMessage } from '@app/Crm/errors';
@@ -252,6 +253,11 @@ export const CrmContactDrawer: React.FunctionComponent<{
     );
     tabs = [
       { key: 'details', title: 'Details', content: details },
+      {
+        key: 'tasks',
+        title: 'Tasks',
+        content: <TaskList target={{ type: 'CONTACT', id: contact.id }} canEdit={canEdit} />,
+      },
       {
         key: 'deals',
         title: 'Deals',

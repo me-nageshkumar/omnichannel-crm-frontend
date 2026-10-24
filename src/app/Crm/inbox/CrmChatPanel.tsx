@@ -12,6 +12,8 @@ import {
 } from '@patternfly/react-core';
 import { ApiError } from '@app/api/client';
 import { getSettings, inboxSummary, listPipelines, updateContact } from '@app/api/crm';
+import { NextTask } from '@app/Crm/tasks/NextTask';
+import { TaskFormModal } from '@app/Crm/tasks/TaskFormModal';
 import type { CrmSettings, InboxSummary, Pipeline } from '@app/api/crm';
 import { crmMessage } from '@app/Crm/errors';
 import { LogActivityForm } from '@app/Crm/activity/LogActivityForm';
@@ -45,6 +47,7 @@ export const CrmChatPanel: React.FunctionComponent<{ chatId: string }> = ({ chat
   const [logged, setLogged] = React.useState(false);
   const [saveError, setSaveError] = React.useState<string | null>(null);
   const [saving, setSaving] = React.useState(false);
+  const [planning, setPlanning] = React.useState(false);
 
   // An answer for another chat (a late one, or the one shown before the switch) is treated as not loaded.
   React.useEffect(() => {
@@ -74,9 +77,10 @@ export const CrmChatPanel: React.FunctionComponent<{ chatId: string }> = ({ chat
   React.useEffect(() => {
     if (!token || !contact || refs) return undefined;
     let live = true;
-    Promise.all([getSettings(token, ws).catch(() => null), listPipelines(token, ws).catch(() => [] as Pipeline[])]).then(
-      ([settings, pipelines]) => live && setRefs({ settings, pipelines }),
-    );
+    Promise.all([
+      getSettings(token, ws).catch(() => null),
+      listPipelines(token, ws).catch(() => [] as Pipeline[]),
+    ]).then(([settings, pipelines]) => live && setRefs({ settings, pipelines }));
     return () => {
       live = false;
     };
@@ -88,7 +92,9 @@ export const CrmChatPanel: React.FunctionComponent<{ chatId: string }> = ({ chat
     setSaveError(null);
     try {
       const saved = await updateContact(token, ws, contact.id, { lifecycleStatus: key, version: contact.version });
-      setAnswer((a) => (a && 'summary' in a && a.chatId === chatId ? { ...a, summary: { ...a.summary, contact: saved } } : a));
+      setAnswer((a) =>
+        a && 'summary' in a && a.chatId === chatId ? { ...a, summary: { ...a.summary, contact: saved } } : a,
+      );
     } catch (e) {
       if (e instanceof ApiError && e.status === 409 && e.code === 'VERSION_CONFLICT') {
         setSaveError('Someone else changed this contact. It has been refreshed; try again.');
@@ -184,7 +190,9 @@ export const CrmChatPanel: React.FunctionComponent<{ chatId: string }> = ({ chat
     body = (
       <div style={{ display: 'grid', gap: GAP }}>
         <Title headingLevel="h3" size="md">
-          <Link to={`/crm/contacts/${encodeURIComponent(contact.id)}`}>{contact.name ?? contact.phone ?? 'Contact'}</Link>
+          <Link to={`/crm/contacts/${encodeURIComponent(contact.id)}`}>
+            {contact.name ?? contact.phone ?? 'Contact'}
+          </Link>
         </Title>
         {saveError && <Alert variant="warning" isInline isPlain title={saveError} />}
         {canEdit && lifecycles.length > 0 ? (
@@ -212,7 +220,10 @@ export const CrmChatPanel: React.FunctionComponent<{ chatId: string }> = ({ chat
                     {d.title}
                   </Link>
                   <div>
-                    {[stageName(d.pipelineId, d.stageId), formatMoney(d.amount, d.currency, refs?.settings?.defaultCurrency)]
+                    {[
+                      stageName(d.pipelineId, d.stageId),
+                      formatMoney(d.amount, d.currency, refs?.settings?.defaultCurrency),
+                    ]
                       .filter(Boolean)
                       .join(' · ')}
                   </div>
@@ -223,6 +234,29 @@ export const CrmChatPanel: React.FunctionComponent<{ chatId: string }> = ({ chat
             <div>No open deals</div>
           )}
         </div>
+        <div>
+          <strong>Next task</strong>
+          {summary?.nextTask ? <NextTask task={summary.nextTask} /> : <div>No open tasks</div>}
+          {canEdit && (
+            <div>
+              <Button variant="link" isInline onClick={() => setPlanning(true)}>
+                Add follow-up
+              </Button>
+            </div>
+          )}
+        </div>
+        {planning && (
+          <TaskFormModal
+            target={{ type: 'CONTACT', id: contact.id }}
+            taskTypes={refs?.settings?.taskTypes ?? []}
+            onClose={() => setPlanning(false)}
+            onSaved={() => {
+              setPlanning(false);
+              // the summary decides which open task is next
+              setTick((t) => t + 1);
+            }}
+          />
+        )}
         {logged && <Alert variant="success" isInline isPlain title="Call logged" />}
         {logging ? (
           <LogActivityForm
@@ -242,7 +276,11 @@ export const CrmChatPanel: React.FunctionComponent<{ chatId: string }> = ({ chat
           )
         )}
         <div>
-          <Button variant="link" isInline component={(props) => <Link {...props} to={`/crm/contacts/${encodeURIComponent(contact.id)}`} />}>
+          <Button
+            variant="link"
+            isInline
+            component={(props) => <Link {...props} to={`/crm/contacts/${encodeURIComponent(contact.id)}`} />}
+          >
             Open in CRM
           </Button>
         </div>
