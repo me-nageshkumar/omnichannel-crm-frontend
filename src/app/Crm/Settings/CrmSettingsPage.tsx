@@ -4,8 +4,9 @@ import { PageShell } from '@app/admin/PageShell';
 import { useCrmCan } from '@app/Crm/status/CrmStatusContext';
 import { GeneralSettings } from '@app/Crm/Settings/GeneralSettings';
 import { PipelinesSettings } from '@app/Crm/Settings/PipelinesSettings';
+import { FieldsSettings } from '@app/Crm/Settings/FieldsSettings';
 
-/** Brand-level CRM settings. Phase B adds the Fields and Picklists tabs. */
+/** Brand-level CRM settings: general, pipelines, custom fields and picklists. */
 export const CrmSettingsPage: React.FunctionComponent = () => {
   const canManage = useCrmCan('crm:settings');
   const [tab, setTab] = React.useState<string | number>('general');
@@ -25,6 +26,9 @@ export const CrmSettingsPage: React.FunctionComponent = () => {
         </Tab>
         <Tab eventKey="pipelines" title={<TabTitleText>Pipelines</TabTitleText>}>
           <PipelinesSettings canManage={canManage} />
+        </Tab>
+        <Tab eventKey="fields" title={<TabTitleText>Fields</TabTitleText>}>
+          <FieldsSettings canManage={canManage} />
         </Tab>
       </Tabs>
     </PageShell>

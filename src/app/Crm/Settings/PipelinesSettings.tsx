@@ -151,15 +151,16 @@ export const PipelinesSettings: React.FunctionComponent<{ canManage: boolean }> 
 
   const change = async (p: Pipeline, patch: { isDefault?: boolean; active?: boolean }) => {
     // Every update carries the whole pipeline, so nothing it does not mention is changed.
-    const ok = await action.run(() =>
-      updatePipeline(token as string, ws, p.id, {
-        name: p.name,
-        active: p.active,
-        isDefault: p.isDefault,
-        rottingDays: p.rottingDays,
-        version: p.version,
-        ...patch,
-      }),
+    const ok = await action.run(
+      () =>
+        updatePipeline(token as string, ws, p.id, {
+          name: p.name,
+          active: p.active,
+          isDefault: p.isDefault,
+          rottingDays: p.rottingDays,
+          version: p.version,
+          ...patch,
+        }),
       (e) => {
         if (isCode(e, 'VERSION_CONFLICT')) {
           setConflict(true);

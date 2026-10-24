@@ -1,4 +1,4 @@
-import type { Board, CrmContact, CrmSettings, CrmStatus, Deal, Pipeline } from '@app/api/crm';
+import type { Board, CrmContact, CrmSettings, CrmStatus, Deal, FieldDefinition, Pipeline } from '@app/api/crm';
 
 /** A CRM status as the server sends it for a brand with the CRM switched on. */
 export function crmStatus(overrides: Partial<CrmStatus> = {}): CrmStatus {
@@ -99,14 +99,24 @@ export function sampleBoard(overrides: Partial<Board> = {}): Board {
         stage: s1,
         total: 2,
         sumAmount: 2500,
-        deals: [sampleDeal(), sampleDeal({ id: 'd2', title: 'Globex renewal', amount: 1000, overdue: true, position: 2000 })],
+        deals: [
+          sampleDeal(),
+          sampleDeal({ id: 'd2', title: 'Globex renewal', amount: 1000, overdue: true, position: 2000 }),
+        ],
       },
       {
         stage: s2,
         total: 6,
         sumAmount: 9000,
         deals: [
-          sampleDeal({ id: 'd3', title: 'Initech rollout', stageId: 's2', amount: 4000, rotting: true, position: 1000 }),
+          sampleDeal({
+            id: 'd3',
+            title: 'Initech rollout',
+            stageId: 's2',
+            amount: 4000,
+            rotting: true,
+            position: 1000,
+          }),
         ],
       },
       { stage: s3, total: 0, sumAmount: 0, deals: [] },
@@ -141,6 +151,26 @@ export function sampleCrmContact(overrides: Partial<CrmContact> = {}): CrmContac
     channelHistory: [],
     creationTime: '2026-10-01T10:00:00Z',
     version: 1,
+    ...overrides,
+  };
+}
+
+/** A custom field definition: an active CONTACT text field unless overridden. */
+export function sampleField(overrides: Partial<FieldDefinition> = {}): FieldDefinition {
+  return {
+    id: 'f1',
+    entityType: 'CONTACT',
+    key: 'nickname',
+    label: 'Nickname',
+    type: 'TEXT',
+    options: [],
+    required: false,
+    defaultValue: null,
+    position: 1,
+    showInList: false,
+    showInCard: false,
+    active: true,
+    version: 0,
     ...overrides,
   };
 }

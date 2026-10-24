@@ -1,4 +1,7 @@
 import { apiFetch } from '@app/api/client';
+import type { FieldOptionDef, FieldType } from '@app/Crm/common/fields/types';
+
+export type { FieldType } from '@app/Crm/common/fields/types';
 
 export type StageType = 'OPEN' | 'WON' | 'LOST';
 export type DealStatus = 'OPEN' | 'WON' | 'LOST';
@@ -57,6 +60,43 @@ export interface CrmSettings {
   lostReasons: Picklist;
   industries: Picklist;
   version: number;
+}
+
+export type FieldEntityType = 'CONTACT' | 'COMPANY' | 'DEAL';
+export type FieldOption = FieldOptionDef;
+
+export interface FieldDefinition {
+  id: string;
+  entityType: FieldEntityType;
+  key: string;
+  label: string;
+  type: FieldType;
+  options: FieldOption[];
+  required: boolean;
+  defaultValue: unknown;
+  position: number;
+  showInList: boolean;
+  showInCard: boolean;
+  active: boolean;
+  version: number;
+}
+
+/** Create or update a definition; entityType, key and type are fixed once created. */
+export interface FieldDefinitionInput {
+  entityType: FieldEntityType;
+  key: string;
+  label: string;
+  type: FieldType;
+  /** In display order; a saved option is switched off (active false), never dropped. */
+  options?: { key: string; label: string; color?: string | null; active?: boolean }[];
+  required?: boolean;
+  /** null keeps the stored default on update; "" clears it. */
+  defaultValue?: unknown;
+  showInList?: boolean;
+  showInCard?: boolean;
+  active?: boolean;
+  /** Required on update. */
+  version?: number;
 }
 
 export interface Stage {
@@ -384,6 +424,21 @@ export const getStatus = (token: string, ws: string) => get<CrmStatus>(token, `$
 export const getSettings = (token: string, ws: string) => get<CrmSettings>(token, `${base(ws)}/settings`);
 export const putSettings = (token: string, ws: string, body: CrmSettings) =>
   send<CrmSettings>(token, 'PUT', `${base(ws)}/settings`, body);
+
+export const listFields = (token: string, ws: string, entityType: FieldEntityType, includeInactive = false) =>
+  get<FieldDefinition[]>(
+    token,
+    `${base(ws)}/fields${query({ entityType, includeInactive: includeInactive ? 'true' : undefined })}`,
+  );
+export const createField = (token: string, ws: string, body: FieldDefinitionInput) =>
+  send<FieldDefinition>(token, 'POST', `${base(ws)}/fields`, body);
+export const updateField = (token: string, ws: string, id: string, body: FieldDefinitionInput) =>
+  send<FieldDefinition>(token, 'PUT', `${base(ws)}/fields/${enc(id)}`, body);
+/** Switches the field off (a soft delete: stored values stay). */
+export const deleteField = (token: string, ws: string, id: string) =>
+  send<void>(token, 'DELETE', `${base(ws)}/fields/${enc(id)}`);
+export const reorderFields = (token: string, ws: string, entityType: FieldEntityType, ids: string[]) =>
+  send<void>(token, 'PUT', `${base(ws)}/fields/reorder`, { entityType, ids });
 
 export const listPipelines = (token: string, ws: string) => get<Pipeline[]>(token, `${base(ws)}/pipelines`);
 export const getPipeline = (token: string, ws: string, id: string) =>
