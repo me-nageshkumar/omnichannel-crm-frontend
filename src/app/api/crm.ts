@@ -428,6 +428,17 @@ export interface Note {
   version: number;
 }
 
+/** What a CSV import did; {@code row} is the 1-based data row. */
+export interface CrmImportResult {
+  total: number;
+  created: number;
+  updated: number;
+  skipped: number;
+  errors: { row: number; message: string }[];
+}
+
+export type ExportEntity = 'contacts' | 'companies' | 'deals';
+
 export interface TaskCounts {
   overdue: number;
   today: number;
@@ -668,6 +679,38 @@ export const deleteAttachment = (token: string, ws: string, noteId: string, atta
   send<Note>(token, 'DELETE', `${base(ws)}/notes/${enc(noteId)}/attachments/${enc(attachmentId)}`);
 export const downloadAttachment = (token: string, ws: string, noteId: string, attachmentId: string) =>
   apiFetchBlob(`${base(ws)}/notes/${enc(noteId)}/attachments/${enc(attachmentId)}`, token);
+
+/** The file name of a download's Content-Disposition, or {@code fallback}. */
+function downloadName(disposition: string | null, fallback: string): string {
+  const match = disposition?.match(/filename="?([^";]+)"?/i);
+  return match ? match[1] : fallback;
+}
+
+/** A CSV of the list with the page's search (its paging is ignored); needs crm:export. */
+export async function exportRecords(
+  token: string,
+  ws: string,
+  entity: ExportEntity,
+  search: Record<string, unknown>,
+): Promise<{ blob: Blob; fileName: string }> {
+  const res = await apiFetchFile(`${base(ws)}/${entity}/export`, { token, body: search, json: true });
+  return {
+    blob: await res.blob(),
+    fileName: downloadName(res.headers.get('Content-Disposition'), `crm-${entity}.csv`),
+  };
+}
+
+const upload = async (token: string, path: string, file: File): Promise<CrmImportResult> => {
+  const body = new FormData();
+  body.append('file', file);
+  const res = await apiFetchFile(path, { token, body });
+  return (await res.json()) as CrmImportResult;
+};
+/** Contacts into one pipeline and one channel number (origin IMPORT). */
+export const importContacts = (token: string, ws: string, file: File, pipelineId: string, phoneNumberId: string) =>
+  upload(token, `${base(ws)}/contacts/import${query({ pipelineId, phoneNumberId })}`, file);
+export const importCompanies = (token: string, ws: string, file: File) =>
+  upload(token, `${base(ws)}/companies/import`, file);
 
 const switchPath = (customerId: string, ws: string) => `/api/customers/${enc(customerId)}/workspaces/${enc(ws)}/crm`;
 export const getCrmSwitch = (token: string, customerId: string, ws: string) =>

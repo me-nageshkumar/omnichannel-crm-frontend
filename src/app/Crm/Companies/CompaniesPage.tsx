@@ -25,6 +25,8 @@ import { useSession } from '@app/session/SessionContext';
 import { formatMoney } from '@app/Crm/common/money';
 import { useRefetchOnFocus } from '@app/Crm/common/useRefetchOnFocus';
 import { useCrmCan } from '@app/Crm/status/CrmStatusContext';
+import { ExportButton } from '@app/Crm/csv/ExportButton';
+import { CompanyImportModal } from '@app/Crm/csv/CompanyImportModal';
 import { CompanyDrawer } from '@app/Crm/Companies/CompanyDrawer';
 import { CompanyFormModal } from '@app/Crm/Companies/CompanyFormModal';
 
@@ -88,6 +90,14 @@ export const CompaniesPage: React.FunctionComponent = () => {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [search]);
 
+  const canExport = useCrmCan('crm:export');
+  const [importing, setImporting] = React.useState(false);
+  const exportSearch = {
+    q: qParam || undefined,
+    ownerId: ownerId || undefined,
+    industry: industry || undefined,
+    sort: `${sort.field},${sort.dir}`,
+  };
   const list = useLoad(
     (tk) =>
       searchCompanies(tk, ws, {
@@ -212,6 +222,12 @@ export const CompaniesPage: React.FunctionComponent = () => {
         actions={
           <>
             {canEdit && <Button onClick={() => setCreating(true)}>New company</Button>}
+            {canExport && <ExportButton entity="companies" search={exportSearch} />}
+            {canEdit && (
+              <Button variant="secondary" onClick={() => setImporting(true)}>
+                Import CSV
+              </Button>
+            )}
             <Button variant="plain" aria-label="Refresh" icon={<SyncAltIcon />} onClick={() => list.reload()} />
           </>
         }
@@ -247,6 +263,14 @@ export const CompaniesPage: React.FunctionComponent = () => {
           </ToolbarContent>
         </Toolbar>
         {body}
+        {importing && (
+          <CompanyImportModal
+            onClose={(imported) => {
+              setImporting(false);
+              if (imported) list.reload();
+            }}
+          />
+        )}
       </PageShell>
       {creating && (
         <CompanyFormModal

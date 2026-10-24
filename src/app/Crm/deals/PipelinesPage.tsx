@@ -23,6 +23,7 @@ import { crmMessage } from '@app/Crm/errors';
 import { PageShell } from '@app/admin/PageShell';
 import { useLoad } from '@app/admin/useLoad';
 import { useFieldDefinitions } from '@app/Crm/fields/useFieldDefinitions';
+import { ExportButton } from '@app/Crm/csv/ExportButton';
 import { useSession } from '@app/session/SessionContext';
 import { KanbanBoard } from '@app/Crm/common/KanbanBoard';
 import type { KanbanLaneData } from '@app/Crm/common/kanban';
@@ -92,6 +93,7 @@ export const PipelinesPage: React.FunctionComponent = () => {
   const t = token as string;
   const { status } = useCrmStatus();
   const canEdit = useCrmCan('crm:edit');
+  const canExport = useCrmCan('crm:export');
   const navigate = useNavigate();
   const location = useLocation();
   const { dealId } = useParams();
@@ -284,6 +286,14 @@ export const PipelinesPage: React.FunctionComponent = () => {
   const actions = pipeline && (
     <>
       <Button variant="plain" aria-label="Refresh" icon={<SyncAltIcon />} onClick={() => active.reload()} />{' '}
+      {view === 'table' && canExport && (
+        <>
+          <ExportButton
+            entity="deals"
+            search={{ pipelineId, ownerId: ownerId || undefined, q: q || undefined, sort: `${sort.field},${sort.dir}` }}
+          />{' '}
+        </>
+      )}
       {canNewDeal && (
         <Button variant="secondary" onClick={() => setAdding('deal')}>
           New deal

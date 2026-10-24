@@ -23,10 +23,12 @@ import { useSession } from '@app/session/SessionContext';
 import { ChannelChip } from '@app/Crm/common/ChannelChip';
 import { formatMoney } from '@app/Crm/common/money';
 import { useRefetchOnFocus } from '@app/Crm/common/useRefetchOnFocus';
-import { useCrmStatus } from '@app/Crm/status/CrmStatusContext';
+import { useCrmCan, useCrmStatus } from '@app/Crm/status/CrmStatusContext';
 import { CrmContactDrawer } from '@app/Crm/Contacts/CrmContactDrawer';
 import { CONTACT_COLUMNS, CONTACT_PAGE_SIZE, contactName } from '@app/Crm/Contacts/contactColumns';
 import { useFieldDefinitions } from '@app/Crm/fields/useFieldDefinitions';
+import { ExportButton } from '@app/Crm/csv/ExportButton';
+import { ContactImportModal } from '@app/Crm/csv/ContactImportModal';
 import { fieldColumns } from '@app/Crm/common/fields/fieldColumns';
 import type { ContactSort } from '@app/Crm/Contacts/contactColumns';
 import { relative } from '@app/PhoneNumbers/PhoneNumberStatusLabel';
@@ -87,6 +89,16 @@ export const CrmContactsPage: React.FunctionComponent = () => {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [search]);
 
+  const canExport = useCrmCan('crm:export');
+  const canImport = useCrmCan('crm:edit');
+  const [importing, setImporting] = React.useState(false);
+  const exportSearch = {
+    q: qParam || undefined,
+    ownerId: ownerId || undefined,
+    lifecycleStatus: lifecycle || undefined,
+    pipelineId: pipelineId || undefined,
+    sort: `${sort.field},${sort.dir}`,
+  };
   const list = useLoad(
     (tk) =>
       searchContacts(tk, ws, {
@@ -230,7 +242,17 @@ export const CrmContactsPage: React.FunctionComponent = () => {
     >
       <PageShell
         title="Contacts"
-        actions={<Button variant="plain" aria-label="Refresh" icon={<SyncAltIcon />} onClick={() => list.reload()} />}
+        actions={
+          <>
+            {canExport && <ExportButton entity="contacts" search={exportSearch} />}
+            {canImport && (
+              <Button variant="secondary" onClick={() => setImporting(true)}>
+                Import CSV
+              </Button>
+            )}
+            <Button variant="plain" aria-label="Refresh" icon={<SyncAltIcon />} onClick={() => list.reload()} />
+          </>
+        }
       >
         <Toolbar>
           <ToolbarContent>
@@ -273,6 +295,14 @@ export const CrmContactsPage: React.FunctionComponent = () => {
           </ToolbarContent>
         </Toolbar>
         {body}
+        {importing && (
+          <ContactImportModal
+            onClose={(imported) => {
+              setImporting(false);
+              if (imported) list.reload();
+            }}
+          />
+        )}
       </PageShell>
     </CrmContactDrawer>
   );
