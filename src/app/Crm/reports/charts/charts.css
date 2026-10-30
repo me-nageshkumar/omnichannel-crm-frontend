@@ -1,0 +1,196 @@
+/*
+ * The report charts' colours (spec C16). Series slots are the dataviz reference palette, validated for colour-vision
+ * deficiency on PatternFly's light (#ffffff) and dark (#151515) surfaces; the dark values are the same hues re-stepped,
+ * not a flip. Single-hue charts use PatternFly blue. Text in charts wears PatternFly text tokens, never a series colour.
+ */
+:root {
+  --crm-series-1: #2a78d6;
+  --crm-series-2: #eb6834;
+  --crm-series-3: #1baf7a;
+  --crm-series-4: #eda100;
+  --crm-series-5: #e87ba4;
+  --crm-series-6: #008300;
+  --crm-series-7: #6250d6;
+  --crm-series-8: #e34948;
+  --crm-mono: var(--pf-t--color--blue-50);
+  --crm-mono-hover: var(--pf-t--color--blue-60);
+  --crm-grid: var(--pf-t--global--border--color--default);
+  --crm-surface: var(--pf-t--global--background--color--primary--default);
+}
+
+.pf-v6-theme-dark {
+  --crm-series-1: #3987e5;
+  --crm-series-2: #d95926;
+  --crm-series-3: #199e70;
+  --crm-series-4: #c98500;
+  --crm-series-5: #d55181;
+  --crm-series-6: #008300;
+  --crm-series-7: #9085e9;
+  --crm-series-8: #e66767;
+  --crm-mono: var(--pf-t--color--blue-40);
+  --crm-mono-hover: var(--pf-t--color--blue-30);
+}
+
+.crm-chart {
+  position: relative;
+  width: 100%;
+  font-family: var(--pf-t--global--font--family--body);
+  color: var(--pf-t--global--text--color--regular);
+}
+
+.crm-chart svg {
+  display: block;
+  width: 100%;
+  height: auto;
+  overflow: visible;
+}
+
+.crm-chart text {
+  fill: var(--pf-t--global--text--color--subtle);
+  font-size: 12px;
+}
+
+.crm-chart .crm-chart__label {
+  fill: var(--pf-t--global--text--color--regular);
+}
+
+.crm-chart .crm-chart__grid {
+  stroke: var(--crm-grid);
+  stroke-width: 1;
+  shape-rendering: crispEdges;
+}
+
+.crm-chart .crm-chart__bar {
+  transition: filter 120ms;
+}
+
+.crm-chart .crm-chart__bar--hover,
+.crm-chart .crm-chart__hit:hover + .crm-chart__bar {
+  filter: brightness(1.12);
+}
+
+.crm-chart .crm-chart__line {
+  fill: none;
+  stroke-width: 2;
+  stroke-linejoin: round;
+  stroke-linecap: round;
+}
+
+.crm-chart .crm-chart__marker {
+  stroke: var(--crm-surface);
+  stroke-width: 2;
+}
+
+.crm-chart .crm-chart__crosshair {
+  stroke: var(--pf-t--global--text--color--subtle);
+  stroke-width: 1;
+  pointer-events: none;
+}
+
+.crm-chart .crm-chart__hit {
+  fill: transparent;
+  cursor: default;
+}
+
+.crm-chart__tooltip {
+  position: absolute;
+  z-index: 2;
+  pointer-events: none;
+  padding: var(--pf-t--global--spacer--xs) var(--pf-t--global--spacer--sm);
+  border-radius: var(--pf-t--global--border--radius--small);
+  background: var(--pf-t--global--background--color--floating--default);
+  border: var(--pf-t--global--border--width--regular) solid var(--pf-t--global--border--color--default);
+  box-shadow: var(--pf-t--global--box-shadow--md);
+  font-size: var(--pf-t--global--font--size--sm);
+  color: var(--pf-t--global--text--color--regular);
+  white-space: nowrap;
+}
+
+.crm-chart__tooltip-title {
+  color: var(--pf-t--global--text--color--subtle);
+  margin-bottom: 2px;
+}
+
+.crm-chart__tooltip-row {
+  display: flex;
+  align-items: center;
+  gap: var(--pf-t--global--spacer--xs);
+}
+
+.crm-chart__tooltip-key {
+  display: inline-block;
+  width: 12px;
+  height: 2px;
+  border-radius: 1px;
+}
+
+.crm-chart__tooltip-value {
+  font-weight: var(--pf-t--global--font--weight--body--bold);
+}
+
+.crm-chart__legend {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--pf-t--global--spacer--xs) var(--pf-t--global--spacer--md);
+  margin: var(--pf-t--global--spacer--sm) 0 0;
+  padding: 0;
+  list-style: none;
+  font-size: var(--pf-t--global--font--size--sm);
+  color: var(--pf-t--global--text--color--regular);
+}
+
+.crm-chart__legend li {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--pf-t--global--spacer--xs);
+}
+
+.crm-chart__swatch {
+  display: inline-block;
+  width: 12px;
+  height: 12px;
+  border-radius: 2px;
+}
+
+.crm-chart__swatch--line {
+  width: 16px;
+  height: 2px;
+  border-radius: 1px;
+}
+
+.crm-stat {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+
+.crm-stat__label {
+  font-size: var(--pf-t--global--font--size--sm);
+  color: var(--pf-t--global--text--color--subtle);
+}
+
+.crm-stat__value {
+  font-size: var(--pf-t--global--font--size--3xl);
+  font-weight: var(--pf-t--global--font--weight--heading--default);
+  line-height: 1.1;
+  color: var(--pf-t--global--text--color--regular);
+}
+
+.crm-stat__sub {
+  font-size: var(--pf-t--global--font--size--sm);
+  color: var(--pf-t--global--text--color--subtle);
+}
+
+.crm-segmented {
+  display: flex;
+  gap: 2px;
+  height: 8px;
+  width: 100%;
+  min-width: 80px;
+}
+
+.crm-segmented__part {
+  height: 100%;
+  border-radius: 4px;
+  min-width: 0;
+}
