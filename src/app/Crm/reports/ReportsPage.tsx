@@ -101,7 +101,17 @@ export const ReportsPage: React.FunctionComponent = () => {
     <PageShell title="Reports">
       <ReportFilterBar
         state={state}
-        onChange={(next) => setParams(toSearch(next), { replace: true })}
+        onChange={(next) =>
+          setParams(
+            (prev) => {
+              // The grid's own settings (g.*) ride along with the filter.
+              const sp = toSearch(next);
+              prev.forEach((v, k) => k.startsWith('g.') && sp.set(k, v));
+              return sp;
+            },
+            { replace: true },
+          )
+        }
         pipelines={accessible}
         phones={status?.phones ?? []}
         owners={owners}

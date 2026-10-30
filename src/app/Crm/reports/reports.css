@@ -49,3 +49,15 @@
   font-size: var(--pf-t--global--font--size--body--sm);
   color: var(--pf-t--global--text--color--subtle);
 }
+
+.crm-grid__builder {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--pf-t--global--spacer--md);
+  margin: var(--pf-t--global--spacer--md) 0;
+}
+
+.crm-grid__builder > .pf-v6-c-form__group {
+  flex: 1 1 160px;
+  min-width: 0;
+}

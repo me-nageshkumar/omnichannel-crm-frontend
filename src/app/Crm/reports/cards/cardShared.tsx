@@ -19,7 +19,7 @@ export const money = (v: number | null | undefined, currency: string): string =>
 
 /** "₹150k": the currency's symbol with a compact figure, for axis ticks and bar tips. */
 export function moneyCompact(v: number, currency: string): string {
-  const symbol = (formatMoney(0, null, currency) || '').replace(/[\d.,\s]+$/u, '');
+  const symbol = (formatMoney(0, null, currency) || '').replace(/[\d.,\s]+$/, '');
   return `${symbol}${symbol.length > 1 ? ' ' : ''}${compact(v)}`;
 }
 
