@@ -718,3 +718,211 @@ export const getCrmSwitch = (token: string, customerId: string, ws: string) =>
   get<Enablement>(token, switchPath(customerId, ws));
 export const putCrmSwitch = (token: string, customerId: string, ws: string, body: Enablement) =>
   send<Enablement>(token, 'PUT', switchPath(customerId, ws), body);
+
+// ---- Reports (phase C) ----
+
+/** The window and slices every report takes; ISO instants, {@code tz} an IANA zone. */
+export interface ReportFilter {
+  from?: string;
+  to?: string;
+  tz?: string;
+  pipelineId?: string;
+  phoneNumberIds?: string[];
+  ownerIds?: string[];
+}
+export type ReportBucket = 'DAY' | 'WEEK' | 'MONTH';
+export interface DealsOverTimeRequest extends ReportFilter {
+  bucket?: ReportBucket;
+}
+
+export interface PipelineSummaryStage {
+  stageId: string;
+  name: string;
+  type: StageType;
+  openCount: number;
+  openAmount: number;
+  weightedAmount: number;
+}
+export interface PipelineSummary {
+  pipelineId: string;
+  pipelineName: string;
+  currency: string;
+  stages: PipelineSummaryStage[];
+  openCount: number;
+  openAmount: number;
+  won: { count: number; amount: number };
+  lost: { count: number; amount: number };
+  winRate: number | null;
+  averageWonAmount: number | null;
+  otherCurrencyDeals: number;
+}
+
+export interface DealsOverTimePoint {
+  start: string;
+  created: number;
+  won: number;
+  lost: number;
+  wonAmount: number;
+}
+export interface DealsOverTime {
+  bucket: ReportBucket;
+  currency: string;
+  points: DealsOverTimePoint[];
+  otherCurrencyDeals: number;
+}
+
+export interface ByOwnerRow {
+  ownerId: string;
+  label: string;
+  openCount: number;
+  openAmount: number;
+  wonCount: number;
+  wonAmount: number;
+  lostCount: number;
+  winRate: number | null;
+}
+export interface ByOwner {
+  currency: string;
+  rows: ByOwnerRow[];
+  otherCurrencyDeals: number;
+}
+
+export interface BySourceDealRow {
+  source: string;
+  label: string;
+  created: number;
+  won: number;
+  wonAmount: number;
+}
+export interface BySource {
+  currency: string;
+  deals: BySourceDealRow[];
+  contacts: { originKind: string; created: number }[];
+  otherCurrencyDeals: number;
+}
+
+export interface ByNumberRow {
+  phoneNumberId: string;
+  label: string;
+  created: number;
+  won: number;
+  wonAmount: number;
+  openAmount: number;
+}
+export interface ByNumber {
+  currency: string;
+  rows: ByNumberRow[];
+  otherCurrencyDeals: number;
+}
+
+export interface LifecycleFunnel {
+  rows: { key: string; label: string; active: boolean; count: number }[];
+  total: number;
+}
+
+export interface ActivitySummaryRow {
+  actorId: string;
+  label: string;
+  tasksCompleted: number;
+  notesAdded: number;
+  stageMoves: number;
+  dealsWon: number;
+  dealsLost: number;
+  calls: number;
+  meetings: number;
+  emails: number;
+}
+export interface ActivitySummary {
+  rows: ActivitySummaryRow[];
+}
+
+export interface StageDurationRow {
+  stageId: string;
+  name: string;
+  movesOut: number;
+  averageDays: number | null;
+  medianDays: number | null;
+  openNow: number;
+  averageDaysOpenNow: number | null;
+}
+export interface StageDuration {
+  pipelineId: string;
+  pipelineName: string;
+  /** When the stage history starts, or null when there is none yet. */
+  since: string | null;
+  stages: StageDurationRow[];
+}
+
+export interface CampaignsReportRow {
+  campaignId: string;
+  name: string;
+  status: string;
+  startedAt: string | null;
+  numbers: { phoneNumberId: string; label: string }[];
+  recipients: number;
+  sent: number;
+  delivered: number;
+  read: number;
+  replied: number;
+  failed: number;
+  crmContactsReached: number;
+}
+export interface CampaignsReport {
+  rows: CampaignsReportRow[];
+  truncated: boolean;
+}
+
+export type GridEntityType = 'DEAL' | 'CONTACT' | 'COMPANY';
+export type GridMetric = 'COUNT' | 'SUM' | 'AVG';
+export type GridDateField = 'creationTime' | 'closedAt';
+export interface GridRequest extends ReportFilter {
+  entityType: GridEntityType;
+  groupBy: string;
+  metric?: GridMetric;
+  /** "amount" or "custom:<key>" for SUM and AVG. */
+  field?: string;
+  dateBucket?: ReportBucket;
+  dateField?: GridDateField;
+}
+export interface GridRow {
+  key: string;
+  label: string;
+  bucket?: string;
+  value: number;
+  count: number;
+}
+export interface GridReport {
+  entityType: GridEntityType;
+  groupBy: string;
+  metric: GridMetric;
+  field: string | null;
+  dateBucket: ReportBucket | null;
+  currency: string;
+  rows: GridRow[];
+  truncated: boolean;
+  otherCurrencyDeals: number;
+}
+/** The key of the grid row that gathers the groups past the first hundred. */
+export const GRID_OTHER = '__other';
+
+const report = <T>(token: string, ws: string, path: string, body: ReportFilter) =>
+  send<T>(token, 'POST', `${base(ws)}/reports/${path}`, body);
+export const reportPipelineSummary = (token: string, ws: string, body: ReportFilter) =>
+  report<PipelineSummary>(token, ws, 'pipeline-summary', body);
+export const reportDealsOverTime = (token: string, ws: string, body: DealsOverTimeRequest) =>
+  report<DealsOverTime>(token, ws, 'deals-over-time', body);
+export const reportByOwner = (token: string, ws: string, body: ReportFilter) =>
+  report<ByOwner>(token, ws, 'by-owner', body);
+export const reportBySource = (token: string, ws: string, body: ReportFilter) =>
+  report<BySource>(token, ws, 'by-source', body);
+export const reportByNumber = (token: string, ws: string, body: ReportFilter) =>
+  report<ByNumber>(token, ws, 'by-number', body);
+export const reportLifecycleFunnel = (token: string, ws: string, body: ReportFilter) =>
+  report<LifecycleFunnel>(token, ws, 'lifecycle-funnel', body);
+export const reportActivitySummary = (token: string, ws: string, body: ReportFilter) =>
+  report<ActivitySummary>(token, ws, 'activity-summary', body);
+export const reportStageDuration = (token: string, ws: string, body: ReportFilter) =>
+  report<StageDuration>(token, ws, 'stage-duration', body);
+export const reportCampaigns = (token: string, ws: string, body: ReportFilter) =>
+  report<CampaignsReport>(token, ws, 'campaigns', body);
+export const reportGrid = (token: string, ws: string, body: GridRequest) => report<GridReport>(token, ws, 'grid', body);

@@ -76,6 +76,7 @@ const NAV_SECTIONS: NavEntry[][] = [
         { label: 'Tasks', path: '/crm/tasks' },
         { label: 'Contacts', path: '/crm/contacts' },
         { label: 'Companies', path: '/crm/companies' },
+        { label: 'Reports', path: '/crm/reports' },
         { label: 'Settings', path: '/crm/settings' },
       ],
     },
