@@ -6,7 +6,7 @@ import { BarChart } from './BarChart';
 import { LineChart } from './LineChart';
 import { SegmentedBar } from './SegmentedBar';
 import { StatTile } from './StatTile';
-import { compact } from './chartText';
+import { compact, ticks } from './chartText';
 
 const money = (v: number) => `₹${v.toLocaleString('en-IN')}`;
 
@@ -125,6 +125,43 @@ describe('report charts', () => {
     const labels = Array.from(container.querySelectorAll('svg > text[text-anchor="middle"]')).map((t) => t.textContent);
     // Picked at a fixed step counted back from the last point, so the last two labels are never neighbours.
     expect(labels).toEqual(['d2', 'd5', 'd8', 'd11', 'd14']);
+  });
+
+  it('chartsDrawAtTheirRealWidthSoTextKeepsItsSize', () => {
+    const real = HTMLElement.prototype.getBoundingClientRect;
+    HTMLElement.prototype.getBoundingClientRect = function () {
+      return { ...real.call(this), width: 300 } as DOMRect;
+    };
+    try {
+      const bar = render(<BarChart title="B" rows={ROWS} format={money} />);
+      expect(bar.container.querySelector('svg')?.getAttribute('viewBox')).toMatch(/^0 0 300 /);
+      const line = render(
+        <LineChart
+          title="L"
+          series={[
+            {
+              key: 'a',
+              label: 'A',
+              points: [
+                { x: new Date(2026, 0, 1), y: 1 },
+                { x: new Date(2026, 0, 2), y: 2 },
+              ],
+            },
+          ]}
+          formatY={String}
+          formatX={(d) => String(d.getDate())}
+        />,
+      );
+      expect(line.container.querySelector('svg')?.getAttribute('viewBox')).toMatch(/^0 0 300 /);
+    } finally {
+      HTMLElement.prototype.getBoundingClientRect = real;
+    }
+  });
+
+  it('ticksAreWholeNumbers', () => {
+    expect(ticks(1)).toEqual([0, 1]);
+    expect(ticks(3)).toEqual([0, 1, 2, 3]);
+    expect(ticks(0.4)).toEqual([0, 1]);
   });
 
   it('seriesColoursComeFromCssVariables', () => {

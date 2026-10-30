@@ -54,14 +54,14 @@ describe('CRM grid report', () => {
     vi.unstubAllGlobals();
   });
 
-  it('defaultsToDealCountByPipeline', async () => {
+  it('defaultsToDealCountByStage', async () => {
     const f = mockFetch(routes());
     await openGrid();
     await waitFor(() => expect(callsTo(f, GRID)).toBe(1));
     const body = lastGrid(f);
     expect(body).toMatchObject({
       entityType: 'DEAL',
-      groupBy: 'pipeline',
+      groupBy: 'stage',
       metric: 'COUNT',
       pipelineId: 'p1',
       tz: 'Asia/Kolkata',
@@ -69,7 +69,7 @@ describe('CRM grid report', () => {
     expect(body).not.toHaveProperty('field');
     expect(body).not.toHaveProperty('dateBucket');
     expect(select('Record type')).toHaveValue('DEAL');
-    expect(select('Group by')).toHaveValue('pipeline');
+    expect(select('Group by')).toHaveValue('stage');
     expect(select('Metric')).toHaveValue('COUNT');
     expect(select('Date bucket')).toHaveValue('');
     expect(screen.queryByRole('combobox', { name: 'Field' })).toBeNull();

@@ -2,6 +2,7 @@ import * as React from 'react';
 import './charts.css';
 import { Tooltip } from './Tooltip';
 import { clip, seriesColor, ticks } from './chartText';
+import { useChartWidth } from './useChartWidth';
 
 export interface BarRow {
   key: string;
@@ -17,7 +18,6 @@ const LABEL_W = 132;
 const PAD_RIGHT = 56;
 const TOP = 8;
 const AXIS = 22;
-const WIDTH = 480;
 
 /**
  * Horizontal bars, one hue, largest first (or in the given order), the top three values labelled at the tip, a
@@ -34,6 +34,7 @@ export const BarChart: React.FunctionComponent<{
   keepOrder?: boolean;
   maxBars?: number;
 }> = ({ title, period, rows, format, series = 'mono', keepOrder = false, maxBars = 50 }) => {
+  const [box, WIDTH] = useChartWidth();
   const [hover, setHover] = React.useState<{ index: number; x: number; y: number } | null>(null);
   const shown = React.useMemo(() => {
     const ordered = keepOrder ? rows : [...rows].sort((a, b) => b.value - a.value);
@@ -56,7 +57,7 @@ export const BarChart: React.FunctionComponent<{
   );
 
   return (
-    <div className="crm-chart">
+    <div className="crm-chart" ref={box}>
       <svg
         viewBox={`0 0 ${WIDTH} ${height}`}
         role="img"

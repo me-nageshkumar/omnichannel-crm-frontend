@@ -124,6 +124,28 @@ describe('CRM reports page', () => {
     expect(screen.queryByRole('combobox', { name: 'Owner' })).toBeNull();
   });
 
+  it('staleNumbersInTheUrlAreDropped', async () => {
+    const f = mockFetch(reportRoutes());
+    renderApp('/crm/reports?numbers=gone,n1');
+    expect(await screen.findByRole('button', { name: 'Numbers' })).toHaveTextContent('1 number');
+    await waitFor(() => expect(lastBody(f, 'by-number')).toMatchObject({ phoneNumberIds: ['n1'] }));
+    cleanup();
+
+    const g = mockFetch(reportRoutes());
+    renderApp('/crm/reports?numbers=gone');
+    expect(await screen.findByRole('button', { name: 'Numbers' })).toHaveTextContent('All numbers');
+    await waitFor(() => expect(callsTo(g, reportPath('by-number'))).toBe(1));
+    expect(lastBody(g, 'by-number')).not.toHaveProperty('phoneNumberIds');
+  });
+
+  it('ownerInTheUrlIsIgnoredWithoutViewAll', async () => {
+    const f = mockFetch(reportRoutes());
+    renderApp('/crm/reports?owner=u9');
+    await screen.findByRole('combobox', { name: 'Range' });
+    await waitFor(() => expect(callsTo(f, reportPath('by-owner'))).toBe(1));
+    expect(lastBody(f, 'by-owner')).not.toHaveProperty('ownerIds');
+  });
+
   it('noPipelineMakesNoReportCalls', async () => {
     const f = mockFetch(reportRoutes({}, { pipelineAccess: [] }));
     renderApp('/crm/reports');

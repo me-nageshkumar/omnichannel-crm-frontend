@@ -22,8 +22,8 @@ export const ENTITIES: Option<GridEntityType>[] = [
 /** The built-in groups the server accepts, per record type, in menu order; the first is the default. */
 export const GROUP_BY: Record<GridEntityType, Option[]> = {
   DEAL: [
-    { key: 'pipeline', label: 'Pipeline' },
     { key: 'stage', label: 'Stage' },
+    { key: 'pipeline', label: 'Pipeline' },
     { key: 'status', label: 'Status' },
     { key: 'owner', label: 'Owner' },
     { key: 'source', label: 'Source' },
@@ -107,7 +107,7 @@ export interface GridState {
 
 export const DEFAULT_GRID: GridState = {
   entity: 'DEAL',
-  by: 'pipeline',
+  by: 'stage',
   metric: 'COUNT',
   field: '',
   bucket: '',

@@ -89,6 +89,10 @@ export const ReportsPage: React.FunctionComponent = () => {
     accessible[0];
   const state = fromSearch(params, { pipelineId: fallback.id });
   if (!accessible.some((p) => p.id === state.pipelineId)) state.pipelineId = fallback.id;
+  // A link may name a number the brand no longer has, or an owner the caller may not pick.
+  const phones = status?.phones ?? [];
+  state.numbers = state.numbers.filter((n) => phones.some((p) => p.phoneNumberId === n));
+  if (!canPickOwner) state.ownerId = '';
   const custom = { from: state.from ?? '', to: state.to ?? '' };
   const rangeError = state.preset === 'custom' ? customRangeError(custom) : null;
   const range = rangeOf(state.preset, new Date(), tz, custom);
@@ -113,7 +117,7 @@ export const ReportsPage: React.FunctionComponent = () => {
           )
         }
         pipelines={accessible}
-        phones={status?.phones ?? []}
+        phones={phones}
         owners={owners}
         meId={user?.id ?? ''}
         canPickOwner={canPickOwner}

@@ -23,12 +23,12 @@ export function clip(label: string, max = 18): string {
   return label.length > max ? `${label.slice(0, max - 1)}…` : label;
 }
 
-/** Round tick values: at most five, on clean steps (1, 2, 5 × 10ⁿ), ending at or above the maximum. */
+/** Round tick values: at most five, on clean whole steps (1, 2, 5 × 10ⁿ, never below 1), ending at or above the maximum. */
 export function ticks(max: number, count = 4): number[] {
   if (max <= 0) return [0];
   const rough = max / count;
   const magnitude = 10 ** Math.floor(Math.log10(rough));
-  const step = [1, 2, 5, 10].map((m) => m * magnitude).find((s) => s >= rough) ?? magnitude;
+  const step = Math.max(1, [1, 2, 5, 10].map((m) => m * magnitude).find((s) => s >= rough) ?? magnitude);
   const out: number[] = [];
   for (let v = 0; v <= max + step * 0.999; v += step) out.push(Number(v.toFixed(10)));
   return out;

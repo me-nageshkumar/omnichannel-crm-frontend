@@ -41,8 +41,6 @@
 .crm-chart svg {
   display: block;
   width: 100%;
-  /* Drawn at 480 px wide; a wide card must not blow the text up with it. */
-  max-width: 640px;
   height: auto;
   overflow: visible;
 }

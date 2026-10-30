@@ -2,6 +2,7 @@ import * as React from 'react';
 import './charts.css';
 import { Tooltip } from './Tooltip';
 import { seriesColor, ticks } from './chartText';
+import { useChartWidth } from './useChartWidth';
 
 export interface LinePoint {
   x: Date;
@@ -14,7 +15,6 @@ export interface LineSeries {
   points: LinePoint[];
 }
 
-const WIDTH = 480;
 const HEIGHT = 220;
 const PAD = { top: 12, right: 16, bottom: 28, left: 48 };
 
@@ -29,6 +29,7 @@ export const LineChart: React.FunctionComponent<{
   formatY(v: number): string;
   formatX(d: Date): string;
 }> = ({ title, period, series, formatY, formatX }) => {
+  const [box, WIDTH] = useChartWidth();
   const [hover, setHover] = React.useState<{ index: number; x: number; y: number } | null>(null);
   const shown = series.slice(0, 8);
   const xs = React.useMemo(() => {
@@ -72,7 +73,7 @@ export const LineChart: React.FunctionComponent<{
   const xLabels = xs.length <= 6 ? xs : xs.filter((_, i) => (xs.length - 1 - i) % step === 0);
 
   return (
-    <div className="crm-chart">
+    <div className="crm-chart" ref={box}>
       <svg viewBox={`0 0 ${WIDTH} ${HEIGHT}`} role="img" aria-label={period ? `${title}, ${period}` : title}>
         {axis.map((t) => (
           <g key={t}>

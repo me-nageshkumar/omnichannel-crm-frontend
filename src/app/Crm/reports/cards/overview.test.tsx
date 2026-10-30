@@ -273,6 +273,28 @@ describe('CRM report overview', () => {
     expect(screen.queryByText(inr(111111))).toBeNull();
   });
 
+  it('refreshKeepsTheFiguresOnScreen', async () => {
+    // The second answer is held back, so the page is caught mid-refresh.
+    let n = 0;
+    const f = mockFetch(
+      reportRoutes({
+        [reportPath('pipeline-summary')]: () => {
+          if (++n === 1) return { status: 200, body: samplePipelineSummary() };
+          const stream = new ReadableStream({ start() {} });
+          return new Response(stream, { status: 200, headers: { 'Content-Type': 'application/json' } });
+        },
+      }),
+    );
+    const { user } = renderApp('/crm/reports');
+    await screen.findByText('Open pipeline');
+    await waitFor(() => expect(tile('Open pipeline')).toHaveTextContent(inr(200000)));
+    await user.click(screen.getByRole('button', { name: 'Refresh' }));
+    await waitFor(() => expect(callsTo(f, reportPath('pipeline-summary'))).toBe(2));
+    // The old figures stay while the new ones load: no spinner replaces them.
+    expect(tile('Open pipeline')).toHaveTextContent(inr(200000));
+    expect(screen.queryByLabelText('Loading summary')).toBeNull();
+  });
+
   it('toggleHasAccessibleName', async () => {
     mockFetch(reportRoutes());
     renderApp('/crm/reports');
