@@ -1,0 +1,63 @@
+.crm-report-card__period {
+  display: block;
+  font-size: var(--pf-t--global--font--size--body--sm);
+  font-weight: var(--pf-t--global--font--weight--body--default);
+  color: var(--pf-t--global--text--color--subtle);
+  margin-top: var(--pf-t--global--spacer--xs);
+}
+
+.crm-report-card__footer {
+  font-size: var(--pf-t--global--font--size--body--sm);
+  color: var(--pf-t--global--text--color--subtle);
+}
+
+.crm-reports__tiles {
+  display: grid;
+  gap: var(--pf-t--global--spacer--md);
+  grid-template-columns: repeat(auto-fill, minmax(min(100%, 160px), 1fr));
+  margin-bottom: var(--pf-t--global--spacer--md);
+}
+
+.crm-reports__filter-error {
+  padding: 0 var(--pf-t--global--spacer--md) var(--pf-t--global--spacer--sm);
+}
+
+.crm-reports__tiles {
+  margin-top: var(--pf-t--global--spacer--sm);
+}
+
+.crm-reports__subheading {
+  font-size: var(--pf-t--global--font--size--body--sm);
+  font-weight: var(--pf-t--global--font--weight--body--bold);
+  color: var(--pf-t--global--text--color--subtle);
+  margin: var(--pf-t--global--spacer--md) 0 var(--pf-t--global--spacer--xs);
+}
+
+.crm-reports__delivery {
+  display: flex;
+  align-items: center;
+  gap: var(--pf-t--global--spacer--sm);
+  min-width: 240px;
+}
+
+.crm-reports__delivery > .crm-segmented {
+  flex: 1 1 120px;
+}
+
+.crm-reports__delivery-figures {
+  white-space: nowrap;
+  font-size: var(--pf-t--global--font--size--body--sm);
+  color: var(--pf-t--global--text--color--subtle);
+}
+
+.crm-grid__builder {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--pf-t--global--spacer--md);
+  margin: var(--pf-t--global--spacer--md) 0;
+}
+
+.crm-grid__builder > .pf-v6-c-form__group {
+  flex: 1 1 160px;
+  min-width: 0;
+}
