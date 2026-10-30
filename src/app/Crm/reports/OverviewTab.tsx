@@ -1,18 +1,17 @@
 import * as React from 'react';
-import type { ReportFilter } from '@app/api/crm';
-import {
-  reportActivitySummary,
-  reportByNumber,
-  reportByOwner,
-  reportBySource,
-  reportCampaigns,
-  reportDealsOverTime,
-  reportLifecycleFunnel,
-  reportPipelineSummary,
-  reportStageDuration,
-} from '@app/api/crm';
-import { ReportCard } from '@app/Crm/reports/ReportCard';
+import { Gallery, GalleryItem } from '@patternfly/react-core';
+import { type ReportFilter, reportPipelineSummary } from '@app/api/crm';
 import { useReport } from '@app/Crm/reports/useReport';
+import { KpiRow } from '@app/Crm/reports/cards/KpiRow';
+import { PipelineByStageCard } from '@app/Crm/reports/cards/PipelineByStageCard';
+import { DealsOverTimeCard } from '@app/Crm/reports/cards/DealsOverTimeCard';
+import { ByOwnerCard } from '@app/Crm/reports/cards/ByOwnerCard';
+import { BySourceCard } from '@app/Crm/reports/cards/BySourceCard';
+import { ByNumberCard } from '@app/Crm/reports/cards/ByNumberCard';
+import { LifecycleFunnelCard } from '@app/Crm/reports/cards/LifecycleFunnelCard';
+import { ActivityCard } from '@app/Crm/reports/cards/ActivityCard';
+import { StageDurationCard } from '@app/Crm/reports/cards/StageDurationCard';
+import { CampaignsCard } from '@app/Crm/reports/cards/CampaignsCard';
 
 export interface OverviewProps {
   ws: string;
@@ -22,55 +21,44 @@ export interface OverviewProps {
   currency: string;
 }
 
-/* Until the real cards land, every report shows its raw answer. */
-const RawCard = <T,>({
-  id,
-  title,
-  period,
-  ws,
-  body,
-  tick,
-  call,
-}: {
-  id: string;
-  title: string;
-  period: string;
-  ws: string;
-  body: ReportFilter;
-  tick: number;
-  call: (token: string, ws: string, body: ReportFilter) => Promise<T>;
-}) => {
-  const q = useReport(call, ws, body, tick);
-  const raw = <pre style={{ whiteSpace: 'pre-wrap' }}>{JSON.stringify(q.data, null, 1)}</pre>;
-  return (
-    <ReportCard
-      id={id}
-      title={title}
-      period={period}
-      loading={q.loading}
-      error={q.error}
-      onRetry={q.reload}
-      empty={false}
-      chart={raw}
-      table={raw}
-    />
-  );
-};
+const WIDE = { gridColumn: '1 / -1' };
 
-/** The Overview tab: the KPI tiles and the nine cards of the brand's CRM for the filter. */
-export const OverviewTab: React.FunctionComponent<OverviewProps> = ({ ws, body, tick, period }) => {
-  const common = { ws, body, tick, period };
+/** The Overview tab: the KPI tiles and the nine cards for the filter; the pipeline summary feeds the tiles and the first card. */
+export const OverviewTab: React.FunctionComponent<OverviewProps> = ({ ws, body, tick, period, currency }) => {
+  const summary = useReport(reportPipelineSummary, ws, body, tick);
+  const common = { ws, body, tick, period, currency };
   return (
-    <div className="crm-reports__grid">
-      <RawCard id="pipeline-summary" title="Pipeline summary" call={reportPipelineSummary} {...common} />
-      <RawCard id="deals-over-time" title="Deals over time" call={reportDealsOverTime} {...common} />
-      <RawCard id="by-owner" title="By owner" call={reportByOwner} {...common} />
-      <RawCard id="by-source" title="By source" call={reportBySource} {...common} />
-      <RawCard id="by-number" title="By number" call={reportByNumber} {...common} />
-      <RawCard id="lifecycle-funnel" title="Lifecycle funnel" call={reportLifecycleFunnel} {...common} />
-      <RawCard id="activity-summary" title="Activity summary" call={reportActivitySummary} {...common} />
-      <RawCard id="stage-duration" title="Stage duration" call={reportStageDuration} {...common} />
-      <RawCard id="campaigns" title="Campaigns" call={reportCampaigns} {...common} />
-    </div>
+    <>
+      <KpiRow summary={summary} currency={currency} />
+      <Gallery hasGutter minWidths={{ default: '100%', md: '420px' }}>
+        <GalleryItem>
+          <PipelineByStageCard summary={summary} period={period} currency={currency} />
+        </GalleryItem>
+        <GalleryItem>
+          <DealsOverTimeCard {...common} />
+        </GalleryItem>
+        <GalleryItem>
+          <ByOwnerCard {...common} />
+        </GalleryItem>
+        <GalleryItem>
+          <BySourceCard {...common} />
+        </GalleryItem>
+        <GalleryItem>
+          <ByNumberCard {...common} />
+        </GalleryItem>
+        <GalleryItem>
+          <LifecycleFunnelCard {...common} />
+        </GalleryItem>
+        <GalleryItem style={WIDE}>
+          <ActivityCard {...common} />
+        </GalleryItem>
+        <GalleryItem>
+          <StageDurationCard {...common} />
+        </GalleryItem>
+        <GalleryItem style={WIDE}>
+          <CampaignsCard {...common} />
+        </GalleryItem>
+      </Gallery>
+    </>
   );
 };

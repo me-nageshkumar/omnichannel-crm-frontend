@@ -143,14 +143,14 @@ describe('CRM reports page', () => {
   it('cardRemembersTheTableView', async () => {
     mockFetch(reportRoutes());
     const { user } = renderApp('/crm/reports');
-    const toggle = await screen.findByRole('group', { name: 'View of Pipeline summary' });
+    const toggle = await screen.findByRole('group', { name: 'View of Pipeline by stage' });
     await user.click(within(toggle).getByRole('button', { name: 'Table' }));
-    expect(localStorage.getItem('crm.reports.view.pipeline-summary')).toBe('table');
+    expect(localStorage.getItem('crm.reports.view.pipeline-by-stage')).toBe('table');
     cleanup();
 
     mockFetch(reportRoutes());
     renderApp('/crm/reports');
-    const again = await screen.findByRole('group', { name: 'View of Pipeline summary' });
+    const again = await screen.findByRole('group', { name: 'View of Pipeline by stage' });
     expect(within(again).getByRole('button', { name: 'Table' })).toHaveAttribute('aria-pressed', 'true');
   });
 });
