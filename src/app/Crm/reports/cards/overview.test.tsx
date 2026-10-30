@@ -176,7 +176,7 @@ describe('CRM report overview', () => {
 
     mockFetch(
       reportRoutes({
-        [reportPath('stage-duration')]: { status: 200, body: sampleStageDuration({ since: null, stages: [] }) },
+        [reportPath('stage-duration')]: { status: 200, body: sampleStageDuration({ since: null }) },
       }),
     );
     renderApp('/crm/reports');

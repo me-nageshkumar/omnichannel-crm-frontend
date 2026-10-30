@@ -67,7 +67,9 @@ export const LineChart: React.FunctionComponent<{
     return { index: best, x: px(xs[best]) / scale, y: (PAD.top + plotH / 2) / scale };
   };
 
-  const xLabels = xs.length <= 6 ? xs : xs.filter((_, i) => i % Math.ceil(xs.length / 6) === 0 || i === xs.length - 1);
+  // Labels are picked at a fixed step counted back from the last point, so the last two are never neighbours.
+  const step = Math.ceil(xs.length / 6);
+  const xLabels = xs.length <= 6 ? xs : xs.filter((_, i) => (xs.length - 1 - i) % step === 0);
 
   return (
     <div className="crm-chart">

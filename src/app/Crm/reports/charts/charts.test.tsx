@@ -112,6 +112,21 @@ describe('report charts', () => {
     expect(screen.queryByRole('tooltip')).toBeNull();
   });
 
+  it('lineChartXLabelsNeverCrowdTheLastOne', () => {
+    const points = Array.from({ length: 14 }, (_, i) => ({ x: new Date(Date.UTC(2026, 0, i + 1, 12)), y: i }));
+    const { container } = render(
+      <LineChart
+        title="T"
+        series={[{ key: 'a', label: 'A', points }]}
+        formatY={String}
+        formatX={(d) => `d${d.getUTCDate()}`}
+      />,
+    );
+    const labels = Array.from(container.querySelectorAll('svg > text[text-anchor="middle"]')).map((t) => t.textContent);
+    // Picked at a fixed step counted back from the last point, so the last two labels are never neighbours.
+    expect(labels).toEqual(['d2', 'd5', 'd8', 'd11', 'd14']);
+  });
+
   it('seriesColoursComeFromCssVariables', () => {
     const series = [1, 2].map((n) => ({ key: `s${n}`, label: `S${n}`, points: [{ x: new Date(2026, 0, n), y: n }] }));
     const { container } = render(

@@ -22,9 +22,9 @@ export const StageDurationCard: React.FunctionComponent<CardProps> = ({ ws, body
       loading={q.loading}
       error={q.error}
       onRetry={q.reload}
-      empty={stages.length === 0}
-      emptyText="This pipeline has no stages."
-      note={d ? (d.since ? `Based on moves since ${longDay(d.since)}` : 'No moves recorded yet.') : undefined}
+      empty={stages.length === 0 || !d?.since}
+      emptyText={stages.length === 0 ? 'This pipeline has no stages.' : 'No moves recorded yet.'}
+      note={d?.since ? `Based on moves since ${longDay(d.since)}` : undefined}
       chart={
         <BarChart
           title={TITLE}

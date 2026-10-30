@@ -19,4 +19,11 @@ describe('report chart components', () => {
     }
     expect(bad).toEqual([]);
   });
+  it('chartCssUsesOnlyGlobalPatternFlyTokens', () => {
+    // PatternFly 6 ships no --pf-t--color-* palette variables at runtime; a bar painted with one renders black.
+    const css = readFileSync(join(__dirname, 'charts.css'), 'utf8');
+    const tokens = Array.from(css.matchAll(/--pf-t--[a-z0-9-]+/g)).map((m) => m[0]);
+    expect(tokens.length).toBeGreaterThan(0);
+    expect(tokens.filter((t) => !t.startsWith('--pf-t--global--'))).toEqual([]);
+  });
 });
