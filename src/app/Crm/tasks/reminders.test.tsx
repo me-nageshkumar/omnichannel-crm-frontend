@@ -134,13 +134,23 @@ describe('CRM reminders', () => {
   it('assignedToastShowsOncePerTask', async () => {
     const f = mockFetch(
       boardRoutes({
-        [LIST]: { status: 200, body: [reminder({ kind: 'ASSIGNED', assignedBy: { id: 'u2', name: 'Priya Agent' } })] },
+        [LIST]: {
+          status: 200,
+          body: [
+            reminder({
+              kind: 'ASSIGNED',
+              assignedBy: { id: 'u2', name: 'Priya Agent' },
+              dueAt: new Date(Date.now() - 3 * 86_400_000).toISOString(),
+            }),
+          ],
+        },
         [`POST ${BASE}/reminders/t1/seen`]: { status: 204 },
       }),
     );
     const { user } = renderApp('/');
     const toast = await screen.findByText('New task from Priya Agent: Call back');
     expect(screen.getAllByText(/Call back/).length).toBe(1);
+    expect(within(toast.closest('.pf-v6-c-alert') as HTMLElement).getByText('due 3 days overdue')).toBeInTheDocument();
     expect(await screen.findByRole('link', { name: 'Tasks (1)', hidden: true })).toBeInTheDocument();
     const alert = toast.closest('.pf-v6-c-alert') as HTMLElement;
     await user.click(within(alert).getByRole('button', { name: /Close/ }));

@@ -80,14 +80,18 @@ export const TasksPage: React.FunctionComponent = () => {
     counts.reload();
   };
   useRefetchOnFocus(reload);
-  const actions = useTaskActions((saved) => {
-    const keep = delegated ? (showDone ? saved.status === 'DONE' : saved.status === 'OPEN') : saved.status === 'OPEN';
-    list.setData(
-      (items) =>
-        items && (keep ? items.map((x) => (x.id === saved.id ? saved : x)) : items.filter((x) => x.id !== saved.id)),
-    );
-    counts.reload();
-  });
+  const actions = useTaskActions(
+    (saved) => {
+      const keep = delegated ? (showDone ? saved.status === 'DONE' : saved.status === 'OPEN') : saved.status === 'OPEN';
+      list.setData(
+        (items) =>
+          items && (keep ? items.map((x) => (x.id === saved.id ? saved : x)) : items.filter((x) => x.id !== saved.id)),
+      );
+      counts.reload();
+    },
+    undefined,
+    list.reload,
+  );
 
   const people: Ref[] = [];
   const add = (r: Ref | null | undefined) =>

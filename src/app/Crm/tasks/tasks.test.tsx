@@ -1,8 +1,8 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { screen, waitFor, within } from '@testing-library/react';
 import { renderApp } from '../../../test/renderApp';
-import { mockFetch, requestTo } from '../../../test/fetchMock';
-import { sampleTask } from '../../../test/crm';
+import { callsTo, mockFetch, requestTo } from '../../../test/fetchMock';
+import { sampleRecurrence, sampleTask } from '../../../test/crm';
 import { BASE, boardRoutes, queryOf } from '../../../test/crmBoard';
 import { storeSession } from '../../../test/session';
 
@@ -150,5 +150,30 @@ describe('CRM tasks page', () => {
     expect(await screen.findByText('Nothing coming up.')).toBeInTheDocument();
     await user.click(screen.getByRole('tab', { name: 'Delegated (2)' }));
     expect(await screen.findByText('You have no open tasks with other people.')).toBeInTheDocument();
+  });
+
+  it('skipOnTasksPageReloadsList', async () => {
+    const repeating = sampleTask({ recurrence: sampleRecurrence() });
+    const f = mockFetch(
+      routes({
+        [MINE]: { status: 200, body: [repeating] },
+        [`POST ${BASE}/tasks/t1/skip`]: {
+          status: 200,
+          body: {
+            skipped: { ...repeating, status: 'CANCELLED', nextOccurrenceId: 't2' },
+            next: sampleTask({ id: 't2', title: 'Call back', occurrence: 2, recurrence: sampleRecurrence() }),
+          },
+        },
+      }),
+    );
+    const { user } = renderApp('/crm/tasks');
+    await screen.findByText('Call back');
+    const before = callsTo(f, `GET ${BASE}/tasks/mine`);
+    await user.click(screen.getByRole('button', { name: 'Skip Call back' }));
+    await user.click(
+      within(await screen.findByRole('dialog', { name: 'Skip this one?' })).getByRole('button', { name: 'Skip' }),
+    );
+    await waitFor(() => expect(callsTo(f, `GET ${BASE}/tasks/mine`)).toBe(before + 1));
+    expect(await screen.findByText('Skipped. Next one scheduled.')).toBeInTheDocument();
   });
 });

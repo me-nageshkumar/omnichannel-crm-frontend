@@ -81,9 +81,11 @@ export const TaskFormModal: React.FunctionComponent<{
   taskTypes: PicklistItem[];
   /** People to assign besides the user and the current assignee. */
   people?: Ref[];
+  /** Runs on a version conflict, so the caller can refetch and the next Edit opens the current version. */
+  onConflict?(): void;
   onSaved(task: Task): void;
   onClose(): void;
-}> = ({ target, task, taskTypes, people = [], onSaved, onClose }) => {
+}> = ({ target, task, taskTypes, people = [], onConflict, onSaved, onClose }) => {
   const { token, workspace, user } = useSession();
   const ws = workspace?.id ?? '';
   const [title, setTitle] = React.useState(task?.title ?? '');
@@ -134,7 +136,11 @@ export const TaskFormModal: React.FunctionComponent<{
   };
   const repeatErrors: RepeatErrors = checked ? repeatProblems : {};
   const serverRepeat: RepeatErrors = {
-    repeat: action.fieldErrors.recurrence ?? action.fieldErrors['recurrence.frequency'],
+    repeat:
+      action.fieldErrors.recurrence ??
+      action.fieldErrors['recurrence.frequency'] ??
+      action.fieldErrors['recurrence.timeZone'] ??
+      action.fieldErrors['recurrence.dayOfMonth'],
     interval: action.fieldErrors['recurrence.interval'],
     weekdays: action.fieldErrors['recurrence.weekdays'],
     count: action.fieldErrors['recurrence.endsAfter'],
@@ -197,10 +203,13 @@ export const TaskFormModal: React.FunctionComponent<{
     const saved = await action.run(
       () =>
         task ? updateTask(t, ws, task.id, { ...body, version: task.version }) : createTask(t, ws, { ...body, target }),
-      (e) =>
-        isCode(e, 'VERSION_CONFLICT')
-          ? 'Someone else changed this task. Close this form and open it again.'
-          : crmMessage(e, 'Could not save the task. Try again.'),
+      (e) => {
+        if (isCode(e, 'VERSION_CONFLICT')) {
+          onConflict?.();
+          return 'Someone else changed this task. Close this form and open it again.';
+        }
+        return crmMessage(e, 'Could not save the task. Try again.');
+      },
     );
     if (saved) onSaved(saved);
   };

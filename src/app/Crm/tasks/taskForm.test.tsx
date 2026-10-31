@@ -174,6 +174,25 @@ describe('CRM task form: steps and repeat (phase E)', () => {
     expect(within(d).queryByText(/recurrence\.interval:/)).toBeNull();
   });
 
+  it('serverZoneErrorShowsUnderRepeat', async () => {
+    const { user } = open(undefined, {
+      [POST]: {
+        status: 400,
+        body: {
+          code: 'VALIDATION',
+          message: 'Invalid',
+          fields: { 'recurrence.timeZone': 'must be an IANA time zone' },
+        },
+      },
+    });
+    const d = await dialog('New task');
+    await user.type(within(d).getByLabelText(/^Title/), 'Daily call');
+    await user.type(within(d).getByLabelText('Due date'), '2026-11-02');
+    await user.selectOptions(within(d).getByLabelText('Repeat'), 'DAILY');
+    await user.click(within(d).getByRole('button', { name: 'Save task' }));
+    expect(await within(d).findByText('must be an IANA time zone')).toBeInTheDocument();
+  });
+
   it('thirtyStepsCap', async () => {
     const { user } = open(
       sampleTask({

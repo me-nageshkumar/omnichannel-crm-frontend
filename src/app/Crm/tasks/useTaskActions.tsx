@@ -18,10 +18,16 @@ interface Confirm {
 /**
  * The task actions shared by the drawers and the Tasks page (spec E C10, C14, C15): complete (asking first when steps
  * are unticked), reopen, tick (offering to complete after the last step), skip (confirmed) and delete (confirmed).
- * {@code onChanged} gets every task the server returned; {@code onRemoved} the id of a deleted task. Render
+ * {@code onChanged} gets every task the server returned; {@code onRemoved} the id of a deleted task;
+ * {@code onScheduled} fires when a next occurrence was created (it is not in the response of complete). Render
  * {@code dialogs} once near the list.
  */
-export function useTaskActions(onChanged: (task: Task) => void, onRemoved?: (id: string) => void) {
+export function useTaskActions(
+  onChanged: (task: Task) => void,
+  onRemoved?: (id: string) => void,
+  /** Runs when completing or skipping scheduled a next occurrence, so the list can fetch the new task. */
+  onScheduled?: () => void,
+) {
   const { token, workspace } = useSession();
   const ws = workspace?.id ?? '';
   const action = useAction();
@@ -43,7 +49,9 @@ export function useTaskActions(onChanged: (task: Task) => void, onRemoved?: (id:
 
   const complete = async (task: Task) => {
     const saved = await run(task, (t) => completeTask(t, ws, task.id));
-    if (saved) onChanged(saved);
+    if (!saved) return;
+    onChanged(saved);
+    if (saved.nextOccurrenceId && !task.nextOccurrenceId) onScheduled?.();
   };
 
   const toggle = async (task: Task) => {
@@ -90,7 +98,10 @@ export function useTaskActions(onChanged: (task: Task) => void, onRemoved?: (id:
         const result = await run(task, (t) => skipTask(t, ws, task.id));
         if (!result) return;
         onChanged(result.skipped);
-        if (result.next) onChanged(result.next);
+        if (result.next) {
+          onChanged(result.next);
+          onScheduled?.();
+        }
         setNotice(result.next ? 'Skipped. Next one scheduled.' : 'Skipped. That was the last one.');
       },
     });

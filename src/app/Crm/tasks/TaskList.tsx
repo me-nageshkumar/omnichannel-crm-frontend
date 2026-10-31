@@ -4,6 +4,7 @@ import { getSettings, listTasks } from '@app/api/crm';
 import type { Task, TaskTargetType } from '@app/api/crm';
 import { upsert, useLoad } from '@app/admin/useLoad';
 import { useSession } from '@app/session/SessionContext';
+import { useRefetchOnFocus } from '@app/Crm/common/useRefetchOnFocus';
 import { TaskFormModal } from '@app/Crm/tasks/TaskFormModal';
 import { TaskRow } from '@app/Crm/tasks/TaskRow';
 import { useTaskActions } from '@app/Crm/tasks/useTaskActions';
@@ -29,9 +30,12 @@ export const TaskList: React.FunctionComponent<{ target: { type: TaskTargetType;
   const settings = useLoad((t) => getSettings(t, ws), [ws]);
   const [editing, setEditing] = React.useState<{ task?: Task } | null>(null);
   const replace = (saved: Task) => loaded.setData((p) => p && { ...p, items: upsert(p.items, saved) });
-  const actions = useTaskActions(replace, (id) =>
-    loaded.setData((p) => p && { ...p, items: p.items.filter((x) => x.id !== id), total: p.total - 1 }),
+  const actions = useTaskActions(
+    replace,
+    (id) => loaded.setData((p) => p && { ...p, items: p.items.filter((x) => x.id !== id), total: p.total - 1 }),
+    loaded.reload,
   );
+  useRefetchOnFocus(loaded.reload);
 
   const tasks = (loaded.data?.items ?? []).slice().sort(byDue);
   const people = tasks.flatMap((t) => (t.assignee ? [t.assignee] : []));
@@ -95,6 +99,7 @@ export const TaskList: React.FunctionComponent<{ target: { type: TaskTargetType;
           task={editing.task}
           taskTypes={settings.data?.taskTypes ?? []}
           people={people}
+          onConflict={loaded.reload}
           onClose={() => setEditing(null)}
           onSaved={(saved) => {
             setEditing(null);

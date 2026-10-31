@@ -1,7 +1,7 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { screen, waitFor, within } from '@testing-library/react';
 import { renderApp } from '../../../test/renderApp';
-import { mockFetch, requestTo } from '../../../test/fetchMock';
+import { callsTo, mockFetch, requestTo } from '../../../test/fetchMock';
 import { crmSettings, sampleChecklist, sampleDeal, sampleRecurrence, sampleTask } from '../../../test/crm';
 import { BASE, boardRoutes } from '../../../test/crmBoard';
 import { storeSession } from '../../../test/session';
@@ -156,5 +156,41 @@ describe('CRM task row (phase E)', () => {
     expect(within(row).getByText('Skipped')).toBeInTheDocument();
     expect(within(row).queryByRole('checkbox')).toBeNull();
     expect(within(row).queryByRole('button', { name: 'Skip Call back' })).toBeNull();
+  });
+
+  it('completingRepeatingTaskReloadsList', async () => {
+    const repeating = sampleTask({ recurrence: sampleRecurrence() });
+    const f = mockFetch(
+      routes([repeating], {
+        [`POST ${BASE}/tasks/t1/complete`]: {
+          status: 200,
+          body: { ...repeating, status: 'DONE', nextOccurrenceId: 't2' },
+        },
+      }),
+    );
+    const { user } = await openTasks();
+    await screen.findByRole('listitem', { name: 'Call back' });
+    const before = callsTo(f, `GET ${BASE}/tasks`);
+    await user.click(screen.getByRole('checkbox', { name: 'Complete Call back' }));
+    await waitFor(() => expect(callsTo(f, `GET ${BASE}/tasks`)).toBe(before + 1));
+  });
+
+  it('conflictOnSaveReloadsList', async () => {
+    const f = mockFetch(
+      routes([sampleTask()], {
+        [`PUT ${BASE}/tasks/t1`]: {
+          status: 409,
+          body: { code: 'VERSION_CONFLICT', message: 'The task was changed by someone else; reload and retry' },
+        },
+      }),
+    );
+    const { user } = await openTasks();
+    await screen.findByRole('listitem', { name: 'Call back' });
+    const before = callsTo(f, `GET ${BASE}/tasks`);
+    await user.click(screen.getByRole('button', { name: 'Edit Call back' }));
+    const dialog = await screen.findByRole('dialog', { name: 'Edit task' });
+    await user.click(within(dialog).getByRole('button', { name: 'Save task' }));
+    expect(await within(dialog).findByText(/Someone else changed this task/)).toBeInTheDocument();
+    await waitFor(() => expect(callsTo(f, `GET ${BASE}/tasks`)).toBe(before + 1));
   });
 });

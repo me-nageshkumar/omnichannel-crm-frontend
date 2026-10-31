@@ -5,7 +5,7 @@ import { listReminders, markReminderSeen } from '@app/api/crm';
 import type { Reminder } from '@app/api/crm';
 import { personName } from '@app/Crm/personName';
 import { useSession } from '@app/session/SessionContext';
-import { targetPath } from '@app/Crm/tasks/taskDisplay';
+import { dueLabel, targetPath } from '@app/Crm/tasks/taskDisplay';
 
 export const REMINDER_POLL_MS = 60_000;
 const MAX_TOASTS = 3;
@@ -92,7 +92,7 @@ export const CrmReminders: React.FunctionComponent<{ onCount(n: number): void }>
           }
         >
           {r.target.name && <div>{r.target.name}</div>}
-          {r.dueAt && <div>{`due ${TIME.format(new Date(r.dueAt))}`}</div>}
+          {r.dueAt && <div>{`due ${r.kind === 'ASSIGNED' ? dueLabel(r.dueAt) : TIME.format(new Date(r.dueAt))}`}</div>}
         </Alert>
       ))}
       {more > 0 && <Alert variant="info" isPlain title={`and ${more} more`} />}
