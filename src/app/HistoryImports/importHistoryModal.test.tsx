@@ -100,6 +100,14 @@ describe('ImportHistoryModal', () => {
     expect(callsTo(fetch, NUMBER_PATH)).toBe(0);
   });
 
+  it('malformedDateIsRefused', async () => {
+    const { fetch, user } = open({ kind: 'number', number: NUMBER });
+    await user.type(await screen.findByLabelText('From'), '2026-13-45');
+    await user.click(screen.getByRole('button', { name: 'Start import' }));
+    expect(await screen.findByText('Enter a date as YYYY-MM-DD.')).toBeInTheDocument();
+    expect(callsTo(fetch, NUMBER_PATH)).toBe(0);
+  });
+
   it('chatModeShowsOnlyDates', async () => {
     const { fetch, onStarted, user } = open({ kind: 'chat', chat: CHAT }, { [CHAT_PATH]: { status: 201, body: VIEW } });
     expect(await screen.findByText('Import chat history with Asha Rao')).toBeInTheDocument();

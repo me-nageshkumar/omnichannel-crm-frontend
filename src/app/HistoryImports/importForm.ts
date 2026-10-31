@@ -27,7 +27,15 @@ export function dayEnd(date: string): string {
   return new Date(y, m - 1, d, 23, 59, 59, 999).toISOString();
 }
 
+/** True for a real YYYY-MM-DD calendar day (rejects "2026-03", "2026-13-45" and "2026-02-31"). */
+export function isValidDay(value: string): boolean {
+  if (!/^\d{4}-\d{2}-\d{2}$/.test(value)) return false;
+  const [y, m, d] = parts(value);
+  const date = new Date(y, m - 1, d);
+  return date.getFullYear() === y && date.getMonth() === m - 1 && date.getDate() === d;
+}
+
 /** An error when both days are set and "From" is after "To". */
 export function validateRange(from: string, to: string): string | null {
-  return from && to && from > to ? '"From" must not be after "To".' : null;
+  return from && to && isValidDay(from) && isValidDay(to) && from > to ? '"From" must not be after "To".' : null;
 }

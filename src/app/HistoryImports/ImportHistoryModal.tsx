@@ -21,7 +21,7 @@ import { PhoneNumber, shown } from '@app/api/phoneNumbers';
 import { useAction } from '@app/admin/useAction';
 import { contactName } from '@app/Inbox/chatDisplay';
 import { useSession } from '@app/session/SessionContext';
-import { dayEnd, dayStart, parsePhones, validateRange } from './importForm';
+import { dayEnd, dayStart, isValidDay, parsePhones, validateRange } from './importForm';
 
 type Target = { kind: 'number'; number: PhoneNumber } | { kind: 'chat'; chat: ChatView };
 
@@ -45,6 +45,7 @@ export const ImportHistoryModal: React.FunctionComponent<{
   const [text, setText] = React.useState('');
   const [from, setFrom] = React.useState('');
   const [to, setTo] = React.useState('');
+  const [fromError, setFromError] = React.useState<string | null>(null);
   const [rangeError, setRangeError] = React.useState<string | null>(null);
   const [phonesError, setPhonesError] = React.useState<string | null>(null);
   const action = useAction();
@@ -55,7 +56,11 @@ export const ImportHistoryModal: React.FunctionComponent<{
 
   const onSubmit = async (event?: React.FormEvent) => {
     event?.preventDefault();
-    const range = validateRange(from, to);
+    const badDate = 'Enter a date as YYYY-MM-DD.';
+    const badFrom = from && !isValidDay(from) ? badDate : null;
+    const badTo = to && !isValidDay(to) ? badDate : null;
+    const range = badTo ?? validateRange(from, to);
+    setFromError(badFrom);
     const { phones, invalid } = parsePhones(text);
     let phoneProblem: string | null = null;
     if (target.kind === 'number' && specific) {
@@ -64,7 +69,7 @@ export const ImportHistoryModal: React.FunctionComponent<{
     }
     setRangeError(range);
     setPhonesError(phoneProblem);
-    if (range || phoneProblem || !workspace) return;
+    if (badFrom || range || phoneProblem || !workspace) return;
     const dates = { from: from ? dayStart(from) : null, to: to ? dayEnd(to) : null };
     const started = await action.run(() =>
       target.kind === 'number'
@@ -116,6 +121,7 @@ export const ImportHistoryModal: React.FunctionComponent<{
           )}
           <FormGroup label="From" fieldId="import-from">
             <DatePicker aria-label="From" value={from} onChange={(_e, v) => setFrom(v)} />
+            {helper(fromError)}
           </FormGroup>
           <FormGroup label="To" fieldId="import-to">
             <DatePicker aria-label="To" value={to} onChange={(_e, v) => setTo(v)} />

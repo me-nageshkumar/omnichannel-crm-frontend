@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { dayEnd, dayStart, parsePhones, validateRange } from './importForm';
+import { dayEnd, dayStart, isValidDay, parsePhones, validateRange } from './importForm';
 
 describe('importForm', () => {
   it('parsePhonesNormalisesAndDrops', () => {
@@ -20,5 +20,11 @@ describe('importForm', () => {
   it('dayStartAndEndWrapTheDay', () => {
     expect(new Date(dayStart('2026-03-05')).getTime()).toBe(new Date(2026, 2, 5, 0, 0, 0, 0).getTime());
     expect(new Date(dayEnd('2026-03-05')).getTime()).toBe(new Date(2026, 2, 5, 23, 59, 59, 999).getTime());
+  });
+
+  it('isValidDayRejectsMalformedAndImpossibleDates', () => {
+    for (const bad of ['2026-03', '2026-13-45', '2026-02-31', 'abc']) expect(isValidDay(bad)).toBe(false);
+    expect(isValidDay('2026-02-28')).toBe(true);
+    expect(validateRange('2026-13-45', '2026-01-01')).toBeNull();
   });
 });
