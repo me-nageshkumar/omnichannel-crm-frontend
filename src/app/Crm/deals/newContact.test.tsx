@@ -31,7 +31,9 @@ describe('New contact', () => {
   it('onlyChattableNumbersOffered', async () => {
     const { dialog } = await open();
     const select = within(dialog).getByLabelText(/^Channel number/);
-    const options = within(select).getAllByRole('option').map((o) => o.textContent);
+    const options = within(select)
+      .getAllByRole('option')
+      .map((o) => o.textContent);
     expect(options).toEqual(['Sales line (919800000001)', 'Support (919800000003)']);
     expect(select).toHaveValue('pn1');
   });

@@ -13,7 +13,10 @@ export const contactLabel = (c: CrmContact): string => {
   return name || c.phone || c.id;
 };
 
-/** Picks one CRM contact: a search box narrows the list of matches below it. */
+/**
+ * Picks one CRM contact: a search box narrows the list of matches below it. {@code channelAccountId} limits the
+ * matches to that channel account, {@code exclude} leaves out contacts already taken.
+ */
 export const ContactPicker: React.FunctionComponent<{
   id: string;
   value: string;
@@ -21,8 +24,10 @@ export const ContactPicker: React.FunctionComponent<{
   selectedLabel?: string;
   isDisabled?: boolean;
   invalid?: boolean;
-  onChange(id: string): void;
-}> = ({ id, value, selectedLabel, isDisabled, invalid, onChange }) => {
+  channelAccountId?: string;
+  exclude?: string[];
+  onChange(id: string, contact?: CrmContact): void;
+}> = ({ id, value, selectedLabel, isDisabled, invalid, channelAccountId, exclude = [], onChange }) => {
   const { workspace } = useSession();
   const ws = workspace?.id ?? '';
   const [search, setSearch] = React.useState('');
@@ -37,12 +42,16 @@ export const ContactPicker: React.FunctionComponent<{
   }, [search]);
 
   const found = useLoad(
-    (t) => (isDisabled ? Promise.resolve(undefined) : searchContacts(t, ws, { q: q || undefined, page: 0, size: PAGE })),
-    [ws, q, isDisabled],
+    (t) =>
+      isDisabled
+        ? Promise.resolve(undefined)
+        : searchContacts(t, ws, { q: q || undefined, channelAccountId, page: 0, size: PAGE }),
+    [ws, q, isDisabled, channelAccountId ?? ''],
     { keepOnError: true },
   );
   const options = (found.data?.items ?? []).map((c) => ({ id: c.id, label: contactLabel(c) }));
   if (chosen && !options.some((o) => o.id === chosen.id)) options.unshift(chosen);
+  const offered = options.filter((o) => !exclude.includes(o.id));
 
   return (
     <>
@@ -61,11 +70,18 @@ export const ContactPicker: React.FunctionComponent<{
         validated={invalid ? 'error' : 'default'}
         onChange={(_e, v) => {
           setChosen(options.find((o) => o.id === v) ?? null);
-          onChange(v);
+          onChange(
+            v,
+            found.data?.items.find((c) => c.id === v),
+          );
         }}
       >
-        <FormSelectOption value="" label={found.loading && !found.data ? 'Loading…' : 'Choose a contact'} isPlaceholder />
-        {options.map((o) => (
+        <FormSelectOption
+          value=""
+          label={found.loading && !found.data ? 'Loading…' : 'Choose a contact'}
+          isPlaceholder
+        />
+        {offered.map((o) => (
           <FormSelectOption key={o.id} value={o.id} label={o.label} />
         ))}
       </FormSelect>

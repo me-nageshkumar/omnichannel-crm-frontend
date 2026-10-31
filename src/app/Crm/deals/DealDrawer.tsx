@@ -34,6 +34,7 @@ import { RecordDrawer } from '@app/Crm/common/RecordDrawer';
 import { formatMoney } from '@app/Crm/common/money';
 import { useCrmCan, useCrmStatus } from '@app/Crm/status/CrmStatusContext';
 import { CloseDealModal } from '@app/Crm/deals/CloseDealModal';
+import { DealContacts } from '@app/Crm/deals/DealContacts';
 import { DealFormModal } from '@app/Crm/deals/DealFormModal';
 import { useOpenChat } from '@app/Crm/deals/useOpenChat';
 import { moveMessage } from '@app/Crm/deals/moveMessage';
@@ -226,6 +227,7 @@ export const DealDrawer: React.FunctionComponent<{
     );
     tabs = [
       { key: 'details', title: 'Details', content: details },
+      { key: 'contacts', title: 'Contacts', content: <DealContacts key={deal.version} dealId={deal.id} /> },
       { key: 'tasks', title: 'Tasks', content: <TaskList target={{ type: 'DEAL', id: deal.id }} canEdit={canEdit} /> },
       { key: 'notes', title: 'Notes', content: <CrmNotes target={{ type: 'DEAL', id: deal.id }} canEdit={canEdit} /> },
       {

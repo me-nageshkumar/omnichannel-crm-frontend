@@ -11,15 +11,16 @@ import {
   FormSelect,
   FormSelectOption,
   Label,
+  LabelGroup,
   List,
   ListItem,
   Spinner,
 } from '@patternfly/react-core';
-import { getContact, searchDeals, updateContact } from '@app/api/crm';
+import { channelDetails, getContact, searchDeals, updateContact } from '@app/api/crm';
 import { CardFieldDetails } from '@app/Crm/fields/CardFieldDetails';
 import { TaskList } from '@app/Crm/tasks/TaskList';
 import { CrmNotes } from '@app/Crm/notes/CrmNotes';
-import type { CrmContact, CrmSettings, Ref } from '@app/api/crm';
+import type { ChannelDetails, CrmContact, CrmSettings, Ref } from '@app/api/crm';
 import { ApiError } from '@app/api/client';
 import { crmMessage } from '@app/Crm/errors';
 import { useAction } from '@app/admin/useAction';
@@ -37,6 +38,7 @@ import { CrmContactFormModal } from '@app/Crm/Contacts/CrmContactFormModal';
 import { MoveChannelModal } from '@app/Crm/Contacts/MoveChannelModal';
 import { DELETED_NOTICE, contactName, formatDate, originLine } from '@app/Crm/Contacts/contactColumns';
 import { personName } from '@app/Crm/personName';
+import { LabelChip } from '@app/Contacts/LabelChip';
 
 const UNAVAILABLE = 'This contact is not available. It may have been removed.';
 const NEVER = <T,>(): Promise<T> => new Promise<T>(() => undefined);
@@ -106,6 +108,11 @@ export const CrmContactDrawer: React.FunctionComponent<{
   const canEdit = useCrmCan('crm:edit');
   const canSettings = useCrmCan('crm:settings');
   const open = useOpenChat();
+  // the channel side is extra: a failed read hides its rows and never blocks the drawer
+  const channel = useLoad(
+    (t) => (contactId ? channelDetails(t, ws, contactId) : NEVER<ChannelDetails>()),
+    [ws, contactId ?? ''],
+  );
   const action = useAction();
   const [modal, setModal] = React.useState<'edit' | 'move' | null>(null);
 
@@ -249,6 +256,20 @@ export const CrmContactDrawer: React.FunctionComponent<{
               </List>
             )}
           </Detail>
+          {(channel.data?.labels.length ?? 0) > 0 && (
+            <Detail term="Labels">
+              <LabelGroup numLabels={20}>
+                {channel.data?.labels.map((l) => <LabelChip key={l.id} label={l} />)}
+              </LabelGroup>
+            </Detail>
+          )}
+          {(channel.data?.attributes.length ?? 0) > 0 && (
+            <Detail term="Attributes">
+              <List isPlain aria-label="Attributes">
+                {channel.data?.attributes.map((a) => <ListItem key={a.name}>{`${a.name}: ${a.value}`}</ListItem>)}
+              </List>
+            </Detail>
+          )}
           <CardFieldDetails entity="CONTACT" values={contact.customFields} />
         </DescriptionList>
       </>

@@ -11,15 +11,17 @@ import {
   Title,
 } from '@patternfly/react-core';
 import { ApiError } from '@app/api/client';
-import { getSettings, inboxSummary, listPipelines, updateContact } from '@app/api/crm';
+import { getSettings, inboxSummary, listPipelines, moveDeal, updateContact } from '@app/api/crm';
 import { NextTask } from '@app/Crm/tasks/NextTask';
 import { TaskFormModal } from '@app/Crm/tasks/TaskFormModal';
-import type { CrmSettings, InboxSummary, Pipeline } from '@app/api/crm';
+import type { CrmSettings, Deal, InboxSummary, Pipeline } from '@app/api/crm';
 import { crmMessage } from '@app/Crm/errors';
 import { LogActivityForm } from '@app/Crm/activity/LogActivityForm';
 import { formatMoney } from '@app/Crm/common/money';
+import { DealFormModal } from '@app/Crm/deals/DealFormModal';
+import { moveMessage } from '@app/Crm/deals/moveMessage';
 import { CapturePopover } from '@app/Crm/inbox/CapturePopover';
-import { useCrmCan } from '@app/Crm/status/CrmStatusContext';
+import { useCrmCan, useCrmStatus } from '@app/Crm/status/CrmStatusContext';
 import { useSession } from '@app/session/SessionContext';
 
 const GAP = 'var(--pf-t--global--spacer--sm)';
@@ -40,6 +42,7 @@ export const CrmChatPanel: React.FunctionComponent<{ chatId: string }> = ({ chat
   const { token, workspace } = useSession();
   const ws = workspace?.id ?? '';
   const canEdit = useCrmCan('crm:edit');
+  const access = useCrmStatus().status?.pipelineAccess ?? [];
   const [answer, setAnswer] = React.useState<Answer | null>(null);
   const [tick, setTick] = React.useState(0);
   const [refs, setRefs] = React.useState<{ settings: CrmSettings | null; pipelines: Pipeline[] } | null>(null);
@@ -48,6 +51,11 @@ export const CrmChatPanel: React.FunctionComponent<{ chatId: string }> = ({ chat
   const [saveError, setSaveError] = React.useState<string | null>(null);
   const [saving, setSaving] = React.useState(false);
   const [planning, setPlanning] = React.useState(false);
+  const [moving, setMoving] = React.useState<string | null>(null);
+  const [creating, setCreating] = React.useState(false);
+  // Which chat is open now: an answer to something started on another chat is dropped.
+  const openChat = React.useRef(chatId);
+  openChat.current = chatId;
 
   // An answer for another chat (a late one, or the one shown before the switch) is treated as not loaded.
   React.useEffect(() => {
@@ -67,6 +75,8 @@ export const CrmChatPanel: React.FunctionComponent<{ chatId: string }> = ({ chat
     setLogging(false);
     setLogged(false);
     setSaveError(null);
+    setMoving(null);
+    setCreating(false);
   }, [chatId]);
 
   const current = answer && answer.chatId === chatId ? answer : null;
@@ -104,6 +114,33 @@ export const CrmChatPanel: React.FunctionComponent<{ chatId: string }> = ({ chat
       }
     } finally {
       setSaving(false);
+    }
+  };
+
+  const onStage = async (deal: Deal, stageId: string) => {
+    if (!token || stageId === deal.stageId) return;
+    const startedOn = chatId;
+    setMoving(deal.id);
+    setSaveError(null);
+    try {
+      const moved = await moveDeal(token, ws, deal.id, { stageId });
+      if (openChat.current !== startedOn) return;
+      // show the new stage now: the select must not fall back to the old one while the summary refreshes
+      setAnswer((a) =>
+        a && 'summary' in a && a.chatId === startedOn
+          ? {
+              ...a,
+              summary: { ...a.summary, openDeals: a.summary.openDeals.map((d) => (d.id === moved.id ? moved : d)) },
+            }
+          : a,
+      );
+      setTick((t) => t + 1);
+    } catch (e) {
+      if (openChat.current !== startedOn) return;
+      setSaveError(moveMessage(e));
+      if (e instanceof ApiError && e.code === 'VERSION_CONFLICT') setTick((t) => t + 1);
+    } finally {
+      if (openChat.current === startedOn) setMoving(null);
     }
   };
 
@@ -187,6 +224,9 @@ export const CrmChatPanel: React.FunctionComponent<{ chatId: string }> = ({ chat
     const stageName = (pipelineId: string, stageId: string) =>
       refs?.pipelines.find((p) => p.id === pipelineId)?.stages.find((st) => st.id === stageId)?.name;
     const label = lifecycles.find((l) => l.key === contact.lifecycleStatus)?.label ?? contact.lifecycleStatus;
+    const money = (d: Deal) => formatMoney(d.amount, d.currency, refs?.settings?.defaultCurrency);
+    const usable = (refs?.pipelines ?? []).filter((p) => p.active && (access === 'ALL' || access.includes(p.id)));
+    const firstPipeline = usable.find((p) => p.id === refs?.settings?.defaultPipelineId) ?? usable[0];
     body = (
       <div style={{ display: 'grid', gap: GAP }}>
         <Title headingLevel="h3" size="md">
@@ -211,24 +251,46 @@ export const CrmChatPanel: React.FunctionComponent<{ chatId: string }> = ({ chat
           label && <div>{label}</div>
         )}
         <div>
-          <strong>Open deals</strong>
+          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', gap: GAP }}>
+            <strong>Open deals</strong>
+            {canEdit && firstPipeline && refs?.settings && (
+              <Button variant="link" isInline onClick={() => setCreating(true)}>
+                New deal
+              </Button>
+            )}
+          </div>
           {summary && summary.openDeals.length > 0 ? (
             <ul style={{ listStyle: 'none', padding: 0, margin: 0 }}>
-              {summary.openDeals.map((d) => (
-                <li key={d.id}>
-                  <Link to={`/crm/deals/${encodeURIComponent(d.id)}?pipelineId=${encodeURIComponent(d.pipelineId)}`}>
-                    {d.title}
-                  </Link>
-                  <div>
-                    {[
-                      stageName(d.pipelineId, d.stageId),
-                      formatMoney(d.amount, d.currency, refs?.settings?.defaultCurrency),
-                    ]
-                      .filter(Boolean)
-                      .join(' · ')}
-                  </div>
-                </li>
-              ))}
+              {summary.openDeals.map((d) => {
+                // Closing takes a reason and belongs on the deal: a mis-tap here must not lose a deal.
+                const stages = (refs?.pipelines.find((p) => p.id === d.pipelineId)?.stages ?? []).filter(
+                  (st) => st.type === 'OPEN' || st.id === d.stageId,
+                );
+                return (
+                  <li key={d.id}>
+                    <Link to={`/crm/deals/${encodeURIComponent(d.id)}?pipelineId=${encodeURIComponent(d.pipelineId)}`}>
+                      {d.title}
+                    </Link>
+                    {canEdit && stages.length > 0 ? (
+                      <>
+                        <FormSelect
+                          aria-label={`Stage of ${d.title}`}
+                          value={d.stageId}
+                          isDisabled={moving === d.id}
+                          onChange={(_e, v) => void onStage(d, v)}
+                        >
+                          {stages.map((st) => (
+                            <FormSelectOption key={st.id} value={st.id} label={st.name} />
+                          ))}
+                        </FormSelect>
+                        <div>{money(d)}</div>
+                      </>
+                    ) : (
+                      <div>{[stageName(d.pipelineId, d.stageId), money(d)].filter(Boolean).join(' · ')}</div>
+                    )}
+                  </li>
+                );
+              })}
             </ul>
           ) : (
             <div>No open deals</div>
@@ -245,6 +307,23 @@ export const CrmChatPanel: React.FunctionComponent<{ chatId: string }> = ({ chat
             </div>
           )}
         </div>
+        {creating && firstPipeline && refs?.settings && (
+          <DealFormModal
+            pipeline={firstPipeline}
+            pipelines={usable}
+            contact={{
+              id: contact.id,
+              label: contact.name ?? contact.phone ?? 'Contact',
+              channelAccountId: contact.channel?.phoneNumberId,
+            }}
+            settings={refs.settings}
+            onClose={() => setCreating(false)}
+            onSaved={() => {
+              setCreating(false);
+              setTick((t) => t + 1);
+            }}
+          />
+        )}
         {planning && (
           <TaskFormModal
             target={{ type: 'CONTACT', id: contact.id }}

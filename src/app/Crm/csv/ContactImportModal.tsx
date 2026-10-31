@@ -22,6 +22,7 @@ export const ContactImportModal: React.FunctionComponent<{ onClose(imported: boo
     <ImportModal
       title="Import contacts"
       required="WhatsApp number"
+      template="contacts"
       maxRows={1000}
       ready={!!pipelineId && !!phoneNumberId}
       run={(file) => importContacts(token as string, ws, file, pipelineId, phoneNumberId)}

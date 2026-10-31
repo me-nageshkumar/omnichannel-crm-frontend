@@ -10,6 +10,7 @@ import type {
   CrmSettings,
   CrmStatus,
   Deal,
+  DealContact,
   DealsOverTime,
   FieldDefinition,
   GridReport,
@@ -227,6 +228,11 @@ export function sampleTask(overrides: Partial<Task> = {}): Task {
     version: 0,
     ...overrides,
   };
+}
+
+/** The primary contact of {@link sampleDeal} as the deal's contact list shows it. */
+export function sampleDealContact(overrides: Partial<DealContact> = {}): DealContact {
+  return { id: 'c1', name: 'Priya Shah', phone: '919812345678', jobTitle: null, primary: true, ...overrides };
 }
 
 /** A weekly Monday/Thursday rule in Asia/Kolkata, forever, unless overridden. */

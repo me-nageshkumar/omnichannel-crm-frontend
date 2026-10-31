@@ -131,6 +131,38 @@ describe('CRM companies', () => {
     expect(await screen.findByRole('link', { name: 'Acme order' })).toBeInTheDocument();
   });
 
+  it('openChatFromCompanyContacts', async () => {
+    const f = mockFetch(
+      routes({
+        [`GET ${BASE}/contacts/c1/communication`]: {
+          status: 200,
+          body: { phoneNumberId: 'pn1', number: '919800000001', phone: '919812345678', chatId: 'chat3', canChat: true },
+        },
+      }),
+    );
+    const { user } = renderApp('/crm/companies/co1');
+    await user.click(await screen.findByRole('tab', { name: 'Contacts' }));
+    await user.click(await screen.findByRole('button', { name: 'Open chat with Priya Shah' }));
+    await waitFor(() => expect(requestTo(f, `GET ${BASE}/contacts/c1/communication`)).toBeDefined());
+    const asked = f.mock.calls.map(([u]) => String(u)).find((u) => u.includes('/communication'));
+    expect(asked).toContain('phoneNumberId=pn1');
+  });
+
+  it('cannotChatShowsTheReason', async () => {
+    mockFetch(
+      routes({
+        [`GET ${BASE}/contacts/c1/communication`]: {
+          status: 200,
+          body: { phoneNumberId: 'pn1', number: '919800000001', phone: '919812345678', chatId: null, canChat: false },
+        },
+      }),
+    );
+    const { user } = renderApp('/crm/companies/co1');
+    await user.click(await screen.findByRole('tab', { name: 'Contacts' }));
+    await user.click(await screen.findByRole('button', { name: 'Open chat with Priya Shah' }));
+    expect(await screen.findByText(/won't open this chat/)).toBeInTheDocument();
+  });
+
   it('deleteWithOpenDealsShowsMessage', async () => {
     mockFetch(
       routes({

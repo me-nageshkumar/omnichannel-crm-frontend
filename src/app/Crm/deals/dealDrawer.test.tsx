@@ -196,7 +196,10 @@ describe('Deal drawer', () => {
       .fn()
       .mockReturnValueOnce({ status: 200, body: sampleDeal({ version: 2 }) })
       .mockReturnValue({ status: 200, body: sampleDeal({ version: 5 }) });
-    const put = vi.fn().mockReturnValueOnce(CONFLICT).mockReturnValue({ status: 200, body: sampleDeal({ version: 6 }) });
+    const put = vi
+      .fn()
+      .mockReturnValueOnce(CONFLICT)
+      .mockReturnValue({ status: 200, body: sampleDeal({ version: 6 }) });
     const f = mockFetch(routes({ [`GET ${BASE}/deals/d1`]: () => get(), [`PUT ${BASE}/deals/d1`]: () => put() }));
     const { user } = renderApp('/crm/deals/d1?pipelineId=p1');
     await screen.findByRole('heading', { name: 'Acme order' });

@@ -38,7 +38,11 @@ const ASHA: ChatView = {
   creationTime: '2026-10-20T10:00:00Z',
   lastAgent: null,
 };
-const MEENA: ChatView = { ...ASHA, id: 'c2', contact: { id: 'ct2', name: 'Meena', phone: '919900000002', numberHidden: false } };
+const MEENA: ChatView = {
+  ...ASHA,
+  id: 'c2',
+  contact: { id: 'ct2', name: 'Meena', phone: '919900000002', numberHidden: false },
+};
 
 const summary = (over: Partial<InboxSummary> = {}): InboxSummary => ({
   chatId: 'c1',
@@ -104,7 +108,10 @@ describe('CRM chat panel', () => {
     const f = mockFetch(
       routes({
         [SUMMARY1]: { status: 200, body: summary() },
-        [CAPTURE]: { status: 200, body: { contact: captured('Asha Rao').contact, deal: sampleDeal(), createdContact: true, createdDeal: true } },
+        [CAPTURE]: {
+          status: 200,
+          body: { contact: captured('Asha Rao').contact, deal: sampleDeal(), createdContact: true, createdDeal: true },
+        },
       }),
     );
     const { user } = renderApp('/inbox/chats/c1');
@@ -126,7 +133,10 @@ describe('CRM chat panel', () => {
           status: 200,
           body: [samplePipeline(), samplePipeline({ id: 'p2', name: 'Support', isDefault: false })],
         },
-        [CAPTURE]: { status: 200, body: { contact: captured('Asha Rao').contact, deal: null, createdContact: true, createdDeal: false } },
+        [CAPTURE]: {
+          status: 200,
+          body: { contact: captured('Asha Rao').contact, deal: null, createdContact: true, createdDeal: false },
+        },
       }),
     );
     const { user } = renderApp('/inbox/chats/c1');
@@ -137,7 +147,9 @@ describe('CRM chat panel', () => {
     await user.selectOptions(pick, 'p2');
     await user.type(within(dialog).getByLabelText('Deal title (optional)'), 'Big one');
     await user.click(within(dialog).getByRole('button', { name: 'Capture' }));
-    await waitFor(() => expect(requestTo(f, CAPTURE)?.body).toEqual({ chatId: 'c1', pipelineId: 'p2', dealTitle: 'Big one' }));
+    await waitFor(() =>
+      expect(requestTo(f, CAPTURE)?.body).toEqual({ chatId: 'c1', pipelineId: 'p2', dealTitle: 'Big one' }),
+    );
   });
 
   it('captureOfAnExistingContactRefetchesTheSummary', async () => {
@@ -154,7 +166,10 @@ describe('CRM chat panel', () => {
                   openDeals: [sampleDeal(), sampleDeal({ id: 'd9', title: 'Older deal' })],
                 },
               },
-        [CAPTURE]: { status: 200, body: { contact: captured('Asha Rao').contact, deal: null, createdContact: false, createdDeal: false } },
+        [CAPTURE]: {
+          status: 200,
+          body: { contact: captured('Asha Rao').contact, deal: null, createdContact: false, createdDeal: false },
+        },
       }),
     );
     const { user } = renderApp('/inbox/chats/c1');
@@ -187,7 +202,9 @@ describe('CRM chat panel', () => {
     ['NO_PIPELINE_ACCESS', 'No pipeline is assigned to you yet.'],
     ['NO_EDIT', 'You can view the CRM but not add to it.'],
   ])('blockedReasonCopy %s', async (reason, copy) => {
-    mockFetch(routes({ [SUMMARY1]: { status: 200, body: summary({ canCapture: false, captureBlockedReason: reason }) } }));
+    mockFetch(
+      routes({ [SUMMARY1]: { status: 200, body: summary({ canCapture: false, captureBlockedReason: reason }) } }),
+    );
     renderApp('/inbox/chats/c1');
     expect(await screen.findByText(copy)).toBeVisible();
     expect(screen.getByRole('button', { name: 'Capture to CRM' })).toBeDisabled();
@@ -202,8 +219,11 @@ describe('CRM chat panel', () => {
     );
     const { user } = renderApp('/inbox/chats/c1');
     const panel = within(await screen.findByRole('complementary', { name: 'CRM' }));
-    expect(await panel.findByRole('link', { name: 'Acme order' })).toHaveAttribute('href', '/crm/deals/d1?pipelineId=p1');
-    expect(panel.getByText(/New/)).toBeVisible();
+    expect(await panel.findByRole('link', { name: 'Acme order' })).toHaveAttribute(
+      'href',
+      '/crm/deals/d1?pipelineId=p1',
+    );
+    expect(await panel.findByLabelText('Stage of Acme order')).toHaveValue('s1');
     expect(panel.getByText(/₹1,500/)).toBeVisible();
     expect(panel.getByRole('link', { name: 'Open in CRM' })).toHaveAttribute('href', '/crm/contacts/k1');
     const select = await panel.findByLabelText('Lifecycle status');
@@ -261,18 +281,21 @@ describe('CRM chat panel', () => {
     await user.click(await panel.findByRole('button', { name: 'Log call' }));
     await user.type(panel.getByLabelText('Summary'), 'Spoke about the quote');
     await user.click(panel.getByRole('button', { name: 'Log activity' }));
-    await waitFor(() => expect(requestTo(f, `POST ${B}/crm/activities/log`)?.body).toMatchObject({
-      target: { type: 'CONTACT', id: 'k1' },
-      type: 'CALL',
-      summary: 'Spoke about the quote',
-    }));
+    await waitFor(() =>
+      expect(requestTo(f, `POST ${B}/crm/activities/log`)?.body).toMatchObject({
+        target: { type: 'CONTACT', id: 'k1' },
+        type: 'CALL',
+        summary: 'Spoke about the quote',
+      }),
+    );
   });
 
   it('errorShowsRetryAndChatStaysUsable', async () => {
     let n = 0;
     mockFetch(
       routes({
-        [SUMMARY1]: () => (++n === 1 ? { status: 500, body: { code: 'X', message: 'boom' } } : { status: 200, body: summary() }),
+        [SUMMARY1]: () =>
+          ++n === 1 ? { status: 500, body: { code: 'X', message: 'boom' } } : { status: 200, body: summary() },
       }),
     );
     const { user } = renderApp('/inbox/chats/c1');
@@ -369,5 +392,147 @@ describe('CRM chat panel', () => {
     renderApp('/inbox?newChat=nope&phone=919811111111');
     await screen.findByRole('list', { name: 'Chats' });
     expect(screen.queryByRole('dialog')).toBeNull();
+  });
+
+  // --- moving deals and starting new ones (spec F C8, C9) ---------------------------------------------------------
+
+  const MOVE = `POST ${B}/crm/deals/d1/move`;
+  const NEW_DEAL = `POST ${B}/crm/deals`;
+  const FIELDS = `GET ${B}/crm/fields`;
+
+  it('stageChangeMovesTheDealAndRefreshes', async () => {
+    const f = mockFetch(
+      routes({
+        [SUMMARY1]: { status: 200, body: captured('Priya Shah') },
+        [MOVE]: { status: 200, body: sampleDeal() },
+      }),
+    );
+    const { user } = renderApp('/inbox/chats/c1');
+    const panel = within(await screen.findByRole('complementary', { name: 'CRM' }));
+    await user.selectOptions(await panel.findByLabelText('Stage of Acme order'), 's2');
+    await waitFor(() => expect(requestTo(f, MOVE)?.body).toEqual({ stageId: 's2' }));
+    await waitFor(() => expect(callsTo(f, SUMMARY1)).toBe(2));
+  });
+
+  it('stageStaysOnThePickedOneWhileTheSummaryRefreshes', async () => {
+    const f = mockFetch(
+      routes({
+        [SUMMARY1]: { status: 200, body: captured('Priya Shah') },
+        [MOVE]: { status: 200, body: sampleDeal({ stageId: 's2' }) },
+      }),
+    );
+    const held = gate(f, SUMMARY1, 2);
+    const { user } = renderApp('/inbox/chats/c1');
+    const panel = within(await screen.findByRole('complementary', { name: 'CRM' }));
+    const select = await panel.findByLabelText('Stage of Acme order');
+    await user.selectOptions(select, 's2');
+    await waitFor(() => expect(callsTo(f, SUMMARY1)).toBe(2));
+    expect(panel.getByLabelText('Stage of Acme order')).toHaveValue('s2');
+    await act(async () => {
+      held.release();
+      await new Promise((r) => setTimeout(r, 20));
+    });
+  });
+
+  it('onlyOpenStagesAreOffered', async () => {
+    mockFetch(routes({ [SUMMARY1]: { status: 200, body: captured('Priya Shah') } }));
+    renderApp('/inbox/chats/c1');
+    const panel = within(await screen.findByRole('complementary', { name: 'CRM' }));
+    const select = await panel.findByLabelText('Stage of Acme order');
+    expect(
+      within(select)
+        .getAllByRole('option')
+        .map((o) => o.textContent),
+    ).toEqual(['New', 'Proposal']);
+  });
+
+  it('viewerSeesNoStageSelect', async () => {
+    mockFetch(
+      routes({
+        [SUMMARY1]: { status: 200, body: captured('Priya Shah') },
+        [STATUS]: { status: 200, body: crmStatus({ authorities: ['crm:view'] }) },
+      }),
+    );
+    renderApp('/inbox/chats/c1');
+    const panel = within(await screen.findByRole('complementary', { name: 'CRM' }));
+    expect(await panel.findByText(/New · ₹1,500/)).toBeVisible();
+    expect(panel.queryByLabelText('Stage of Acme order')).toBeNull();
+    expect(panel.queryByRole('button', { name: 'New deal' })).toBeNull();
+  });
+
+  it('moveFailureShowsInThePanel', async () => {
+    mockFetch(
+      routes({
+        [SUMMARY1]: { status: 200, body: captured('Priya Shah') },
+        [MOVE]: { status: 400, body: { code: 'WIP_LIMIT', message: 'The stage is full' } },
+      }),
+    );
+    const { user } = renderApp('/inbox/chats/c1');
+    const panel = within(await screen.findByRole('complementary', { name: 'CRM' }));
+    await user.selectOptions(await panel.findByLabelText('Stage of Acme order'), 's2');
+    expect(await panel.findByText('The stage is full')).toBeVisible();
+  });
+
+  it('lateMoveDoesNotTouchTheNextChat', async () => {
+    const f = mockFetch(
+      routes({
+        [SUMMARY1]: { status: 200, body: captured('Priya Shah') },
+        [SUMMARY2]: { status: 200, body: captured('Meena Nair', 'c2') },
+        [MOVE]: { status: 400, body: { code: 'WIP_LIMIT', message: 'The stage is full' } },
+      }),
+    );
+    const held = gate(f, MOVE, 1);
+    const { user } = renderApp('/inbox/chats/c1');
+    const panel = within(await screen.findByRole('complementary', { name: 'CRM' }));
+    await user.selectOptions(await panel.findByLabelText('Stage of Acme order'), 's2');
+    await user.click(within(await screen.findByRole('list', { name: 'Chats' })).getByRole('button', { name: /Meena/ }));
+    expect(await screen.findByRole('link', { name: 'Meena Nair' })).toBeVisible();
+    await act(async () => {
+      held.release();
+      await new Promise((r) => setTimeout(r, 20));
+    });
+    expect(screen.queryByText('The stage is full')).toBeNull();
+    expect(callsTo(f, SUMMARY2)).toBe(1);
+  });
+
+  it('newDealOpensTheFormWithTheContactFixed', async () => {
+    const f = mockFetch(
+      routes({
+        [SUMMARY1]: { status: 200, body: captured('Priya Shah') },
+        [FIELDS]: { status: 200, body: [] },
+        [`POST ${B}/crm/contacts/search`]: { status: 200, body: { items: [], total: 0, page: 0 } },
+        [NEW_DEAL]: { status: 200, body: sampleDeal({ id: 'd9' }) },
+      }),
+    );
+    const { user } = renderApp('/inbox/chats/c1');
+    const panel = within(await screen.findByRole('complementary', { name: 'CRM' }));
+    await user.click(await panel.findByRole('button', { name: 'New deal' }));
+    const dialog = await screen.findByRole('dialog', { name: 'New deal' });
+    expect(within(dialog).getByLabelText(/^Primary contact/)).toBeDisabled();
+    expect(within(dialog).getByLabelText(/^Primary contact/)).toHaveValue('k1');
+    await user.type(within(dialog).getByLabelText(/^Title/), 'Repeat order');
+    await user.click(within(dialog).getByRole('button', { name: 'Create deal' }));
+    await waitFor(() => expect(requestTo(f, NEW_DEAL)).toBeDefined());
+    expect(requestTo(f, NEW_DEAL)?.body).toMatchObject({
+      title: 'Repeat order',
+      pipelineId: 'p1',
+      primaryCrmContactId: 'k1',
+      crmContactIds: ['k1'],
+    });
+    await waitFor(() => expect(callsTo(f, SUMMARY1)).toBe(2));
+    expect(screen.queryByRole('dialog', { name: 'New deal' })).toBeNull();
+  });
+
+  it('newDealHiddenWithoutAUsablePipeline', async () => {
+    mockFetch(
+      routes({
+        [SUMMARY1]: { status: 200, body: captured('Priya Shah') },
+        [PIPELINES]: { status: 200, body: [samplePipeline({ active: false })] },
+      }),
+    );
+    renderApp('/inbox/chats/c1');
+    const panel = within(await screen.findByRole('complementary', { name: 'CRM' }));
+    await panel.findByLabelText('Stage of Acme order');
+    expect(panel.queryByRole('button', { name: 'New deal' })).toBeNull();
   });
 });

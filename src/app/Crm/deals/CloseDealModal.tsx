@@ -67,8 +67,20 @@ export const CloseDealModal: React.FunctionComponent<{
         )}
         {action.error && <Alert variant="danger" isInline isPlain title={action.error} />}
         <Form id="crm-close-form" onSubmit={submit}>
-          <Radio id="crm-close-won" name="outcome" label="Won" isChecked={outcome === 'WON'} onChange={() => setOutcome('WON')} />
-          <Radio id="crm-close-lost" name="outcome" label="Lost" isChecked={outcome === 'LOST'} onChange={() => setOutcome('LOST')} />
+          <Radio
+            id="crm-close-won"
+            name="outcome"
+            label="Won"
+            isChecked={outcome === 'WON'}
+            onChange={() => setOutcome('WON')}
+          />
+          <Radio
+            id="crm-close-lost"
+            name="outcome"
+            label="Lost"
+            isChecked={outcome === 'LOST'}
+            onChange={() => setOutcome('LOST')}
+          />
           {outcome === 'LOST' && reasons.length > 0 && (
             <Field label="Lost reason" fieldId="crm-close-reason" error={action.fieldErrors.lostReason}>
               <FormSelect id="crm-close-reason" value={reason} onChange={(_e, v) => setReason(v)}>
