@@ -350,6 +350,40 @@ describe('CRM contact drawer', () => {
     expect(screen.queryByText('Attributes')).toBeNull();
   });
 
+  it.each([
+    ['a removed', 404],
+    ['an unreadable', 500],
+  ])('asks no channel details for %s contact', async (_what, status) => {
+    const f = mockFetch(
+      routes({
+        [CONTACT]: { status, body: { code: 'NOT_FOUND', message: 'gone' } },
+        [DETAILS]: { status: 200, body: { labels: [], attributes: [] } },
+      }),
+    );
+    renderApp('/crm/contacts/c1');
+    await waitFor(() => expect(callsTo(f, CONTACT)).toBe(1));
+    await screen.findByRole('heading', { name: /Danger alert|Warning alert/ });
+    expect(callsTo(f, DETAILS)).toBe(0);
+  });
+
+  it('channelDetailsRefreshOnFocus', async () => {
+    vi.useFakeTimers({ toFake: ['Date'], now: Date.now() });
+    try {
+      let labels: { id: string; name: string; color: string }[] = [];
+      const f = mockFetch(routes({ [DETAILS]: () => ({ status: 200, body: { labels, attributes: [] } }) }));
+      renderApp('/crm/contacts/c1');
+      await waitFor(() => expect(callsTo(f, DETAILS)).toBe(1));
+      labels = [{ id: 'l1', name: 'VIP', color: '#ff0000' }];
+      vi.setSystemTime(Date.now() + 10_000);
+      act(() => {
+        document.dispatchEvent(new Event('visibilitychange'));
+      });
+      expect(await screen.findByText('VIP')).toBeInTheDocument();
+    } finally {
+      vi.useRealTimers();
+    }
+  });
+
   it('failedDetailsHideTheRows', async () => {
     const f = mockFetch(routes({ [DETAILS]: { status: 500, body: { code: 'INTERNAL', message: 'Boom' } } }));
     renderApp('/crm/contacts/c1');

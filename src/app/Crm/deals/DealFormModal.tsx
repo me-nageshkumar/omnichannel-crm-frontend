@@ -258,7 +258,9 @@ export const DealFormModal: React.FunctionComponent<{
                 ? 'Choose the primary contact first.'
                 : deal && linked.error
                   ? "Couldn't load this deal's contacts. They stay as they are."
-                  : undefined
+                  : !othersLoaded
+                    ? "Loading this deal's contacts…"
+                    : undefined
             }
             error={othersError ?? action.fieldErrors.crmContactIds}
           />

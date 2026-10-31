@@ -322,6 +322,67 @@ describe('CRM chat panel', () => {
     expect(callsTo(f, SUMMARY2)).toBe(1);
   });
 
+  it('aStageAddedElsewhereShowsWhenTheTabComesBack', async () => {
+    vi.useFakeTimers({ toFake: ['Date'], now: Date.now() });
+    try {
+      const base = samplePipeline();
+      let pipeline = base;
+      mockFetch(
+        routes({
+          [SUMMARY1]: { status: 200, body: captured('Priya Shah') },
+          [PIPELINES]: () => ({ status: 200, body: [pipeline] }),
+        }),
+      );
+      renderApp('/inbox/chats/c1');
+      const panel = within(await screen.findByRole('complementary', { name: 'CRM' }));
+      const select = await panel.findByLabelText('Stage of Acme order');
+      expect(within(select).queryByRole('option', { name: 'Demo' })).toBeNull();
+      pipeline = {
+        ...base,
+        stages: [
+          ...base.stages,
+          { id: 's4', name: 'Demo', color: '#000000', position: 2500, probability: 60, type: 'OPEN', wipLimit: null },
+        ],
+      };
+      vi.setSystemTime(Date.now() + 10_000);
+      act(() => {
+        document.dispatchEvent(new Event('visibilitychange'));
+      });
+      expect(await within(select).findByRole('option', { name: 'Demo' })).toBeInTheDocument();
+    } finally {
+      vi.useRealTimers();
+    }
+  });
+
+  it('aFailedRefreshKeepsTheStagesItHad', async () => {
+    vi.useFakeTimers({ toFake: ['Date'], now: Date.now() });
+    try {
+      let fail = false;
+      const f = mockFetch(
+        routes({
+          [SUMMARY1]: { status: 200, body: captured('Priya Shah') },
+          [PIPELINES]: () =>
+            fail ? { status: 500, body: { message: 'down' } } : { status: 200, body: [samplePipeline()] },
+        }),
+      );
+      renderApp('/inbox/chats/c1');
+      const panel = within(await screen.findByRole('complementary', { name: 'CRM' }));
+      const select = await panel.findByLabelText('Stage of Acme order');
+      expect(within(select).getByRole('option', { name: 'Proposal' })).toBeInTheDocument();
+      const before = callsTo(f, PIPELINES);
+      fail = true;
+      vi.setSystemTime(Date.now() + 10_000);
+      act(() => {
+        document.dispatchEvent(new Event('visibilitychange'));
+      });
+      await waitFor(() => expect(callsTo(f, PIPELINES)).toBe(before + 1));
+      await act(() => new Promise((r) => setTimeout(r, 20)));
+      expect(within(select).getByRole('option', { name: 'Proposal' })).toBeInTheDocument();
+    } finally {
+      vi.useRealTimers();
+    }
+  });
+
   it('staleAnswerIgnored', async () => {
     const f = mockFetch(
       routes({

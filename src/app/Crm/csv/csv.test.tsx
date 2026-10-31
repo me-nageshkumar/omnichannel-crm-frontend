@@ -2,6 +2,7 @@ import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { screen, waitFor, within } from '@testing-library/react';
 import { renderApp } from '../../../test/renderApp';
 import { callsTo, mockFetch, requestTo } from '../../../test/fetchMock';
+import { gate } from '../../../test/gate';
 import { crmSettings, sampleCrmContact, samplePipeline } from '../../../test/crm';
 import { BASE, boardRoutes } from '../../../test/crmBoard';
 import { storeSession } from '../../../test/session';
@@ -185,6 +186,49 @@ describe('CRM CSV', () => {
     const dialog = await screen.findByRole('dialog', { name: 'Import contacts' });
     const row = within(dialog).getByRole('button', { name: 'Choose file' }).parentElement as HTMLElement;
     expect(row).toHaveStyle({ flexWrap: 'wrap' });
+  });
+
+  it('aTemplateDownloadLeavesTheImportButtonAlone', async () => {
+    const f = mockFetch(
+      routes({
+        [`POST ${BASE}/companies/search`]: { status: 200, body: { items: [], total: 0, page: 0 } },
+        [`GET ${BASE}/companies/import/template`]: { status: 500, body: { code: 'INTERNAL', message: 'Boom' } },
+      }),
+    );
+    const held = gate(f, `GET ${BASE}/companies/import/template`, 1);
+    const { user } = renderApp('/crm/companies');
+    await user.click(await screen.findByRole('button', { name: 'Import CSV' }));
+    const dialog = await screen.findByRole('dialog', { name: 'Import companies' });
+    await user.upload(within(dialog).getByLabelText('CSV file'), csv('Name\nAcme\n'));
+    const importing = await within(dialog).findByRole('button', { name: 'Import' });
+    await user.click(within(dialog).getByRole('button', { name: 'Download template' }));
+    expect(within(dialog).getByRole('button', { name: /Download template/ })).toBeDisabled();
+    expect(importing).toBeEnabled();
+    expect(within(importing).queryByRole('progressbar')).toBeNull();
+    held.release();
+    await within(dialog).findByText('Could not download the template. Try again.');
+  });
+
+  it('aTemplateDownloadDoesNotClearTheImportsError', async () => {
+    mockFetch(
+      routes({
+        [`POST ${BASE}/companies/search`]: { status: 200, body: { items: [], total: 0, page: 0 } },
+        [`POST ${BASE}/companies/import`]: {
+          status: 400,
+          body: { code: 'IMPORT_TOO_LARGE', message: 'x', limit: '2000' },
+        },
+        [`GET ${BASE}/companies/import/template`]: { status: 500, body: { code: 'INTERNAL', message: 'Boom' } },
+      }),
+    );
+    const { user } = renderApp('/crm/companies');
+    await user.click(await screen.findByRole('button', { name: 'Import CSV' }));
+    const dialog = await screen.findByRole('dialog', { name: 'Import companies' });
+    await user.upload(within(dialog).getByLabelText('CSV file'), csv('Name\nAcme\n'));
+    await user.click(await within(dialog).findByRole('button', { name: 'Import' }));
+    await within(dialog).findByText('Up to 2000 rows per file.');
+    await user.click(within(dialog).getByRole('button', { name: 'Download template' }));
+    await within(dialog).findByText('Could not download the template. Try again.');
+    expect(within(dialog).getByText('Up to 2000 rows per file.')).toBeInTheDocument();
   });
 
   it('templateFailureShows', async () => {

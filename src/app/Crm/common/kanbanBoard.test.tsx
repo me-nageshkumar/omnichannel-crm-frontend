@@ -192,6 +192,16 @@ describe('KanbanBoard', () => {
     expect(screen.getAllByText('Card 1')).toHaveLength(1);
   });
 
+  it('theDragCopyStaysOutOfTheAccessibilityTree', async () => {
+    const onMove = vi.fn().mockResolvedValue(undefined);
+    render(board({ onMove, renderCard: (c) => <button type="button">Chat with {c.name}</button> }));
+    await startPointerDrag(screen.getByText('Chat with Card 1'), [100, 80], [440, 80]);
+    expect(screen.getAllByText('Chat with Card 1')).toHaveLength(2);
+    expect(screen.getAllByRole('button', { name: 'Chat with Card 1' })).toHaveLength(1);
+    await endPointerDrag([440, 80]);
+    await waitFor(() => expect(onMove).toHaveBeenCalledTimes(1));
+  });
+
   it('dragFromTheCardBodyMovesIt', async () => {
     const onMove = vi.fn().mockResolvedValue(undefined);
     render(board({ onMove }));

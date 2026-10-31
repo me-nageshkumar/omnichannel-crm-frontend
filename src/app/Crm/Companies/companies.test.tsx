@@ -163,6 +163,28 @@ describe('CRM companies', () => {
     expect(await screen.findByText(/won't open this chat/)).toBeInTheDocument();
   });
 
+  it('aChatRefusalDoesNotFollowToTheNextCompany', async () => {
+    mockFetch(
+      routes({
+        [SEARCH]: page([company(), company({ id: 'co2', name: 'Beta Ltd' })]),
+        [`GET ${BASE}/companies/co2/summary`]: { status: 200, body: summary({ id: 'co2', name: 'Beta Ltd' }) },
+        [`GET ${BASE}/contacts/c1/communication`]: {
+          status: 200,
+          body: { phoneNumberId: 'pn1', number: '919800000001', phone: '919812345678', chatId: null, canChat: false },
+        },
+      }),
+    );
+    const { user } = renderApp('/crm/companies/co1');
+    await user.click(await screen.findByRole('tab', { name: 'Contacts' }));
+    await user.click(await screen.findByRole('button', { name: 'Open chat with Priya Shah' }));
+    await screen.findByText(/won't open this chat/);
+    await user.click(await screen.findByRole('link', { name: 'Beta Ltd', hidden: true }));
+    await screen.findByRole('heading', { name: 'Beta Ltd', hidden: true });
+    await user.click(await screen.findByRole('tab', { name: 'Contacts' }));
+    await screen.findByRole('button', { name: 'Open chat with Priya Shah' });
+    expect(screen.queryByText(/won't open this chat/)).toBeNull();
+  });
+
   it('deleteWithOpenDealsShowsMessage', async () => {
     mockFetch(
       routes({

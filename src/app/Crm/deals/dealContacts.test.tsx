@@ -4,6 +4,7 @@ import { screen, waitFor, within } from '@testing-library/react';
 import { useLocation } from 'react-router-dom';
 import { renderApp } from '../../../test/renderApp';
 import { mockFetch, requestTo } from '../../../test/fetchMock';
+import { gate } from '../../../test/gate';
 import { crmSettings, sampleCrmContact, sampleDeal, sampleDealContact } from '../../../test/crm';
 import { BASE, boardRoutes } from '../../../test/crmBoard';
 import { storeSession } from '../../../test/session';
@@ -140,6 +141,28 @@ describe('Contacts on a deal', () => {
     await user.click(within(dialog).getByRole('button', { name: 'Save deal' }));
     await waitFor(() => expect(requestTo(f, `PUT ${BASE}/deals/d1`)).toBeDefined());
     expect(requestTo(f, `PUT ${BASE}/deals/d1`)?.body.crmContactIds).toEqual(['c1', 'c3']);
+  });
+
+  it('theTwoContactSearchesHaveTheirOwnNames', async () => {
+    const { user, dialog } = await openCreate();
+    await within(dialog).findByRole('option', { name: 'Priya Shah (919812345678)' });
+    await user.selectOptions(within(dialog).getByLabelText(/^Primary contact/), 'c1');
+    expect(within(dialog).getAllByRole('textbox', { name: 'Search contacts' })).toHaveLength(1);
+    expect(within(dialog).getByRole('textbox', { name: 'Search other contacts' })).toBeInTheDocument();
+  });
+
+  it('saysSoWhileTheEditFormsContactsLoad', async () => {
+    const f = mockFetch(routes());
+    const key = `GET ${BASE}/deals/d1/contacts`;
+    const held = [gate(f, key, 1), gate(f, key, 2)];
+    const { user } = renderApp('/crm/deals/d1?pipelineId=p1');
+    await screen.findByRole('heading', { name: 'Acme order' });
+    await user.click(screen.getByRole('button', { name: 'Edit' }));
+    const dialog = await screen.findByRole('dialog', { name: 'Edit deal' });
+    expect(await within(dialog).findByText("Loading this deal's contacts…")).toBeInTheDocument();
+    held.forEach((h) => h.release());
+    await waitFor(() => expect(within(dialog).queryByText("Loading this deal's contacts…")).toBeNull());
+    expect(await within(dialog).findByRole('button', { name: /Remove Dave Ray/ })).toBeInTheDocument();
   });
 
   it('failedContactsLoadLeavesThemAlone', async () => {

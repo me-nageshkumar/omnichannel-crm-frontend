@@ -49,11 +49,13 @@ export const ImportModal: React.FunctionComponent<{
   const [preview, setPreview] = React.useState<{ headers: string[]; rows: string[][]; count: number } | null>(null);
   const [result, setResult] = React.useState<CrmImportResult | null>(null);
   const action = useAction();
+  // its own action: a template download must neither spin Import nor clear what Import reported
+  const templateAction = useAction();
   const input = React.useRef<HTMLInputElement>(null);
   const { token, workspace } = useSession();
 
   const downloadTemplate = async () => {
-    const file = await action.run(
+    const file = await templateAction.run(
       () => importTemplate(token as string, workspace?.id ?? '', template),
       () => 'Could not download the template. Try again.',
     );
@@ -63,6 +65,7 @@ export const ImportModal: React.FunctionComponent<{
   const pick = async (f: File | undefined) => {
     setResult(null);
     action.reset();
+    templateAction.reset();
     setFile(f ?? null);
     if (!f) return setPreview(null);
     const text = await readText(f);
@@ -83,6 +86,9 @@ export const ImportModal: React.FunctionComponent<{
       <ModalHeader title={title} labelId="crm-import-title" />
       <ModalBody>
         {action.error && <Alert variant="danger" isInline isPlain title={action.error} className="pf-v6-u-mb-md" />}
+        {templateAction.error && (
+          <Alert variant="danger" isInline isPlain title={templateAction.error} className="pf-v6-u-mb-md" />
+        )}
         {result ? (
           <div style={{ display: 'grid', gap: 'var(--pf-t--global--spacer--md)' }}>
             <Alert
@@ -135,7 +141,13 @@ export const ImportModal: React.FunctionComponent<{
                 <Button variant="secondary" onClick={() => input.current?.click()}>
                   Choose file
                 </Button>
-                <Button variant="secondary" icon={<DownloadIcon />} onClick={() => void downloadTemplate()}>
+                <Button
+                  variant="secondary"
+                  icon={<DownloadIcon />}
+                  isDisabled={templateAction.busy}
+                  isLoading={templateAction.busy}
+                  onClick={() => void downloadTemplate()}
+                >
                   Download template
                 </Button>
                 <div style={{ flex: '1 1 12rem', minWidth: 0 }}>
