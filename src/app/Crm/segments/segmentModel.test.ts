@@ -9,14 +9,17 @@ import {
   MAX_VALUE_LENGTH,
   cleanRules,
   emptyGroup,
+  hasFlagged,
   isComplete,
   isFlagged,
   newRule,
   pipelineOfGroup,
+  removeRule,
   stageWithoutPipeline,
   valueKind,
   withField,
   withOperator,
+  withRuleChanged,
 } from '@app/Crm/segments/segmentModel';
 
 const CATALOG = sampleSegmentFields();
@@ -115,6 +118,35 @@ describe('segmentModel', () => {
     );
     expect(pipelineOfGroup(group('or', rule('deal.pipelineId', 'is', 'p2')))).toBeNull();
     expect(pipelineOfGroup(group('and', rule('deal.pipelineId', 'in', ['p1', 'p2'])))).toBeNull();
+  });
+
+  it('hasFlaggedLooksThroughNestedGroups', () => {
+    expect(hasFlagged(group('and', rule('contact.email', 'isSet')))).toBe(false);
+    expect(hasFlagged(group('and', group('or', { field: 'x', operator: 'is', value: 'a', inaccessible: true })))).toBe(
+      true,
+    );
+  });
+
+  it('stageRulesStartOverWhenThePipelineRuleChangesAtAll', () => {
+    const before = group('and', rule('deal.pipelineId', 'is', 'p1'), rule('deal.stageId', 'in', ['s1', 's2']));
+    const reset = rule('deal.stageId', 'in', []);
+    expect(withRuleChanged(before, 0, rule('deal.pipelineId', 'isNot', 'p1')).rules[1]).toEqual(reset);
+    expect(withRuleChanged(before, 0, rule('contact.email', 'isSet')).rules[1]).toEqual(reset);
+    const other = group('and', rule('contact.email', 'is', 'a'), rule('deal.stageId', 'is', 's1'));
+    expect(withRuleChanged(other, 0, rule('contact.email', 'is', 'b')).rules[1]).toEqual(
+      rule('deal.stageId', 'is', 's1'),
+    );
+  });
+
+  it('removeRuleStartsStageRulesOverOnlyForAPipelineRule', () => {
+    const inner = group('and', rule('deal.pipelineId', 'is', 'p1'), rule('deal.stageId', 'is', 's1'));
+    const root = group('and', rule('deal.stageId', 'is', 's2'), inner);
+    expect(removeRule(root, [1, 0])).toEqual(
+      group('and', rule('deal.stageId', 'is', 's2'), group('and', rule('deal.stageId', 'is', ''))),
+    );
+    expect(removeRule(root, [1, 1])).toEqual(
+      group('and', rule('deal.stageId', 'is', 's2'), group('and', rule('deal.pipelineId', 'is', 'p1'))),
+    );
   });
 
   it('capsMirrorTheServer', () => {

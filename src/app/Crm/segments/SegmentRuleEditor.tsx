@@ -25,6 +25,7 @@ import {
   newRule,
   nodeName,
   removeAt,
+  removeRule,
   replaceAt,
   rulePath,
   withRuleChanged,
@@ -148,7 +149,7 @@ const GroupEditor: React.FunctionComponent<
                   error={errorFor(errors, at)}
                   isDisabled={isDisabled}
                   onChange={(r) => onChange(replaceAt(root, path, withRuleChanged(group, i, r)))}
-                  onRemove={() => onChange(removeAt(root, at))}
+                  onRemove={() => onChange(removeRule(root, at))}
                 />
               )}
             </FlexItem>

@@ -165,6 +165,60 @@ describe('CRM segment editor', () => {
     });
   });
 
+  it('previewShowsCountingFromTheFirstChange', async () => {
+    vi.useFakeTimers({ shouldAdvanceTime: true });
+    const { f, user } = await openNew();
+    await fillLifecycle(user);
+    const card = screen.getByRole('region', { name: 'Who matches' });
+    expect(callsTo(f, PREVIEW)).toBe(0);
+    expect(within(card).getByRole('progressbar', { name: 'Counting' })).toBeInTheDocument();
+    await advance(700);
+    expect(await within(card).findByText('12 CRM contacts (11 people)')).toBeInTheDocument();
+    expect(within(card).queryByRole('progressbar', { name: 'Counting' })).toBeNull();
+  });
+
+  it('previewStopsCountingWhenTheRefusalOnlyNamesRules', async () => {
+    const { user } = await openNew({
+      [PREVIEW]: {
+        status: 400,
+        body: { code: 'INVALID_SEGMENT', message: 'The segment has 1 problem', 'rules[0].value': 'must be a text' },
+      },
+    });
+    await fillLifecycle(user);
+    expect(await rule('Rule 1').findByText('must be a text')).toBeInTheDocument();
+    const card = screen.getByRole('region', { name: 'Who matches' });
+    expect(within(card).queryByRole('progressbar', { name: 'Counting' })).toBeNull();
+  });
+
+  it('previewIsNotBusyAfterTheRulesWentIncompleteMidFlight', async () => {
+    const { f, user } = await openNew();
+    const first = gate(f, PREVIEW, 1);
+    await fillLifecycle(user);
+    await waitFor(() => expect(callsTo(f, PREVIEW)).toBe(1));
+    await user.selectOptions(rule('Rule 1').getByLabelText('Value'), 'Choose a value');
+    first.release();
+    await act(() => new Promise((r) => setTimeout(r, 50)));
+    await user.selectOptions(rule('Rule 1').getByLabelText('Value'), 'Customer');
+    const card = screen.getByRole('region', { name: 'Who matches' });
+    // nothing is in flight: only the 600 ms wait is running
+    expect(callsTo(f, PREVIEW)).toBe(1);
+    expect(within(card).getByRole('button', { name: 'Refresh' })).toBeEnabled();
+  });
+
+  it('aFailedRefreshDoesNotSitAboveTheOlderCount', async () => {
+    let n = 0;
+    const { user } = await openNew({
+      [PREVIEW]: () =>
+        ++n === 1 ? { status: 200, body: sampleSegmentPreview() } : { status: 500, body: { message: 'down' } },
+    });
+    await fillLifecycle(user);
+    const card = await screen.findByRole('region', { name: 'Who matches' });
+    await within(card).findByText('12 CRM contacts (11 people)');
+    await user.click(within(card).getByRole('button', { name: 'Refresh' }));
+    expect(await within(card).findByRole('heading', { name: /^Danger alert/ })).toBeInTheDocument();
+    expect(within(card).queryByText('12 CRM contacts (11 people)')).toBeNull();
+  });
+
   it('previewShowsCountsPeopleAndAccounts', async () => {
     const { user } = await openNew();
     await fillLifecycle(user);
@@ -245,6 +299,28 @@ describe('CRM segment editor', () => {
     });
   });
 
+  it('saysWhySaveIsDisabledWhileAFlaggedRuleRemains', async () => {
+    const flagged = sampleSegment({
+      id: 's3',
+      name: 'Old pipeline',
+      rules: {
+        combinator: 'and',
+        not: false,
+        rules: [
+          { field: 'contact.lifecycleStatus', operator: 'is', value: 'lead' },
+          { field: 'deal.pipelineId', operator: 'is', value: 'p7', inaccessible: true },
+        ],
+      },
+    });
+    mockFetch(segmentRoutes({ [`GET ${SEGMENTS_BASE}/s3`]: { status: 200, body: flagged } }));
+    const { user } = renderApp('/crm/segments/s3');
+    expect(await screen.findByText('Remove the flagged rules to save.')).toBeInTheDocument();
+    expect(screen.getByRole('button', { name: 'Save' })).toBeDisabled();
+    await user.click(rule('Rule 2').getByRole('button', { name: 'Remove rule' }));
+    expect(screen.queryByText('Remove the flagged rules to save.')).toBeNull();
+    expect(screen.getByRole('button', { name: 'Save' })).toBeEnabled();
+  });
+
   it('previewErrorsAreInline', async () => {
     const { user } = await openNew({
       [PREVIEW]: {
@@ -263,7 +339,7 @@ describe('CRM segment editor', () => {
 
   it('builderComesBeforeThePreviewInTheDocument', async () => {
     await openNew();
-    const builder = screen.getByRole('group', { name: 'Filter rules' });
+    const builder = screen.getByRole('group', { name: 'Segment rules' });
     const card = screen.getByRole('region', { name: 'Who matches' });
     expect(builder.compareDocumentPosition(card) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy();
   });

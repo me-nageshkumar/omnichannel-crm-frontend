@@ -13,6 +13,17 @@ export const MAX_VALUES = 50;
 export const MAX_VALUE_LENGTH = 200;
 export const MAX_DAYS = 3650;
 
+/** "n CRM contacts", with the people in brackets when they differ (spec C20). */
+export function countsText({ total, people }: { total: number; people: number }): string {
+  const count = (v: number) => v.toLocaleString('en-US');
+  const base = `${count(total)} CRM contacts`;
+  return people === total ? base : `${base} (${count(people)} people)`;
+}
+
+/** A count's or a send's time: "Oct 31, 9:05 AM". */
+export const shortTime = (iso: string): string =>
+  new Date(iso).toLocaleString('en-US', { day: 'numeric', month: 'short', hour: 'numeric', minute: '2-digit' });
+
 export type Path = tree.Path;
 export type Node = SegmentRule | SegmentRuleGroup;
 
@@ -30,7 +41,8 @@ export const addTo = (root: SegmentRuleGroup, groupPath: Path, child: Node): Seg
 export const removeAt = (root: SegmentRuleGroup, path: Path): SegmentRuleGroup =>
   back(tree.removeAt(asGroup(root), path));
 export const rulePath = tree.rulePath;
-export const nodeName = tree.nodeName;
+export const nodeName = (path: Path, group: boolean): string =>
+  path.length === 0 ? 'Segment rules' : tree.nodeName(path, group);
 export const splitErrors = (fields: Record<string, string>, root: SegmentRuleGroup) =>
   tree.splitErrors(fields, asGroup(root));
 export const countRules = (root: SegmentRuleGroup): number => tree.countRules(asGroup(root));
@@ -163,6 +175,10 @@ export function withOperator(rule: SegmentRule, operator: string, type: SegmentV
 
 export const isFlagged = (rule: SegmentRule): boolean => rule.missing === true || rule.inaccessible === true;
 
+/** Whether any rule of the tree is flagged: such a tree cannot be saved until those rules are removed. */
+export const hasFlagged = (root: SegmentRuleGroup): boolean =>
+  root.rules.some((n) => (isGroup(n) ? hasFlagged(n) : isFlagged(n)));
+
 function valueComplete(kind: ValueKind, value: SegmentRule['value']): boolean {
   switch (kind) {
     case 'none':
@@ -223,22 +239,34 @@ export function errorFor(errors: Record<string, string>, path: Path): string | u
     .find((m) => m !== undefined);
 }
 
+const PIPELINE_FIELD = 'deal.pipelineId';
+const isPipelineRule = (n: Node): boolean => !isGroup(n) && n.field === PIPELINE_FIELD;
+
+const withStagesCleared = (group: SegmentRuleGroup): SegmentRuleGroup => ({
+  ...group,
+  rules: group.rules.map((n) =>
+    !isGroup(n) && n.field === 'deal.stageId' ? { ...n, value: emptyValue(valueKind('PICK', n.operator)) } : n,
+  ),
+});
+
 /** When a group's pipeline rule changes, its stage rules start over: their options belong to the old pipeline. */
 export function withRuleChanged(group: SegmentRuleGroup, index: number, next: SegmentRule): SegmentRuleGroup {
   const before = group.rules[index];
   const pipelineChanged =
-    next.field === 'deal.pipelineId' &&
     !isGroup(before) &&
-    (before.field !== next.field || before.value !== next.value);
-  return {
-    ...group,
-    rules: group.rules.map((n, i) => {
-      if (i === index) return next;
-      if (pipelineChanged && !isGroup(n) && n.field === 'deal.stageId')
-        return { ...n, value: emptyValue(valueKind('PICK', n.operator)) };
-      return n;
-    }),
-  };
+    (isPipelineRule(before) || isPipelineRule(next)) &&
+    (before.field !== next.field || before.operator !== next.operator || before.value !== next.value);
+  const base = pipelineChanged ? withStagesCleared(group) : group;
+  return { ...base, rules: base.rules.map((n, i) => (i === index ? next : n)) };
+}
+
+/** Removes the rule at {@code path}; removing a pipeline rule starts its group's stage rules over. */
+export function removeRule(root: SegmentRuleGroup, path: Path): SegmentRuleGroup {
+  const groupPath = path.slice(0, -1);
+  const group = nodeAt(root, groupPath);
+  const rule = nodeAt(root, path);
+  if (!group || !isGroup(group) || !rule || !isPipelineRule(rule)) return removeAt(root, path);
+  return removeAt(replaceAt(root, groupPath, withStagesCleared(group)), path);
 }
 
 export const dealRulesIn = (group: SegmentRuleGroup): SegmentRule[] =>
@@ -247,7 +275,7 @@ export const dealRulesIn = (group: SegmentRuleGroup): SegmentRule[] =>
 /** The pipeline an AND group pins with a single-valued rule, for its stage rules' options. */
 export function pipelineOfGroup(group: SegmentRuleGroup): string | null {
   if (group.combinator !== 'and') return null;
-  const pin = dealRulesIn(group).find((r) => r.field === 'deal.pipelineId' && r.operator === 'is');
+  const pin = dealRulesIn(group).find((r) => r.field === PIPELINE_FIELD && r.operator === 'is');
   return pin && typeof pin.value === 'string' && pin.value !== '' ? pin.value : null;
 }
 
@@ -256,6 +284,6 @@ export function stageWithoutPipeline(group: SegmentRuleGroup): boolean {
   const rules = dealRulesIn(group);
   return (
     rules.some((r) => r.field === 'deal.stageId') &&
-    (group.combinator !== 'and' || !rules.some((r) => r.field === 'deal.pipelineId'))
+    (group.combinator !== 'and' || !rules.some((r) => r.field === PIPELINE_FIELD))
   );
 }

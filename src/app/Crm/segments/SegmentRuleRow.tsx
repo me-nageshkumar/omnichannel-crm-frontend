@@ -30,6 +30,7 @@ import { SegmentValueEditor } from '@app/Crm/segments/SegmentValueEditor';
 export const MISSING_TEXT = 'This field no longer exists';
 export const INACCESSIBLE_TEXT = "A pipeline you can't access";
 export const STAGE_HINT = 'Add a pipeline rule to this group first';
+export const STAGE_OR_HINT = 'Switch this group to "All of these" to pick a stage';
 
 /** One rule: field (grouped by the catalogue), operator, a value control that follows both, and Remove. */
 export const SegmentRuleRow: React.FunctionComponent<{
@@ -55,7 +56,8 @@ export const SegmentRuleRow: React.FunctionComponent<{
   if (spec?.dependsOn) {
     const parent = pipelineOfGroup(group);
     options = parent ? (spec.optionsByParent?.[parent] ?? []) : [];
-    if (!parent) stageHint = STAGE_HINT;
+    // adding a pipeline rule does not help an "any of these" group: a stage needs its pipeline in the same deal
+    if (!parent) stageHint = group.combinator === 'or' ? STAGE_OR_HINT : STAGE_HINT;
   }
   return (
     <div role="group" aria-label={nodeName(path, false)}>
@@ -71,7 +73,7 @@ export const SegmentRuleRow: React.FunctionComponent<{
             {flagged && (
               <FormSelectOption
                 value={rule.field}
-                label={`${rule.field} (${rule.missing ? 'missing' : 'inaccessible'})`}
+                label={`${spec?.label ?? 'Unknown field'} (${rule.missing ? 'missing' : 'no access'})`}
                 isDisabled
               />
             )}
@@ -101,7 +103,6 @@ export const SegmentRuleRow: React.FunctionComponent<{
             <SegmentValueEditor
               id={id}
               kind={kind}
-              field={spec}
               options={options}
               value={rule.value}
               labels={labels}

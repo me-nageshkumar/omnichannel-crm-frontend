@@ -54,7 +54,9 @@ describe('CRM segments page', () => {
     mockFetch(segmentRoutes());
     const { user } = renderApp('/crm/segments');
     const table = await screen.findByRole('grid', { name: 'Segments' });
-    await user.click(within(table).getByRole('button', { name: 'Per channel account of Gold leads' }));
+    const trigger = within(table).getByRole('button', { name: '2 channel accounts in Gold leads' });
+    expect(trigger).toHaveTextContent('2 channel accounts');
+    await user.click(trigger);
     const popover = await screen.findByRole('dialog');
     expect(within(popover).getByText('Sales line')).toBeInTheDocument();
     expect(within(popover).getByText('900')).toBeInTheDocument();
@@ -66,8 +68,18 @@ describe('CRM segments page', () => {
     mockFetch(segmentRoutes());
     renderApp('/crm/segments');
     const table = await screen.findByRole('grid', { name: 'Segments' });
-    const send = within(table).getAllByRole('link', { name: 'Send campaign' });
-    expect(send[0]).toHaveAttribute('href', '/campaigns/new?segmentId=s1');
+    const send = within(table).getByRole('link', { name: 'Send campaign to Gold leads' });
+    expect(send).toHaveAttribute('href', '/campaigns/new?segmentId=s1');
+    expect(within(table).getByRole('link', { name: 'Edit Gold leads' })).toHaveAttribute('href', '/crm/segments/s1');
+  });
+
+  it('aSearchWithNoMatchSaysSo', async () => {
+    mockFetch(segmentRoutes());
+    const { user } = renderApp('/crm/segments');
+    await screen.findByRole('grid', { name: 'Segments' });
+    await user.type(screen.getByRole('textbox', { name: 'Search segments' }), 'zzz');
+    expect(await screen.findByText('No segments match your search')).toBeInTheDocument();
+    expect(screen.queryByRole('grid', { name: 'Segments' })).toBeNull();
   });
 
   it('sendCampaignNeedsCampaignManage', async () => {
@@ -81,8 +93,8 @@ describe('CRM segments page', () => {
     );
     renderApp('/crm/segments');
     const table = await screen.findByRole('grid', { name: 'Segments' });
-    expect(within(table).queryByRole('link', { name: 'Send campaign' })).toBeNull();
-    expect(within(table).getAllByRole('link', { name: 'Edit' })).toHaveLength(2);
+    expect(within(table).queryByRole('link', { name: /^Send campaign/ })).toBeNull();
+    expect(within(table).getAllByRole('link', { name: /^Edit/ })).toHaveLength(2);
   });
 
   it('deleteConfirmsAndRefreshes', async () => {

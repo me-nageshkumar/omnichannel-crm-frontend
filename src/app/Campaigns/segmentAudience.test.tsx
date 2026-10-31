@@ -106,7 +106,9 @@ describe('campaign wizard with a CRM segment audience', () => {
     const { user } = renderApp('/campaigns/new');
     await chooseSegment(user);
     const select = screen.getByRole('combobox', { name: 'Segment' });
-    expect(within(select).getByRole('option', { name: 'Gold leads — 1,240 CRM contacts' })).toBeInTheDocument();
+    expect(
+      within(select).getByRole('option', { name: /^Gold leads — 1,240 CRM contacts, as of .+/ }),
+    ).toBeInTheDocument();
     expect(within(select).getByRole('option', { name: 'Quiet contacts — not counted yet' })).toBeInTheDocument();
     expect(screen.getByRole('link', { name: 'Manage segments' })).toHaveAttribute('href', '/crm/segments');
   });

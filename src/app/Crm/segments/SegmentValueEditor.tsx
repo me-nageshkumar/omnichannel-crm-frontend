@@ -1,7 +1,7 @@
 import * as React from 'react';
 import { Checkbox, Flex, FormSelect, FormSelectOption, Label, LabelGroup, TextInput } from '@patternfly/react-core';
 import type { ContactLabel } from '@app/api/contacts';
-import type { Ref, SegmentField, SegmentFieldOption, SegmentRule } from '@app/api/crm';
+import type { Ref, SegmentFieldOption, SegmentRule } from '@app/api/crm';
 import { LabelPicker } from '@app/Contacts/FilterPanel';
 import { CompanyTypeahead } from '@app/Crm/Companies/CompanyTypeahead';
 import type { FieldUser } from '@app/Crm/common/fields/types';
@@ -11,7 +11,6 @@ import { MAX_DAYS, MAX_VALUES, MAX_VALUE_LENGTH, type ValueKind } from '@app/Crm
 export const SegmentValueEditor: React.FunctionComponent<{
   id: string;
   kind: ValueKind;
-  field: SegmentField;
   /** The field's options for this rule (a stage's come from its group's pipeline). */
   options: SegmentFieldOption[];
   value: SegmentRule['value'];
@@ -19,7 +18,7 @@ export const SegmentValueEditor: React.FunctionComponent<{
   users: FieldUser[];
   isDisabled?: boolean;
   onChange(value: SegmentRule['value']): void;
-}> = ({ id, kind, field, options, value, labels, users, isDisabled = false, onChange }) => {
+}> = ({ id, kind, options, value, labels, users, isDisabled = false, onChange }) => {
   const text = typeof value === 'string' ? value : '';
   const list = Array.isArray(value) ? value : [];
   switch (kind) {
@@ -50,7 +49,7 @@ export const SegmentValueEditor: React.FunctionComponent<{
         <Flex alignItems={{ default: 'alignItemsCenter' }} spaceItems={{ default: 'spaceItemsSm' }}>
           <TextInput
             type="number"
-            min={0}
+            min={1}
             max={MAX_DAYS}
             aria-label="Value"
             value={text}
@@ -199,6 +198,4 @@ export const SegmentValueEditor: React.FunctionComponent<{
     case 'labels':
       return <LabelPicker title="Choose labels" labels={labels} selected={list} onChange={onChange} max={MAX_VALUES} />;
   }
-  // every kind is handled above; the field is only read to keep the prop meaningful to callers
-  return field ? null : null;
 };

@@ -153,6 +153,25 @@ describe('SegmentRuleEditor', () => {
     expect(rule('Rule 1').getByText('Add a pipeline rule to this group first')).toBeInTheDocument();
   });
 
+  it('stageInAnOrGroupAsksToSwitchTheGroup', () => {
+    setup(g('or', r('deal.pipelineId', 'is', 'p1'), r('deal.stageId', 'is', '')));
+    expect(rule('Rule 2').getByLabelText('Value')).toBeDisabled();
+    expect(rule('Rule 2').getByText('Switch this group to "All of these" to pick a stage')).toBeInTheDocument();
+    expect(rule('Rule 2').queryByText('Add a pipeline rule to this group first')).toBeNull();
+  });
+
+  it('removingThePipelineRuleStartsItsStageRulesOver', async () => {
+    const { user, last } = setup(g('and', r('deal.pipelineId', 'is', 'p2'), r('deal.stageId', 'is', 's9')));
+    await user.click(rule('Rule 1').getByRole('button', { name: 'Remove rule' }));
+    expect(last().rules).toEqual([r('deal.stageId', 'is', '')]);
+  });
+
+  it('changingThePipelineOperatorStartsItsStageRulesOver', async () => {
+    const { user, last } = setup(g('and', r('deal.pipelineId', 'is', 'p2'), r('deal.stageId', 'is', 's9')));
+    await user.selectOptions(rule('Rule 1').getByLabelText('Operator'), 'is not');
+    expect(last().rules[1]).toEqual(r('deal.stageId', 'is', ''));
+  });
+
   it('andGroupWithTwoDealRulesShowsTheHint', () => {
     const HINT = 'All deal conditions in this group must match the same deal.';
     setup(
@@ -163,7 +182,7 @@ describe('SegmentRuleEditor', () => {
         g('or', r('deal.status', 'is', 'WON'), r('deal.amount', 'gt', '1')),
       ),
     );
-    const root = screen.getByRole('group', { name: 'Filter rules' });
+    const root = screen.getByRole('group', { name: 'Segment rules' });
     expect(within(root).getAllByText(HINT)).toHaveLength(1);
     expect(within(screen.getByRole('group', { name: 'Group 3' })).queryByText(HINT)).toBeNull();
   });
@@ -189,11 +208,35 @@ describe('SegmentRuleEditor', () => {
     expect(last().rules).toHaveLength(1);
   });
 
+  it('flaggedOptionReadsPlainly', () => {
+    setup(
+      g(
+        'and',
+        { field: 'contact.custom:gone', operator: 'is', value: 'x', missing: true } as SegmentRule,
+        { field: 'deal.pipelineId', operator: 'is', value: 'p7', inaccessible: true } as SegmentRule,
+      ),
+    );
+    const names = [
+      ...optionNames(rule('Rule 1').getByLabelText('Field')),
+      ...optionNames(rule('Rule 2').getByLabelText('Field')),
+    ];
+    expect(names).toContain('Unknown field (missing)');
+    expect(names).toContain('Pipeline (no access)');
+    expect(names.join(' ')).not.toContain('contact.custom:gone');
+    expect(names.join(' ')).not.toContain('deal.pipelineId');
+  });
+
+  it('dayCountsStartAtOne', () => {
+    setup(g('and', r('contact.creationTime', 'withinLastDays', '')));
+    expect(rule('Rule 1').getByLabelText('Value')).toHaveAttribute('min', '1');
+    expect(rule('Rule 1').getByLabelText('Value')).toHaveAttribute('max', '3650');
+  });
+
   it('addRuleDisabledAtThirtyRules', () => {
     const many = g('and', ...Array.from({ length: 30 }, () => r('contact.email', 'isSet')));
     setup(many);
-    expect(bar('Filter rules').getByRole('button', { name: 'Add rule' })).toBeDisabled();
-    expect(bar('Filter rules').getByRole('button', { name: 'Add group' })).toBeDisabled();
+    expect(bar('Segment rules').getByRole('button', { name: 'Add rule' })).toBeDisabled();
+    expect(bar('Segment rules').getByRole('button', { name: 'Add group' })).toBeDisabled();
   });
 
   it('labelPickerForLabelFields', async () => {

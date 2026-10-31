@@ -223,13 +223,13 @@ export const ReviewStep: React.FunctionComponent<{
             {preview && preview.channelAccounts.length > 0 && (
               <List isPlain aria-label="Contacts per channel account">
                 {preview.channelAccounts.map((row) => {
-                  const chosen = row.channelAccountId !== null && draft.senderIds.includes(row.channelAccountId);
+                  const isSender = row.channelAccountId !== null && draft.senderIds.includes(row.channelAccountId);
                   return (
                     <ListItem
                       key={row.channelAccountId ?? 'none'}
-                      icon={chosen ? undefined : <ExclamationTriangleIcon aria-label="Warning" />}
+                      icon={isSender ? undefined : <ExclamationTriangleIcon aria-label="Warning" />}
                     >
-                      {chosen
+                      {isSender
                         ? `${row.label}: ${row.count.toLocaleString('en-US')} contacts`
                         : `${row.count.toLocaleString('en-US')} contacts landed on ${row.label}, which is not a chosen sender — those with chats there will be skipped`}
                     </ListItem>

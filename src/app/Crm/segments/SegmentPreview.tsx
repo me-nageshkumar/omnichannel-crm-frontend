@@ -22,17 +22,13 @@ import type { ChannelKind, SegmentPreview as Preview, SegmentFieldCatalog, Segme
 import { ApiError } from '@app/api/client';
 import { useSession } from '@app/session/SessionContext';
 import { crmMessage } from '@app/Crm/errors';
-import { cleanRules, isComplete, splitErrors } from '@app/Crm/segments/segmentModel';
+import { cleanRules, countsText, isComplete, splitErrors } from '@app/Crm/segments/segmentModel';
 
 export const DEBOUNCE_MS = 600;
 export const INCOMPLETE_TEXT = 'Finish the rules to see who matches';
 export const TRUNCATED_TEXT = 'first 50,000 only — narrow the rules before sending';
 
 const n = (v: number) => v.toLocaleString('en-US');
-
-/** "n CRM contacts", with the people in brackets when they differ (spec C20). */
-export const countsText = (p: { total: number; people: number }): string =>
-  p.people === p.total ? `${n(p.total)} CRM contacts` : `${n(p.total)} CRM contacts (${n(p.people)} people)`;
 
 /** The icon of a channel account's kind; unknown kinds get a plain chat icon. */
 export const ChannelKindIcon: React.FunctionComponent<{ kind: ChannelKind | null }> = ({ kind }) => {
@@ -71,11 +67,14 @@ export const SegmentPreview: React.FunctionComponent<{
   // The tree in view now, for dropping an answer that was asked for an older tree.
   const keyRef = React.useRef(key);
   keyRef.current = key;
+  // The last request sent: the answer to that one ends the busy state, whatever tree is in view by then.
+  const lastAsk = React.useRef(0);
 
   React.useEffect(() => {
     if (!complete || !token) return undefined;
     const sent = key;
     const timer = setTimeout(async () => {
+      const ask = ++lastAsk.current;
       setLoading(true);
       try {
         const p = await previewSegment(token, ws, body);
@@ -84,11 +83,14 @@ export const SegmentPreview: React.FunctionComponent<{
         setError(null);
       } catch (e) {
         if (keyRef.current !== sent) return;
+        // an older count for this tree must not stay under the refusal
+        setAnswer(null);
         if (e instanceof ApiError && e.code === 'INVALID_SEGMENT') {
           const split = splitErrors(e.extra ?? {}, body);
           onRuleErrors?.(split.byPath);
           const other = split.other.filter((m) => !m.startsWith('name:'));
-          if (other.length > 0) setError({ key: sent, message: other.join('; ') });
+          // kept even when empty: the problems are on the rules, but this tree has had its answer
+          setError({ key: sent, message: other.join('; ') });
           return;
         }
         const message =
@@ -97,7 +99,7 @@ export const SegmentPreview: React.FunctionComponent<{
             : crmMessage(e);
         setError({ key: sent, message });
       } finally {
-        if (keyRef.current === sent) setLoading(false);
+        if (lastAsk.current === ask) setLoading(false);
       }
     }, DEBOUNCE_MS);
     return () => clearTimeout(timer);
@@ -107,6 +109,8 @@ export const SegmentPreview: React.FunctionComponent<{
 
   const current = answer?.key === key ? answer.preview : null;
   const currentError = error?.key === key ? error.message : null;
+  // from the first change: an answer for this tree may still be up to 600 ms from being asked for
+  const counting = complete && !current && (loading || error?.key !== key);
 
   return (
     <Card isCompact component="section" aria-label="Who matches">
@@ -130,7 +134,7 @@ export const SegmentPreview: React.FunctionComponent<{
             <HelperTextItem>{INCOMPLETE_TEXT}</HelperTextItem>
           </HelperText>
         )}
-        {complete && loading && !current && <Spinner size="md" aria-label="Counting" />}
+        {counting && <Spinner size="md" aria-label="Counting" />}
         {complete && currentError && <Alert variant="danger" isInline isPlain title={currentError} />}
         {complete && current && (
           <>

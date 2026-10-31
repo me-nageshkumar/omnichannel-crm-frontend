@@ -28,7 +28,7 @@ import { crmMessage } from '@app/Crm/errors';
 import { PERMISSION_TEXT } from '@app/Crm/segments/SegmentsPage';
 import { SegmentPreview } from '@app/Crm/segments/SegmentPreview';
 import { SegmentRuleEditor } from '@app/Crm/segments/SegmentRuleEditor';
-import { cleanRules, emptyGroup, isComplete, splitErrors } from '@app/Crm/segments/segmentModel';
+import { cleanRules, emptyGroup, hasFlagged, isComplete, splitErrors } from '@app/Crm/segments/segmentModel';
 import { useSegmentFields } from '@app/Crm/segments/useSegmentFields';
 import { useCrmCan } from '@app/Crm/status/CrmStatusContext';
 
@@ -36,6 +36,7 @@ const LIST = '/crm/segments';
 export const MAX_NAME = 80;
 export const MAX_DESCRIPTION = 500;
 export const CONFLICT_TEXT = 'Someone changed this segment; reload to see their version';
+export const FLAGGED_TEXT = 'Remove the flagged rules to save.';
 
 const EditorForm: React.FunctionComponent<{
   existing?: Segment;
@@ -156,6 +157,11 @@ const EditorForm: React.FunctionComponent<{
         </GridItem>
       </Grid>
       {error && <Alert variant="danger" isInline title={error} />}
+      {hasFlagged(rules) && (
+        <HelperText>
+          <HelperTextItem variant="warning">{FLAGGED_TEXT}</HelperTextItem>
+        </HelperText>
+      )}
       <ActionGroup>
         <Button variant="primary" isDisabled={saveDisabled} isLoading={saving} onClick={() => void onSave()}>
           Save
