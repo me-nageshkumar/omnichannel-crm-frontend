@@ -18,7 +18,10 @@ interface Props {
   overlay?: boolean;
 }
 
-/** One card: a drag handle (pointer or keyboard) beside the caller's content. */
+/**
+ * One card. The whole card drags with the pointer (a 4 px move starts it, so a click on the content still reaches
+ * it); the grip beside the content is the keyboard handle and the touch handle.
+ */
 export const KanbanCard: React.FunctionComponent<Props> = ({
   id,
   laneIndex,
@@ -35,17 +38,21 @@ export const KanbanCard: React.FunctionComponent<Props> = ({
     disabled: narrow || locked,
     data: { type: 'card', laneIndex },
   });
+  const draggable = !narrow && !locked;
   return (
     <div
       ref={setNodeRef}
       data-card-index={index}
       data-card-lane={laneIndex}
+      // eslint-disable-next-line react/no-unknown-property -- the plugin's DOM list predates pointer events
+      onPointerDown={draggable ? (listeners?.onPointerDown as React.PointerEventHandler<HTMLDivElement>) : undefined}
       style={{
         transform: CSS.Transform.toString(transform),
         transition,
         opacity: isDragging ? 0.5 : 1,
         position: 'relative',
         zIndex: isDragging ? 1 : undefined,
+        cursor: draggable ? (isDragging ? 'grabbing' : 'grab') : undefined,
       }}
     >
       <Card isCompact>
