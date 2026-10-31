@@ -365,10 +365,33 @@ export interface InboxSummary {
   nextTask: Task | null;
 }
 
-export type TaskStatus = 'OPEN' | 'DONE';
+export type TaskStatus = 'OPEN' | 'DONE' | 'CANCELLED';
 export type TaskPriority = 'LOW' | 'NORMAL' | 'HIGH';
 export type TaskBucket = 'overdue' | 'today' | 'upcoming';
 export type TaskTargetType = 'CONTACT' | 'COMPANY' | 'DEAL';
+
+export type RecurrenceFrequency = 'DAILY' | 'WEEKLY' | 'MONTHLY';
+export type Weekday = 'MONDAY' | 'TUESDAY' | 'WEDNESDAY' | 'THURSDAY' | 'FRIDAY' | 'SATURDAY' | 'SUNDAY';
+
+/** How a task repeats; the server returns the normalised copy (interval set, weekdays sorted, zone resolved). */
+export interface Recurrence {
+  frequency: RecurrenceFrequency;
+  interval: number;
+  weekdays: Weekday[] | null;
+  dayOfMonth: number | null;
+  timeZone: string;
+  endsAfter: number | null;
+  endsOn: string | null;
+}
+
+/** One step of a task's checklist, in list order. */
+export interface ChecklistItem {
+  id: string;
+  text: string;
+  done: boolean;
+  doneAt: string | null;
+  doneBy: Ref | null;
+}
 
 export interface Task {
   id: string;
@@ -383,8 +406,18 @@ export interface Task {
   completedAt: string | null;
   completedBy: Ref | null;
   assignee: Ref | null;
+  /** Who set the current assignee; a task is delegated when this is someone other than the assignee. */
+  assignedBy: Ref | null;
+  assignedAt: string | null;
   target: { type: TaskTargetType; id: string; name: string | null };
   overdue: boolean;
+  checklist: ChecklistItem[];
+  recurrence: Recurrence | null;
+  seriesId: string | null;
+  occurrence: number | null;
+  recurringFromTaskId: string | null;
+  /** Set once completing or skipping scheduled the next occurrence. */
+  nextOccurrenceId: string | null;
   version: number;
 }
 
@@ -397,16 +430,24 @@ export interface TaskInput {
   dueAt?: string | null;
   reminderAt?: string | null;
   assigneeId?: string | null;
+  /** The whole list in order; a known id keeps its tick, no id is a new step. Absent on update = no steps. */
+  checklist?: { id?: string; text: string }[];
+  /** Absent on update = the task stops repeating. */
+  recurrence?: Recurrence | null;
   target?: { type: TaskTargetType; id: string };
   version?: number;
 }
 
-/** A due follow-up the assignee has not dismissed. */
+export type ReminderKind = 'DUE' | 'ASSIGNED';
+
+/** A notice the assignee has not dismissed: a due follow-up, or a task someone handed to them. */
 export interface Reminder {
   taskId: string;
   title: string;
   dueAt: string | null;
   target: Task['target'];
+  kind: ReminderKind;
+  assignedBy: Ref | null;
 }
 
 export interface NoteAttachment {
@@ -444,6 +485,8 @@ export interface TaskCounts {
   overdue: number;
   today: number;
   upcoming: number;
+  /** The caller's own open hand-offs, whoever's buckets were asked for. */
+  delegated: number;
 }
 
 export interface ContactSearch {
@@ -641,6 +684,12 @@ export const reopenTask = (token: string, ws: string, id: string) =>
   send<Task>(token, 'POST', `${base(ws)}/tasks/${enc(id)}/reopen`);
 export const deleteTask = (token: string, ws: string, id: string) =>
   send<void>(token, 'DELETE', `${base(ws)}/tasks/${enc(id)}`);
+export const skipTask = (token: string, ws: string, id: string) =>
+  send<{ skipped: Task; next: Task | null }>(token, 'POST', `${base(ws)}/tasks/${enc(id)}/skip`);
+export const tickChecklistItem = (token: string, ws: string, id: string, itemId: string, done: boolean) =>
+  send<Task>(token, 'POST', `${base(ws)}/tasks/${enc(id)}/checklist/${enc(itemId)}`, { done });
+export const delegatedTasks = (token: string, ws: string, q: { status: 'OPEN' | 'DONE'; limit?: number }) =>
+  get<Task[]>(token, `${base(ws)}/tasks/delegated${query({ ...q })}`);
 /** {@code tz} is an IANA zone (the browser's); it decides where "today" starts and ends. */
 export const myTasks = (
   token: string,
