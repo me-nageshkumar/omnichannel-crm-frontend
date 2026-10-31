@@ -21,10 +21,39 @@ import { useSession } from '@app/session/SessionContext';
 import { Field } from '@app/Crm/deals/fields';
 import { isCode } from '@app/Crm/Settings/ConflictAlert';
 import { crmMessage } from '@app/Crm/errors';
-import { PRIORITY_LABELS } from '@app/Crm/tasks/taskDisplay';
+import {
+  PRIORITY_LABELS,
+  browserTimeZone,
+  recurrenceFromForm,
+  recurrenceSummary,
+  recurrenceToForm,
+} from '@app/Crm/tasks/taskDisplay';
+import type { RepeatForm } from '@app/Crm/tasks/taskDisplay';
 import { useBrandUsers } from '@app/Crm/fields/useBrandUsers';
+import { ChecklistEditor } from '@app/Crm/tasks/ChecklistEditor';
+import type { StepDraft } from '@app/Crm/tasks/ChecklistEditor';
+import { RepeatFields } from '@app/Crm/tasks/RepeatFields';
+import type { RepeatErrors } from '@app/Crm/tasks/RepeatFields';
 
-const FIELDS = ['title', 'description', 'type', 'priority', 'dueAt', 'reminderAt', 'assigneeId'];
+const FIELDS = [
+  'title',
+  'description',
+  'type',
+  'priority',
+  'dueAt',
+  'reminderAt',
+  'assigneeId',
+  'checklist',
+  'recurrence',
+  'recurrence.frequency',
+  'recurrence.interval',
+  'recurrence.weekdays',
+  'recurrence.dayOfMonth',
+  'recurrence.timeZone',
+  'recurrence.endsAfter',
+  'recurrence.endsOn',
+];
+const DATE = /^\d{4}-\d{2}-\d{2}$/;
 const DEFAULT_TIME = '09:00';
 const pad = (n: number) => String(n).padStart(2, '0');
 
@@ -64,8 +93,12 @@ export const TaskFormModal: React.FunctionComponent<{
   const [reminder, setReminder] = React.useState(parts(task?.reminderAt));
   const [assigneeId, setAssigneeId] = React.useState(task?.assignee?.id ?? user?.id ?? '');
   const [description, setDescription] = React.useState(task?.description ?? '');
+  const [steps, setSteps] = React.useState<StepDraft[]>(() =>
+    (task?.checklist ?? []).map((i) => ({ id: i.id, text: i.text, done: i.done, key: i.id })),
+  );
+  const [repeat, setRepeat] = React.useState<RepeatForm>(() => recurrenceToForm(task?.recurrence ?? null));
   const [checked, setChecked] = React.useState(false);
-  const action = useAction(FIELDS);
+  const action = useAction([...FIELDS, ...steps.map((_s, i) => `checklist[${i}].text`)]);
   const brandUsers = useBrandUsers();
 
   const types = taskTypes.filter((t) => t.active || t.key === task?.type).sort((a, b) => a.position - b.position);
@@ -78,6 +111,44 @@ export const TaskFormModal: React.FunctionComponent<{
 
   const dueAt = instant(due.date, due.time);
   const reminderAt = instant(reminder.date, reminder.time);
+  const recurrence = recurrenceFromForm(repeat, dueAt, browserTimeZone(), task?.recurrence ?? null);
+  const repeating = repeat.frequency !== 'NONE';
+  const interval = Number(repeat.interval);
+  const count = Number(repeat.count);
+  const repeatProblems: RepeatErrors = {
+    repeat: repeating && !dueAt ? 'Set a due date to repeat.' : undefined,
+    interval: repeating && !(Number.isInteger(interval) && interval >= 1 && interval <= 99) ? '1 to 99' : undefined,
+    weekdays: repeat.frequency === 'WEEKLY' && repeat.weekdays.length === 0 ? 'Pick at least one day.' : undefined,
+    count:
+      repeating && repeat.ends === 'AFTER' && !(Number.isInteger(count) && count >= 2 && count <= 999)
+        ? '2 to 999'
+        : undefined,
+    until:
+      repeating && repeat.ends === 'ON'
+        ? !DATE.test(repeat.until)
+          ? 'Pick the last date.'
+          : dueAt && repeat.until < due.date
+            ? 'Must not be before the due date.'
+            : undefined
+        : undefined,
+  };
+  const repeatErrors: RepeatErrors = checked ? repeatProblems : {};
+  const serverRepeat: RepeatErrors = {
+    repeat: action.fieldErrors.recurrence ?? action.fieldErrors['recurrence.frequency'],
+    interval: action.fieldErrors['recurrence.interval'],
+    weekdays: action.fieldErrors['recurrence.weekdays'],
+    count: action.fieldErrors['recurrence.endsAfter'],
+    until: action.fieldErrors['recurrence.endsOn'],
+  };
+  const repeatShown: RepeatErrors = Object.fromEntries(
+    (['repeat', 'interval', 'weekdays', 'count', 'until'] as const).map((k) => [k, repeatErrors[k] ?? serverRepeat[k]]),
+  );
+  const repeatBad = Object.values(repeatProblems).some(Boolean);
+  const stepErrors: Record<number, string> = {};
+  Object.entries(action.fieldErrors).forEach(([k, v]) => {
+    const m = /^checklist\[(\d+)\]\.text$/.exec(k);
+    if (m) stepErrors[Number(m[1])] = v;
+  });
   const errors = {
     title:
       checked && !title.trim()
@@ -105,7 +176,8 @@ export const TaskFormModal: React.FunctionComponent<{
       (due.date && !dueAt) ||
       (reminder.date && !reminderAt) ||
       (dueAt && reminderAt && reminderAt > dueAt) ||
-      description.length > 5000;
+      description.length > 5000 ||
+      repeatBad;
     if (bad) return;
     const body: TaskInput = {
       title: title.trim(),
@@ -115,6 +187,11 @@ export const TaskFormModal: React.FunctionComponent<{
       dueAt,
       reminderAt,
       assigneeId: assigneeId || null,
+      checklist: steps
+        .map((s) => ({ id: s.id, text: s.text.trim() }))
+        .filter((s) => s.text)
+        .map((s) => (s.id ? s : { text: s.text })),
+      recurrence,
     };
     const t = token as string;
     const saved = await action.run(
@@ -203,6 +280,16 @@ export const TaskFormModal: React.FunctionComponent<{
               onChange={(_e, v) => setDescription(v)}
             />
           </Field>
+          <Field label="Steps" fieldId="crm-task-steps" error={action.fieldErrors.checklist}>
+            <ChecklistEditor value={steps} onChange={setSteps} errors={stepErrors} />
+          </Field>
+          <RepeatFields
+            value={repeat}
+            onChange={setRepeat}
+            dueAt={dueAt}
+            summary={recurrenceSummary(recurrence)}
+            errors={repeatShown}
+          />
         </Form>
       </ModalBody>
       <ModalFooter>
