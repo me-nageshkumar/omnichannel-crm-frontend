@@ -364,6 +364,11 @@ export interface CaptureResult {
   createdDeal: boolean;
 }
 
+export interface AddContactResult {
+  contact: CrmContact;
+  created: boolean;
+}
+
 export interface Communication {
   phoneNumberId: string;
   number: string;
@@ -625,6 +630,8 @@ export const createContact = (
     dealTitle?: string;
   },
 ) => send<CaptureResult>(token, 'POST', `${base(ws)}/contacts/create`, body);
+export const addContact = (token: string, ws: string, body: { contactId: string; channelAccountId: string }) =>
+  send<AddContactResult>(token, 'POST', `${base(ws)}/contacts/add`, body);
 export const channelDetails = (token: string, ws: string, id: string) =>
   get<ChannelDetails>(token, `${base(ws)}/contacts/${enc(id)}/channel-details`);
 export const dealContacts = (token: string, ws: string, id: string) =>
