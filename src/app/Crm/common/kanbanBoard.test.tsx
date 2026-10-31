@@ -111,9 +111,8 @@ describe('KanbanBoard', () => {
     isPrimary: true,
   });
 
-  /** Presses on {@code el} and moves the pointer to ({@code x}, {@code y}) of the board without releasing. */
-  async function startPointerDrag(el: Element, from: [number, number], to: [number, number]) {
-    fireEvent.pointerDown(el, pointerOpts(...from));
+  /** Moves the held pointer from ({@code x}, {@code y}) to ({@code x}, {@code y}) of the board in four steps. */
+  async function dragPointer(from: [number, number], to: [number, number]) {
     for (let i = 1; i <= 4; i++) {
       fireEvent.pointerMove(
         document,
@@ -122,6 +121,46 @@ describe('KanbanBoard', () => {
       await act(async () => undefined);
     }
   }
+
+  /** Presses on {@code el} and moves the pointer to ({@code x}, {@code y}) of the board without releasing. */
+  async function startPointerDrag(el: Element, from: [number, number], to: [number, number]) {
+    fireEvent.pointerDown(el, pointerOpts(...from));
+    await dragPointer(from, to);
+  }
+
+  it('dragOverAnotherLaneShowsTheCardWhereItWillLand', async () => {
+    const onMove = vi.fn().mockResolvedValue(undefined);
+    render(board({ onMove }));
+    // Card 1 (lane 0, y 40–130) over Card 3 (lane 1, same height): above its middle, so it goes before it.
+    await startPointerDrag(screen.getByText('Card 1'), [100, 80], [440, 80]);
+    expect(names('Won')).toEqual(['Card 1', 'Card 3']);
+    expect(names('New')).toEqual(['Card 2']);
+    await endPointerDrag([440, 80]);
+    await waitFor(() => expect(onMove).toHaveBeenCalledWith('1', 'won', null, '3'));
+  });
+
+  it('dragOverAnEmptyLaneShowsTheCardThere', async () => {
+    const onMove = vi.fn().mockResolvedValue(undefined);
+    render(board({ onMove }));
+    await startPointerDrag(screen.getByText('Card 1'), [100, 80], [740, 80]);
+    expect(names('Lost')).toEqual(['Card 1']);
+    expect(names('New')).toEqual(['Card 2']);
+    await endPointerDrag([740, 80]);
+    await waitFor(() => expect(onMove).toHaveBeenCalledWith('1', 'lost', null, null));
+  });
+
+  it('dragBackHomeLeavesTheBoardAsItWas', async () => {
+    const onMove = vi.fn().mockResolvedValue(undefined);
+    render(board({ onMove }));
+    await startPointerDrag(screen.getByText('Card 1'), [100, 80], [440, 80]);
+    expect(names('New')).toEqual(['Card 2']);
+    await dragPointer([440, 80], [100, 80]);
+    expect(names('New')).toEqual(['Card 1', 'Card 2']);
+    expect(names('Won')).toEqual(['Card 3']);
+    await endPointerDrag([100, 80]);
+    await act(() => new Promise((r) => setTimeout(r, 20)));
+    expect(onMove).not.toHaveBeenCalled();
+  });
 
   async function endPointerDrag(at: [number, number]) {
     fireEvent.pointerUp(document, pointerOpts(...at));
