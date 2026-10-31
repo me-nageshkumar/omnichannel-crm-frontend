@@ -1,9 +1,10 @@
 import * as React from 'react';
 import { HistoryImportView, getHistoryImport, isActive } from '@app/api/historyImports';
 import { useSession } from '@app/session/SessionContext';
+import { completedCleanly } from './historyImportDisplay';
 import { REFRESH_SECONDS } from './useHistoryImports';
 
-/** How long a completed import's result stays visible. */
+/** How long a cleanly completed import's result stays visible; a failed or skipped chat stays until dismissed. */
 const DONE_SECONDS = 10;
 
 export interface ChatHistoryImport {
@@ -45,7 +46,7 @@ export function useChatHistoryImport(): ChatHistoryImport {
     };
   }, [current, retry, token, ws]);
 
-  const completed = current?.status === 'COMPLETED';
+  const completed = current !== null && completedCleanly(current);
   React.useEffect(() => {
     if (!completed) return undefined;
     const timer = setTimeout(() => setCurrent(null), DONE_SECONDS * 1000);

@@ -35,7 +35,7 @@ const view = (over: Partial<HistoryImportView>, counts: Partial<HistoryImportVie
     status: 'RUNNING',
     waiting: null,
     error: null,
-    counts: { messagesSeen: 0, messagesInserted: 0, ...counts },
+    counts: { messagesSeen: 0, messagesInserted: 0, chatsSkipped: 0, chatsFailed: 0, ...counts },
     ...over,
   }) as HistoryImportView;
 
@@ -110,11 +110,39 @@ describe('chat header: fetch history', () => {
   it('failureShowsErrorWithoutReload', async () => {
     const { onImported, ui } = setup(WORKSPACE_MANAGER, {
       [POST]: { status: 201, body: view({ status: 'QUEUED' }) },
-      [GET]: { status: 200, body: view({ status: 'FAILED', error: 'NO_PROGRESS' }) },
+      [GET]: { status: 200, body: view({ status: 'FAILED', error: 'NUMBER_GONE' }) },
     });
     await startImport(ui);
     await tick(5000);
-    expect(await screen.findByText(/Failed.*NO_PROGRESS/)).toBeTruthy();
+    expect(await screen.findByText(/Failed.*NUMBER_GONE/)).toBeTruthy();
+    expect(onImported).not.toHaveBeenCalled();
+  });
+
+  it('completedWithFailedChatShowsWarningWithoutReload', async () => {
+    const { onImported, ui } = setup(WORKSPACE_MANAGER, {
+      [POST]: { status: 201, body: view({ status: 'QUEUED' }) },
+      [GET]: { status: 200, body: view({ status: 'COMPLETED', error: 'NO_PROGRESS' }, { chatsFailed: 1 }) },
+    });
+    await startImport(ui);
+    await tick(5000);
+    expect(await screen.findByText(/Could not fetch this chat's history.*NO_PROGRESS/)).toBeTruthy();
+    expect(screen.queryByText(/History imported/)).toBeNull();
+    await tick(11000);
+    expect(screen.getByText(/Could not fetch this chat's history/)).toBeTruthy();
+    expect(onImported).not.toHaveBeenCalled();
+  });
+
+  it('completedWithSkippedChatShowsNoChatWarning', async () => {
+    const { onImported, ui } = setup(WORKSPACE_MANAGER, {
+      [POST]: { status: 201, body: view({ status: 'QUEUED' }) },
+      [GET]: { status: 200, body: view({ status: 'COMPLETED' }, { chatsSkipped: 1 }) },
+    });
+    await startImport(ui);
+    await tick(5000);
+    expect(await screen.findByText('No chat with this contact on the phone')).toBeTruthy();
+    expect(screen.queryByText(/History imported/)).toBeNull();
+    await tick(11000);
+    expect(screen.getByText('No chat with this contact on the phone')).toBeTruthy();
     expect(onImported).not.toHaveBeenCalled();
   });
 

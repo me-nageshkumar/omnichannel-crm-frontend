@@ -6,11 +6,22 @@ import { useLoad } from '@app/admin/useLoad';
 import { useSession } from '@app/session/SessionContext';
 import { chatNote, chatStatusLabel } from '@app/HistoryImports/historyImportDisplay';
 
-/** The chats of one import, loaded once when its row is first expanded. */
-export const HistoryImportChats: React.FunctionComponent<{ id: string }> = ({ id }) => {
+/** The chats of one import, loaded when its row is first expanded and again whenever its progress moves. */
+export const HistoryImportChats: React.FunctionComponent<{
+  id: string;
+  /** Changes when the import's chats may have changed (e.g. how many have finished). */
+  version: number;
+}> = ({ id, version }) => {
   const { workspace } = useSession();
   const ws = workspace?.id ?? '';
   const chats = useLoad((tk) => listHistoryImportChats(tk, ws, id), [ws, id]);
+  // Refetched in place, so the rows already shown stay until the new ones arrive.
+  const loadedVersion = React.useRef(version);
+  React.useEffect(() => {
+    if (loadedVersion.current === version) return;
+    loadedVersion.current = version;
+    chats.reload();
+  }, [version]); // eslint-disable-line react-hooks/exhaustive-deps
   if (chats.error) return <Alert variant="danger" isInline isPlain title={chats.error} />;
   if (!chats.data) return <Spinner size="md" aria-label="Loading chats" />;
   const items = chats.data.items;

@@ -13,6 +13,8 @@ export interface ThreadState {
   loadEarlier(): void;
   /** Fetches the latest page again and merges it in, e.g. to catch up after the live stream was down. */
   reload(): void;
+  /** Fetches the latest page again and shows only it, e.g. after older history was imported into the chat. */
+  reset(): void;
   /** Folds a live event into the thread; events of other chats are ignored. */
   apply(event: InboxEvent): void;
 }
@@ -56,29 +58,39 @@ export function useThread(chatId: string | null): ThreadState {
     setLoading(chatId !== null);
   }
 
+  /** Fetches the newest page; {@code replace} drops what is shown instead of merging into it. */
+  const loadNewest = React.useCallback(
+    (replace: boolean) => {
+      if (!token || chatId === null) return;
+      const mine = ++epoch.current;
+      setLoading(true);
+      setError(null);
+      getThread(token, ws, chatId).then(
+        (res) => {
+          if (epoch.current !== mine) return;
+          // On the first load, keep what live events added while the page was on its way.
+          setItems((cur) => upsert(replace ? [] : cur, res.items));
+          setHasMore(res.hasMore);
+          setLoading(false);
+        },
+        (e) => {
+          if (epoch.current !== mine) return;
+          setError(messageFor(e));
+          setLoading(false);
+        },
+      );
+    },
+    [token, ws, chatId],
+  );
+
   React.useEffect(() => {
-    if (!token || chatId === null) return undefined;
-    const mine = ++epoch.current;
-    setLoading(true);
-    setError(null);
-    getThread(token, ws, chatId).then(
-      (res) => {
-        if (epoch.current !== mine) return;
-        // Keep what live events added while the page was on its way.
-        setItems((cur) => upsert(cur, res.items));
-        setHasMore(res.hasMore);
-        setLoading(false);
-      },
-      (e) => {
-        if (epoch.current !== mine) return;
-        setError(messageFor(e));
-        setLoading(false);
-      },
-    );
+    loadNewest(false);
     return () => {
       epoch.current++;
     };
-  }, [token, ws, chatId]);
+  }, [loadNewest]);
+
+  const reset = React.useCallback(() => loadNewest(true), [loadNewest]);
 
   const loadEarlier = React.useCallback(() => {
     const { items: shown, hasMore: more, loading: busy } = latest.current;
@@ -129,5 +141,5 @@ export function useThread(chatId: string | null): ThreadState {
     [chatId],
   );
 
-  return { items, loading, error, hasMore, loadEarlier, reload, apply };
+  return { items, loading, error, hasMore, loadEarlier, reload, reset, apply };
 }

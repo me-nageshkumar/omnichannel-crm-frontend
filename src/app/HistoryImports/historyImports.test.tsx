@@ -159,4 +159,33 @@ describe('history imports page', () => {
     await user.click(within(row).getByRole('button', { name: 'Details' }));
     expect(callsTo(fetch, CHATS)).toBe(1);
   });
+
+  it('failedImportShowsReason', async () => {
+    mockFetch(routes(page(view({ status: 'FAILED', error: 'NUMBER_GONE', progressPercent: null }))));
+    renderApp('/inbox/history-imports');
+    const row = await importRow();
+    expect(within(row).getByText('Failed')).toBeVisible();
+    expect(within(row).getByText('The phone number was removed')).toBeVisible();
+  });
+
+  it('expandedChatsRefreshWhenProgressChanges', async () => {
+    vi.useFakeTimers({ shouldAdvanceTime: true });
+    const counts = (chatsDone: number) => ({ ...view().counts, chatsDone });
+    const fetch = mockFetch(
+      routes(inTurn([view({ counts: counts(0) })], [view({ counts: counts(1) })]), {
+        [CHATS]: { status: 200, body: { items: [chat()], total: 1, page: 0 } },
+      }),
+    );
+    const { user } = renderApp('/inbox/history-imports', undefined, { advanceTimers: vi.advanceTimersByTime });
+    await user.click(within(await importRow()).getByRole('button', { name: 'Details' }));
+    expect(await screen.findByText('919900000001@c.us')).toBeVisible();
+    expect(callsTo(fetch, CHATS)).toBe(1);
+    await act(() => vi.advanceTimersByTimeAsync(5000));
+    await waitFor(() => expect(callsTo(fetch, CHATS)).toBe(2));
+    expect(callsTo(fetch, LIST)).toBe(2);
+    await act(() => vi.advanceTimersByTimeAsync(5000));
+    expect(callsTo(fetch, LIST)).toBe(3);
+    expect(callsTo(fetch, CHATS)).toBe(2);
+    expect(screen.getByText('919900000001@c.us')).toBeVisible();
+  });
 });

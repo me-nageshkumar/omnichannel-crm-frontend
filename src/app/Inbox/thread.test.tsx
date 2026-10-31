@@ -5,7 +5,7 @@ import userEvent from '@testing-library/user-event';
 import type { ActionView, ChatView, InboxEvent, MessageView, ThreadItem } from '@app/api/inbox';
 import { Thread, actionText } from '@app/Inbox/Thread';
 import { dayLabel } from '@app/Inbox/chatDisplay';
-import { useThread } from '@app/Inbox/useThread';
+import { ThreadState, itemKey, useThread } from '@app/Inbox/useThread';
 import { SessionProvider, useSession } from '@app/session/SessionContext';
 import { ThemeProvider } from '@app/theme/ThemeContext';
 import { callsTo, mockFetch } from '../../test/fetchMock';
@@ -73,6 +73,7 @@ const page = (items: ThreadItem[], hasMore = false) => ({ status: 200, body: { i
 const named = (name: string) => ({ id: `id-${name}`, name });
 
 let apply: (event: InboxEvent) => void = () => undefined;
+let shownThread: ThreadState | null = null;
 
 const Host: React.FunctionComponent<{ chatId: string | null }> = ({ chatId }) => {
   const { status } = useSession();
@@ -82,6 +83,7 @@ const Host: React.FunctionComponent<{ chatId: string | null }> = ({ chatId }) =>
 const Open: React.FunctionComponent<{ chatId: string | null }> = ({ chatId }) => {
   const thread = useThread(chatId);
   apply = thread.apply;
+  shownThread = thread;
   return (
     <div style={{ height: 600 }}>
       <Thread chat={CHAT} thread={thread} meId="u-me" />
@@ -469,6 +471,34 @@ describe('thread', () => {
     await screen.findByText('Older');
     expect(screen.queryByRole('button', { name: 'Load earlier' })).toBeNull();
     expect(screen.getAllByText(/Older|Newer/).map((e) => e.textContent)).toEqual(['Older', 'Newer']);
+    expect(calls).toBe(2);
+  });
+
+  it('resetReplacesItemsAndRestoresHasMore', async () => {
+    let calls = 0;
+    mockFetch({
+      ...meAs(AGENT_IN_BRAND),
+      [`GET ${THREAD}`]: () =>
+        ++calls === 1
+          ? page([message({ id: 'm1', body: 'Short', timestamp: '2026-10-20T10:00:00Z' })])
+          : page(
+              [
+                message({ id: 'm8', body: 'Imported one', timestamp: '2026-10-18T10:00:00Z' }),
+                message({ id: 'm9', body: 'Imported two', timestamp: '2026-10-19T10:00:00Z' }),
+              ],
+              true,
+            ),
+    });
+    renderThread();
+
+    await screen.findByText('Short');
+    expect(screen.queryByRole('button', { name: 'Load earlier' })).toBeNull();
+    act(() => shownThread?.reset());
+    await screen.findByText('Imported two');
+    expect(shownThread?.items.map(itemKey)).toEqual(['m:m8', 'm:m9']);
+    expect(shownThread?.hasMore).toBe(true);
+    expect(screen.queryByText('Short')).toBeNull();
+    expect(screen.getByRole('button', { name: 'Load earlier' })).toBeVisible();
     expect(calls).toBe(2);
   });
 

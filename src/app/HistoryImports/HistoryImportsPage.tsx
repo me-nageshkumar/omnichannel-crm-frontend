@@ -27,6 +27,7 @@ import { HistoryImportChats } from '@app/HistoryImports/HistoryImportChats';
 import {
   HISTORY_STATUSES,
   countsText,
+  importErrorText,
   rangeText,
   scopeText,
   statusColor,
@@ -151,7 +152,8 @@ export const HistoryImportsPage: React.FunctionComponent = () => {
           ) : (
             items.map((v, rowIndex) => {
               const isExpanded = expanded.has(v.id);
-              const waiting = waitingText(v.waiting);
+              const note = v.status === 'FAILED' && v.error ? importErrorText(v.error) : waitingText(v.waiting);
+              const c = v.counts;
               return (
                 <Tbody key={v.id} isExpanded={isExpanded}>
                   <Tr>
@@ -168,9 +170,9 @@ export const HistoryImportsPage: React.FunctionComponent = () => {
                     <Td dataLabel="Range">{rangeText(v)}</Td>
                     <Td dataLabel="Status">
                       <Label color={statusColor(v.status)}>{statusLabel(v.status)}</Label>
-                      {waiting && (
+                      {note && (
                         <HelperText>
-                          <HelperTextItem>{waiting}</HelperTextItem>
+                          <HelperTextItem>{note}</HelperTextItem>
                         </HelperText>
                       )}
                     </Td>
@@ -197,7 +199,11 @@ export const HistoryImportsPage: React.FunctionComponent = () => {
                   </Tr>
                   <Tr isExpanded={isExpanded}>
                     <Td colSpan={COLUMNS}>
-                      <ExpandableRowContent>{opened.has(v.id) && <HistoryImportChats id={v.id} />}</ExpandableRowContent>
+                      <ExpandableRowContent>
+                        {opened.has(v.id) && (
+                          <HistoryImportChats id={v.id} version={c.chatsDone + c.chatsSkipped + c.chatsFailed} />
+                        )}
+                      </ExpandableRowContent>
                     </Td>
                   </Tr>
                 </Tbody>

@@ -354,7 +354,7 @@ export const InboxPage: React.FunctionComponent = () => {
                 <ChatHeader
                   chat={open}
                   number={visible.length > 1 ? openNumber : undefined}
-                  onHistoryImported={thread.reload}
+                  onHistoryImported={thread.reset}
                   onChange={(updated) => {
                     // The answer may come after another chat was opened; it still belongs in the list.
                     if (updated.id === openId.current) setChat(updated);

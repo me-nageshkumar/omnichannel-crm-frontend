@@ -46,6 +46,14 @@ export function waitingText(w: HistoryWaiting): string | null {
   return null;
 }
 
+/** True for a completed import none of whose chats failed or was skipped. */
+export const completedCleanly = (v: HistoryImportView): boolean =>
+  v.status === 'COMPLETED' && v.counts.chatsFailed === 0 && v.counts.chatsSkipped === 0;
+
+/** Why an import failed, as people read it. */
+export const importErrorText = (code: string): string =>
+  code === 'NUMBER_GONE' ? 'The phone number was removed' : code;
+
 export const countsText = (c: HistoryImportCounts): string =>
   `${c.messagesInserted} new · ${c.messagesUpdated} updated · ${c.messagesSeen} seen`;
 

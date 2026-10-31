@@ -11,7 +11,7 @@ import { contactName } from '@app/Inbox/chatDisplay';
 import { useSession } from '@app/session/SessionContext';
 import { useAccess } from '@app/session/useAccess';
 import { ImportHistoryModal } from '@app/HistoryImports/ImportHistoryModal';
-import { statusLabel, waitingText } from '@app/HistoryImports/historyImportDisplay';
+import { completedCleanly, statusLabel, waitingText } from '@app/HistoryImports/historyImportDisplay';
 import { useChatHistoryImport } from '@app/HistoryImports/useChatHistoryImport';
 
 const GAP = 'var(--pf-t--global--spacer--sm)';
@@ -30,7 +30,10 @@ export const ChatHeader: React.FunctionComponent<{
   /** The number the chat is on, when the viewer looks at more than one. */
   number?: PhoneNumber;
   onChange(chat: ChatView): void;
-  /** Called once when a history import of this chat completes, so the thread can show the new messages. */
+  /**
+   * Called once when a history import of this chat completes with its chat fetched, so the thread can show the
+   * new messages.
+   */
   onHistoryImported?(): void;
 }> = ({ chat, number, onChange, onHistoryImported }) => {
   const { token, user, workspace } = useSession();
@@ -44,7 +47,7 @@ export const ChatHeader: React.FunctionComponent<{
   const notified = React.useRef<string | null>(null);
   const onImported = React.useRef(onHistoryImported);
   onImported.current = onHistoryImported;
-  const impId = imp?.status === 'COMPLETED' ? imp.id : null;
+  const impId = imp && completedCleanly(imp) ? imp.id : null;
   React.useEffect(() => {
     if (impId && notified.current !== impId) {
       notified.current = impId;
@@ -149,8 +152,19 @@ export const ChatHeader: React.FunctionComponent<{
           }`}
         />
       )}
-      {imp?.status === 'COMPLETED' && (
+      {imp && completedCleanly(imp) && (
         <Alert variant="info" isInline isPlain title={`History imported: ${imp.counts.messagesInserted} new messages`} />
+      )}
+      {imp?.status === 'COMPLETED' && imp.counts.chatsSkipped > 0 && (
+        <Alert variant="warning" isInline isPlain title="No chat with this contact on the phone" />
+      )}
+      {imp?.status === 'COMPLETED' && imp.counts.chatsSkipped === 0 && imp.counts.chatsFailed > 0 && (
+        <Alert
+          variant="warning"
+          isInline
+          isPlain
+          title={`Could not fetch this chat's history${imp.error ? `: ${imp.error}` : ''}`}
+        />
       )}
       {imp && (imp.status === 'FAILED' || imp.status === 'CANCELLED') && (
         <Alert variant="warning" isInline isPlain title={`${statusLabel(imp.status)}${imp.error ? `: ${imp.error}` : ''}`} />
