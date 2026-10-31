@@ -28,6 +28,7 @@ import { CampaignDetailPage } from '@app/Campaigns/CampaignDetailPage';
 import { InboxRedirect } from '@app/Inbox/InboxRedirect';
 import { InboxPage } from '@app/Inbox/InboxPage';
 import { RoutingSettingsPage } from '@app/Inbox/RoutingSettingsPage';
+import { HistoryImportsPage } from '@app/HistoryImports/HistoryImportsPage';
 import { crmRoutes } from '@app/Crm/routes';
 import { useCrmReminderCount, useCrmStatus } from '@app/Crm/status/CrmStatusContext';
 import { Access, useAccess } from '@app/session/useAccess';
@@ -68,6 +69,11 @@ const NAV_SECTIONS: NavEntry[][] = [
       links: [
         { label: 'Inbox', path: '/inbox' },
         { label: 'Routing', path: '/inbox/routing' },
+        {
+          label: 'History imports',
+          path: '/inbox/history-imports',
+          requires: (a) => a.hasInWorkspace('inbox:import-history'),
+        },
       ],
     },
     {
@@ -182,6 +188,12 @@ const routes: IAppRoute[] = [
     element: <RoutingSettingsPage />,
     path: '/inbox/routing',
     requires: (a) => a.hasInWorkspace('inbox:settings'),
+  },
+  // Keep before /inbox/:phoneNumberId, which would otherwise capture "history-imports".
+  {
+    element: <HistoryImportsPage />,
+    path: '/inbox/history-imports',
+    requires: (a) => a.hasInWorkspace('inbox:import-history'),
   },
   {
     element: <InboxRedirect />,

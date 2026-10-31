@@ -32,6 +32,7 @@ const sidebarNav = (): HTMLElement => document.getElementById('nav-primary') as 
 const BRAND_LINKS = [
   'Inbox',
   'Routing',
+  'History imports',
   'All contacts',
   'Saved filters',
   'Contact fields',
@@ -101,6 +102,21 @@ describe('authority-driven navigation', () => {
     storeSession();
     mockFetch(meAs(ACCOUNT_MANAGER));
     renderApp('/roles');
+    expect(await screen.findByText('404 Page not found')).toBeVisible();
+  });
+
+  it('history imports open for a manager and are not found without inbox:import-history', async () => {
+    storeSession();
+    mockFetch({
+      ...meAs(WORKSPACE_MANAGER),
+      'GET /api/workspaces/w1/inbox/phone-numbers': { status: 200, body: [] },
+      'GET /api/workspaces/w1/inbox/history-imports': { status: 200, body: { items: [], total: 0, page: 0 } },
+    });
+    renderApp('/inbox/history-imports');
+    expect(await screen.findByRole('heading', { name: 'History imports' })).toBeVisible();
+    cleanup();
+    mockFetch(meAs(BRAND_VIEWER));
+    renderApp('/inbox/history-imports');
     expect(await screen.findByText('404 Page not found')).toBeVisible();
   });
 
