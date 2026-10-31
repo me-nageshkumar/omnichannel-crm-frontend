@@ -45,6 +45,7 @@ export const BRAND_CODES = [
   'crm:delete',
   'crm:settings',
   'crm:export',
+  'crm:segments',
 ];
 
 const base = {

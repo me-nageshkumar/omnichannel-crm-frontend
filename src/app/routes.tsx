@@ -39,10 +39,11 @@ export interface IAppRoute {
   requires?: (a: Access) => boolean;
 }
 
-/** A sidebar link to a route's path. */
+/** A sidebar link to a route's path; {@code requires} hides the link (not the page) from people without it. */
 export interface NavLinkEntry {
   label: string;
   path: string;
+  requires?: (a: Access) => boolean;
 }
 
 /** A sidebar group that expands to its links. */
@@ -76,6 +77,7 @@ const NAV_SECTIONS: NavEntry[][] = [
         { label: 'Tasks', path: '/crm/tasks' },
         { label: 'Contacts', path: '/crm/contacts' },
         { label: 'Companies', path: '/crm/companies' },
+        { label: 'Segments', path: '/crm/segments', requires: (a) => a.hasInWorkspace('crm:segments') },
         { label: 'Reports', path: '/crm/reports' },
         { label: 'Settings', path: '/crm/settings' },
       ],
@@ -292,6 +294,7 @@ export function useAllowedRoutes(): IAppRoute[] {
  * shows as that link, and empty groups and sections are dropped.
  */
 export function useNavSections(): NavEntry[][] {
+  const access = useAccess();
   const allowed = new Set(useAllowedRoutes().map((r) => r.path));
   const crmOn = useCrmStatus().status?.enabled === true;
   const reminders = useCrmReminderCount();
@@ -300,8 +303,9 @@ export function useNavSections(): NavEntry[][] {
   return NAV_SECTIONS.map((section) =>
     section.flatMap((entry): NavEntry[] => {
       if (!crmOn && entry.label === 'CRM') return [];
-      if (!isExpandable(entry)) return allowed.has(entry.path) ? [entry] : [];
-      const links = entry.links.filter((link) => allowed.has(link.path)).map(label);
+      const shown = (link: NavLinkEntry) => allowed.has(link.path) && (!link.requires || link.requires(access));
+      if (!isExpandable(entry)) return shown(entry) ? [entry] : [];
+      const links = entry.links.filter(shown).map(label);
       return links.length > 1 ? [{ ...entry, links }] : links;
     }),
   ).filter((section) => section.length > 0);

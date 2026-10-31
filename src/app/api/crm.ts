@@ -926,3 +926,108 @@ export const reportStageDuration = (token: string, ws: string, body: ReportFilte
 export const reportCampaigns = (token: string, ws: string, body: ReportFilter) =>
   report<CampaignsReport>(token, ws, 'campaigns', body);
 export const reportGrid = (token: string, ws: string, body: GridRequest) => report<GridReport>(token, ws, 'grid', body);
+
+// ---- Segments (phase D) ----
+
+export type SegmentValueType =
+  | 'TEXT'
+  | 'NUMBER'
+  | 'MONEY'
+  | 'DATE'
+  | 'PICK'
+  | 'USER'
+  | 'ENUM'
+  | 'COMPANY'
+  | 'BOOLEAN'
+  | 'LABEL'
+  | 'MULTI';
+export type ChannelKind = 'WHATSAPP_WEB' | 'WHATSAPP_CLOUD' | 'INSTAGRAM' | 'FACEBOOK';
+
+/** One condition; the server adds {@code missing} or {@code inaccessible} on GET for a rule it cannot evaluate. */
+export interface SegmentRule {
+  field: string;
+  operator: string;
+  value: string | string[] | null;
+  missing?: true;
+  inaccessible?: true;
+}
+export interface SegmentRuleGroup {
+  combinator: 'and' | 'or';
+  not: boolean;
+  rules: (SegmentRule | SegmentRuleGroup)[];
+}
+
+export interface CachedCounts {
+  total: number;
+  people: number;
+  truncated: boolean;
+  channelAccounts: { channelAccountId: string | null; count: number }[];
+  at: string;
+}
+
+export interface Segment {
+  id: string;
+  name: string;
+  description: string | null;
+  rules: SegmentRuleGroup;
+  cachedCounts: CachedCounts | null;
+  lastSentAt: string | null;
+  lastCampaignId: string | null;
+  lastCampaignName: string | null;
+  creationTime: string;
+  lastUpdateTime: string;
+  version: number;
+}
+
+export interface SegmentInput {
+  name: string;
+  description: string;
+  rules: SegmentRuleGroup;
+  version?: number;
+}
+
+export interface SegmentFieldOption {
+  value: string;
+  label: string;
+}
+export interface SegmentField {
+  key: string;
+  label: string;
+  type: SegmentValueType;
+  operators: string[];
+  options?: SegmentFieldOption[];
+  /** The field whose value picks this field's options (a stage's pipeline). */
+  dependsOn?: string;
+  optionsByParent?: Record<string, SegmentFieldOption[]>;
+}
+export interface SegmentFieldGroup {
+  key: 'contact' | 'deal' | 'channel';
+  label: string;
+  fields: SegmentField[];
+}
+export interface SegmentFieldCatalog {
+  groups: SegmentFieldGroup[];
+}
+
+export interface SegmentPreview {
+  total: number;
+  people: number;
+  truncated: boolean;
+  channelAccounts: { channelAccountId: string | null; kind: ChannelKind | null; label: string; count: number }[];
+}
+
+export const listSegments = (token: string, ws: string) => get<Segment[]>(token, `${base(ws)}/segments`);
+export const getSegment = (token: string, ws: string, id: string) =>
+  get<Segment>(token, `${base(ws)}/segments/${enc(id)}`);
+export const createSegment = (token: string, ws: string, body: SegmentInput) =>
+  send<Segment>(token, 'POST', `${base(ws)}/segments`, body);
+export const updateSegment = (token: string, ws: string, id: string, body: SegmentInput) =>
+  send<Segment>(token, 'PUT', `${base(ws)}/segments/${enc(id)}`, body);
+export const deleteSegment = (token: string, ws: string, id: string) =>
+  send<void>(token, 'DELETE', `${base(ws)}/segments/${enc(id)}`);
+export const segmentFields = (token: string, ws: string) =>
+  get<SegmentFieldCatalog>(token, `${base(ws)}/segments/fields`);
+export const previewSegment = (token: string, ws: string, rules: SegmentRuleGroup) =>
+  send<SegmentPreview>(token, 'POST', `${base(ws)}/segments/preview`, { rules });
+export const previewSavedSegment = (token: string, ws: string, id: string) =>
+  send<SegmentPreview>(token, 'POST', `${base(ws)}/segments/${enc(id)}/preview`);
