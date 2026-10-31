@@ -35,8 +35,9 @@ export function useTaskActions(
   const { token, workspace } = useSession();
   const ws = workspace?.id ?? '';
   const deletion = useAction();
-  // by task: several can run at once, and one finishing must not wipe another's failure
-  const [errors, setErrors] = React.useState<Readonly<Record<string, string>>>({});
+  // by task: several can run at once, and one finishing must not wipe another's failure. A task that has left the
+  // list (stale) cannot be tried again, so its error goes with the next action on any task.
+  const [errors, setErrors] = React.useState<Readonly<Record<string, { message: string; stale: boolean }>>>({});
   const [busyIds, setBusyIds] = React.useState<ReadonlySet<string>>(new Set());
   const [confirm, setConfirm] = React.useState<Confirm | null>(null);
   const [notice, setNotice] = React.useState<string | null>(null);
@@ -61,14 +62,18 @@ export function useTaskActions(
       setErrors((cur) => {
         const rest = { ...cur };
         delete rest[task.id];
+        Object.keys(rest).forEach((id) => {
+          if (rest[id].stale) delete rest[id];
+        });
         return rest;
       });
       try {
         return await fn(token as string);
       } catch (e) {
-        if (isCode(e, 'TASK_NOT_OPEN') || isCode(e, 'NOT_RECURRING')) onStale?.();
+        const stale = isCode(e, 'TASK_NOT_OPEN') || isCode(e, 'NOT_RECURRING');
+        if (stale) onStale?.();
         const message = crmMessage(e, 'Could not update the task. Try again.');
-        setErrors((cur) => ({ ...cur, [task.id]: message }));
+        setErrors((cur) => ({ ...cur, [task.id]: { message, stale } }));
         return undefined;
       }
     });
@@ -182,7 +187,7 @@ export function useTaskActions(
 
   return {
     isBusy: (id: string) => busyIds.has(id),
-    error: Array.from(new Set(Object.values(errors))).join(' ') || null,
+    error: Array.from(new Set(Object.values(errors).map((e) => e.message))).join(' ') || null,
     reset: () => setErrors({}),
     notice,
     clearNotice: () => setNotice(null),

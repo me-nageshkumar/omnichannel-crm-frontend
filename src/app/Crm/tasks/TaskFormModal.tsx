@@ -73,7 +73,8 @@ function instant(date: string, time: string): string | null {
   return Number.isNaN(d.getTime()) ? null : d.toISOString();
 }
 
-const FIRST_PROBLEM = '.pf-v6-c-alert, .pf-v6-c-helper-text__item.pf-m-error';
+const FIELD_PROBLEM = '.pf-v6-c-helper-text__item.pf-m-error';
+const BANNER = '.pf-v6-c-alert';
 
 /** Plans a task on a record, or edits one: title, type, priority, due and reminder times, assignee, notes. */
 export const TaskFormModal: React.FunctionComponent<{
@@ -111,7 +112,10 @@ export const TaskFormModal: React.FunctionComponent<{
   const body = React.useRef<HTMLDivElement>(null);
   const [failedSaves, setFailedSaves] = React.useState(0);
   React.useEffect(() => {
-    if (failedSaves > 0) body.current?.querySelector(FIRST_PROBLEM)?.scrollIntoView?.({ block: 'center' });
+    if (failedSaves === 0) return;
+    // a field first: a banner can be left over from an earlier save
+    const problem = body.current?.querySelector(FIELD_PROBLEM) ?? body.current?.querySelector(BANNER);
+    problem?.scrollIntoView?.({ block: 'center' });
   }, [failedSaves]);
 
   const types = taskTypes.filter((t) => t.active || t.key === task?.type).sort((a, b) => a.position - b.position);

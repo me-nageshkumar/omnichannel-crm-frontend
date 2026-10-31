@@ -73,6 +73,17 @@ describe('useTaskActions', () => {
     await waitFor(() => expect(screen.getByLabelText('error')).toHaveTextContent('none'));
   });
 
+  it('anErrorAboutATaskThatLeftTheListGoesWithTheNextAction', async () => {
+    const { user } = setup({
+      [`POST ${BASE}/tasks/t1/complete`]: { status: 400, body: { code: 'TASK_NOT_OPEN', message: 'closed' } },
+      [`POST ${BASE}/tasks/t2/complete`]: { status: 200, body: { ...two, status: 'DONE' } },
+    });
+    await user.click(await screen.findByRole('button', { name: 'Finish one' }));
+    await waitFor(() => expect(screen.getByLabelText('error')).not.toHaveTextContent('none'));
+    await user.click(screen.getByRole('button', { name: 'Finish two' }));
+    await waitFor(() => expect(screen.getByLabelText('error')).toHaveTextContent('none'));
+  });
+
   it('deletingATaskThatIsAlreadyGoneRemovesItsRow', async () => {
     const { user, onRemoved } = setup({
       [`DELETE ${BASE}/tasks/t1`]: { status: 404, body: { code: 'NOT_FOUND', message: 'Task not found' } },

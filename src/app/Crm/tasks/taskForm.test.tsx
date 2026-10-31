@@ -329,6 +329,20 @@ describe('CRM task form: steps and repeat (phase E)', () => {
       expect((scrolled.mock.contexts[0] as Element).textContent).toContain('Could not save the task');
     });
 
+    it('prefersAFieldProblemToAnOlderBanner', async () => {
+      const { user } = open(undefined, { [POST]: { status: 500, body: {} } });
+      const dialog = await screen.findByRole('dialog', { name: 'New task' });
+      await user.type(within(dialog).getByLabelText(/^Title/), 'Call back');
+      await user.click(within(dialog).getByRole('button', { name: 'Save task' }));
+      await within(dialog).findByText('Could not save the task. Try again.');
+      await waitFor(() => expect(scrolled).toHaveBeenCalled());
+      scrolled.mockClear();
+      await user.selectOptions(within(dialog).getByLabelText('Repeat'), 'Daily');
+      await user.click(within(dialog).getByRole('button', { name: 'Save task' }));
+      await waitFor(() => expect(scrolled).toHaveBeenCalled());
+      expect((scrolled.mock.contexts[0] as Element).textContent).toContain('Set a due date to repeat.');
+    });
+
     it('leavesTheFormAloneWhenTheSaveWorks', async () => {
       const { user } = open();
       const dialog = await screen.findByRole('dialog', { name: 'New task' });
