@@ -137,12 +137,17 @@ describe('KanbanBoard', () => {
 
   it('dragShowsAnOverlayOfTheCardOutsideItsLane', async () => {
     const onMove = vi.fn().mockResolvedValue(undefined);
-    render(board({ onMove }));
+    const { container } = render(board({ onMove }));
     await startPointerDrag(screen.getByText('Card 1'), [100, 80], [440, 80]);
     // While dragging, a copy of the card follows the pointer outside the lanes.
     const copies = screen.getAllByText('Card 1');
     expect(copies).toHaveLength(2);
-    expect(copies.filter((c) => !c.closest('section[aria-label]'))).toHaveLength(1);
+    const overlay = copies.filter((c) => !c.closest('section[aria-label]'));
+    expect(overlay).toHaveLength(1);
+    // It lives directly under the body: an ancestor with a filter or transform (PatternFly's glass theme blurs
+    // the page container) would otherwise become the containing block of the fixed overlay and offset it.
+    expect(container.contains(overlay[0])).toBe(false);
+    expect(overlay[0].closest('body > *')?.parentElement).toBe(document.body);
     await endPointerDrag([440, 80]);
     await waitFor(() => expect(onMove).toHaveBeenCalledTimes(1));
     expect(screen.getAllByText('Card 1')).toHaveLength(1);

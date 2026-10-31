@@ -1,4 +1,5 @@
 import * as React from 'react';
+import { createPortal } from 'react-dom';
 import {
   type Announcements,
   DndContext,
@@ -202,13 +203,18 @@ export function KanbanBoard<C>({
           />
         ))}
       </div>
-      <DragOverlay dropAnimation={null}>
-        {activeCard && (
-          <Card isCompact style={{ cursor: 'grabbing', boxShadow: 'var(--pf-t--global--box-shadow--lg)' }}>
-            <CardBody>{renderCard(activeCard)}</CardBody>
-          </Card>
-        )}
-      </DragOverlay>
+      {createPortal(
+        // On the body: an ancestor with a filter or transform (PatternFly's glass theme blurs the page container)
+        // would otherwise become the containing block of the fixed overlay and offset it from the pointer.
+        <DragOverlay dropAnimation={null}>
+          {activeCard && (
+            <Card isCompact style={{ cursor: 'grabbing', boxShadow: 'var(--pf-t--global--box-shadow--lg)' }}>
+              <CardBody>{renderCard(activeCard)}</CardBody>
+            </Card>
+          )}
+        </DragOverlay>,
+        document.body,
+      )}
     </DndContext>
   );
 }
