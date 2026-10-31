@@ -6,7 +6,7 @@ import { BRAND_A, BRAND_CODES, WORKSPACE_MANAGER, meAs, storeSession } from '../
 import { content, template } from '../../test/templates';
 import { campaign, campaignDetail, sender } from '../../test/campaigns';
 import { SEGMENTS } from '../../test/crmSegments';
-import { sampleSegmentPreview } from '../../test/crm';
+import { crmStatus, sampleSegmentPreview } from '../../test/crm';
 
 const B = '/api/workspaces/w1';
 const C = `${B}/campaigns`;
@@ -43,6 +43,7 @@ function routes(extra = {}, user = WORKSPACE_MANAGER) {
     [`GET ${B}/contact-attributes`]: { status: 200, body: [] },
     [`GET ${B}/templates`]: { status: 200, body: [REMINDER] },
     [`GET ${C}/senders`]: { status: 200, body: [P1, P2] },
+    [`GET ${B}/crm/status`]: { status: 200, body: crmStatus({ authorities: ['crm:view', 'crm:segments'] }) },
     [SEGMENTS_URL]: { status: 200, body: SEGMENTS },
     [PREVIEW]: { status: 200, body: PREVIEW_BODY },
     [CREATE]: { status: 201, body: CREATED },
@@ -118,6 +119,20 @@ describe('campaign wizard with a CRM segment audience', () => {
     await waitFor(() => expect(select).toHaveValue('s1'));
     await user.type(screen.getByRole('textbox', { name: 'Name' }), 'Diwali');
     expect(next()).toBeEnabled();
+    // straight through to Review without touching the select: the segment is named there
+    await user.click(next());
+    await user.click(await screen.findByRole('menuitem', { name: /^Reminder/ }));
+    await user.click(next());
+    await user.click(await screen.findByRole('checkbox', { name: 'Select +919800000001' }));
+    await user.click(next());
+    expect(await screen.findByText(/^Segment Gold leads/)).toBeInTheDocument();
+  });
+
+  it('segmentRadioHiddenWhenTheCrmIsOff', async () => {
+    mockFetch(routes({ [`GET ${B}/crm/status`]: { status: 200, body: crmStatus({ enabled: false }) } }));
+    renderApp('/campaigns/new');
+    await screen.findByRole('radio', { name: 'Saved contact filter' });
+    await waitFor(() => expect(screen.queryByRole('radio', { name: 'CRM segment' })).toBeNull());
   });
 
   it('reviewShowsSegmentLineAndAccountWarnings', async () => {

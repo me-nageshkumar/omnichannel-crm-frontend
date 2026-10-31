@@ -152,7 +152,7 @@ const EditorForm: React.FunctionComponent<{
           />
         </GridItem>
         <GridItem md={4}>
-          <SegmentPreview rules={rules} catalog={catalog} />
+          <SegmentPreview rules={rules} catalog={catalog} onRuleErrors={setRuleErrors} />
         </GridItem>
       </Grid>
       {error && <Alert variant="danger" isInline title={error} />}
@@ -174,7 +174,7 @@ export const SegmentEditorPage: React.FunctionComponent = () => {
   const { workspace } = useSession();
   const ws = workspace?.id ?? '';
   const canUse = useCrmCan('crm:segments');
-  const fields = useSegmentFields();
+  const fields = useSegmentFields(canUse);
   const segment = useLoad(
     (tk) => (id && canUse ? getSegment(tk, ws, id) : Promise.resolve(undefined)),
     [ws, id, canUse],
@@ -199,12 +199,14 @@ export const SegmentEditorPage: React.FunctionComponent = () => {
         <Spinner aria-label="Loading segment" />
       ) : (
         <EditorForm
-          key={`${id ?? 'new'}-${generation}`}
+          key={`${id ?? 'new'}-${segment.data?.version ?? 'n'}-${generation}`}
           existing={segment.data ?? undefined}
           catalog={fields.catalog as SegmentFieldCatalog}
           labels={fields.labels}
           users={fields.users}
           onReload={() => {
+            // forget the stale version first, so the form remounts from the re-fetched one, not from this one
+            segment.setData(() => undefined);
             segment.reload();
             setGeneration((g) => g + 1);
           }}

@@ -95,17 +95,56 @@ describe('CRM segment editor', () => {
   });
 
   it('versionConflictOffersReload', async () => {
-    mockFetch(
+    let gets = 0;
+    let puts = 0;
+    const newer = sampleSegment({ name: 'Gold leads v2', version: 4 });
+    const f = mockFetch(
       segmentRoutes({
-        [`PUT ${SEGMENTS_BASE}/s1`]: { status: 409, body: { code: 'VERSION_CONFLICT', message: 'changed' } },
+        [`GET ${SEGMENTS_BASE}/s1`]: () => ({ status: 200, body: ++gets === 1 ? SEGMENTS[0] : newer }),
+        [`PUT ${SEGMENTS_BASE}/s1`]: () =>
+          ++puts === 1
+            ? { status: 409, body: { code: 'VERSION_CONFLICT', message: 'changed' } }
+            : { status: 200, body: newer },
       }),
     );
     const { user } = renderApp('/crm/segments/s1');
     await screen.findByRole('heading', { name: 'Edit segment' });
-    await screen.findByLabelText(/^Name/);
+    expect(await screen.findByLabelText(/^Name/)).toHaveValue('Gold leads');
     await user.click(screen.getByRole('button', { name: 'Save' }));
     expect(await screen.findByText(/Someone changed this segment/)).toBeInTheDocument();
-    expect(screen.getByRole('button', { name: 'Reload' })).toBeInTheDocument();
+    await user.click(screen.getByRole('button', { name: 'Reload' }));
+    // the other person's version is what the form now shows, and what the next save builds on
+    await waitFor(() => expect(screen.getByLabelText(/^Name/)).toHaveValue('Gold leads v2'));
+    await user.click(screen.getByRole('button', { name: 'Save' }));
+    await waitFor(() => expect(callsTo(f, `PUT ${SEGMENTS_BASE}/s1`)).toBe(2));
+    expect(requestTo(f, `PUT ${SEGMENTS_BASE}/s1`, 1)?.body).toMatchObject({ name: 'Gold leads v2', version: 4 });
+  });
+
+  it('previewRuleErrorsLandOnTheirRules', async () => {
+    const { user } = await openNew({
+      [PREVIEW]: {
+        status: 400,
+        body: { code: 'INVALID_SEGMENT', message: 'The segment has 1 problem', 'rules[0].value': 'must be a text' },
+      },
+    });
+    await fillLifecycle(user);
+    expect(await rule('Rule 1').findByText('must be a text')).toBeInTheDocument();
+    const card = screen.getByRole('region', { name: 'Who matches' });
+    expect(within(card).queryByText('The segment has 1 problem')).toBeNull();
+  });
+
+  it('editorMakesNoSegmentCallsWithoutAuthority', async () => {
+    const f = mockFetch(segmentRoutes({}, { authorities: ['crm:view', 'crm:edit'] }));
+    renderApp('/crm/segments/new');
+    expect(await screen.findByText('You need the Segments permission')).toBeInTheDocument();
+    expect(callsTo(f, `GET ${SEGMENTS_BASE}/fields`)).toBe(0);
+  });
+
+  it('labelsFailureDoesNotBlockTheBuilder', async () => {
+    mockFetch(segmentRoutes({ 'GET /api/workspaces/w1/contact-labels': { status: 500, body: { message: 'down' } } }));
+    renderApp('/crm/segments/new');
+    await screen.findByRole('heading', { name: 'New segment' });
+    expect(await screen.findByLabelText('Field')).toBeInTheDocument();
   });
 
   it('previewWaits600msAndSendsCleanRules', async () => {

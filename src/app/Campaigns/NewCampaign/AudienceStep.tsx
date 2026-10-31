@@ -21,6 +21,7 @@ import { countContacts, listFilters } from '@app/api/contacts';
 import { listSegments } from '@app/api/crm';
 import type { Segment } from '@app/api/crm';
 import { useAccess } from '@app/session/useAccess';
+import { useCrmStatus } from '@app/Crm/status/CrmStatusContext';
 import { messageFor } from '@app/api/messages';
 import { useLoad } from '@app/admin/useLoad';
 import { countText } from '@app/Contacts/filterSpec';
@@ -86,6 +87,14 @@ const SegmentAudience: React.FunctionComponent<StepProps> = ({ draft, update }) 
   const { workspace } = useSession();
   const ws = workspace?.id ?? '';
   const segments = useLoad((tk) => listSegments(tk, ws), [ws]);
+  // A segment chosen before the list arrived (the ?segmentId= preselect) gets its name once the list is here.
+  const { segmentId, segmentName } = draft;
+  React.useEffect(() => {
+    if (!segmentId || segmentName !== '' || !segments.data) return;
+    const found = segments.data.find((s) => s.id === segmentId);
+    if (found) update({ segmentName: found.name });
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [segmentId, segmentName, segments.data]);
   return (
     <FormGroup label="Segment" fieldId="audience-segment">
       {segments.error && <Alert variant="danger" isInline isPlain title={segments.error} />}
@@ -230,7 +239,8 @@ const CsvAudience: React.FunctionComponent<StepProps> = ({ draft, update }) => {
 /** Name the campaign and choose who receives it: a saved contact filter, a CRM segment or an uploaded CSV. */
 export const AudienceStep: React.FunctionComponent<StepProps> = ({ draft, update }) => {
   const access = useAccess();
-  const canUseSegments = access.hasInWorkspace('crm:view') && access.hasInWorkspace('crm:segments');
+  const crmOn = useCrmStatus().status?.enabled === true;
+  const canUseSegments = crmOn && access.hasInWorkspace('crm:view') && access.hasInWorkspace('crm:segments');
   const [params] = useSearchParams();
   const preselect = params.get('segmentId');
   // Arriving from a segment's "Send campaign": the segment is chosen before anything else happens.

@@ -22,7 +22,7 @@ import type { ChannelKind, SegmentPreview as Preview, SegmentFieldCatalog, Segme
 import { ApiError } from '@app/api/client';
 import { useSession } from '@app/session/SessionContext';
 import { crmMessage } from '@app/Crm/errors';
-import { cleanRules, isComplete } from '@app/Crm/segments/segmentModel';
+import { cleanRules, isComplete, splitErrors } from '@app/Crm/segments/segmentModel';
 
 export const DEBOUNCE_MS = 600;
 export const INCOMPLETE_TEXT = 'Finish the rules to see who matches';
@@ -53,10 +53,12 @@ export const ChannelKindIcon: React.FunctionComponent<{ kind: ChannelKind | null
  * Who matches the rules, for the signed-in user (spec C6, C19): asked 600 ms after the last change once every rule
  * is complete; an answer for an older tree is dropped; server refusals show inline and leave the builder usable.
  */
-export const SegmentPreview: React.FunctionComponent<{ rules: SegmentRuleGroup; catalog: SegmentFieldCatalog }> = ({
-  rules,
-  catalog,
-}) => {
+export const SegmentPreview: React.FunctionComponent<{
+  rules: SegmentRuleGroup;
+  catalog: SegmentFieldCatalog;
+  /** Told the per-rule problems the server found, keyed by rule path, so they land on the rules themselves. */
+  onRuleErrors?(byPath: Record<string, string>): void;
+}> = ({ rules, catalog, onRuleErrors }) => {
   const { token, workspace } = useSession();
   const ws = workspace?.id ?? '';
   const complete = isComplete(rules, catalog);
@@ -82,9 +84,15 @@ export const SegmentPreview: React.FunctionComponent<{ rules: SegmentRuleGroup; 
         setError(null);
       } catch (e) {
         if (keyRef.current !== sent) return;
+        if (e instanceof ApiError && e.code === 'INVALID_SEGMENT') {
+          const split = splitErrors(e.extra ?? {}, body);
+          onRuleErrors?.(split.byPath);
+          const other = split.other.filter((m) => !m.startsWith('name:'));
+          if (other.length > 0) setError({ key: sent, message: other.join('; ') });
+          return;
+        }
         const message =
-          e instanceof ApiError &&
-          (e.code === 'SEGMENT_TOO_BROAD' || e.code === 'SEGMENT_TIMEOUT' || e.code === 'INVALID_SEGMENT')
+          e instanceof ApiError && (e.code === 'SEGMENT_TOO_BROAD' || e.code === 'SEGMENT_TIMEOUT')
             ? (e.serverMessage ?? e.message)
             : crmMessage(e);
         setError({ key: sent, message });
