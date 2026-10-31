@@ -59,7 +59,8 @@ export const TasksPage: React.FunctionComponent = () => {
   const [showDone, setShowDone] = React.useState(false);
   const [assigneeId, setAssigneeId] = React.useState('');
   const delegated = tab === 'delegated';
-  const who = viewAll && assigneeId ? assigneeId : undefined;
+  // the picker is hidden on Delegated, so nothing there may follow it
+  const who = viewAll && assigneeId && !delegated ? assigneeId : undefined;
   const list = useLoad(
     (t) =>
       delegated
@@ -91,6 +92,7 @@ export const TasksPage: React.FunctionComponent = () => {
     },
     undefined,
     list.reload,
+    reload,
   );
 
   const people: Ref[] = [];
@@ -133,7 +135,8 @@ export const TasksPage: React.FunctionComponent = () => {
                   task={t}
                   canEdit={canEdit}
                   userId={user?.id}
-                  busy={actions.busyId === t.id}
+                  busy={actions.isBusy(t.id)}
+                  hideAssignee={showAssignee}
                   onToggle={(task) => void actions.toggle(task)}
                   onTick={(task, itemId, done) => void actions.tick(task, itemId, done)}
                   onSkip={actions.skip}
@@ -190,7 +193,15 @@ export const TasksPage: React.FunctionComponent = () => {
           actionClose={<AlertActionCloseButton onClose={actions.clearNotice} />}
         />
       )}
-      <Tabs activeKey={tab} onSelect={(_e, k) => setTab(k as Tab)} aria-label="Task buckets">
+      <Tabs
+        activeKey={tab}
+        onSelect={(_e, k) => {
+          setTab(k as Tab);
+          actions.reset();
+          actions.clearNotice();
+        }}
+        aria-label="Task buckets"
+      >
         {TABS.map((b) => (
           <Tab key={b.key} eventKey={b.key} title={<TabTitleText>{`${b.title}${count(b.count)}`}</TabTitleText>} />
         ))}

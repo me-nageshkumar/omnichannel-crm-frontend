@@ -34,6 +34,7 @@ export const TaskList: React.FunctionComponent<{ target: { type: TaskTargetType;
     replace,
     (id) => loaded.setData((p) => p && { ...p, items: p.items.filter((x) => x.id !== id), total: p.total - 1 }),
     loaded.reload,
+    loaded.reload,
   );
   useRefetchOnFocus(loaded.reload);
 
@@ -77,7 +78,7 @@ export const TaskList: React.FunctionComponent<{ target: { type: TaskTargetType;
                 task={t}
                 canEdit={canEdit}
                 userId={user?.id}
-                busy={actions.busyId === t.id}
+                busy={actions.isBusy(t.id)}
                 typeLabel={typeLabel(t.type)}
                 onToggle={(task) => void actions.toggle(task)}
                 onTick={(task, itemId, done) => void actions.tick(task, itemId, done)}

@@ -2,6 +2,7 @@ import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { screen, waitFor, within } from '@testing-library/react';
 import { renderApp } from '../../../test/renderApp';
 import { callsTo, mockFetch, requestTo } from '../../../test/fetchMock';
+import { gate } from '../../../test/gate';
 import { crmSettings, sampleChecklist, sampleDeal, sampleRecurrence, sampleTask } from '../../../test/crm';
 import { BASE, boardRoutes } from '../../../test/crmBoard';
 import { storeSession } from '../../../test/session';
@@ -42,7 +43,11 @@ describe('CRM task row (phase E)', () => {
     const { user } = await openTasks();
     const row = await screen.findByRole('listitem', { name: 'Call back' });
     expect(within(row).queryByRole('checkbox', { name: 'Mention the festive discount' })).toBeNull();
-    await user.click(within(row).getByRole('button', { name: '1/3' }));
+    const progress = within(row).getByRole('button', { name: '1/3' });
+    expect(progress).toHaveAttribute('aria-expanded', 'false');
+    await user.click(progress);
+    const controlled = document.getElementById(progress.getAttribute('aria-controls') as string) as HTMLElement;
+    expect(within(controlled).getByRole('checkbox', { name: 'Mention the festive discount' })).toBeInTheDocument();
     await user.click(within(row).getByRole('checkbox', { name: 'Mention the festive discount' }));
     await waitFor(() => expect(requestTo(f, `POST ${BASE}/tasks/t1/checklist/c2`)).toBeDefined());
     expect(requestTo(f, `POST ${BASE}/tasks/t1/checklist/c2`)?.body).toEqual({ done: true });
@@ -154,8 +159,93 @@ describe('CRM task row (phase E)', () => {
     await openTasks();
     const row = await screen.findByRole('listitem', { name: 'Call back' });
     expect(within(row).getByText('Skipped')).toBeInTheDocument();
+    expect(within(row).queryByText('Not done')).toBeNull();
     expect(within(row).queryByRole('checkbox')).toBeNull();
     expect(within(row).queryByRole('button', { name: 'Skip Call back' })).toBeNull();
+  });
+
+  it('aFinishedActionLeavesAnotherRowBusy', async () => {
+    const f = mockFetch(
+      routes([sampleTask(), sampleTask({ id: 't2', title: 'Second' })], {
+        [`POST ${BASE}/tasks/t1/complete`]: { status: 200, body: sampleTask({ status: 'DONE' }) },
+        [`POST ${BASE}/tasks/t2/complete`]: {
+          status: 200,
+          body: sampleTask({ id: 't2', title: 'Second', status: 'DONE' }),
+        },
+      }),
+    );
+    const first = gate(f, `POST ${BASE}/tasks/t1/complete`, 1);
+    const { user } = await openTasks();
+    await user.click(await screen.findByRole('checkbox', { name: 'Complete Call back' }));
+    await user.click(screen.getByRole('checkbox', { name: 'Complete Second' }));
+    await screen.findByRole('checkbox', { name: 'Reopen Second' });
+    expect(screen.getByRole('checkbox', { name: 'Complete Call back' })).toBeDisabled();
+    expect(screen.getByRole('button', { name: 'Edit Call back' })).toBeDisabled();
+    expect(screen.getByRole('button', { name: 'Delete Call back' })).toBeDisabled();
+    expect(screen.getByRole('button', { name: 'Edit Second' })).toBeEnabled();
+    first.release();
+    await screen.findByRole('checkbox', { name: 'Reopen Call back' });
+    expect(screen.getByRole('button', { name: 'Edit Call back' })).toBeEnabled();
+  });
+
+  it.each([
+    ['TASK_NOT_OPEN', 'This task is already closed.'],
+    ['NOT_RECURRING', 'This task no longer repeats.'],
+  ])('%s explains itself and refreshes the list', async (code, text) => {
+    const repeating = sampleTask({ recurrence: sampleRecurrence() });
+    const f = mockFetch(
+      routes([repeating], { [`POST ${BASE}/tasks/t1/skip`]: { status: 400, body: { code, message: 'no' } } }),
+    );
+    const { user } = await openTasks();
+    await screen.findByRole('listitem', { name: 'Call back' });
+    const before = callsTo(f, `GET ${BASE}/tasks`);
+    await user.click(screen.getByRole('button', { name: 'Skip Call back' }));
+    const dialog = await screen.findByRole('dialog', { name: 'Skip this one?' });
+    await user.click(within(dialog).getByRole('button', { name: 'Skip' }));
+    expect(await screen.findByText(text)).toBeInTheDocument();
+    await waitFor(() => expect(callsTo(f, `GET ${BASE}/tasks`)).toBe(before + 1));
+  });
+
+  it('aFailedDeleteStaysInItsDialog', async () => {
+    let fails = true;
+    const f = mockFetch(
+      routes([sampleTask()], {
+        [`DELETE ${BASE}/tasks/t1`]: () =>
+          fails ? { status: 500, body: { message: 'down' } } : { status: 204, body: null },
+      }),
+    );
+    const { user } = await openTasks();
+    await user.click(await screen.findByRole('button', { name: 'Delete Call back' }));
+    const dialog = await screen.findByRole('dialog', { name: /Delete Call back\?/ });
+    await user.click(within(dialog).getByRole('button', { name: 'Delete' }));
+    expect(await within(dialog).findByText('Could not delete the task. Try again.')).toBeInTheDocument();
+    expect(screen.getAllByText('Could not delete the task. Try again.')).toHaveLength(1);
+    fails = false;
+    await user.click(within(dialog).getByRole('button', { name: 'Delete' }));
+    await waitFor(() => expect(screen.queryByRole('dialog', { name: /Delete Call back\?/ })).toBeNull());
+    await waitFor(() => expect(screen.queryByRole('listitem', { name: 'Call back' })).toBeNull());
+    expect(callsTo(f, `DELETE ${BASE}/tasks/t1`)).toBe(2);
+  });
+
+  it('aLaterActionClearsTheSkipNotice', async () => {
+    const repeating = sampleTask({ recurrence: sampleRecurrence() });
+    const other = sampleTask({ id: 't2', title: 'Other one' });
+    mockFetch(
+      routes([repeating, other], {
+        [`POST ${BASE}/tasks/t1/skip`]: {
+          status: 200,
+          body: { skipped: { ...repeating, status: 'CANCELLED' }, next: sampleTask({ id: 't3', title: 'Next one' }) },
+        },
+        [`POST ${BASE}/tasks/t2/complete`]: { status: 200, body: { ...other, status: 'DONE' } },
+      }),
+    );
+    const { user } = await openTasks();
+    await user.click(await screen.findByRole('button', { name: 'Skip Call back' }));
+    const dialog = await screen.findByRole('dialog', { name: 'Skip this one?' });
+    await user.click(within(dialog).getByRole('button', { name: 'Skip' }));
+    await screen.findByText('Skipped. Next one scheduled.');
+    await user.click(await screen.findByRole('checkbox', { name: 'Complete Other one' }));
+    await waitFor(() => expect(screen.queryByText('Skipped. Next one scheduled.')).toBeNull());
   });
 
   it('completingRepeatingTaskReloadsList', async () => {

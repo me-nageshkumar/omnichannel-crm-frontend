@@ -30,7 +30,7 @@ import {
 } from '@app/Crm/tasks/taskDisplay';
 import type { RepeatForm } from '@app/Crm/tasks/taskDisplay';
 import { useBrandUsers } from '@app/Crm/fields/useBrandUsers';
-import { ChecklistEditor } from '@app/Crm/tasks/ChecklistEditor';
+import { ChecklistEditor, MAX_STEPS, newStep } from '@app/Crm/tasks/ChecklistEditor';
 import type { StepDraft } from '@app/Crm/tasks/ChecklistEditor';
 import { RepeatFields } from '@app/Crm/tasks/RepeatFields';
 import type { RepeatErrors } from '@app/Crm/tasks/RepeatFields';
@@ -98,6 +98,9 @@ export const TaskFormModal: React.FunctionComponent<{
   const [steps, setSteps] = React.useState<StepDraft[]>(() =>
     (task?.checklist ?? []).map((i) => ({ id: i.id, text: i.text, done: i.done, key: i.id })),
   );
+  const [stepDraft, setStepDraft] = React.useState('');
+  // The steps the last save sent: the server's checklist errors count those, not the steps shown.
+  const sentSteps = React.useRef<string[]>([]);
   const [repeat, setRepeat] = React.useState<RepeatForm>(() => recurrenceToForm(task?.recurrence ?? null));
   const [checked, setChecked] = React.useState(false);
   const action = useAction([...FIELDS, ...steps.map((_s, i) => `checklist[${i}].text`)]);
@@ -153,7 +156,8 @@ export const TaskFormModal: React.FunctionComponent<{
   const stepErrors: Record<number, string> = {};
   Object.entries(action.fieldErrors).forEach(([k, v]) => {
     const m = /^checklist\[(\d+)\]\.text$/.exec(k);
-    if (m) stepErrors[Number(m[1])] = v;
+    const at = m ? steps.findIndex((s) => s.key === sentSteps.current[Number(m[1])]) : -1;
+    if (at >= 0) stepErrors[at] = v;
   });
   const errors = {
     title:
@@ -185,6 +189,15 @@ export const TaskFormModal: React.FunctionComponent<{
       description.length > 5000 ||
       repeatBad;
     if (bad) return;
+    // a step typed but not added yet is one the user means to keep
+    const typed = stepDraft.trim() && steps.length < MAX_STEPS ? newStep(stepDraft.trim()) : null;
+    const allSteps = typed ? [...steps, typed] : steps;
+    if (typed) {
+      setSteps(allSteps);
+      setStepDraft('');
+    }
+    const sent = allSteps.filter((s) => s.text.trim());
+    sentSteps.current = sent.map((s) => s.key);
     const body: TaskInput = {
       title: title.trim(),
       description: description.trim() || null,
@@ -193,10 +206,7 @@ export const TaskFormModal: React.FunctionComponent<{
       dueAt,
       reminderAt,
       assigneeId: assigneeId || null,
-      checklist: steps
-        .map((s) => ({ id: s.id, text: s.text.trim() }))
-        .filter((s) => s.text)
-        .map((s) => (s.id ? s : { text: s.text })),
+      checklist: sent.map((s) => (s.id ? { id: s.id, text: s.text.trim() } : { text: s.text.trim() })),
       recurrence,
     };
     const t = token as string;
@@ -289,13 +299,20 @@ export const TaskFormModal: React.FunctionComponent<{
               onChange={(_e, v) => setDescription(v)}
             />
           </Field>
-          <Field label="Steps" fieldId="crm-task-steps" error={action.fieldErrors.checklist}>
-            <ChecklistEditor value={steps} onChange={setSteps} errors={stepErrors} />
+          <Field label="Steps" fieldId="crm-task-steps" role="group" error={action.fieldErrors.checklist}>
+            <ChecklistEditor
+              value={steps}
+              onChange={setSteps}
+              errors={stepErrors}
+              draft={stepDraft}
+              onDraftChange={setStepDraft}
+            />
           </Field>
           <RepeatFields
             value={repeat}
             onChange={setRepeat}
             dueAt={dueAt}
+            zone={task?.recurrence?.timeZone || browserTimeZone()}
             summary={recurrenceSummary(recurrence)}
             errors={repeatShown}
           />

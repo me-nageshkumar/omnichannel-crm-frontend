@@ -100,7 +100,10 @@ describe('CRM task list and form', () => {
     await user.click(await screen.findByRole('tab', { name: 'Tasks' }));
     const items = await screen.findAllByRole('listitem', { name: /Open one|Call back/ });
     expect(items[0]).toHaveAccessibleName('Open one');
-    await user.click(screen.getByRole('button', { name: 'Reopen Call back' }));
+    expect(screen.queryByRole('button', { name: 'Reopen Call back' })).toBeNull();
+    const reopen = screen.getByRole('checkbox', { name: 'Reopen Call back' });
+    expect(reopen).toBeChecked();
+    await user.click(reopen);
     await waitFor(() => expect(requestTo(f, `POST ${BASE}/tasks/t1/reopen`)).toBeDefined());
   });
 

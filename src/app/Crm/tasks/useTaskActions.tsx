@@ -4,6 +4,7 @@ import type { Task } from '@app/api/crm';
 import { ConfirmModal } from '@app/admin/ConfirmModal';
 import { useAction } from '@app/admin/useAction';
 import { useSession } from '@app/session/SessionContext';
+import { isCode } from '@app/Crm/Settings/ConflictAlert';
 import { crmMessage } from '@app/Crm/errors';
 import { checklistProgress } from '@app/Crm/tasks/taskDisplay';
 
@@ -12,6 +13,8 @@ interface Confirm {
   body: string;
   label: string;
   variant?: 'primary' | 'danger';
+  /** Stays open while it runs and closes itself: its failure belongs in the dialog. */
+  staysOpen?: boolean;
   run(): Promise<void>;
 }
 
@@ -19,33 +22,49 @@ interface Confirm {
  * The task actions shared by the drawers and the Tasks page (spec E C10, C14, C15): complete (asking first when steps
  * are unticked), reopen, tick (offering to complete after the last step), skip (confirmed) and delete (confirmed).
  * {@code onChanged} gets every task the server returned; {@code onRemoved} the id of a deleted task;
- * {@code onScheduled} fires when a next occurrence was created (it is not in the response of complete). Render
- * {@code dialogs} once near the list.
+ * {@code onScheduled} fires when a next occurrence was created (it is not in the response of complete);
+ * {@code onStale} when the server says the list on screen is out of date. Render {@code dialogs} once near the list.
  */
 export function useTaskActions(
   onChanged: (task: Task) => void,
   onRemoved?: (id: string) => void,
   /** Runs when completing or skipping scheduled a next occurrence, so the list can fetch the new task. */
   onScheduled?: () => void,
+  onStale?: () => void,
 ) {
   const { token, workspace } = useSession();
   const ws = workspace?.id ?? '';
   const action = useAction();
-  const [busyId, setBusyId] = React.useState<string | null>(null);
+  const deletion = useAction();
+  const [busyIds, setBusyIds] = React.useState<ReadonlySet<string>>(new Set());
   const [confirm, setConfirm] = React.useState<Confirm | null>(null);
   const [notice, setNotice] = React.useState<string | null>(null);
 
-  const run = async <T,>(task: Task, fn: (t: string) => Promise<T>): Promise<T | undefined> => {
-    setBusyId(task.id);
+  /** Marks the task busy while {@code fn} runs; several tasks can be busy at once. */
+  const tracked = async <T,>(task: Task, fn: () => Promise<T>): Promise<T> => {
+    setNotice(null);
+    setBusyIds((ids) => new Set(ids).add(task.id));
     try {
-      return await action.run(
-        () => fn(token as string),
-        (e) => crmMessage(e, 'Could not update the task. Try again.'),
-      );
+      return await fn();
     } finally {
-      setBusyId(null);
+      setBusyIds((ids) => {
+        const rest = new Set(ids);
+        rest.delete(task.id);
+        return rest;
+      });
     }
   };
+
+  const run = <T,>(task: Task, fn: (t: string) => Promise<T>): Promise<T | undefined> =>
+    tracked(task, () =>
+      action.run(
+        () => fn(token as string),
+        (e) => {
+          if (isCode(e, 'TASK_NOT_OPEN') || isCode(e, 'NOT_RECURRING')) onStale?.();
+          return crmMessage(e, 'Could not update the task. Try again.');
+        },
+      ),
+    );
 
   const complete = async (task: Task) => {
     const saved = await run(task, (t) => completeTask(t, ws, task.id));
@@ -106,30 +125,41 @@ export function useTaskActions(
       },
     });
 
-  const remove = (task: Task) =>
+  const remove = (task: Task) => {
+    deletion.reset();
     setConfirm({
       title: `Delete ${task.title}?`,
       body: "The task is removed for everyone. It can't be undone.",
       label: 'Delete',
       variant: 'danger',
+      staysOpen: true,
       run: async () => {
-        const ok = await run(task, async (t) => {
-          await deleteTask(t, ws, task.id);
-          return true;
-        });
-        if (ok) onRemoved?.(task.id);
+        const ok = await tracked(task, () =>
+          deletion.run(
+            async () => {
+              await deleteTask(token as string, ws, task.id);
+              return true;
+            },
+            (e) => crmMessage(e, 'Could not delete the task. Try again.'),
+          ),
+        );
+        if (!ok) return;
+        setConfirm(null);
+        onRemoved?.(task.id);
       },
     });
+  };
 
   const dialogs = confirm ? (
     <ConfirmModal
       title={confirm.title}
       confirmLabel={confirm.label}
       variant={confirm.variant}
-      busy={action.busy}
+      busy={action.busy || deletion.busy}
+      error={confirm.staysOpen ? deletion.error : null}
       onConfirm={() => {
         const current = confirm;
-        setConfirm(null);
+        if (!current.staysOpen) setConfirm(null);
         void current.run();
       }}
       onCancel={() => setConfirm(null)}
@@ -139,7 +169,7 @@ export function useTaskActions(
   ) : null;
 
   return {
-    busyId,
+    isBusy: (id: string) => busyIds.has(id),
     busy: action.busy,
     error: action.error,
     reset: action.reset,
