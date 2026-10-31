@@ -284,6 +284,7 @@ export function stageWithoutPipeline(group: SegmentRuleGroup): boolean {
   const rules = dealRulesIn(group);
   return (
     rules.some((r) => r.field === 'deal.stageId') &&
-    (group.combinator !== 'and' || !rules.some((r) => r.field === PIPELINE_FIELD))
+    (group.combinator !== 'and' ||
+      !rules.some((r) => r.field === PIPELINE_FIELD && (r.operator === 'is' || r.operator === 'in')))
   );
 }

@@ -114,6 +114,14 @@ describe('segmentModel', () => {
     expect(
       stageWithoutPipeline(group('or', rule('deal.pipelineId', 'is', 'p1'), rule('deal.stageId', 'is', 's1'))),
     ).toBe(true);
+    expect(
+      stageWithoutPipeline(group('and', rule('deal.pipelineId', 'in', ['p1']), rule('deal.stageId', 'is', 's1'))),
+    ).toBe(false);
+    for (const operator of ['isNot', 'notIn', 'isSet', 'isNotSet']) {
+      expect(
+        stageWithoutPipeline(group('and', rule('deal.pipelineId', operator, 'p1'), rule('deal.stageId', 'is', 's1'))),
+      ).toBe(true);
+    }
     expect(pipelineOfGroup(group('and', rule('deal.pipelineId', 'is', 'p2'), rule('deal.stageId', 'is', '')))).toBe(
       'p2',
     );
