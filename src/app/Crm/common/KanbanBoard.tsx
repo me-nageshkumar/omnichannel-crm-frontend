@@ -1,11 +1,14 @@
 import * as React from 'react';
+import { createPortal } from 'react-dom';
 import {
   type Announcements,
   DndContext,
   type DragEndEvent,
+  type DragOverEvent,
   DragOverlay,
   type DragStartEvent,
   KeyboardSensor,
+  type Over,
   PointerSensor,
   closestCorners,
   useSensor,
@@ -51,6 +54,13 @@ function useNarrow(forced?: boolean): boolean {
   return forced ?? matches;
 }
 
+interface Placement {
+  cardId: string;
+  toLaneKey: string;
+  /** Position among the lane's other cards. */
+  index: number;
+}
+
 interface Pending {
   cardId: string;
   toLaneKey: string;
@@ -75,6 +85,8 @@ export function KanbanBoard<C>({
   const [pending, setPending] = React.useState<Pending | null>(null);
   // The card under the pointer while a drag is on; drawn in an overlay so it can cross lanes.
   const [activeId, setActiveId] = React.useState<string | null>(null);
+  // Where the dragged card would land right now: it is shown there (dimmed) so the target lane opens a gap.
+  const [preview, setPreview] = React.useState<Placement | null>(null);
   const [seen, setSeen] = React.useState(lanes);
   // Locked from the start of a move until fresh lanes arrive after it was saved (or it is rolled back).
   const busy = pending !== null;
@@ -84,15 +96,23 @@ export function KanbanBoard<C>({
     setSeen(lanes);
     if (pending?.settled) setPending(null);
   }
-  const shown =
+  const settled =
     pending && !(seen !== lanes && pending.settled)
       ? moveCard(lanes, pending.cardId, pending.toLaneKey, pending.index, idOf).lanes
       : lanes;
+  const shown = preview ? moveCard(settled, preview.cardId, preview.toLaneKey, preview.index, idOf).lanes : settled;
+
+  /** Whether {@code cardId} already sits at {@code index} of lane {@code toLaneKey} in {@code board}. */
+  const sitsAt = (board: KanbanLaneData<C>[], cardId: string, toLaneKey: string, index: number) => {
+    const lane = board.find((l) => l.key === toLaneKey);
+    const at = lane?.cards.findIndex((c) => idOf(c) === cardId) ?? -1;
+    return at >= 0 && at === Math.min(index, lane!.cards.length - 1);
+  };
 
   const move = (cardId: string, toLaneKey: string, index: number) => {
     if (busy) return;
-    const r = moveCard(shown, cardId, toLaneKey, index, idOf);
-    if (r.lanes === shown) return;
+    const r = moveCard(settled, cardId, toLaneKey, index, idOf);
+    if (r.lanes === settled || sitsAt(settled, cardId, toLaneKey, index)) return;
     const mine: Pending = { cardId, toLaneKey, index, settled: false };
     setPending(mine);
     onMove(cardId, toLaneKey, r.beforeId, r.afterId).then(
@@ -106,30 +126,43 @@ export function KanbanBoard<C>({
     useSensor(KeyboardSensor, { coordinateGetter: sortableKeyboardCoordinates }),
   );
 
-  const onDragStart = ({ active }: DragStartEvent) => setActiveId(String(active.id));
-  const onDragEnd = ({ active, over }: DragEndEvent) => {
-    setActiveId(null);
-    if (busy || !over || active.id === over.id) return;
-    const activeId = String(active.id);
+  /** The lane and position the dragged card would take from what it is over, on the board as shown. */
+  const placementOf = (active: DragOverEvent['active'], over: Over): Placement | null => {
+    const cardId = String(active.id);
     const overId = String(over.id);
+    if (overId === cardId) return null;
     if (overId.startsWith(LANE_DROP_PREFIX)) {
       const key = overId.slice(LANE_DROP_PREFIX.length);
       const lane = shown.find((l) => l.key === key);
-      if (lane) move(activeId, key, lane.cards.filter((c) => idOf(c) !== activeId).length);
-      return;
+      return lane ? { cardId, toLaneKey: key, index: lane.cards.filter((c) => idOf(c) !== cardId).length } : null;
     }
     const to = shown.find((l) => l.cards.some((c) => idOf(c) === overId));
-    const from = shown.find((l) => l.cards.some((c) => idOf(c) === activeId));
-    if (!to || !from) return;
+    const from = shown.find((l) => l.cards.some((c) => idOf(c) === cardId));
+    if (!to || !from) return null;
     const overIndex = to.cards.findIndex((c) => idOf(c) === overId);
-    if (to.key === from.key) {
-      move(activeId, to.key, overIndex);
-      return;
-    }
-    // Into another lane: below the card dropped on when the dragged card sits in its lower half.
+    if (to.key === from.key) return { cardId, toLaneKey: to.key, index: overIndex };
+    // Into another lane: below the card hovered when the dragged card sits in its lower half.
     const moved = active.rect.current.translated;
     const below = moved ? moved.top + moved.height / 2 > over.rect.top + over.rect.height / 2 : false;
-    move(activeId, to.key, overIndex + (below ? 1 : 0));
+    return { cardId, toLaneKey: to.key, index: overIndex + (below ? 1 : 0) };
+  };
+
+  const onDragStart = ({ active }: DragStartEvent) => setActiveId(String(active.id));
+  const onDragOver = ({ active, over }: DragOverEvent) => {
+    if (busy || !over) return;
+    const next = placementOf(active, over);
+    if (next && !sitsAt(shown, next.cardId, next.toLaneKey, next.index)) setPreview(next);
+  };
+  const onDragEnd = ({ active, over }: DragEndEvent) => {
+    setActiveId(null);
+    setPreview(null);
+    if (busy) return;
+    const target = preview ?? (over ? placementOf(active, over) : null);
+    if (target) move(target.cardId, target.toLaneKey, target.index);
+  };
+  const onDragCancel = () => {
+    setActiveId(null);
+    setPreview(null);
   };
 
   const laneOptions = shown.map((l) => ({ key: l.key, title: l.title }));
@@ -168,8 +201,9 @@ export function KanbanBoard<C>({
       sensors={sensors}
       collisionDetection={closestCorners}
       onDragStart={onDragStart}
+      onDragOver={onDragOver}
       onDragEnd={onDragEnd}
-      onDragCancel={() => setActiveId(null)}
+      onDragCancel={onDragCancel}
       accessibility={{ announcements }}
     >
       <div
@@ -202,13 +236,18 @@ export function KanbanBoard<C>({
           />
         ))}
       </div>
-      <DragOverlay dropAnimation={null}>
-        {activeCard && (
-          <Card isCompact style={{ cursor: 'grabbing', boxShadow: 'var(--pf-t--global--box-shadow--lg)' }}>
-            <CardBody>{renderCard(activeCard)}</CardBody>
-          </Card>
-        )}
-      </DragOverlay>
+      {createPortal(
+        // On the body: an ancestor with a filter or transform (PatternFly's glass theme blurs the page container)
+        // would otherwise become the containing block of the fixed overlay and offset it from the pointer.
+        <DragOverlay dropAnimation={null}>
+          {activeCard && (
+            <Card isCompact style={{ cursor: 'grabbing', boxShadow: 'var(--pf-t--global--box-shadow--lg)' }}>
+              <CardBody>{renderCard(activeCard)}</CardBody>
+            </Card>
+          )}
+        </DragOverlay>,
+        document.body,
+      )}
     </DndContext>
   );
 }
