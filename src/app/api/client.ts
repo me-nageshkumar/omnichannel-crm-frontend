@@ -25,6 +25,8 @@ export class ApiError extends Error {
     public readonly extra?: Record<string, string>,
   ) {
     super(code ?? `HTTP ${status}`);
+    // tsc at target es5 makes `this` a plain Error here, and every `instanceof ApiError` would then be false
+    Object.setPrototypeOf(this, ApiError.prototype);
     this.name = 'ApiError';
   }
 }
