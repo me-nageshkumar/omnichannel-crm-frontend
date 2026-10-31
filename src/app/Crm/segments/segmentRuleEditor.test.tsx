@@ -271,4 +271,10 @@ describe('SegmentRuleEditor', () => {
     ).toBeInTheDocument();
     expect(rule('Rule 1').queryByText('must be a number')).toBeNull();
   });
+
+  it('explainsAStageOutsideTheChosenPipeline', () => {
+    setup(g('and', r('deal.pipelineId', 'is', 'p2'), { ...r('deal.stageId', 'is', 's1'), missing: true }));
+    expect(screen.getByText('This stage is not in the chosen pipeline, or no longer exists')).toBeInTheDocument();
+    expect(screen.queryByText('This field no longer exists')).toBeNull();
+  });
 });

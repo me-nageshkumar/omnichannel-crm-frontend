@@ -352,7 +352,7 @@ describe('CRM segment editor', () => {
       [`GET ${COMPANIES}/${id}`]: { status: 200, body: { id, name } },
     });
     const gone = (id: string, status = 404) => ({
-      [`GET ${COMPANIES}/${id}`]: { status, body: { code: 'NOT_FOUND', message: 'gone' } },
+      [`GET ${COMPANIES}/${id}`]: { status, body: status === 404 ? { code: 'NOT_FOUND', message: 'gone' } : {} },
     });
 
     function openWith(operator: string, value: string | string[], routes: object = {}) {
@@ -402,7 +402,19 @@ describe('CRM segment editor', () => {
     it('aCompanyThatCannotBeReadIsNotShownByItsId', async () => {
       openWith('in', ['co7'], gone('co7', 500));
       await screen.findByLabelText(/^Name/);
-      expect(await chips().findByText('Unknown company')).toBeInTheDocument();
+      expect(await chips().findByText('Company name unavailable', {}, { timeout: 4000 })).toBeInTheDocument();
+      expect(screen.queryByText('co7')).toBeNull();
+      expect(chips().queryByText('Unknown company')).toBeNull();
+    });
+
+    it('aFailedLookupIsTriedAgain', async () => {
+      let reads = 0;
+      openWith('in', ['co7'], {
+        [`GET ${COMPANIES}/co7`]: () =>
+          reads++ === 0 ? { status: 500, body: {} } : { status: 200, body: { id: 'co7', name: 'Acme Ltd' } },
+      });
+      await screen.findByLabelText(/^Name/);
+      expect(await chips().findByText('Acme Ltd', {}, { timeout: 4000 })).toBeInTheDocument();
     });
 
     it('aPickedCompanyShowsItsNameWithoutAskingTheServer', async () => {

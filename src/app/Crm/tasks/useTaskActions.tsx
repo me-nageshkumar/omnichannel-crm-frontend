@@ -34,8 +34,10 @@ export function useTaskActions(
 ) {
   const { token, workspace } = useSession();
   const ws = workspace?.id ?? '';
-  const action = useAction();
   const deletion = useAction();
+  // by task: several can run at once, and one finishing must not wipe another's failure. A task that has left the
+  // list (stale) cannot be tried again, so its error goes with the next action on any task.
+  const [errors, setErrors] = React.useState<Readonly<Record<string, { message: string; stale: boolean }>>>({});
   const [busyIds, setBusyIds] = React.useState<ReadonlySet<string>>(new Set());
   const [confirm, setConfirm] = React.useState<Confirm | null>(null);
   const [notice, setNotice] = React.useState<string | null>(null);
@@ -56,15 +58,25 @@ export function useTaskActions(
   };
 
   const run = <T,>(task: Task, fn: (t: string) => Promise<T>): Promise<T | undefined> =>
-    tracked(task, () =>
-      action.run(
-        () => fn(token as string),
-        (e) => {
-          if (isCode(e, 'TASK_NOT_OPEN') || isCode(e, 'NOT_RECURRING')) onStale?.();
-          return crmMessage(e, 'Could not update the task. Try again.');
-        },
-      ),
-    );
+    tracked(task, async () => {
+      setErrors((cur) => {
+        const rest = { ...cur };
+        delete rest[task.id];
+        Object.keys(rest).forEach((id) => {
+          if (rest[id].stale) delete rest[id];
+        });
+        return rest;
+      });
+      try {
+        return await fn(token as string);
+      } catch (e) {
+        const stale = isCode(e, 'TASK_NOT_OPEN') || isCode(e, 'NOT_RECURRING');
+        if (stale) onStale?.();
+        const message = crmMessage(e, 'Could not update the task. Try again.');
+        setErrors((cur) => ({ ...cur, [task.id]: { message, stale } }));
+        return undefined;
+      }
+    });
 
   const complete = async (task: Task) => {
     const saved = await run(task, (t) => completeTask(t, ws, task.id));
@@ -137,7 +149,12 @@ export function useTaskActions(
         const ok = await tracked(task, () =>
           deletion.run(
             async () => {
-              await deleteTask(token as string, ws, task.id);
+              try {
+                await deleteTask(token as string, ws, task.id);
+              } catch (e) {
+                // already gone: what the user asked for, and the row is out of date
+                if (!isCode(e, 'NOT_FOUND')) throw e;
+              }
               return true;
             },
             (e) => crmMessage(e, 'Could not delete the task. Try again.'),
@@ -155,7 +172,7 @@ export function useTaskActions(
       title={confirm.title}
       confirmLabel={confirm.label}
       variant={confirm.variant}
-      busy={action.busy || deletion.busy}
+      busy={deletion.busy}
       error={confirm.staysOpen ? deletion.error : null}
       onConfirm={() => {
         const current = confirm;
@@ -170,9 +187,8 @@ export function useTaskActions(
 
   return {
     isBusy: (id: string) => busyIds.has(id),
-    busy: action.busy,
-    error: action.error,
-    reset: action.reset,
+    error: Array.from(new Set(Object.values(errors).map((e) => e.message))).join(' ') || null,
+    reset: () => setErrors({}),
     notice,
     clearNotice: () => setNotice(null),
     toggle,
