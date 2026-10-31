@@ -69,7 +69,9 @@ describe('CRM contacts page', () => {
     mockFetch(routes({ [SEARCH]: page([]) }));
     renderApp('/crm/contacts');
     expect(
-      await screen.findByText('No CRM contacts yet. Capture one from the inbox or add one from Pipelines.'),
+      await screen.findByText(
+        'No CRM contacts yet. Add one from your contacts, capture one from the inbox or add one from Pipelines.',
+      ),
     ).toBeInTheDocument();
   });
 

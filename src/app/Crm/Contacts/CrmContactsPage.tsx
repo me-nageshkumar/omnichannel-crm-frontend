@@ -2,6 +2,7 @@ import * as React from 'react';
 import { Link, useLocation, useNavigate, useParams, useSearchParams } from 'react-router-dom';
 import {
   Alert,
+  AlertActionCloseButton,
   Button,
   EmptyState,
   FormSelect,
@@ -21,10 +22,12 @@ import type { Ref } from '@app/api/crm';
 import { PageShell } from '@app/admin/PageShell';
 import { useLoad } from '@app/admin/useLoad';
 import { useSession } from '@app/session/SessionContext';
+import { useAccess } from '@app/session/useAccess';
 import { ChannelChip } from '@app/Crm/common/ChannelChip';
 import { formatMoney } from '@app/Crm/common/money';
 import { useRefetchOnFocus } from '@app/Crm/common/useRefetchOnFocus';
 import { useCrmCan, useCrmStatus } from '@app/Crm/status/CrmStatusContext';
+import { AddContactModal } from '@app/Crm/Contacts/AddContactModal';
 import { CrmContactDrawer } from '@app/Crm/Contacts/CrmContactDrawer';
 import { CONTACT_COLUMNS, CONTACT_PAGE_SIZE, contactName } from '@app/Crm/Contacts/contactColumns';
 import { useFieldDefinitions } from '@app/Crm/fields/useFieldDefinitions';
@@ -36,12 +39,15 @@ import type { ContactSort } from '@app/Crm/Contacts/contactColumns';
 import { relative } from '@app/PhoneNumbers/PhoneNumberStatusLabel';
 
 export const EMPTY_TEXT = 'No CRM contacts yet. Capture one from the inbox or add one from Pipelines.';
+const EMPTY_TEXT_CAN_ADD =
+  'No CRM contacts yet. Add one from your contacts, capture one from the inbox or add one from Pipelines.';
 
 /** The brand's CRM contacts: search, lifecycle, owner and pipeline filters, and the drawer of the open contact. */
 export const CrmContactsPage: React.FunctionComponent = () => {
   const { workspace, user } = useSession();
   const ws = workspace?.id ?? '';
   const { status } = useCrmStatus();
+  const hostAccess = useAccess();
   const navigate = useNavigate();
   const location = useLocation();
   const { id } = useParams();
@@ -94,6 +100,11 @@ export const CrmContactsPage: React.FunctionComponent = () => {
   const canExport = useCrmCan('crm:export');
   const canImport = useCrmCan('crm:edit');
   const [importing, setImporting] = React.useState(false);
+  // a contact added here has no deal, so it is in no pipeline: only those who see every pipeline could find it again
+  const canAdd = canImport && access === 'ALL' && hostAccess.hasInWorkspace('contact:view');
+  const [adding, setAdding] = React.useState(false);
+  // in the location, not in state: opening the contact mounts this page again
+  const notice = (location.state as { notice?: string } | null)?.notice;
   const exportSearch = {
     q: qParam || undefined,
     ownerId: ownerId || undefined,
@@ -141,7 +152,8 @@ export const CrmContactsPage: React.FunctionComponent = () => {
   let body: React.ReactNode;
   if (list.error) body = <Alert variant="danger" isInline title={list.error} />;
   else if (!list.data) body = <Spinner aria-label="Loading contacts" />;
-  else if (list.data.items.length === 0 && !filtering) body = <EmptyState headingLevel="h2" titleText={EMPTY_TEXT} />;
+  else if (list.data.items.length === 0 && !filtering)
+    body = <EmptyState headingLevel="h2" titleText={canAdd ? EMPTY_TEXT_CAN_ADD : EMPTY_TEXT} />;
   else
     body = (
       <>
@@ -253,10 +265,24 @@ export const CrmContactsPage: React.FunctionComponent = () => {
                 Import CSV
               </Button>
             )}
+            {canAdd && <Button onClick={() => setAdding(true)}>Add contact</Button>}
             <Button variant="plain" aria-label="Refresh" icon={<SyncAltIcon />} onClick={() => list.reload()} />
           </>
         }
       >
+        {notice && (
+          <Alert
+            variant="info"
+            isInline
+            isPlain
+            title={notice}
+            actionClose={
+              <AlertActionCloseButton
+                onClose={() => navigate({ pathname: location.pathname, search: location.search }, { replace: true })}
+              />
+            }
+          />
+        )}
         <Toolbar>
           <ToolbarContent>
             <ToolbarItem>
@@ -298,6 +324,20 @@ export const CrmContactsPage: React.FunctionComponent = () => {
           </ToolbarContent>
         </Toolbar>
         {body}
+        {adding && (
+          <AddContactModal
+            numbers={phones}
+            onClose={() => setAdding(false)}
+            onAdded={({ contact, created }) => {
+              setAdding(false);
+              list.reload();
+              navigate(
+                { pathname: `/crm/contacts/${contact.id}`, search: location.search },
+                { state: created ? undefined : { notice: `${contactName(contact)} is already in the CRM.` } },
+              );
+            }}
+          />
+        )}
         {importing && (
           <ContactImportModal
             onClose={(imported) => {
