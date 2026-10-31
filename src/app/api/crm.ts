@@ -1,4 +1,5 @@
 import { apiFetch, apiFetchBlob, apiFetchFile } from '@app/api/client';
+import type { LabelColor } from '@app/api/contacts';
 import type { FieldOptionDef, FieldType } from '@app/Crm/common/fields/types';
 
 export type { FieldType } from '@app/Crm/common/fields/types';
@@ -300,7 +301,7 @@ export interface DealContact {
 
 /** What a contact carries on its channel, read-only. */
 export interface ChannelDetails {
-  labels: { id: string; name: string; color: string | null }[];
+  labels: { id: string; name: string; color: LabelColor }[];
   attributes: { name: string; value: string }[];
 }
 

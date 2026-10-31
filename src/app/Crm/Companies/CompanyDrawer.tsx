@@ -2,6 +2,7 @@ import * as React from 'react';
 import { Link } from 'react-router-dom';
 import {
   Alert,
+  AlertActionCloseButton,
   Button,
   DescriptionList,
   DescriptionListDescription,
@@ -23,6 +24,7 @@ import { CrmNotes } from '@app/Crm/notes/CrmNotes';
 import type { Company, CompanySummary, CrmSettings, Ref } from '@app/api/crm';
 import { ApiError } from '@app/api/client';
 import { crmMessage } from '@app/Crm/errors';
+import { useOpenChat } from '@app/Crm/deals/useOpenChat';
 import { useAction } from '@app/admin/useAction';
 import { useLoad } from '@app/admin/useLoad';
 import { useSession } from '@app/session/SessionContext';
@@ -95,6 +97,7 @@ export const CompanyDrawer: React.FunctionComponent<{
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [companyId]);
 
+  const chat = useOpenChat();
   const summary = loaded.data ?? undefined;
   const company = summary?.company;
   const currency = settings?.defaultCurrency;
@@ -171,14 +174,33 @@ export const CompanyDrawer: React.FunctionComponent<{
       summary.contacts.length === 0 ? (
         <p>No contacts yet.</p>
       ) : (
-        <List isPlain aria-label="Contacts of this company">
-          {summary.contacts.map((c) => (
-            <ListItem key={c.id}>
-              <Link to={`/crm/contacts/${c.id}`}>{contactName(c)}</Link>
-              {c.jobTitle ? ` · ${c.jobTitle}` : ''}
-            </ListItem>
-          ))}
-        </List>
+        <>
+          {chat.alert && (
+            <Alert
+              variant="warning"
+              isInline
+              title={chat.alert}
+              actionClose={<AlertActionCloseButton onClose={chat.clearAlert} />}
+            />
+          )}
+          <List isPlain aria-label="Contacts of this company">
+            {summary.contacts.map((c) => (
+              <ListItem key={c.id}>
+                <Link to={`/crm/contacts/${c.id}`}>{contactName(c)}</Link>
+                {c.jobTitle ? ` · ${c.jobTitle}` : ''}{' '}
+                <Button
+                  variant="link"
+                  isInline
+                  aria-label={`Open chat with ${contactName(c)}`}
+                  isDisabled={chat.busy}
+                  onClick={() => void chat.openChat(c.id, c.channel?.phoneNumberId)}
+                >
+                  Open chat
+                </Button>
+              </ListItem>
+            ))}
+          </List>
+        </>
       );
     const deals =
       summary.openDeals.length === 0 ? (

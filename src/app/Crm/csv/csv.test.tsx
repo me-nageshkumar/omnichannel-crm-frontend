@@ -138,4 +138,56 @@ describe('CRM CSV', () => {
     expect(within(dialog).getByText('1 created')).toBeInTheDocument();
     expect(within(dialog).getByText('1 updated')).toBeInTheDocument();
   });
+
+  // --- import templates (spec F C15) ------------------------------------------------------------------------------
+
+  function savingFiles() {
+    vi.stubGlobal('URL', Object.assign(URL, { createObjectURL: vi.fn(() => 'blob:x'), revokeObjectURL: vi.fn() }));
+    const saved: string[] = [];
+    vi.spyOn(HTMLAnchorElement.prototype, 'click').mockImplementation(function (this: HTMLAnchorElement) {
+      saved.push(this.download);
+    });
+    return saved;
+  }
+
+  it('downloadsContactTemplate', async () => {
+    const saved = savingFiles();
+    const f = mockFetch(
+      routes({ [`GET ${BASE}/contacts/import/template`]: { status: 200, text: 'WhatsApp number\r\n' } }),
+    );
+    const { user } = renderApp('/crm/contacts');
+    await user.click(await screen.findByRole('button', { name: 'Import CSV' }));
+    const dialog = await screen.findByRole('dialog', { name: 'Import contacts' });
+    await user.click(within(dialog).getByRole('button', { name: 'Download template' }));
+    await waitFor(() => expect(saved).toEqual(['crm-contacts-template.csv']));
+    expect(requestTo(f, `GET ${BASE}/contacts/import/template`)).toBeDefined();
+  });
+
+  it('downloadsCompanyTemplate', async () => {
+    const saved = savingFiles();
+    mockFetch(
+      routes({
+        [`POST ${BASE}/companies/search`]: { status: 200, body: { items: [], total: 0, page: 0 } },
+        [`GET ${BASE}/companies/import/template`]: { status: 200, text: 'Name\r\n' },
+      }),
+    );
+    const { user } = renderApp('/crm/companies');
+    await user.click(await screen.findByRole('button', { name: 'Import CSV' }));
+    const dialog = await screen.findByRole('dialog', { name: 'Import companies' });
+    await user.click(within(dialog).getByRole('button', { name: 'Download template' }));
+    await waitFor(() => expect(saved).toEqual(['crm-companies-template.csv']));
+  });
+
+  it('templateFailureShows', async () => {
+    mockFetch(
+      routes({
+        [`GET ${BASE}/contacts/import/template`]: { status: 500, body: { code: 'INTERNAL', message: 'Boom' } },
+      }),
+    );
+    const { user } = renderApp('/crm/contacts');
+    await user.click(await screen.findByRole('button', { name: 'Import CSV' }));
+    const dialog = await screen.findByRole('dialog', { name: 'Import contacts' });
+    await user.click(within(dialog).getByRole('button', { name: 'Download template' }));
+    expect(await within(dialog).findByText('Could not download the template. Try again.')).toBeInTheDocument();
+  });
 });

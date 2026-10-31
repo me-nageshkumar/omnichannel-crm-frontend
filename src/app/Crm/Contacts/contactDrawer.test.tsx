@@ -317,4 +317,45 @@ describe('CRM contact drawer', () => {
     await waitFor(() => expect(callsTo(f, CONTACT)).toBe(2));
     expect(requestTo(f, `POST ${BASE}/contacts/c1/move-channel`)?.body.version).toBe(3);
   });
+
+  // --- labels and attributes (spec F C11) -------------------------------------------------------------------------
+
+  const DETAILS = `GET ${BASE}/contacts/c1/channel-details`;
+
+  it('labelsAndAttributesShow', async () => {
+    mockFetch(
+      routes({
+        [DETAILS]: {
+          status: 200,
+          body: {
+            labels: [{ id: 'l1', name: 'VIP', color: '#ff0000' }],
+            attributes: [{ name: 'City', value: 'Pune' }],
+          },
+        },
+      }),
+    );
+    renderApp('/crm/contacts/c1');
+    expect(await screen.findByText('VIP')).toBeInTheDocument();
+    expect(screen.getByText('Labels')).toBeInTheDocument();
+    expect(screen.getByText('Attributes')).toBeInTheDocument();
+    expect(screen.getByText('City: Pune')).toBeInTheDocument();
+  });
+
+  it('emptyDetailsShowNoRows', async () => {
+    const f = mockFetch(routes({ [DETAILS]: { status: 200, body: { labels: [], attributes: [] } } }));
+    renderApp('/crm/contacts/c1');
+    await screen.findByText('First name');
+    await waitFor(() => expect(callsTo(f, DETAILS)).toBe(1));
+    expect(screen.queryByText('Labels')).toBeNull();
+    expect(screen.queryByText('Attributes')).toBeNull();
+  });
+
+  it('failedDetailsHideTheRows', async () => {
+    const f = mockFetch(routes({ [DETAILS]: { status: 500, body: { code: 'INTERNAL', message: 'Boom' } } }));
+    renderApp('/crm/contacts/c1');
+    await screen.findByText('First name');
+    await waitFor(() => expect(callsTo(f, DETAILS)).toBe(1));
+    expect(screen.queryByText('Labels')).toBeNull();
+    expect(screen.queryByText('Boom')).toBeNull();
+  });
 });

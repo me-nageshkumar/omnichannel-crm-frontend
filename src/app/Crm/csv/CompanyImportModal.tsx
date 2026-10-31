@@ -11,6 +11,7 @@ export const CompanyImportModal: React.FunctionComponent<{ onClose(imported: boo
     <ImportModal
       title="Import companies"
       required="Name"
+      template="companies"
       maxRows={2000}
       ready
       run={(file) => importCompanies(token as string, ws, file)}

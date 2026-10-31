@@ -11,9 +11,13 @@ import {
   TextInput,
 } from '@patternfly/react-core';
 import { Table, Tbody, Td, Th, Thead, Tr } from '@patternfly/react-table';
+import { DownloadIcon } from '@patternfly/react-icons';
+import { importTemplate } from '@app/api/crm';
 import type { CrmImportResult } from '@app/api/crm';
+import { saveFile } from '@app/api/contacts';
 import { ApiError } from '@app/api/client';
 import { useAction } from '@app/admin/useAction';
+import { useSession } from '@app/session/SessionContext';
 import { crmMessage } from '@app/Crm/errors';
 import { csvRowCount, previewCsv, readText } from '@app/Crm/csv/csvPreview';
 
@@ -33,17 +37,28 @@ function importMessage(e: unknown): string {
 export const ImportModal: React.FunctionComponent<{
   title: string;
   required: string;
+  /** Which import's header-only template to offer. */
+  template: 'contacts' | 'companies';
   maxRows: number;
   ready: boolean;
   run(file: File): Promise<CrmImportResult>;
   onClose(imported: boolean): void;
   children?: React.ReactNode;
-}> = ({ title, required, maxRows, ready, run, onClose, children }) => {
+}> = ({ title, required, template, maxRows, ready, run, onClose, children }) => {
   const [file, setFile] = React.useState<File | null>(null);
   const [preview, setPreview] = React.useState<{ headers: string[]; rows: string[][]; count: number } | null>(null);
   const [result, setResult] = React.useState<CrmImportResult | null>(null);
   const action = useAction();
   const input = React.useRef<HTMLInputElement>(null);
+  const { token, workspace } = useSession();
+
+  const downloadTemplate = async () => {
+    const file = await action.run(
+      () => importTemplate(token as string, workspace?.id ?? '', template),
+      () => 'Could not download the template. Try again.',
+    );
+    if (file) saveFile(file.blob, file.fileName);
+  };
 
   const pick = async (f: File | undefined) => {
     setResult(null);
@@ -112,6 +127,9 @@ export const ImportModal: React.FunctionComponent<{
                 />
                 <Button variant="secondary" onClick={() => input.current?.click()}>
                   Choose file
+                </Button>
+                <Button variant="link" isInline icon={<DownloadIcon />} onClick={() => void downloadTemplate()}>
+                  Download template
                 </Button>
                 <TextInput
                   aria-label="Chosen file"
