@@ -1,6 +1,6 @@
 import * as React from 'react';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
-import { act, render, screen, waitFor, within } from '@testing-library/react';
+import { act, fireEvent, render, screen, waitFor, within } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { KanbanBoard } from './KanbanBoard';
 import type { KanbanLaneData } from './kanban';
@@ -35,6 +35,21 @@ const names = (lane: string) =>
 
 describe('KanbanBoard', () => {
   beforeEach(() => {
+    // jsdom has no PointerEvent; dnd-kit's pointer sensor needs isPrimary/button on the event it receives.
+    if (typeof window.PointerEvent === 'undefined') {
+      class PointerEventShim extends MouseEvent {
+        readonly pointerId: number;
+        readonly pointerType: string;
+        readonly isPrimary: boolean;
+        constructor(type: string, init: PointerEventInit = {}) {
+          super(type, init);
+          this.pointerId = init.pointerId ?? 1;
+          this.pointerType = init.pointerType ?? 'mouse';
+          this.isPrimary = init.isPrimary ?? true;
+        }
+      }
+      vi.stubGlobal('PointerEvent', PointerEventShim);
+    }
     // jsdom has no layout: lanes sit side by side, cards stack within their lane.
     vi.spyOn(Element.prototype, 'getBoundingClientRect').mockImplementation(function (this: Element) {
       const el = this as HTMLElement;
@@ -55,7 +70,17 @@ describe('KanbanBoard', () => {
         width = 280;
         height = 90;
       }
-      return { top, bottom: top + height, left, right: left + width, width, height, x: left, y: top, toJSON: () => ({}) };
+      return {
+        top,
+        bottom: top + height,
+        left,
+        right: left + width,
+        width,
+        height,
+        x: left,
+        y: top,
+        toJSON: () => ({}),
+      };
     });
   });
   afterEach(() => {
@@ -69,6 +94,49 @@ describe('KanbanBoard', () => {
     for (const k of keys) await user.keyboard(k);
     await user.keyboard(' ');
   }
+
+  /** A mouse drag that starts on {@code el} and ends at ({@code x}, {@code y}) of the board. */
+  async function pointerDrag(el: Element, from: [number, number], to: [number, number]) {
+    const opts = (x: number, y: number) => ({
+      clientX: x,
+      clientY: y,
+      pointerId: 1,
+      pointerType: 'mouse',
+      button: 0,
+      isPrimary: true,
+    });
+    fireEvent.pointerDown(el, opts(...from));
+    for (let i = 1; i <= 4; i++) {
+      fireEvent.pointerMove(
+        document,
+        opts(from[0] + ((to[0] - from[0]) * i) / 4, from[1] + ((to[1] - from[1]) * i) / 4),
+      );
+      await act(async () => undefined);
+    }
+    fireEvent.pointerUp(document, opts(...to));
+    // dnd-kit swallows clicks on the document for 50 ms after a drag ends; let that pass before the next step.
+    await act(() => new Promise((r) => setTimeout(r, 60)));
+  }
+
+  it('dragFromTheCardBodyMovesIt', async () => {
+    const onMove = vi.fn().mockResolvedValue(undefined);
+    render(board({ onMove }));
+    // Card 1 sits in lane 0 (x 0–280, y 40–130); the Won lane is at x 300–580.
+    await pointerDrag(screen.getByText('Card 1'), [100, 80], [440, 80]);
+    await waitFor(() => expect(onMove).toHaveBeenCalledTimes(1));
+    expect(onMove.mock.calls[0][0]).toBe('1');
+    expect(onMove.mock.calls[0][1]).toBe('won');
+  });
+
+  it('clickOnTheCardContentIsNotADrag', async () => {
+    const onMove = vi.fn().mockResolvedValue(undefined);
+    const onOpen = vi.fn();
+    const user = userEvent.setup();
+    render(board({ onMove, renderCard: (c) => <button onClick={onOpen}>{c.name}</button> }));
+    await user.click(screen.getByRole('button', { name: 'Card 1' }));
+    expect(onOpen).toHaveBeenCalledTimes(1);
+    expect(onMove).not.toHaveBeenCalled();
+  });
 
   it('rendersLanesWithTotals', () => {
     render(board());
@@ -202,7 +270,9 @@ describe('KanbanBoard', () => {
     const user = userEvent.setup();
     render(board());
     await keyboardMove(user, 'Move Card 1', ['{ArrowRight}']);
-    const live = Array.from(document.querySelectorAll('[id^="DndLiveRegion"]')).map((e) => e.textContent).join(' ');
+    const live = Array.from(document.querySelectorAll('[id^="DndLiveRegion"]'))
+      .map((e) => e.textContent)
+      .join(' ');
     expect(live).toContain('Card 1');
     expect(live).toMatch(/lane (Won|New)/);
     expect(live).not.toMatch(/Draggable item|droppable|item [123]\b/);
