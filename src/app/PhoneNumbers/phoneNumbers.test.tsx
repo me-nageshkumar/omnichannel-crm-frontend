@@ -253,4 +253,45 @@ describe('brand phone numbers page', () => {
     expect(requestTo(fetch, `PUT ${BASE}/p2/team`)?.body).toEqual({ teamId: null });
     expect(within(await rowWith('+910000000002')).getByText('No team')).toBeVisible();
   });
+
+  describe('import chat history', () => {
+    const IMPORTS = 'POST /api/workspaces/w1/inbox/phone-numbers/p1/history-imports';
+
+    it('importHistoryActionStartsImport', async () => {
+      const fetch = mockFetch(routes([MAIN], { [IMPORTS]: { status: 201, body: { id: 'imp1', status: 'QUEUED' } } }));
+      const { user } = renderApp('/phone-numbers');
+      await rowAction(user, '+919928088743', 'Import chat history…');
+      await user.click(await screen.findByRole('button', { name: 'Start import' }));
+      await waitFor(() => expect(callsTo(fetch, IMPORTS)).toBe(1));
+      expect(requestTo(fetch, IMPORTS)?.body).toMatchObject({ scope: { kind: 'ALL' } });
+      expect(screen.queryByRole('alert')).toBeNull();
+    });
+
+    it('identicalImportReturns200AndStillNavigates', async () => {
+      const fetch = mockFetch(routes([MAIN], { [IMPORTS]: { status: 200, body: { id: 'imp1', status: 'RUNNING' } } }));
+      const { user } = renderApp('/phone-numbers');
+      await rowAction(user, '+919928088743', 'Import chat history…');
+      await user.click(await screen.findByRole('button', { name: 'Start import' }));
+      await waitFor(() => expect(callsTo(fetch, IMPORTS)).toBe(1));
+      await waitFor(() => expect(screen.queryByRole('dialog')).toBeNull());
+      expect(screen.queryByRole('alert')).toBeNull();
+    });
+
+    it('actionHiddenWithoutAuthority', async () => {
+      mockFetch({ ...meAs(BRAND_VIEWER), [`GET ${BASE}`]: { status: 200, body: [MAIN] } });
+      renderApp('/phone-numbers');
+      const row = await rowWith('+919928088743');
+      expect(within(row).queryByRole('button', { name: 'Kebab toggle' })).toBeNull();
+      expect(screen.queryByRole('menuitem', { name: 'Import chat history…' })).toBeNull();
+    });
+
+    it('actionHiddenForCloudApiNumbers', async () => {
+      mockFetch(routes([phoneNumber({ id: 'p9', number: '910000000009', connectionType: 'WHATSAPP_CLOUD_API' })]));
+      const { user } = renderApp('/phone-numbers');
+      const row = await rowWith('+910000000009');
+      await user.click(within(row).getByRole('button', { name: 'Kebab toggle' }));
+      expect(await screen.findByRole('menuitem', { name: 'Edit label' })).toBeVisible();
+      expect(screen.queryByRole('menuitem', { name: 'Import chat history…' })).toBeNull();
+    });
+  });
 });

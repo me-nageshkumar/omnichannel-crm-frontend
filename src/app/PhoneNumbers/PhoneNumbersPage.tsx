@@ -1,4 +1,5 @@
 import * as React from 'react';
+import { useNavigate } from 'react-router-dom';
 import { Alert, Button, Icon, Spinner, Tooltip } from '@patternfly/react-core';
 import { ExclamationTriangleIcon } from '@patternfly/react-icons';
 import { ActionsColumn, IAction, Table, Tbody, Td, Th, Thead, Tr } from '@patternfly/react-table';
@@ -20,6 +21,7 @@ import { useAction } from '@app/admin/useAction';
 import { upsert, useLoad } from '@app/admin/useLoad';
 import { useSession } from '@app/session/SessionContext';
 import { useAccess } from '@app/session/useAccess';
+import { ImportHistoryModal } from '@app/HistoryImports/ImportHistoryModal';
 import { ConnectCodeModal } from '@app/PhoneNumbers/ConnectCodeModal';
 import { PhoneNumberModal } from '@app/PhoneNumbers/PhoneNumberModal';
 import { PhoneNumberStatusLabel, relative } from '@app/PhoneNumbers/PhoneNumberStatusLabel';
@@ -33,6 +35,7 @@ type Dialog =
   | { kind: 'edit'; number: PhoneNumber }
   | { kind: 'team'; number: PhoneNumber }
   | { kind: 'code'; number: PhoneNumber }
+  | { kind: 'history'; number: PhoneNumber }
   | { kind: 'revoke'; number: PhoneNumber }
   | { kind: 'toggle'; number: PhoneNumber }
   | { kind: 'delete'; number: PhoneNumber };
@@ -41,7 +44,10 @@ type Dialog =
 export const PhoneNumbersPage: React.FunctionComponent = () => {
   const { token, workspace } = useSession();
   const workspaceId = workspace?.id ?? '';
-  const canManage = useAccess().hasInWorkspace('phone-number:manage');
+  const access = useAccess();
+  const canManage = access.hasInWorkspace('phone-number:manage');
+  const canImport = access.hasInWorkspace('inbox:import-history');
+  const navigate = useNavigate();
   const numbers = useLoad((t) => listBrandNumbers(t, workspaceId), [workspaceId]);
   const [dialog, setDialog] = React.useState<Dialog | null>(null);
   const confirm = useAction();
@@ -72,6 +78,9 @@ export const PhoneNumbersPage: React.FunctionComponent = () => {
       { title: 'Edit label', onClick: open({ kind: 'edit', number: n }) },
       { title: 'Set team', onClick: open({ kind: 'team', number: n }) },
       { title: 'Get connect code', onClick: open({ kind: 'code', number: n }) },
+      ...(canImport && n.connectionType !== 'WHATSAPP_CLOUD_API'
+        ? [{ title: 'Import chat history…', onClick: open({ kind: 'history', number: n }) }]
+        : []),
       ...(n.hasDevice ? [{ title: 'Revoke device', onClick: open({ kind: 'revoke', number: n }) }] : []),
       { title: n.disabled ? 'Enable' : 'Disable', onClick: open({ kind: 'toggle', number: n }) },
       { title: 'Delete', onClick: open({ kind: 'delete', number: n }) },
@@ -176,6 +185,13 @@ export const PhoneNumbersPage: React.FunctionComponent = () => {
             close();
             reload();
           }}
+        />
+      )}
+      {dialog?.kind === 'history' && (
+        <ImportHistoryModal
+          target={{ kind: 'number', number: dialog.number }}
+          onStarted={() => navigate('/inbox/history-imports')}
+          onCancel={close}
         />
       )}
       {dialog?.kind === 'revoke' && (
