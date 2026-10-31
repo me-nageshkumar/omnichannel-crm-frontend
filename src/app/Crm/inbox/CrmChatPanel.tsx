@@ -18,6 +18,7 @@ import type { CrmSettings, Deal, InboxSummary, Pipeline } from '@app/api/crm';
 import { crmMessage } from '@app/Crm/errors';
 import { LogActivityForm } from '@app/Crm/activity/LogActivityForm';
 import { formatMoney } from '@app/Crm/common/money';
+import { useRefetchOnFocus } from '@app/Crm/common/useRefetchOnFocus';
 import { DealFormModal } from '@app/Crm/deals/DealFormModal';
 import { moveMessage } from '@app/Crm/deals/moveMessage';
 import { CapturePopover } from '@app/Crm/inbox/CapturePopover';
@@ -46,6 +47,7 @@ export const CrmChatPanel: React.FunctionComponent<{ chatId: string }> = ({ chat
   const [answer, setAnswer] = React.useState<Answer | null>(null);
   const [tick, setTick] = React.useState(0);
   const [refs, setRefs] = React.useState<{ settings: CrmSettings | null; pipelines: Pipeline[] } | null>(null);
+  const [refsTick, setRefsTick] = React.useState(0);
   const [logging, setLogging] = React.useState(false);
   const [logged, setLogged] = React.useState(false);
   const [saveError, setSaveError] = React.useState<string | null>(null);
@@ -82,19 +84,27 @@ export const CrmChatPanel: React.FunctionComponent<{ chatId: string }> = ({ chat
   const current = answer && answer.chatId === chatId ? answer : null;
   const summary = current && 'summary' in current ? current.summary : null;
   const contact = summary?.contact ?? null;
+  const captured = !!contact;
 
-  // Lifecycle labels and stage names are only needed for a captured contact.
+  // Lifecycle labels and stage names are only needed for a captured contact. They change in Settings, in another
+  // tab as often as not, so they are read for each chat and again on coming back; a failed read keeps the last ones.
   React.useEffect(() => {
-    if (!token || !contact || refs) return undefined;
+    if (!token || !captured) return undefined;
     let live = true;
-    Promise.all([
-      getSettings(token, ws).catch(() => null),
-      listPipelines(token, ws).catch(() => [] as Pipeline[]),
-    ]).then(([settings, pipelines]) => live && setRefs({ settings, pipelines }));
+    Promise.all([getSettings(token, ws).catch(() => null), listPipelines(token, ws).catch(() => null)]).then(
+      ([settings, pipelines]) => {
+        if (!live) return;
+        setRefs((old) => ({
+          settings: settings ?? old?.settings ?? null,
+          pipelines: pipelines ?? old?.pipelines ?? [],
+        }));
+      },
+    );
     return () => {
       live = false;
     };
-  }, [token, ws, contact, refs]);
+  }, [token, ws, captured, chatId, refsTick]);
+  useRefetchOnFocus(() => setRefsTick((t) => t + 1));
 
   const onLifecycle = async (key: string) => {
     if (!token || !contact) return;

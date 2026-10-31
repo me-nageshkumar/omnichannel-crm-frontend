@@ -1,17 +1,52 @@
 import * as React from 'react';
 import { Checkbox, Flex, FormSelect, FormSelectOption, Label, LabelGroup, TextInput } from '@patternfly/react-core';
 import type { ContactLabel } from '@app/api/contacts';
-import type { Ref, SegmentField, SegmentFieldOption, SegmentRule } from '@app/api/crm';
+import { getCompany } from '@app/api/crm';
+import type { Ref, SegmentFieldOption, SegmentRule } from '@app/api/crm';
 import { LabelPicker } from '@app/Contacts/FilterPanel';
 import { CompanyTypeahead } from '@app/Crm/Companies/CompanyTypeahead';
 import type { FieldUser } from '@app/Crm/common/fields/types';
 import { MAX_DAYS, MAX_VALUES, MAX_VALUE_LENGTH, type ValueKind } from '@app/Crm/segments/segmentModel';
+import { useSession } from '@app/session/SessionContext';
+
+const UNKNOWN_COMPANY = 'Unknown company';
+
+/**
+ * The names of the company ids a rule stores: each is read once, and one that cannot be read (usually deleted) gets a
+ * label rather than its id. {@code remember} keeps a name already in hand, so a picked company needs no read.
+ */
+function useCompanyNames(ids: string[]) {
+  const { token, workspace } = useSession();
+  const ws = workspace?.id ?? '';
+  const [names, setNames] = React.useState<Record<string, string>>({});
+  const asked = React.useRef(new Set<string>());
+  const wanted = ids.filter((id) => id !== '').join('\n');
+
+  React.useEffect(() => {
+    if (!token || !wanted) return;
+    for (const id of wanted.split('\n')) {
+      if (asked.current.has(id)) continue;
+      asked.current.add(id);
+      getCompany(token, ws, id).then(
+        (company) => setNames((cur) => ({ ...cur, [id]: company.name })),
+        () => setNames((cur) => ({ ...cur, [id]: UNKNOWN_COMPANY })),
+      );
+    }
+  }, [token, ws, wanted]);
+
+  return {
+    nameOf: (id: string) => names[id] ?? 'Loading…',
+    remember: (ref: Ref) => {
+      asked.current.add(ref.id);
+      setNames((cur) => ({ ...cur, [ref.id]: ref.name ?? UNKNOWN_COMPANY }));
+    },
+  };
+}
 
 /** The value control of one rule, by the kind its field and operator take. */
 export const SegmentValueEditor: React.FunctionComponent<{
   id: string;
   kind: ValueKind;
-  field: SegmentField;
   /** The field's options for this rule (a stage's come from its group's pipeline). */
   options: SegmentFieldOption[];
   value: SegmentRule['value'];
@@ -19,9 +54,10 @@ export const SegmentValueEditor: React.FunctionComponent<{
   users: FieldUser[];
   isDisabled?: boolean;
   onChange(value: SegmentRule['value']): void;
-}> = ({ id, kind, field, options, value, labels, users, isDisabled = false, onChange }) => {
+}> = ({ id, kind, options, value, labels, users, isDisabled = false, onChange }) => {
   const text = typeof value === 'string' ? value : '';
   const list = Array.isArray(value) ? value : [];
+  const companies = useCompanyNames(kind === 'company' ? [text] : kind === 'companies' ? list : []);
   switch (kind) {
     case 'none':
       return null;
@@ -50,7 +86,7 @@ export const SegmentValueEditor: React.FunctionComponent<{
         <Flex alignItems={{ default: 'alignItemsCenter' }} spaceItems={{ default: 'spaceItemsSm' }}>
           <TextInput
             type="number"
-            min={0}
+            min={1}
             max={MAX_DAYS}
             aria-label="Value"
             value={text}
@@ -159,8 +195,11 @@ export const SegmentValueEditor: React.FunctionComponent<{
       return (
         <CompanyTypeahead
           id={`${id}-company`}
-          value={text ? { id: text, name: text } : null}
-          onChange={(ref: Ref | null) => onChange(ref?.id ?? '')}
+          value={text ? { id: text, name: companies.nameOf(text) } : null}
+          onChange={(ref: Ref | null) => {
+            if (ref) companies.remember(ref);
+            onChange(ref?.id ?? '');
+          }}
           canCreate={false}
         />
       );
@@ -171,15 +210,21 @@ export const SegmentValueEditor: React.FunctionComponent<{
             id={`${id}-company`}
             value={null}
             onChange={(ref: Ref | null) => {
-              if (ref && !list.includes(ref.id) && list.length < MAX_VALUES) onChange([...list, ref.id]);
+              if (!ref || list.includes(ref.id) || list.length >= MAX_VALUES) return;
+              companies.remember(ref);
+              onChange([...list, ref.id]);
             }}
             canCreate={false}
           />
           {list.length > 0 && (
             <LabelGroup aria-label="Chosen companies">
               {list.map((cid) => (
-                <Label key={cid} onClose={() => onChange(list.filter((x) => x !== cid))}>
-                  {cid}
+                <Label
+                  key={cid}
+                  closeBtnAriaLabel={`Remove ${companies.nameOf(cid)}`}
+                  onClose={() => onChange(list.filter((x) => x !== cid))}
+                >
+                  {companies.nameOf(cid)}
                 </Label>
               ))}
             </LabelGroup>
@@ -199,6 +244,4 @@ export const SegmentValueEditor: React.FunctionComponent<{
     case 'labels':
       return <LabelPicker title="Choose labels" labels={labels} selected={list} onChange={onChange} max={MAX_VALUES} />;
   }
-  // every kind is handled above; the field is only read to keep the prop meaningful to callers
-  return field ? null : null;
 };

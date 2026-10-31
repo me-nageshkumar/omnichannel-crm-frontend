@@ -66,7 +66,10 @@ describe('CRM contacts page', () => {
   });
 
   it('emptyStateCopy', async () => {
-    mockFetch(routes({ [SEARCH]: page([]) }));
+    const phones = [{ phoneNumberId: 'pn1', number: '919800000001', label: 'Sales', canChat: true }];
+    mockFetch(
+      boardRoutes({ [SEARCH]: page([]), [`GET ${BASE}/settings`]: { status: 200, body: settings } }, { phones }),
+    );
     renderApp('/crm/contacts');
     expect(
       await screen.findByText(

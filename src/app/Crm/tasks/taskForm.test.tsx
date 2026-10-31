@@ -1,6 +1,6 @@
 import * as React from 'react';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
-import { render, screen, waitFor, within } from '@testing-library/react';
+import { fireEvent, render, screen, waitFor, within } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { MemoryRouter } from 'react-router-dom';
 import { mockFetch, requestTo } from '../../../test/fetchMock';
@@ -57,9 +57,9 @@ describe('CRM task form: steps and repeat (phase E)', () => {
     await user.type(add, 'Book demo{Enter}');
     expect(within(d).getByLabelText('Step 1')).toHaveValue('Send price list');
     expect(within(d).getByLabelText('Step 3')).toHaveValue('Book demo');
-    await user.click(within(d).getAllByRole('button', { name: 'Move up' })[2]);
+    await user.click(within(d).getByRole('button', { name: 'Move step 3 up' }));
     expect(within(d).getByLabelText('Step 2')).toHaveValue('Book demo');
-    await user.click(within(d).getAllByRole('button', { name: 'Remove step' })[0]);
+    await user.click(within(d).getByRole('button', { name: 'Remove step 1' }));
     expect(within(d).getByLabelText('Step 1')).toHaveValue('Book demo');
     expect(within(d).queryByLabelText('Step 3')).toBeNull();
     await user.click(within(d).getByRole('button', { name: 'Save task' }));
@@ -209,7 +209,91 @@ describe('CRM task form: steps and repeat (phase E)', () => {
     const add = within(d).getByLabelText('Add a step');
     expect(add).toBeDisabled();
     expect(add).toHaveAttribute('placeholder', 'At most 30 steps');
-    await user.click(within(d).getAllByRole('button', { name: 'Remove step' })[29]);
+    await user.click(within(d).getByRole('button', { name: 'Remove step 30' }));
     expect(within(d).getByLabelText('Add a step')).toBeEnabled();
+  });
+
+  it('aStepErrorLandsOnTheStepItNamesPastBlankOnes', async () => {
+    const { user } = open(undefined, {
+      [POST]: {
+        status: 400,
+        body: {
+          code: 'VALIDATION',
+          message: 'Invalid',
+          fields: { 'checklist[0].text': 'must be 1 to 200 characters' },
+        },
+      },
+    });
+    const d = await dialog('New task');
+    await user.type(within(d).getByLabelText(/^Title/), 'Onboard');
+    const add = within(d).getByLabelText('Add a step');
+    await user.type(add, 'Blank later{Enter}');
+    await user.type(add, 'Too long{Enter}');
+    await user.clear(within(d).getByLabelText('Step 1'));
+    await user.click(within(d).getByRole('button', { name: 'Save task' }));
+    await within(d).findByText('must be 1 to 200 characters');
+    expect(within(d).getByLabelText('Step 2')).toHaveAttribute('aria-invalid', 'true');
+    expect(within(d).getByLabelText('Step 1')).not.toHaveAttribute('aria-invalid', 'true');
+  });
+
+  it('textLeftInAddAStepIsSaved', async () => {
+    const { f, user } = open();
+    const d = await dialog('New task');
+    await user.type(within(d).getByLabelText(/^Title/), 'Onboard');
+    await user.type(within(d).getByLabelText('Add a step'), '  Send price list ');
+    await user.click(within(d).getByRole('button', { name: 'Save task' }));
+    await waitFor(() => expect(requestTo(f, POST)).toBeDefined());
+    expect(requestTo(f, POST)?.body.checklist).toEqual([{ text: 'Send price list' }]);
+  });
+
+  it('enterInAStepDoesNotSubmit', async () => {
+    open(sampleTask({ checklist: sampleChecklist() }));
+    const d = await dialog('Edit task');
+    // the browser submits on Enter unless the key's default is stopped (user-event misses the footer's submit button)
+    expect(fireEvent.keyDown(within(d).getByLabelText('Step 2'), { key: 'Enter' })).toBe(false);
+  });
+
+  it('groupsAreNamedAndStepsToo', async () => {
+    const { user } = open(sampleTask({ checklist: sampleChecklist(), recurrence: sampleRecurrence() }));
+    const d = await dialog('Edit task');
+    const steps = within(d).getByRole('group', { name: 'Steps' });
+    expect(within(steps).getByLabelText('Step 1')).toBeInTheDocument();
+    expect(within(within(d).getByRole('group', { name: 'On' })).getByRole('checkbox', { name: 'Mon' })).toBeChecked();
+    const ends = within(d).getByRole('radiogroup', { name: 'Ends' });
+    await user.click(within(ends).getByRole('radio', { name: 'After' }));
+    expect(within(d).getByLabelText('Number of times')).toBeInTheDocument();
+  });
+
+  it('endsReadsAfterNTimesAndOnADate', async () => {
+    const { user } = open(sampleTask({ recurrence: sampleRecurrence() }));
+    const d = await dialog('Edit task');
+    await user.click(within(d).getByRole('radio', { name: 'After' }));
+    expect(within(d).getByLabelText('Number of times')).toBeInTheDocument();
+    expect(within(d).queryByText('Times')).toBeNull();
+    await user.click(within(d).getByRole('radio', { name: 'On' }));
+    expect(within(d).getByLabelText('Last date')).toBeInTheDocument();
+    expect(within(d).queryByText('Last date')).toBeNull();
+  });
+
+  it('unitsKeepTheirWordsWhole', async () => {
+    const { user } = open(sampleTask({ recurrence: sampleRecurrence({ frequency: 'DAILY', weekdays: null }) }));
+    const d = await dialog('Edit task');
+    expect(within(d).getByText('day(s)')).toHaveStyle({ whiteSpace: 'nowrap', flexShrink: '0' });
+    await user.click(within(d).getByRole('radio', { name: 'After' }));
+    expect(within(d).getByText('times')).toHaveStyle({ whiteSpace: 'nowrap', flexShrink: '0' });
+  });
+
+  it('defaultWeekdayUsesTheStoredZone', async () => {
+    // 10:00 UTC on Monday 2 November is already Tuesday in the rule's zone
+    const task = sampleTask({
+      dueAt: '2026-11-02T10:00:00Z',
+      recurrence: sampleRecurrence({ frequency: 'DAILY', weekdays: null, timeZone: 'Pacific/Kiritimati' }),
+    });
+    const { f, user } = open(task);
+    const d = await dialog('Edit task');
+    await user.selectOptions(within(d).getByLabelText('Repeat'), 'Weekly');
+    await user.click(within(d).getByRole('button', { name: 'Save task' }));
+    await waitFor(() => expect(requestTo(f, PUT)).toBeDefined());
+    expect(requestTo(f, PUT)?.body.recurrence).toMatchObject({ weekdays: ['TUESDAY'], timeZone: 'Pacific/Kiritimati' });
   });
 });

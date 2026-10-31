@@ -108,11 +108,6 @@ export const CrmContactDrawer: React.FunctionComponent<{
   const canEdit = useCrmCan('crm:edit');
   const canSettings = useCrmCan('crm:settings');
   const open = useOpenChat();
-  // the channel side is extra: a failed read hides its rows and never blocks the drawer
-  const channel = useLoad(
-    (t) => (contactId ? channelDetails(t, ws, contactId) : NEVER<ChannelDetails>()),
-    [ws, contactId ?? ''],
-  );
   const action = useAction();
   const [modal, setModal] = React.useState<'edit' | 'move' | null>(null);
 
@@ -120,9 +115,17 @@ export const CrmContactDrawer: React.FunctionComponent<{
     (t) => (contactId ? fetchContact(t, ws, contactId) : NEVER<CrmContact | null>()),
     [ws, contactId ?? ''],
   );
+  // the channel side is extra: it waits for the contact, and a failed read hides its rows without blocking the drawer
+  const found = !!loaded.data;
+  const channel = useLoad<ChannelDetails | undefined>(
+    (t) => (contactId && found ? channelDetails(t, ws, contactId) : Promise.resolve(undefined)),
+    [ws, contactId ?? '', found],
+  );
   // A refetch under an open form would hand it a newer version than the values it was filled from.
   useRefetchOnFocus(() => {
-    if (contactId && !modal) loaded.reload();
+    if (!contactId || modal) return;
+    loaded.reload();
+    channel.reload();
   });
   React.useEffect(() => {
     setModal(null);

@@ -41,7 +41,7 @@ export const SettingsHistory: React.FunctionComponent = () => {
     <div className="pf-v6-u-mt-md">
       {moreError && <Alert variant="danger" isInline title={moreError} />}
       <Timeline
-        items={all.flatMap((a) => itemsFor(a, [], {}))}
+        items={all.flatMap((a) => itemsFor(a, [], {})).map((item) => ({ ...item, by: item.by ?? 'System' }))}
         hasMore={all.length < first.data.total}
         onLoadMore={() => void loadMore()}
         loadingMore={loadingMore}

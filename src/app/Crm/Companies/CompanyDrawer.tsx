@@ -82,6 +82,7 @@ export const CompanyDrawer: React.FunctionComponent<{
   const canDelete = useCrmCan('crm:delete') && canEdit;
   const action = useAction();
   const [modal, setModal] = React.useState<'edit' | 'delete' | null>(null);
+  const chat = useOpenChat();
 
   const loaded = useLoad(
     (t) => (companyId ? fetchSummary(t, ws, companyId) : NEVER<CompanySummary | null>()),
@@ -94,10 +95,10 @@ export const CompanyDrawer: React.FunctionComponent<{
   React.useEffect(() => {
     setModal(null);
     action.reset();
+    chat.clearAlert();
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [companyId]);
 
-  const chat = useOpenChat();
   const summary = loaded.data ?? undefined;
   const company = summary?.company;
   const currency = settings?.defaultCurrency;

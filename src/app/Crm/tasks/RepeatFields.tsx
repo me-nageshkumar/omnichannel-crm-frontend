@@ -9,6 +9,9 @@ const UNITS: Record<RecurrenceFrequency, string> = { DAILY: 'day(s)', WEEKLY: 'w
 
 export type RepeatErrors = Partial<Record<'repeat' | 'interval' | 'weekdays' | 'count' | 'until', string>>;
 
+/** A unit beside a narrow input: it must stay whole however little room the modal leaves. */
+const unit: React.CSSProperties = { whiteSpace: 'nowrap', flexShrink: 0 };
+
 const inline: React.CSSProperties = {
   display: 'flex',
   gap: 'var(--pf-t--global--spacer--md)',
@@ -18,19 +21,21 @@ const inline: React.CSSProperties = {
 
 /**
  * The task form's repeat fields (spec E C17): frequency, interval, weekdays (weekly), ends never / after N / on a
- * date, and the rule's summary. Picking Weekly with no day chosen defaults to the due date's weekday.
+ * date, and the rule's summary. Picking Weekly with no day chosen defaults to the due date's weekday in {@code zone}.
  */
 export const RepeatFields: React.FunctionComponent<{
   value: RepeatForm;
   onChange(value: RepeatForm): void;
   dueAt: string | null;
+  /** The zone the rule runs in. */
+  zone: string;
   summary: string;
   errors: RepeatErrors;
-}> = ({ value, onChange, dueAt, summary, errors }) => {
+}> = ({ value, onChange, dueAt, zone, summary, errors }) => {
   const set = (patch: Partial<RepeatForm>) => onChange({ ...value, ...patch });
   const onFrequency = (frequency: RepeatForm['frequency']) => {
     const weekdays =
-      frequency === 'WEEKLY' && value.weekdays.length === 0 && dueAt ? [weekdayOf(dueAt)] : value.weekdays;
+      frequency === 'WEEKLY' && value.weekdays.length === 0 && dueAt ? [weekdayOf(dueAt, zone)] : value.weekdays;
     set({ frequency, weekdays });
   };
   const repeating = value.frequency !== 'NONE';
@@ -62,13 +67,13 @@ export const RepeatFields: React.FunctionComponent<{
                 onChange={(_e, v) => set({ interval: v })}
                 style={{ maxWidth: '6rem' }}
               />
-              <span>{UNITS[value.frequency as RecurrenceFrequency]}</span>
+              <span style={unit}>{UNITS[value.frequency as RecurrenceFrequency]}</span>
             </div>
           </Field>
         )}
       </div>
       {value.frequency === 'WEEKLY' && (
-        <Field label="On" fieldId="crm-task-weekdays" error={errors.weekdays}>
+        <Field label="On" fieldId="crm-task-weekdays" role="group" error={errors.weekdays}>
           <div
             id="crm-task-weekdays"
             style={{ display: 'flex', gap: 'var(--pf-t--global--spacer--md)', flexWrap: 'wrap' }}
@@ -93,7 +98,7 @@ export const RepeatFields: React.FunctionComponent<{
       )}
       {repeating && (
         <div style={inline}>
-          <Field label="Ends" fieldId="crm-task-ends">
+          <Field label="Ends" fieldId="crm-task-ends" role="radiogroup">
             <div id="crm-task-ends" style={{ display: 'flex', gap: 'var(--pf-t--global--spacer--md)' }}>
               {(['NEVER', 'AFTER', 'ON'] as const).map((k) => (
                 <Radio
@@ -108,7 +113,7 @@ export const RepeatFields: React.FunctionComponent<{
             </div>
           </Field>
           {value.ends === 'AFTER' && (
-            <Field label="Times" fieldId="crm-task-count" error={errors.count}>
+            <Field fieldId="crm-task-count" error={errors.count}>
               <div style={{ display: 'flex', gap: 'var(--pf-t--global--spacer--sm)', alignItems: 'center' }}>
                 <TextInput
                   id="crm-task-count"
@@ -121,12 +126,12 @@ export const RepeatFields: React.FunctionComponent<{
                   onChange={(_e, v) => set({ count: v })}
                   style={{ maxWidth: '6rem' }}
                 />
-                <span>times</span>
+                <span style={unit}>times</span>
               </div>
             </Field>
           )}
           {value.ends === 'ON' && (
-            <Field label="Last date" fieldId="crm-task-until" error={errors.until}>
+            <Field fieldId="crm-task-until" error={errors.until}>
               <DatePicker
                 value={value.until}
                 aria-label="Last date"

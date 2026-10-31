@@ -140,6 +140,65 @@ describe('CRM tasks page', () => {
     expect(queryOf(f, `${BASE}/tasks/delegated`).get('assigneeId')).toBeNull();
   });
 
+  it('delegatedShowsTheCallersOwnCountsOnEveryTab', async () => {
+    const f = mockFetch(
+      routes(
+        {
+          [`GET /api/workspaces/w1/users`]: { status: 200, body: [{ id: 'u2', name: 'Priya Agent', active: true }] },
+        },
+        ['crm:view', 'crm:edit', 'crm:view-all'],
+      ),
+    );
+    const { user } = renderApp('/crm/tasks');
+    await screen.findByText('Call back');
+    await user.selectOptions(await screen.findByLabelText('Assignee'), 'u2');
+    await waitFor(() => expect(queryOf(f, `${BASE}/tasks/mine/counts`).get('assigneeId')).toBe('u2'));
+    await user.click(screen.getByRole('tab', { name: 'Delegated (2)' }));
+    await waitFor(() => expect(queryOf(f, `${BASE}/tasks/mine/counts`).get('assigneeId')).toBeNull());
+    await user.click(await screen.findByRole('tab', { name: 'Today (1)' }));
+    await waitFor(() => expect(queryOf(f, `${BASE}/tasks/mine/counts`).get('assigneeId')).toBe('u2'));
+    expect(screen.getByLabelText('Assignee')).toHaveValue('u2');
+  });
+
+  it('assigneeShowsOnceOnDelegatedRows', async () => {
+    const handed = sampleTask({
+      id: 't5',
+      title: 'For Ravi',
+      assignee: { id: 'u3', name: 'Ravi Agent' },
+      assignedBy: { id: 'u4', name: 'Meera Manager' },
+    });
+    mockFetch(routes({ [DELEGATED]: { status: 200, body: [handed] } }));
+    const { user } = renderApp('/crm/tasks');
+    await user.click(await screen.findByRole('tab', { name: 'Delegated (2)' }));
+    const row = (await screen.findByText('For Ravi')).closest('tr') as HTMLElement;
+    expect(within(row).getAllByText(/Ravi Agent/)).toHaveLength(1);
+  });
+
+  it('switchingTabsClearsNoticesAndErrors', async () => {
+    const repeating = sampleTask({ recurrence: sampleRecurrence() });
+    mockFetch(
+      routes({
+        [MINE]: { status: 200, body: [repeating] },
+        [`POST ${BASE}/tasks/t1/skip`]: {
+          status: 200,
+          body: { skipped: { ...repeating, status: 'CANCELLED' }, next: sampleTask({ id: 't2', title: 'Next one' }) },
+        },
+        [`POST ${BASE}/tasks/t1/complete`]: { status: 500, body: { message: 'down' } },
+      }),
+    );
+    const { user } = renderApp('/crm/tasks');
+    await user.click(await screen.findByRole('checkbox', { name: 'Complete Call back' }));
+    expect(await screen.findByText('Could not update the task. Try again.')).toBeInTheDocument();
+    await user.click(screen.getByRole('tab', { name: 'Upcoming (5)' }));
+    await waitFor(() => expect(screen.queryByText('Could not update the task. Try again.')).toBeNull());
+    await user.click(await screen.findByRole('button', { name: 'Skip Call back' }));
+    const dialog = await screen.findByRole('dialog', { name: 'Skip this one?' });
+    await user.click(within(dialog).getByRole('button', { name: 'Skip' }));
+    await screen.findByText('Skipped. Next one scheduled.');
+    await user.click(screen.getByRole('tab', { name: 'Overdue (2)' }));
+    await waitFor(() => expect(screen.queryByText('Skipped. Next one scheduled.')).toBeNull());
+  });
+
   it('emptyCopyPerTab', async () => {
     mockFetch(routes({ [MINE]: { status: 200, body: [] } }));
     const { user } = renderApp('/crm/tasks');

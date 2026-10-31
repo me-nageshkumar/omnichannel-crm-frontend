@@ -99,7 +99,9 @@ export const DealFormModal: React.FunctionComponent<{
   React.useEffect(() => {
     if (!deal || !linked.data || seeded.current) return;
     seeded.current = true;
-    setOthers(linked.data.filter((c) => !c.primary).map((c) => ({ id: c.id, label: c.name || c.phone || c.id })));
+    setOthers(
+      linked.data.filter((c) => !c.primary).map((c) => ({ id: c.id, label: c.name || c.phone || 'Number hidden' })),
+    );
   }, [deal, linked.data]);
   const [company, setCompany] = React.useState<Ref | null>(deal?.company ?? null);
   const canCreateCompany = useCrmCan('crm:edit');
@@ -258,7 +260,9 @@ export const DealFormModal: React.FunctionComponent<{
                 ? 'Choose the primary contact first.'
                 : deal && linked.error
                   ? "Couldn't load this deal's contacts. They stay as they are."
-                  : undefined
+                  : !othersLoaded
+                    ? "Loading this deal's contacts…"
+                    : undefined
             }
             error={othersError ?? action.fieldErrors.crmContactIds}
           />

@@ -8,6 +8,8 @@ const CRM_MESSAGES: Record<string, string> = {
   LIMIT_REACHED: "Your plan's limit has been reached.",
   PIPELINE_INACTIVE: 'This pipeline is inactive. Activate it or choose another.',
   CHANNEL_MISMATCH: "This contact belongs to a different WhatsApp number than the chat's.",
+  TASK_NOT_OPEN: 'This task is already closed.',
+  NOT_RECURRING: 'This task no longer repeats.',
 };
 
 /** The sentence for a CRM API failure; {@code fallback} words an unmapped one (default: the shared message). */

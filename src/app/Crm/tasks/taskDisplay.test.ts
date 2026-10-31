@@ -107,6 +107,15 @@ describe('task display helpers (phase E)', () => {
     });
   });
 
+  it('readsTheDueDateInTheRulesZone', () => {
+    const lateMonday = '2026-11-02T20:00:00Z';
+    expect(weekdayOf(lateMonday, 'America/New_York')).toBe('MONDAY');
+    expect(weekdayOf(lateMonday, 'Asia/Kolkata')).toBe('TUESDAY');
+    const existing = sampleRecurrence({ frequency: 'WEEKLY', timeZone: 'Asia/Kolkata' });
+    const rule = recurrenceFromForm(form({ frequency: 'MONTHLY' }), '2026-01-31T20:00:00Z', 'UTC', existing);
+    expect(rule).toMatchObject({ dayOfMonth: 1, timeZone: 'Asia/Kolkata' });
+  });
+
   it('weekdayOfLocalDate', () => {
     expect(weekdayOf(new Date(2026, 10, 5, 9, 0).toISOString())).toBe('THURSDAY'); // 5 Nov 2026
     expect(weekdayOf(new Date(2026, 10, 8, 9, 0).toISOString())).toBe('SUNDAY');

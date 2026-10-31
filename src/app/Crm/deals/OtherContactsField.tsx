@@ -35,6 +35,7 @@ export const OtherContactsField: React.FunctionComponent<{
       <ContactPicker
         id="crm-deal-others"
         value=""
+        searchLabel="Search other contacts"
         channelAccountId={channelAccountId}
         exclude={[primaryId, ...value.map((o) => o.id)]}
         isDisabled={isDisabled || full}

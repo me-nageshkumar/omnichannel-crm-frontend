@@ -10,7 +10,7 @@ const PAGE = 20;
 export const contactLabel = (c: CrmContact): string => {
   const name = c.name || [c.firstName, c.lastName].filter(Boolean).join(' ');
   if (name && c.phone && name !== c.phone) return `${name} (${c.phone})`;
-  return name || c.phone || c.id;
+  return name || c.phone || 'Number hidden';
 };
 
 /**
@@ -22,12 +22,24 @@ export const ContactPicker: React.FunctionComponent<{
   value: string;
   /** Names the current value while it is not among the matches (e.g. an existing deal's contact). */
   selectedLabel?: string;
+  /** The search box's accessible name, for a form with more than one picker. */
+  searchLabel?: string;
   isDisabled?: boolean;
   invalid?: boolean;
   channelAccountId?: string;
   exclude?: string[];
   onChange(id: string, contact?: CrmContact): void;
-}> = ({ id, value, selectedLabel, isDisabled, invalid, channelAccountId, exclude = [], onChange }) => {
+}> = ({
+  id,
+  value,
+  selectedLabel,
+  searchLabel = 'Search contacts',
+  isDisabled,
+  invalid,
+  channelAccountId,
+  exclude = [],
+  onChange,
+}) => {
   const { workspace } = useSession();
   const ws = workspace?.id ?? '';
   const [search, setSearch] = React.useState('');
@@ -57,7 +69,7 @@ export const ContactPicker: React.FunctionComponent<{
     <>
       {!isDisabled && (
         <TextInput
-          aria-label="Search contacts"
+          aria-label={searchLabel}
           placeholder="Search by name or number"
           value={search}
           onChange={(_e, v) => setSearch(v)}

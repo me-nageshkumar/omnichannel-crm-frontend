@@ -21,6 +21,7 @@ import { countContacts, listFilters } from '@app/api/contacts';
 import { listSegments } from '@app/api/crm';
 import type { Segment } from '@app/api/crm';
 import { useAccess } from '@app/session/useAccess';
+import { countsText, shortTime } from '@app/Crm/segments/segmentModel';
 import { useCrmStatus } from '@app/Crm/status/CrmStatusContext';
 import { messageFor } from '@app/api/messages';
 import { useLoad } from '@app/admin/useLoad';
@@ -77,10 +78,10 @@ const FilterAudience: React.FunctionComponent<StepProps> = ({ draft, update }) =
   );
 };
 
-/** "Gold leads — 1,240 CRM contacts" (the cached count), or "— not counted yet". */
+/** "Gold leads — 1,240 CRM contacts, as of Oct 31, 9:05 AM" (the cached count), or "— not counted yet". */
 export const segmentOptionText = (s: Segment): string =>
   s.cachedCounts
-    ? `${s.name} — ${s.cachedCounts.total.toLocaleString('en-US')} CRM contacts`
+    ? `${s.name} — ${countsText({ total: s.cachedCounts.total, people: s.cachedCounts.total })}, as of ${shortTime(s.cachedCounts.at)}`
     : `${s.name} — not counted yet`;
 
 const SegmentAudience: React.FunctionComponent<StepProps> = ({ draft, update }) => {

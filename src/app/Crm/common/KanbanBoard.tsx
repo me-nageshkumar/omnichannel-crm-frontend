@@ -241,7 +241,12 @@ export function KanbanBoard<C>({
         // would otherwise become the containing block of the fixed overlay and offset it from the pointer.
         <DragOverlay dropAnimation={null}>
           {activeCard && (
-            <Card isCompact style={{ cursor: 'grabbing', boxShadow: 'var(--pf-t--global--box-shadow--lg)' }}>
+            // a picture of the card under the pointer: the real one stays in its lane with its buttons
+            <Card
+              aria-hidden
+              isCompact
+              style={{ cursor: 'grabbing', boxShadow: 'var(--pf-t--global--box-shadow--lg)' }}
+            >
               <CardBody>{renderCard(activeCard)}</CardBody>
             </Card>
           )}

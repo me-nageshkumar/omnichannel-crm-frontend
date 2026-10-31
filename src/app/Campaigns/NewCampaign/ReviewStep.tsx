@@ -28,6 +28,7 @@ import { distinctPlaceholders, encodeSource, sourceOptions } from '@app/Campaign
 import { Draft, audienceSize, mappingContext, toRequest } from '@app/Campaigns/NewCampaign/draft';
 import { capPerDay } from '@app/Campaigns/NewCampaign/SendersStep';
 import { countText } from '@app/Contacts/filterSpec';
+import { countsText } from '@app/Crm/segments/segmentModel';
 import { useSession } from '@app/session/SessionContext';
 
 /** The request fields the Review summarises; an error on any of them is shown beside its line. */
@@ -168,11 +169,7 @@ export const ReviewStep: React.FunctionComponent<{
   const banner = error && !(errorField && SHOWN_FIELDS.includes(errorField)) ? error : null;
 
   const preview = segment?.preview ?? null;
-  const segmentCounts = preview
-    ? preview.people === preview.total
-      ? `${preview.total.toLocaleString('en-US')} CRM contacts`
-      : `${preview.total.toLocaleString('en-US')} CRM contacts (${preview.people.toLocaleString('en-US')} people)`
-    : null;
+  const segmentCounts = preview ? countsText(preview) : null;
   const audience =
     draft.kind === 'FILTER'
       ? `Saved filter ${draft.filterName}${filterCount.count === null ? '' : ` · ${countText(filterCount.count)}`}`
@@ -223,15 +220,15 @@ export const ReviewStep: React.FunctionComponent<{
             {preview && preview.channelAccounts.length > 0 && (
               <List isPlain aria-label="Contacts per channel account">
                 {preview.channelAccounts.map((row) => {
-                  const chosen = row.channelAccountId !== null && draft.senderIds.includes(row.channelAccountId);
+                  const isSender = row.channelAccountId !== null && draft.senderIds.includes(row.channelAccountId);
                   return (
                     <ListItem
                       key={row.channelAccountId ?? 'none'}
-                      icon={chosen ? undefined : <ExclamationTriangleIcon aria-label="Warning" />}
+                      icon={isSender ? undefined : <ExclamationTriangleIcon aria-label="Warning" />}
                     >
-                      {chosen
-                        ? `${row.label}: ${row.count.toLocaleString('en-US')} contacts`
-                        : `${row.count.toLocaleString('en-US')} contacts landed on ${row.label}, which is not a chosen sender — those with chats there will be skipped`}
+                      {isSender
+                        ? `${row.label}: ${countText(row.count)}`
+                        : `${countText(row.count)} landed on ${row.label}, which is not a chosen sender — those with chats there will be skipped`}
                     </ListItem>
                   );
                 })}

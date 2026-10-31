@@ -27,14 +27,16 @@ export const ChecklistEditor: React.FunctionComponent<{
   onChange(items: StepDraft[]): void;
   /** Server errors by step index. */
   errors?: Record<number, string>;
-}> = ({ value, onChange, errors = {} }) => {
-  const [draft, setDraft] = React.useState('');
+  /** The text in "Add a step", held by the form so a save can keep it. */
+  draft: string;
+  onDraftChange(draft: string): void;
+}> = ({ value, onChange, errors = {}, draft, onDraftChange }) => {
   const full = value.length >= MAX_STEPS;
   const add = () => {
     const text = draft.trim();
     if (!text || full) return;
     onChange([...value, newStep(text)]);
-    setDraft('');
+    onDraftChange('');
   };
   const move = (index: number, delta: number) => {
     const items = [...value];
@@ -53,6 +55,9 @@ export const ChecklistEditor: React.FunctionComponent<{
               maxLength={200}
               validated={errors[index] ? 'error' : 'default'}
               onChange={(_e, text) => onChange(value.map((s, i) => (i === index ? { ...s, text } : s)))}
+              onKeyDown={(e) => {
+                if (e.key === 'Enter') e.preventDefault();
+              }}
             />
             {item.done && (
               <Label isCompact color="green">
@@ -61,14 +66,14 @@ export const ChecklistEditor: React.FunctionComponent<{
             )}
             <Button
               variant="plain"
-              aria-label="Move up"
+              aria-label={`Move step ${index + 1} up`}
               icon={<AngleUpIcon />}
               isDisabled={index === 0}
               onClick={() => move(index, -1)}
             />
             <Button
               variant="plain"
-              aria-label="Move down"
+              aria-label={`Move step ${index + 1} down`}
               icon={<AngleDownIcon />}
               isDisabled={index === value.length - 1}
               onClick={() => move(index, 1)}
@@ -76,7 +81,7 @@ export const ChecklistEditor: React.FunctionComponent<{
             <Button
               variant="plain"
               isDanger
-              aria-label="Remove step"
+              aria-label={`Remove step ${index + 1}`}
               icon={<TimesIcon />}
               onClick={() => onChange(value.filter((_s, i) => i !== index))}
             />
@@ -95,7 +100,7 @@ export const ChecklistEditor: React.FunctionComponent<{
           maxLength={200}
           isDisabled={full}
           placeholder={full ? `At most ${MAX_STEPS} steps` : 'Add a step and press Enter'}
-          onChange={(_e, v) => setDraft(v)}
+          onChange={(_e, v) => onDraftChange(v)}
           onKeyDown={(e) => {
             if (e.key === 'Enter') {
               e.preventDefault();

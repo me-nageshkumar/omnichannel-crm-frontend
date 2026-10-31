@@ -25,7 +25,7 @@ const FIELDS = ['contactId'];
 
 const contactText = (c: Contact): string => {
   if (c.name && c.phone && c.name !== c.phone) return `${c.name} (${c.phone})`;
-  return c.name || c.phone || c.id;
+  return c.name || c.phone || 'Number hidden';
 };
 
 /** Puts one of the brand's contacts in the CRM on a number, without a deal. */
@@ -53,11 +53,17 @@ export const AddContactModal: React.FunctionComponent<{
     keepOnError: true,
   });
   const matches = found.data?.items ?? [];
+  const total = found.data?.total ?? 0;
+  const moreHint =
+    total > matches.length
+      ? `Showing the first ${matches.length} of ${total.toLocaleString('en-US')}. Keep typing to narrow it down.`
+      : undefined;
 
   const placeholder = () => {
     if (!search.trim()) return 'Type a name or number';
     if (found.loading || q !== search.trim()) return 'Searching…';
-    if (found.error) return 'Search failed';
+    // the alert above says what went wrong
+    if (found.error) return 'Type a name or number';
     return matches.length === 0 ? 'No contacts match' : 'Choose a contact';
   };
 
@@ -80,7 +86,13 @@ export const AddContactModal: React.FunctionComponent<{
           <Alert variant="danger" isInline isPlain title={action.error ?? found.error} />
         )}
         <Form id="crm-add-contact-form" onSubmit={onSubmit}>
-          <Field label="Contact" fieldId="crm-ac-contact" isRequired error={action.fieldErrors.contactId}>
+          <Field
+            label="Contact"
+            fieldId="crm-ac-contact"
+            isRequired
+            error={action.fieldErrors.contactId}
+            help={moreHint}
+          >
             <TextInput
               aria-label="Search contacts"
               placeholder="Search by name or number"

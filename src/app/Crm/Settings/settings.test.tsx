@@ -233,6 +233,25 @@ describe('CRM settings', () => {
     expect(screen.getByText(/· Meera Manager/)).toBeInTheDocument();
   });
 
+  it('historySaysSystemWhenNoPersonIsNamed', async () => {
+    mockFetch(
+      routes(undefined, undefined, {
+        [HISTORY]: {
+          status: 200,
+          body: {
+            items: [{ ...entry('a1', 'Default pipeline added'), actor: null, actorType: 'SYSTEM' }],
+            total: 1,
+            page: 0,
+          },
+        },
+      }),
+    );
+    const { user } = renderApp('/crm/settings');
+    await user.click(await screen.findByRole('tab', { name: 'History' }));
+    await screen.findByText('Default pipeline added');
+    expect(screen.getByText(/· System/)).toBeInTheDocument();
+  });
+
   it('historyTabHiddenWithoutSettingsAuthority', async () => {
     const f = mockFetch(routes(['crm:view']));
     renderApp('/crm/settings');

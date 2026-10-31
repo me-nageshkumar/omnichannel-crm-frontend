@@ -70,8 +70,12 @@ export const REPEAT_OPTIONS: { value: 'NONE' | RecurrenceFrequency; label: strin
   { value: 'MONTHLY', label: 'Monthly' },
 ];
 
-/** The local weekday of an instant. */
-export const weekdayOf = (iso: string): Weekday => WEEKDAYS[(new Date(iso).getDay() + 6) % 7].value;
+/** The weekday of an instant in {@code zone} (default the browser's). */
+export const weekdayOf = (iso: string, zone?: string): Weekday =>
+  new Intl.DateTimeFormat('en-US', { weekday: 'long', timeZone: zone }).format(new Date(iso)).toUpperCase() as Weekday;
+
+const dayOfMonthOf = (iso: string, zone: string): number =>
+  Number(new Intl.DateTimeFormat('en-US', { day: 'numeric', timeZone: zone }).format(new Date(iso)));
 
 /** The task form's repeat fields. */
 export interface RepeatForm {
@@ -108,7 +112,7 @@ export function recurrenceFromForm(
   let dayOfMonth: number | null = null;
   if (f.frequency === 'MONTHLY') {
     if (existing?.frequency === 'MONTHLY' && existing.dayOfMonth) dayOfMonth = existing.dayOfMonth;
-    else if (dueAt) dayOfMonth = new Date(dueAt).getDate();
+    else if (dueAt) dayOfMonth = dayOfMonthOf(dueAt, existing?.timeZone || zone);
   }
   return {
     frequency: f.frequency,

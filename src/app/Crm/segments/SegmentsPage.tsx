@@ -21,7 +21,7 @@ import {
 import { LockIcon } from '@patternfly/react-icons';
 import { Table, Tbody, Td, Th, Thead, Tr } from '@patternfly/react-table';
 import { deleteSegment, listSegments } from '@app/api/crm';
-import type { CachedCounts, CrmPhone, Segment } from '@app/api/crm';
+import type { CrmPhone, Segment } from '@app/api/crm';
 import { ApiError } from '@app/api/client';
 import { useLoad } from '@app/admin/useLoad';
 import { useSession } from '@app/session/SessionContext';
@@ -29,19 +29,13 @@ import { useAccess } from '@app/session/useAccess';
 import { useCrmCan, useCrmStatus } from '@app/Crm/status/CrmStatusContext';
 import { useRefetchOnFocus } from '@app/Crm/common/useRefetchOnFocus';
 import { crmMessage } from '@app/Crm/errors';
+import { countsText, shortTime } from '@app/Crm/segments/segmentModel';
 
 export const PERMISSION_TEXT = 'You need the Segments permission';
 export const EMPTY_TEXT = 'No segments yet';
+export const NO_MATCH_TEXT = 'No segments match your search';
 
 const n = (v: number) => v.toLocaleString('en-US');
-const when = (iso: string) =>
-  new Date(iso).toLocaleString('en-US', { day: 'numeric', month: 'short', hour: 'numeric', minute: '2-digit' });
-
-/** "n CRM contacts", with the people in brackets when they differ (spec C20). */
-export function countsText(c: CachedCounts): string {
-  const base = `${n(c.total)} CRM contacts`;
-  return c.people === c.total ? base : `${base} (${n(c.people)} people)`;
-}
 
 /** The label of a channel account: the number's label, else its number, else the id. */
 export function accountLabel(id: string | null, phones: CrmPhone[]): string {
@@ -53,11 +47,13 @@ export function accountLabel(id: string | null, phones: CrmPhone[]): string {
 const Audience: React.FunctionComponent<{ segment: Segment; phones: CrmPhone[] }> = ({ segment: s, phones }) => {
   const c = s.cachedCounts;
   if (!c) return <span>Not counted yet</span>;
+  const accounts =
+    c.channelAccounts.length === 1 ? '1 channel account' : `${c.channelAccounts.length} channel accounts`;
   return (
     <div>
       <div>{countsText(c)}</div>
       <div className="pf-v6-u-font-size-sm pf-v6-u-color-200">
-        as of {when(c.at)}
+        as of {shortTime(c.at)}
         {c.truncated ? ' · first 50,000 only' : ''}
         {' · '}
         <Popover
@@ -75,8 +71,8 @@ const Audience: React.FunctionComponent<{ segment: Segment; phones: CrmPhone[] }
             </Table>
           }
         >
-          <Button variant="link" isInline aria-label={`Per channel account of ${s.name}`}>
-            {c.channelAccounts.length === 1 ? '1 channel account' : `${c.channelAccounts.length} channel accounts`}
+          <Button variant="link" isInline aria-label={`${accounts} in ${s.name}`}>
+            {accounts}
           </Button>
         </Popover>
       </div>
@@ -133,6 +129,7 @@ export const SegmentsPage: React.FunctionComponent = () => {
   if (list.error) body = <Alert variant="danger" isInline title={list.error} />;
   else if (!list.data) body = <Spinner aria-label="Loading segments" />;
   else if (list.data.length === 0) body = <EmptyState headingLevel="h2" titleText={EMPTY_TEXT} />;
+  else if (rows.length === 0) body = <EmptyState headingLevel="h2" titleText={NO_MATCH_TEXT} />;
   else
     body = (
       <Table aria-label="Segments" variant="compact">
@@ -158,14 +155,21 @@ export const SegmentsPage: React.FunctionComponent = () => {
                 {s.lastCampaignId && s.lastCampaignName ? (
                   <>
                     <Link to={`/campaigns/${s.lastCampaignId}`}>{s.lastCampaignName}</Link>
-                    {s.lastSentAt && <div className="pf-v6-u-font-size-sm pf-v6-u-color-200">{when(s.lastSentAt)}</div>}
+                    {s.lastSentAt && (
+                      <div className="pf-v6-u-font-size-sm pf-v6-u-color-200">{shortTime(s.lastSentAt)}</div>
+                    )}
                   </>
                 ) : (
                   'Never'
                 )}
               </Td>
               <Td dataLabel="Actions" isActionCell>
-                <Button variant="link" isInline component={(props) => <Link {...props} to={`/crm/segments/${s.id}`} />}>
+                <Button
+                  variant="link"
+                  isInline
+                  aria-label={`Edit ${s.name}`}
+                  component={(props) => <Link {...props} to={`/crm/segments/${s.id}`} />}
+                >
                   Edit
                 </Button>
                 {canSend && (
@@ -173,6 +177,7 @@ export const SegmentsPage: React.FunctionComponent = () => {
                     variant="link"
                     isInline
                     className="pf-v6-u-ml-md"
+                    aria-label={`Send campaign to ${s.name}`}
                     component={(props) => <Link {...props} to={`/campaigns/new?segmentId=${s.id}`} />}
                   >
                     Send campaign

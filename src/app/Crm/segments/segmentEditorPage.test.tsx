@@ -165,6 +165,60 @@ describe('CRM segment editor', () => {
     });
   });
 
+  it('previewShowsCountingFromTheFirstChange', async () => {
+    vi.useFakeTimers({ shouldAdvanceTime: true });
+    const { f, user } = await openNew();
+    await fillLifecycle(user);
+    const card = screen.getByRole('region', { name: 'Who matches' });
+    expect(callsTo(f, PREVIEW)).toBe(0);
+    expect(within(card).getByRole('progressbar', { name: 'Counting' })).toBeInTheDocument();
+    await advance(700);
+    expect(await within(card).findByText('12 CRM contacts (11 people)')).toBeInTheDocument();
+    expect(within(card).queryByRole('progressbar', { name: 'Counting' })).toBeNull();
+  });
+
+  it('previewStopsCountingWhenTheRefusalOnlyNamesRules', async () => {
+    const { user } = await openNew({
+      [PREVIEW]: {
+        status: 400,
+        body: { code: 'INVALID_SEGMENT', message: 'The segment has 1 problem', 'rules[0].value': 'must be a text' },
+      },
+    });
+    await fillLifecycle(user);
+    expect(await rule('Rule 1').findByText('must be a text')).toBeInTheDocument();
+    const card = screen.getByRole('region', { name: 'Who matches' });
+    expect(within(card).queryByRole('progressbar', { name: 'Counting' })).toBeNull();
+  });
+
+  it('previewIsNotBusyAfterTheRulesWentIncompleteMidFlight', async () => {
+    const { f, user } = await openNew();
+    const first = gate(f, PREVIEW, 1);
+    await fillLifecycle(user);
+    await waitFor(() => expect(callsTo(f, PREVIEW)).toBe(1));
+    await user.selectOptions(rule('Rule 1').getByLabelText('Value'), 'Choose a value');
+    first.release();
+    await act(() => new Promise((r) => setTimeout(r, 50)));
+    await user.selectOptions(rule('Rule 1').getByLabelText('Value'), 'Customer');
+    const card = screen.getByRole('region', { name: 'Who matches' });
+    // nothing is in flight: only the 600 ms wait is running
+    expect(callsTo(f, PREVIEW)).toBe(1);
+    expect(within(card).getByRole('button', { name: 'Refresh' })).toBeEnabled();
+  });
+
+  it('aFailedRefreshDoesNotSitAboveTheOlderCount', async () => {
+    let n = 0;
+    const { user } = await openNew({
+      [PREVIEW]: () =>
+        ++n === 1 ? { status: 200, body: sampleSegmentPreview() } : { status: 500, body: { message: 'down' } },
+    });
+    await fillLifecycle(user);
+    const card = await screen.findByRole('region', { name: 'Who matches' });
+    await within(card).findByText('12 CRM contacts (11 people)');
+    await user.click(within(card).getByRole('button', { name: 'Refresh' }));
+    expect(await within(card).findByRole('heading', { name: /^Danger alert/ })).toBeInTheDocument();
+    expect(within(card).queryByText('12 CRM contacts (11 people)')).toBeNull();
+  });
+
   it('previewShowsCountsPeopleAndAccounts', async () => {
     const { user } = await openNew();
     await fillLifecycle(user);
@@ -174,6 +228,15 @@ describe('CRM segment editor', () => {
     expect(within(card).getByText('9')).toBeInTheDocument();
     expect(within(card).getByText('+91 98765 00002')).toBeInTheDocument();
     expect(within(card).getByText('3')).toBeInTheDocument();
+  });
+
+  it('previewOfOneReadsInTheSingular', async () => {
+    const { user } = await openNew({
+      [PREVIEW]: { status: 200, body: sampleSegmentPreview({ total: 1, people: 1 }) },
+    });
+    await fillLifecycle(user);
+    const card = await screen.findByRole('region', { name: 'Who matches' });
+    expect(await within(card).findByText('1 CRM contact')).toBeInTheDocument();
   });
 
   it('previewSaysTruncated', async () => {
@@ -201,7 +264,7 @@ describe('CRM segment editor', () => {
     first.release();
     await act(() => new Promise((r) => setTimeout(r, 50)));
     expect(within(card).getByText('2 CRM contacts')).toBeInTheDocument();
-    expect(within(card).queryByText('1 CRM contacts')).toBeNull();
+    expect(within(card).queryByText(/^1 CRM contact/)).toBeNull();
   });
 
   it('incompleteRulesShowTheHint', async () => {
@@ -245,6 +308,28 @@ describe('CRM segment editor', () => {
     });
   });
 
+  it('saysWhySaveIsDisabledWhileAFlaggedRuleRemains', async () => {
+    const flagged = sampleSegment({
+      id: 's3',
+      name: 'Old pipeline',
+      rules: {
+        combinator: 'and',
+        not: false,
+        rules: [
+          { field: 'contact.lifecycleStatus', operator: 'is', value: 'lead' },
+          { field: 'deal.pipelineId', operator: 'is', value: 'p7', inaccessible: true },
+        ],
+      },
+    });
+    mockFetch(segmentRoutes({ [`GET ${SEGMENTS_BASE}/s3`]: { status: 200, body: flagged } }));
+    const { user } = renderApp('/crm/segments/s3');
+    expect(await screen.findByText('Remove the rules marked with a warning to save.')).toBeInTheDocument();
+    expect(screen.getByRole('button', { name: 'Save' })).toBeDisabled();
+    await user.click(rule('Rule 2').getByRole('button', { name: 'Remove rule' }));
+    expect(screen.queryByText('Remove the rules marked with a warning to save.')).toBeNull();
+    expect(screen.getByRole('button', { name: 'Save' })).toBeEnabled();
+  });
+
   it('previewErrorsAreInline', async () => {
     const { user } = await openNew({
       [PREVIEW]: {
@@ -261,9 +346,94 @@ describe('CRM segment editor', () => {
     expect(rule('Rule 1').getByLabelText('Field')).toBeEnabled();
   });
 
+  describe('company rules', () => {
+    const COMPANIES = `${SEGMENTS_BASE.replace('/segments', '')}/companies`;
+    const named = (id: string, name: string) => ({
+      [`GET ${COMPANIES}/${id}`]: { status: 200, body: { id, name } },
+    });
+    const gone = (id: string, status = 404) => ({
+      [`GET ${COMPANIES}/${id}`]: { status, body: { code: 'NOT_FOUND', message: 'gone' } },
+    });
+
+    function openWith(operator: string, value: string | string[], routes: object = {}) {
+      const saved = sampleSegment({
+        id: 's4',
+        rules: { combinator: 'and', not: false, rules: [{ field: 'contact.companyId', operator, value }] },
+      });
+      const f = mockFetch(segmentRoutes({ [`GET ${SEGMENTS_BASE}/s4`]: { status: 200, body: saved }, ...routes }));
+      return { f, ...renderApp('/crm/segments/s4') };
+    }
+    const chips = () => within(rule('Rule 1').getByRole('list', { name: 'Chosen companies' }));
+
+    it('showsTheNameOfTheSavedCompany', async () => {
+      openWith('is', 'co1', named('co1', 'Acme Ltd'));
+      await screen.findByLabelText(/^Name/);
+      await waitFor(() => expect(rule('Rule 1').getByRole('combobox', { name: /Company/ })).toHaveValue('Acme Ltd'));
+    });
+
+    it('showsTheNamesOfTheSavedCompanies', async () => {
+      openWith('in', ['co1', 'co2'], { ...named('co1', 'Acme Ltd'), ...named('co2', 'Globex') });
+      await screen.findByLabelText(/^Name/);
+      expect(await chips().findByText('Acme Ltd')).toBeInTheDocument();
+      expect(await chips().findByText('Globex')).toBeInTheDocument();
+      expect(screen.queryByText('co1')).toBeNull();
+      expect(screen.queryByText('co2')).toBeNull();
+    });
+
+    it('labelsADeletedCompanyAndLetsItBeRemovedFromTheList', async () => {
+      const { user } = openWith('in', ['co1', 'co9'], { ...named('co1', 'Acme Ltd'), ...gone('co9') });
+      await screen.findByLabelText(/^Name/);
+      expect(await chips().findByText('Unknown company')).toBeInTheDocument();
+      expect(screen.queryByText('co9')).toBeNull();
+      await user.click(chips().getByRole('button', { name: 'Remove Unknown company' }));
+      await waitFor(() => expect(chips().queryByText('Unknown company')).toBeNull());
+      expect(chips().getByText('Acme Ltd')).toBeInTheDocument();
+    });
+
+    it('labelsADeletedCompanyAndLetsItBeClearedFromTheSingleEditor', async () => {
+      const { user } = openWith('is', 'co9', gone('co9'));
+      await screen.findByLabelText(/^Name/);
+      const box = rule('Rule 1').getByRole('combobox', { name: /Company/ });
+      await waitFor(() => expect(box).toHaveValue('Unknown company'));
+      await user.click(rule('Rule 1').getByRole('button', { name: 'Clear company' }));
+      await waitFor(() => expect(box).toHaveValue(''));
+    });
+
+    it('aCompanyThatCannotBeReadIsNotShownByItsId', async () => {
+      openWith('in', ['co7'], gone('co7', 500));
+      await screen.findByLabelText(/^Name/);
+      expect(await chips().findByText('Unknown company')).toBeInTheDocument();
+    });
+
+    it('aPickedCompanyShowsItsNameWithoutAskingTheServer', async () => {
+      const { f, user } = openWith('in', ['co1'], {
+        ...named('co1', 'Acme Ltd'),
+        [`GET ${COMPANIES}/typeahead`]: { status: 200, body: [{ id: 'co2', name: 'Globex' }] },
+      });
+      await screen.findByLabelText(/^Name/);
+      await user.click(rule('Rule 1').getByRole('combobox', { name: /Company/ }));
+      await user.click(await rule('Rule 1').findByRole('option', { name: 'Globex' }));
+      expect(await chips().findByText('Globex')).toBeInTheDocument();
+      expect(callsTo(f, `GET ${COMPANIES}/co2`)).toBe(0);
+    });
+
+    it('asksForEachCompanyOnce', async () => {
+      const { f, user } = openWith('in', ['co1'], {
+        ...named('co1', 'Acme Ltd'),
+        [`GET ${COMPANIES}/typeahead`]: { status: 200, body: [{ id: 'co2', name: 'Globex' }] },
+      });
+      await screen.findByLabelText(/^Name/);
+      await chips().findByText('Acme Ltd');
+      await user.click(rule('Rule 1').getByRole('combobox', { name: /Company/ }));
+      await user.click(await rule('Rule 1').findByRole('option', { name: 'Globex' }));
+      await chips().findByText('Globex');
+      expect(callsTo(f, `GET ${COMPANIES}/co1`)).toBe(1);
+    });
+  });
+
   it('builderComesBeforeThePreviewInTheDocument', async () => {
     await openNew();
-    const builder = screen.getByRole('group', { name: 'Filter rules' });
+    const builder = screen.getByRole('group', { name: 'Segment rules' });
     const card = screen.getByRole('region', { name: 'Who matches' });
     expect(builder.compareDocumentPosition(card) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy();
   });
