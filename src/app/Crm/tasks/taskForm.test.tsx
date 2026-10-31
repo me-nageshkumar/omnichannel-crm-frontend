@@ -275,6 +275,14 @@ describe('CRM task form: steps and repeat (phase E)', () => {
     expect(within(d).queryByText('Last date')).toBeNull();
   });
 
+  it('unitsKeepTheirWordsWhole', async () => {
+    const { user } = open(sampleTask({ recurrence: sampleRecurrence({ frequency: 'DAILY', weekdays: null }) }));
+    const d = await dialog('Edit task');
+    expect(within(d).getByText('day(s)')).toHaveStyle({ whiteSpace: 'nowrap', flexShrink: '0' });
+    await user.click(within(d).getByRole('radio', { name: 'After' }));
+    expect(within(d).getByText('times')).toHaveStyle({ whiteSpace: 'nowrap', flexShrink: '0' });
+  });
+
   it('defaultWeekdayUsesTheStoredZone', async () => {
     // 10:00 UTC on Monday 2 November is already Tuesday in the rule's zone
     const task = sampleTask({

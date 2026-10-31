@@ -9,6 +9,9 @@ const UNITS: Record<RecurrenceFrequency, string> = { DAILY: 'day(s)', WEEKLY: 'w
 
 export type RepeatErrors = Partial<Record<'repeat' | 'interval' | 'weekdays' | 'count' | 'until', string>>;
 
+/** A unit beside a narrow input: it must stay whole however little room the modal leaves. */
+const unit: React.CSSProperties = { whiteSpace: 'nowrap', flexShrink: 0 };
+
 const inline: React.CSSProperties = {
   display: 'flex',
   gap: 'var(--pf-t--global--spacer--md)',
@@ -64,7 +67,7 @@ export const RepeatFields: React.FunctionComponent<{
                 onChange={(_e, v) => set({ interval: v })}
                 style={{ maxWidth: '6rem' }}
               />
-              <span>{UNITS[value.frequency as RecurrenceFrequency]}</span>
+              <span style={unit}>{UNITS[value.frequency as RecurrenceFrequency]}</span>
             </div>
           </Field>
         )}
@@ -123,7 +126,7 @@ export const RepeatFields: React.FunctionComponent<{
                   onChange={(_e, v) => set({ count: v })}
                   style={{ maxWidth: '6rem' }}
                 />
-                <span>times</span>
+                <span style={unit}>times</span>
               </div>
             </Field>
           )}
