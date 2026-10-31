@@ -156,4 +156,63 @@ describe('CRM timeline', () => {
     expect(await screen.findByText('Campaign “Diwali” sent from Sales line')).toBeInTheDocument();
     expect(screen.getByText('Segment Gold leads')).toBeInTheDocument();
   });
+
+  // --- entries a restricted reader sees redacted (spec F C19, C20) ---------------------------------------------------
+
+  it('redactedMoveShowsItsSummary', async () => {
+    mockFetch(
+      routes([
+        act({
+          type: 'STAGE_CHANGED',
+          summary: 'Moved into Proposal (Sales) from another pipeline',
+          payload: { toStageId: 's2', toStageName: 'Proposal' },
+        }),
+      ]),
+    );
+    const { user } = renderApp('/crm/deals/d1?pipelineId=p1');
+    await openTimeline(user);
+    expect(await screen.findByText('Moved into Proposal (Sales) from another pipeline')).toBeInTheDocument();
+    expect(screen.queryByText(/a removed stage/)).toBeNull();
+  });
+
+  it('redactedDestinationShowsItsSummary', async () => {
+    mockFetch(
+      routes([
+        act({
+          type: 'STAGE_CHANGED',
+          summary: 'Moved from New to another pipeline',
+          payload: { fromStageId: 's1', fromStageName: 'New' },
+        }),
+      ]),
+    );
+    const { user } = renderApp('/crm/deals/d1?pipelineId=p1');
+    await openTimeline(user);
+    expect(await screen.findByText('Moved from New to another pipeline')).toBeInTheDocument();
+  });
+
+  it('removedStageStillReads', async () => {
+    mockFetch(
+      routes([
+        act({ type: 'STAGE_CHANGED', payload: { fromStageId: 'gone', toStageId: 's2', toStageName: 'Proposal' } }),
+      ]),
+    );
+    const { user } = renderApp('/crm/deals/d1?pipelineId=p1');
+    await openTimeline(user);
+    expect(await screen.findByText('Stage changed from a removed stage to Proposal')).toBeInTheDocument();
+  });
+
+  it('contactsChangeReadsPlainly', async () => {
+    mockFetch(
+      routes([
+        act({
+          type: 'FIELD_CHANGED',
+          payload: { changes: [{ field: 'contacts', from: 'Asha', to: 'Asha, Ravi' }] },
+        }),
+      ]),
+    );
+    const { user } = renderApp('/crm/deals/d1?pipelineId=p1');
+    await openTimeline(user);
+    expect(await screen.findByText('Changed contacts')).toBeInTheDocument();
+    expect(screen.getByText('Asha → Asha, Ravi')).toBeInTheDocument();
+  });
 });

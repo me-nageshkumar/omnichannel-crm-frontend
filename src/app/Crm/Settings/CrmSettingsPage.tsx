@@ -6,8 +6,9 @@ import { GeneralSettings } from '@app/Crm/Settings/GeneralSettings';
 import { PipelinesSettings } from '@app/Crm/Settings/PipelinesSettings';
 import { FieldsSettings } from '@app/Crm/Settings/FieldsSettings';
 import { PicklistsSettings } from '@app/Crm/Settings/PicklistsSettings';
+import { SettingsHistory } from '@app/Crm/Settings/SettingsHistory';
 
-/** Brand-level CRM settings: general, pipelines, custom fields and picklists. */
+/** Brand-level CRM settings: general, pipelines, custom fields and picklists, and what changed in them. */
 export const CrmSettingsPage: React.FunctionComponent = () => {
   const canManage = useCrmCan('crm:settings');
   const [tab, setTab] = React.useState<string | number>('general');
@@ -34,6 +35,11 @@ export const CrmSettingsPage: React.FunctionComponent = () => {
         <Tab eventKey="picklists" title={<TabTitleText>Picklists</TabTitleText>}>
           <PicklistsSettings canManage={canManage} />
         </Tab>
+        {canManage ? (
+          <Tab eventKey="history" title={<TabTitleText>History</TabTitleText>}>
+            <SettingsHistory />
+          </Tab>
+        ) : null}
       </Tabs>
     </PageShell>
   );

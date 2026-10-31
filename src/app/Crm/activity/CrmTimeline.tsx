@@ -42,6 +42,10 @@ export function itemsFor(
     str(name) ?? stages.find((s) => s.id === id)?.name ?? 'a removed stage';
   switch (a.type) {
     case 'STAGE_CHANGED':
+      // A side the reader may not see is gone from the payload; the server's summary then tells the story.
+      if ((!p.fromStageId && !p.fromStageName) || (!p.toStageId && !p.toStageName)) {
+        return [{ ...base, icon: <ExchangeAltIcon />, title: a.summary || 'Stage changed' }];
+      }
       return [
         {
           ...base,

@@ -203,4 +203,67 @@ describe('CRM settings', () => {
     await user.click(within(dialog).getByRole('button', { name: 'Cancel' }));
     await waitFor(() => expect(callsTo(f, `GET ${BASE}/pipelines`)).toBe(before + 1));
   });
+
+  // --- history (spec F C18) -------------------------------------------------------------------------------------------
+
+  const HISTORY = `GET ${BASE}/settings/history`;
+  const entry = (id: string, summary: string) => ({
+    id,
+    type: 'SETTINGS_CHANGED',
+    target: { type: 'SETTINGS', id: 'w1' },
+    summary,
+    payload: {},
+    actor: { id: 'u4', name: 'Meera Manager' },
+    actorType: 'USER',
+    happenedAt: '2026-10-30T10:00:00Z',
+  });
+
+  it('historyTabListsChanges', async () => {
+    mockFetch(
+      routes(undefined, undefined, {
+        [HISTORY]: {
+          status: 200,
+          body: { items: [entry('a1', 'Updated CRM settings: default currency')], total: 1, page: 0 },
+        },
+      }),
+    );
+    const { user } = renderApp('/crm/settings');
+    await user.click(await screen.findByRole('tab', { name: 'History' }));
+    expect(await screen.findByText('Updated CRM settings: default currency')).toBeInTheDocument();
+    expect(screen.getByText(/· Meera Manager/)).toBeInTheDocument();
+  });
+
+  it('historyTabHiddenWithoutSettingsAuthority', async () => {
+    const f = mockFetch(routes(['crm:view']));
+    renderApp('/crm/settings');
+    await screen.findByRole('tab', { name: 'General' });
+    expect(screen.queryByRole('tab', { name: 'History' })).toBeNull();
+    expect(callsTo(f, HISTORY)).toBe(0);
+  });
+
+  it('historyLoadsMore', async () => {
+    let page = 0;
+    const f = mockFetch(
+      routes(undefined, undefined, {
+        [HISTORY]: () =>
+          page++ === 0
+            ? { status: 200, body: { items: [entry('a1', 'First change')], total: 2, page: 0 } }
+            : { status: 200, body: { items: [entry('a2', 'Second change')], total: 2, page: 1 } },
+      }),
+    );
+    const { user } = renderApp('/crm/settings');
+    await user.click(await screen.findByRole('tab', { name: 'History' }));
+    await screen.findByText('First change');
+    await user.click(screen.getByRole('button', { name: /Load more|Show more/ }));
+    expect(await screen.findByText('Second change')).toBeInTheDocument();
+    expect(callsTo(f, HISTORY)).toBe(2);
+    expect(screen.queryByRole('button', { name: /Load more|Show more/ })).toBeNull();
+  });
+
+  it('historyEmptyState', async () => {
+    mockFetch(routes(undefined, undefined, { [HISTORY]: { status: 200, body: { items: [], total: 0, page: 0 } } }));
+    const { user } = renderApp('/crm/settings');
+    await user.click(await screen.findByRole('tab', { name: 'History' }));
+    expect(await screen.findByText('No settings changes yet.')).toBeInTheDocument();
+  });
 });
