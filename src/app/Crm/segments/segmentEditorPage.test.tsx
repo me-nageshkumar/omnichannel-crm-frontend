@@ -337,6 +337,91 @@ describe('CRM segment editor', () => {
     expect(rule('Rule 1').getByLabelText('Field')).toBeEnabled();
   });
 
+  describe('company rules', () => {
+    const COMPANIES = `${SEGMENTS_BASE.replace('/segments', '')}/companies`;
+    const named = (id: string, name: string) => ({
+      [`GET ${COMPANIES}/${id}`]: { status: 200, body: { id, name } },
+    });
+    const gone = (id: string, status = 404) => ({
+      [`GET ${COMPANIES}/${id}`]: { status, body: { code: 'NOT_FOUND', message: 'gone' } },
+    });
+
+    function openWith(operator: string, value: string | string[], routes: object = {}) {
+      const saved = sampleSegment({
+        id: 's4',
+        rules: { combinator: 'and', not: false, rules: [{ field: 'contact.companyId', operator, value }] },
+      });
+      const f = mockFetch(segmentRoutes({ [`GET ${SEGMENTS_BASE}/s4`]: { status: 200, body: saved }, ...routes }));
+      return { f, ...renderApp('/crm/segments/s4') };
+    }
+    const chips = () => within(rule('Rule 1').getByRole('list', { name: 'Chosen companies' }));
+
+    it('showsTheNameOfTheSavedCompany', async () => {
+      openWith('is', 'co1', named('co1', 'Acme Ltd'));
+      await screen.findByLabelText(/^Name/);
+      await waitFor(() => expect(rule('Rule 1').getByRole('combobox', { name: /Company/ })).toHaveValue('Acme Ltd'));
+    });
+
+    it('showsTheNamesOfTheSavedCompanies', async () => {
+      openWith('in', ['co1', 'co2'], { ...named('co1', 'Acme Ltd'), ...named('co2', 'Globex') });
+      await screen.findByLabelText(/^Name/);
+      expect(await chips().findByText('Acme Ltd')).toBeInTheDocument();
+      expect(await chips().findByText('Globex')).toBeInTheDocument();
+      expect(screen.queryByText('co1')).toBeNull();
+      expect(screen.queryByText('co2')).toBeNull();
+    });
+
+    it('labelsADeletedCompanyAndLetsItBeRemovedFromTheList', async () => {
+      const { user } = openWith('in', ['co1', 'co9'], { ...named('co1', 'Acme Ltd'), ...gone('co9') });
+      await screen.findByLabelText(/^Name/);
+      expect(await chips().findByText('Unknown company')).toBeInTheDocument();
+      expect(screen.queryByText('co9')).toBeNull();
+      await user.click(chips().getByRole('button', { name: 'Remove Unknown company' }));
+      await waitFor(() => expect(chips().queryByText('Unknown company')).toBeNull());
+      expect(chips().getByText('Acme Ltd')).toBeInTheDocument();
+    });
+
+    it('labelsADeletedCompanyAndLetsItBeClearedFromTheSingleEditor', async () => {
+      const { user } = openWith('is', 'co9', gone('co9'));
+      await screen.findByLabelText(/^Name/);
+      const box = rule('Rule 1').getByRole('combobox', { name: /Company/ });
+      await waitFor(() => expect(box).toHaveValue('Unknown company'));
+      await user.click(rule('Rule 1').getByRole('button', { name: 'Clear company' }));
+      await waitFor(() => expect(box).toHaveValue(''));
+    });
+
+    it('aCompanyThatCannotBeReadIsNotShownByItsId', async () => {
+      openWith('in', ['co7'], gone('co7', 500));
+      await screen.findByLabelText(/^Name/);
+      expect(await chips().findByText('Unknown company')).toBeInTheDocument();
+    });
+
+    it('aPickedCompanyShowsItsNameWithoutAskingTheServer', async () => {
+      const { f, user } = openWith('in', ['co1'], {
+        ...named('co1', 'Acme Ltd'),
+        [`GET ${COMPANIES}/typeahead`]: { status: 200, body: [{ id: 'co2', name: 'Globex' }] },
+      });
+      await screen.findByLabelText(/^Name/);
+      await user.click(rule('Rule 1').getByRole('combobox', { name: /Company/ }));
+      await user.click(await rule('Rule 1').findByRole('option', { name: 'Globex' }));
+      expect(await chips().findByText('Globex')).toBeInTheDocument();
+      expect(callsTo(f, `GET ${COMPANIES}/co2`)).toBe(0);
+    });
+
+    it('asksForEachCompanyOnce', async () => {
+      const { f, user } = openWith('in', ['co1'], {
+        ...named('co1', 'Acme Ltd'),
+        [`GET ${COMPANIES}/typeahead`]: { status: 200, body: [{ id: 'co2', name: 'Globex' }] },
+      });
+      await screen.findByLabelText(/^Name/);
+      await chips().findByText('Acme Ltd');
+      await user.click(rule('Rule 1').getByRole('combobox', { name: /Company/ }));
+      await user.click(await rule('Rule 1').findByRole('option', { name: 'Globex' }));
+      await chips().findByText('Globex');
+      expect(callsTo(f, `GET ${COMPANIES}/co1`)).toBe(1);
+    });
+  });
+
   it('builderComesBeforeThePreviewInTheDocument', async () => {
     await openNew();
     const builder = screen.getByRole('group', { name: 'Segment rules' });
