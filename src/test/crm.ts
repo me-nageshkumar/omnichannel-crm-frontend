@@ -5,6 +5,7 @@ import type {
   ByOwner,
   BySource,
   CampaignsReport,
+  ChecklistItem,
   CrmContact,
   CrmSettings,
   CrmStatus,
@@ -15,6 +16,7 @@ import type {
   LifecycleFunnel,
   Pipeline,
   PipelineSummary,
+  Recurrence,
   ReportFilter,
   Segment,
   SegmentFieldCatalog,
@@ -212,11 +214,48 @@ export function sampleTask(overrides: Partial<Task> = {}): Task {
     completedAt: null,
     completedBy: null,
     assignee: { id: 'u4', name: 'Meera Manager' },
+    assignedBy: null,
+    assignedAt: null,
     target: { type: 'DEAL', id: 'd1', name: 'Acme order' },
     overdue: false,
+    checklist: [],
+    recurrence: null,
+    seriesId: null,
+    occurrence: null,
+    recurringFromTaskId: null,
+    nextOccurrenceId: null,
     version: 0,
     ...overrides,
   };
+}
+
+/** A weekly Monday/Thursday rule in Asia/Kolkata, forever, unless overridden. */
+export function sampleRecurrence(overrides: Partial<Recurrence> = {}): Recurrence {
+  return {
+    frequency: 'WEEKLY',
+    interval: 1,
+    weekdays: ['MONDAY', 'THURSDAY'],
+    dayOfMonth: null,
+    timeZone: 'Asia/Kolkata',
+    endsAfter: null,
+    endsOn: null,
+    ...overrides,
+  };
+}
+
+/** Three steps, the first ticked by the manager. */
+export function sampleChecklist(): ChecklistItem[] {
+  return [
+    {
+      id: 'c1',
+      text: 'Attach the catalogue',
+      done: true,
+      doneAt: '2026-10-30T09:00:00.000Z',
+      doneBy: { id: 'u4', name: 'Meera Manager' },
+    },
+    { id: 'c2', text: 'Mention the festive discount', done: false, doneAt: null, doneBy: null },
+    { id: 'c3', text: 'Ask about quantities', done: false, doneAt: null, doneBy: null },
+  ];
 }
 
 /** The filter the console sends for the default range (last 90 days in Asia/Kolkata) of the default pipeline. */
