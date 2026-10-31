@@ -163,7 +163,10 @@ describe('Pipelines page', () => {
     narrow();
     const f = mockFetch(
       boardRoutes({
-        [`POST ${BASE}/deals/d1/move`]: { status: 200, body: sampleDeal({ stageId: 's2', position: 2000, version: 3 }) },
+        [`POST ${BASE}/deals/d1/move`]: {
+          status: 200,
+          body: sampleDeal({ stageId: 's2', position: 2000, version: 3 }),
+        },
       }),
     );
     const { user } = renderApp('/crm');
@@ -219,9 +222,7 @@ describe('Pipelines page', () => {
 
   it('moveErrorShowsAlert', async () => {
     narrow();
-    const f = mockFetch(
-      boardRoutes({ [`POST ${BASE}/deals/d1/move`]: { status: 404, body: { code: 'NOT_FOUND' } } }),
-    );
+    const f = mockFetch(boardRoutes({ [`POST ${BASE}/deals/d1/move`]: { status: 404, body: { code: 'NOT_FOUND' } } }));
     const { user } = renderApp('/crm');
     await moveFirstCardToProposal(user);
     expect(await screen.findByText('This deal is no longer in a pipeline you can see.')).toBeInTheDocument();
@@ -232,21 +233,20 @@ describe('Pipelines page', () => {
 
   it('versionConflictShowsRefreshHint', async () => {
     narrow();
-    mockFetch(
-      boardRoutes({ [`POST ${BASE}/deals/d1/move`]: { status: 409, body: { code: 'VERSION_CONFLICT' } } }),
-    );
+    mockFetch(boardRoutes({ [`POST ${BASE}/deals/d1/move`]: { status: 409, body: { code: 'VERSION_CONFLICT' } } }));
     const { user } = renderApp('/crm');
     await moveFirstCardToProposal(user);
-    expect(
-      await screen.findByText('Someone else moved this deal. Refresh to see the board.'),
-    ).toBeInTheDocument();
+    expect(await screen.findByText('Someone else moved this deal. Refresh to see the board.')).toBeInTheDocument();
   });
 
   it('otherMoveErrorsShowTheServerMessage', async () => {
     narrow();
     mockFetch(
       boardRoutes({
-        [`POST ${BASE}/deals/d1/move`]: { status: 400, body: { code: 'STAGE_CLOSED', message: 'That stage is closed.' } },
+        [`POST ${BASE}/deals/d1/move`]: {
+          status: 400,
+          body: { code: 'STAGE_CLOSED', message: 'That stage is closed.' },
+        },
       }),
     );
     const { user } = renderApp('/crm');
@@ -381,5 +381,42 @@ describe('Pipelines page', () => {
     await waitFor(() => expect(box).toHaveValue('globex'));
     act(() => go('/crm'));
     await waitFor(() => expect(box).toHaveValue(''));
+  });
+
+  it('cardShowsDaysInStage', async () => {
+    mockFetch(boardRoutes());
+    renderApp('/crm');
+    await board();
+    expect(within(lane('Proposal')).getAllByText(/^(New in stage|\d+d in stage)$/).length).toBeGreaterThan(0);
+  });
+
+  it('chatButtonOpensTheChat', async () => {
+    mockFetch(
+      boardRoutes({
+        [`GET ${BASE}/contacts/c1/communication`]: {
+          status: 200,
+          body: { phoneNumberId: 'pn1', number: '919800000001', phone: '919812345678', chatId: 'chat9', canChat: true },
+        },
+      }),
+    );
+    const { user } = renderApp('/crm', <Probe />);
+    await board();
+    await user.click(within(lane('New')).getAllByRole('button', { name: 'Open chat with Priya Shah' })[0]);
+    await waitFor(() => expect(screen.getByLabelText('Where')).toHaveTextContent('/inbox/chats/chat9'));
+  });
+
+  it('cannotChatShowsTheReason', async () => {
+    mockFetch(
+      boardRoutes({
+        [`GET ${BASE}/contacts/c1/communication`]: {
+          status: 200,
+          body: { phoneNumberId: 'pn1', number: '919800000001', phone: '919812345678', chatId: null, canChat: false },
+        },
+      }),
+    );
+    const { user } = renderApp('/crm');
+    await board();
+    await user.click(within(lane('New')).getAllByRole('button', { name: 'Open chat with Priya Shah' })[0]);
+    expect(await screen.findByText(/won't open this chat/)).toBeInTheDocument();
   });
 });

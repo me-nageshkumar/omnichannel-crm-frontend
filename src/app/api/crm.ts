@@ -289,6 +289,21 @@ export interface Deal {
   version: number;
 }
 
+/** One person on a deal; the primary contact comes first. */
+export interface DealContact {
+  id: string;
+  name: string | null;
+  phone: string | null;
+  jobTitle: string | null;
+  primary: boolean;
+}
+
+/** What a contact carries on its channel, read-only. */
+export interface ChannelDetails {
+  labels: { id: string; name: string; color: string | null }[];
+  attributes: { name: string; value: string }[];
+}
+
 export interface DealInput {
   title?: string;
   pipelineId?: string;
@@ -495,6 +510,8 @@ export interface ContactSearch {
   lifecycleStatus?: string;
   companyId?: string;
   pipelineId?: string;
+  /** Only contacts on this channel account. */
+  channelAccountId?: string;
   /** "field" or "field,asc|desc"; fields lastActivityAt, creationTime, firstName. */
   sort?: string;
   page: number;
@@ -607,6 +624,12 @@ export const createContact = (
     dealTitle?: string;
   },
 ) => send<CaptureResult>(token, 'POST', `${base(ws)}/contacts/create`, body);
+export const channelDetails = (token: string, ws: string, id: string) =>
+  get<ChannelDetails>(token, `${base(ws)}/contacts/${enc(id)}/channel-details`);
+export const dealContacts = (token: string, ws: string, id: string) =>
+  get<DealContact[]>(token, `${base(ws)}/deals/${enc(id)}/contacts`);
+export const settingsHistory = (token: string, ws: string, q: { page: number; size: number }) =>
+  get<Page<Activity>>(token, `${base(ws)}/settings/history${query({ ...q })}`);
 export const getCommunication = (token: string, ws: string, id: string, phoneNumberId?: string) =>
   get<Communication>(token, `${base(ws)}/contacts/${enc(id)}/communication${query({ phoneNumberId })}`);
 export const moveChannel = (
@@ -747,6 +770,18 @@ export async function exportRecords(
   return {
     blob: await res.blob(),
     fileName: downloadName(res.headers.get('Content-Disposition'), `crm-${entity}.csv`),
+  };
+}
+
+/** The header-only CSV of an import. */
+export async function importTemplate(
+  token: string,
+  ws: string,
+  entity: 'contacts' | 'companies',
+): Promise<{ blob: Blob; fileName: string }> {
+  return {
+    blob: await apiFetchBlob(`${base(ws)}/${entity}/import/template`, token),
+    fileName: `crm-${entity}-template.csv`,
   };
 }
 

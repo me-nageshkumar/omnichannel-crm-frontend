@@ -38,6 +38,7 @@ import { DealFormModal } from '@app/Crm/deals/DealFormModal';
 import { NewContactModal } from '@app/Crm/deals/NewContactModal';
 import { DealDrawer } from '@app/Crm/deals/DealDrawer';
 import { moveMessage } from '@app/Crm/deals/moveMessage';
+import { useOpenChat } from '@app/Crm/deals/useOpenChat';
 
 export { moveMessage };
 
@@ -128,6 +129,7 @@ export const PipelinesPage: React.FunctionComponent = () => {
   const [sort, setSort] = React.useState<DealSort>({ field: 'lastActivityAt', dir: 'desc' });
   const [page, setPage] = React.useState(0);
   const [notice, setNotice] = React.useState<{ variant: 'danger' | 'success'; text: string } | null>(null);
+  const chat = useOpenChat();
   const [adding, setAdding] = React.useState<'contact' | 'deal' | null>(null);
   const [seenOwners, setSeenOwners] = React.useState<Ref[]>([]);
 
@@ -354,6 +356,9 @@ export const PipelinesPage: React.FunctionComponent = () => {
               cardFields={cardFields}
               users={brandUsers}
               onOpen={open}
+              onOpenChat={(deal) =>
+                deal.primaryContact && void chat.openChat(deal.primaryContact.id, deal.channel?.phoneNumberId)
+              }
             />
           )}
           onMove={onMove}
@@ -378,6 +383,15 @@ export const PipelinesPage: React.FunctionComponent = () => {
           isLiveRegion
           title={notice.text}
           actionClose={<AlertActionCloseButton onClose={() => setNotice(null)} />}
+        />
+      )}
+      {chat.alert && (
+        <Alert
+          variant="warning"
+          isInline
+          isLiveRegion
+          title={chat.alert}
+          actionClose={<AlertActionCloseButton onClose={chat.clearAlert} />}
         />
       )}
       {pipeline && (
