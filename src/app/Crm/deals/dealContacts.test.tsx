@@ -151,6 +151,23 @@ describe('Contacts on a deal', () => {
     expect(within(dialog).getByRole('textbox', { name: 'Search other contacts' })).toBeInTheDocument();
   });
 
+  it('namesAContactWithNoNameAndAHiddenNumberPlainly', async () => {
+    const nobody = sampleCrmContact({ id: 'c7', name: '', firstName: null, lastName: null, phone: null });
+    const { dialog } = await openCreate({ [`POST ${BASE}/contacts/search`]: search([nobody]) });
+    expect(await within(dialog).findByRole('option', { name: 'Number hidden' })).toBeInTheDocument();
+    expect(within(dialog).queryByRole('option', { name: 'c7' })).toBeNull();
+  });
+
+  it('namesAnExistingContactWithNoNameAndAHiddenNumberPlainly', async () => {
+    const { dialog } = await openEdit({
+      [`GET ${BASE}/deals/d1/contacts`]: {
+        status: 200,
+        body: [sampleDealContact(), sampleDealContact({ id: 'c7', name: null, phone: null, primary: false })],
+      },
+    });
+    expect(await within(dialog).findByRole('button', { name: 'Remove Number hidden' })).toBeInTheDocument();
+  });
+
   it('saysSoWhileTheEditFormsContactsLoad', async () => {
     const f = mockFetch(routes());
     const key = `GET ${BASE}/deals/d1/contacts`;

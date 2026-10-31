@@ -10,7 +10,7 @@ const PAGE = 20;
 export const contactLabel = (c: CrmContact): string => {
   const name = c.name || [c.firstName, c.lastName].filter(Boolean).join(' ');
   if (name && c.phone && name !== c.phone) return `${name} (${c.phone})`;
-  return name || c.phone || c.id;
+  return name || c.phone || 'Number hidden';
 };
 
 /**

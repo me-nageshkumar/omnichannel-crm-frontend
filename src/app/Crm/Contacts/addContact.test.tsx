@@ -1,5 +1,7 @@
+import * as React from 'react';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { screen, waitFor, within } from '@testing-library/react';
+import { useLocation } from 'react-router-dom';
 import { renderApp } from '../../../test/renderApp';
 import { callsTo, mockFetch, requestTo } from '../../../test/fetchMock';
 import { crmSettings, sampleCrmContact } from '../../../test/crm';
@@ -39,6 +41,10 @@ async function chooseAsha(user: ReturnType<typeof renderApp>['user']) {
   await user.selectOptions(select, 'Asha Rao (919811122233)');
   return dialog;
 }
+
+const HistoryState: React.FunctionComponent = () => (
+  <output aria-label="History state">{JSON.stringify(useLocation().state)}</output>
+);
 
 describe('Add contact on the CRM Contacts page', () => {
   beforeEach(() => {
@@ -125,7 +131,58 @@ describe('Add contact on the CRM Contacts page', () => {
     await user.click(await screen.findByRole('button', { name: 'Add contact' }));
     const dialog = await screen.findByRole('dialog', { name: 'Add contact' });
     await user.type(within(dialog).getByRole('textbox', { name: 'Search contacts' }), 'ash');
-    expect(await within(dialog).findByRole('option', { name: 'Search failed' })).toBeInTheDocument();
+    expect(await within(dialog).findByRole('heading', { name: /^Danger alert/ })).toBeInTheDocument();
+    expect(within(dialog).queryByRole('option', { name: 'Search failed' })).toBeNull();
+    expect(within(dialog).getByRole('option', { name: 'Type a name or number' })).toBeInTheDocument();
+  });
+
+  it('listsAContactWithNoNameAndAHiddenNumberPlainly', async () => {
+    mockFetch(routes({ [HOST_SEARCH]: hostPage([{ id: 'k7', name: null, phone: null, numberHidden: true }]) }));
+    const { user } = renderApp('/crm/contacts');
+    await user.click(await screen.findByRole('button', { name: 'Add contact' }));
+    const dialog = await screen.findByRole('dialog', { name: 'Add contact' });
+    await user.type(within(dialog).getByRole('textbox', { name: 'Search contacts' }), 'hid');
+    expect(await within(dialog).findByRole('option', { name: 'Number hidden' })).toBeInTheDocument();
+    expect(within(dialog).queryByRole('option', { name: 'k7' })).toBeNull();
+  });
+
+  it('saysSoWhenTheSearchFoundMoreThanItShows', async () => {
+    const many = Array.from({ length: 50 }, (_u, i) => ({ id: `k${i}`, name: `Asha ${i}`, phone: `9198${i}` }));
+    mockFetch(routes({ [HOST_SEARCH]: { status: 200, body: { items: many, total: 1234, page: 0 } } }));
+    const { user } = renderApp('/crm/contacts');
+    await user.click(await screen.findByRole('button', { name: 'Add contact' }));
+    const dialog = await screen.findByRole('dialog', { name: 'Add contact' });
+    await user.type(within(dialog).getByRole('textbox', { name: 'Search contacts' }), 'ash');
+    expect(
+      await within(dialog).findByText('Showing the first 50 of 1,234. Keep typing to narrow it down.'),
+    ).toBeInTheDocument();
+  });
+
+  it('givesNoNarrowingHintWhenEveryMatchIsShown', async () => {
+    mockFetch(routes());
+    const { user } = renderApp('/crm/contacts');
+    const dialog = await chooseAsha(user);
+    expect(within(dialog).queryByText(/narrow it down/)).toBeNull();
+  });
+
+  it('theAlreadyInTheCrmNoticeDoesNotStayInTheHistory', async () => {
+    mockFetch(routes({ [ADD]: { status: 200, body: { contact: added, created: false } } }));
+    const { user } = renderApp('/crm/contacts', <HistoryState />);
+    const dialog = await chooseAsha(user);
+    await user.click(within(dialog).getByRole('button', { name: 'Add contact' }));
+    expect(await screen.findByText('Asha Rao is already in the CRM.')).toBeInTheDocument();
+    await waitFor(() => expect(screen.getByLabelText('History state')).toHaveTextContent('null'));
+    expect(screen.getByText('Asha Rao is already in the CRM.')).toBeInTheDocument();
+  });
+
+  it('isHiddenWithNoNumberToChatFrom', async () => {
+    const none = { [`POST ${BASE}/contacts/search`]: { status: 200, body: { items: [], total: 0, page: 0 } } };
+    mockFetch(routes(none, { phones: phones.map((p) => ({ ...p, canChat: false })) }));
+    renderApp('/crm/contacts');
+    expect(
+      await screen.findByText('No CRM contacts yet. Capture one from the inbox or add one from Pipelines.'),
+    ).toBeInTheDocument();
+    expect(screen.queryByRole('button', { name: 'Add contact' })).toBeNull();
   });
 
   it('showsAFailedAdd', async () => {

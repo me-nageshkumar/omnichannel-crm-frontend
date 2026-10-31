@@ -100,11 +100,21 @@ export const CrmContactsPage: React.FunctionComponent = () => {
   const canExport = useCrmCan('crm:export');
   const canImport = useCrmCan('crm:edit');
   const [importing, setImporting] = React.useState(false);
-  // a contact added here has no deal, so it is in no pipeline: only those who see every pipeline could find it again
-  const canAdd = canImport && access === 'ALL' && hostAccess.hasInWorkspace('contact:view');
+  // a contact added here has no deal, so it is in no pipeline: only those who see every pipeline could find it again;
+  // and it sits on a number, so the user needs one to chat from
+  const canAdd =
+    canImport && access === 'ALL' && hostAccess.hasInWorkspace('contact:view') && phones.some((p) => p.canChat);
   const [adding, setAdding] = React.useState(false);
-  // in the location, not in state: opening the contact mounts this page again
-  const notice = (location.state as { notice?: string } | null)?.notice;
+  // It arrives in the location, because opening the contact mounts this page again; it is taken out at once, because
+  // the browser keeps a location's state across a refresh.
+  const [notice, setNotice] = React.useState<string | null>(null);
+  const arrivedNotice = (location.state as { notice?: string } | null)?.notice;
+  React.useEffect(() => {
+    if (!arrivedNotice) return;
+    setNotice(arrivedNotice);
+    navigate({ pathname: location.pathname, search: location.search }, { replace: true });
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [arrivedNotice]);
   const exportSearch = {
     q: qParam || undefined,
     ownerId: ownerId || undefined,
@@ -276,11 +286,7 @@ export const CrmContactsPage: React.FunctionComponent = () => {
             isInline
             isPlain
             title={notice}
-            actionClose={
-              <AlertActionCloseButton
-                onClose={() => navigate({ pathname: location.pathname, search: location.search }, { replace: true })}
-              />
-            }
+            actionClose={<AlertActionCloseButton onClose={() => setNotice(null)} />}
           />
         )}
         <Toolbar>
