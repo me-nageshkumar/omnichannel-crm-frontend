@@ -33,14 +33,12 @@ export const AvailabilitySwitch: React.FunctionComponent = () => {
       <Switch
         id="availability-switch"
         aria-label="Availability"
-        label={available ? 'Available' : 'Away'}
+        label={<span className="app-masthead-label">{available ? 'Available' : 'Away'}</span>}
         isChecked={available}
         isDisabled={busy}
         onChange={(_e, checked) => void flip(checked)}
       />
-      {error && (
-        <Alert variant="danger" isInline isPlain title={error} style={{ position: 'absolute', zIndex: 1 }} />
-      )}
+      {error && <Alert variant="danger" isInline isPlain title={error} style={{ position: 'absolute', zIndex: 1 }} />}
     </>
   );
 };

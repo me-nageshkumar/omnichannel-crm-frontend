@@ -58,9 +58,10 @@ const UserMenu: React.FunctionComponent = () => {
           variant="plainText"
           icon={<UserIcon />}
           isExpanded={isOpen}
+          aria-label={user.name}
           onClick={() => setIsOpen(!isOpen)}
         >
-          {user.name}
+          <span className="app-masthead-label">{user.name}</span>
         </MenuToggle>
       )}
     >
