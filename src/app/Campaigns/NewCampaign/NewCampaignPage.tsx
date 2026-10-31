@@ -3,6 +3,7 @@ import { useNavigate } from 'react-router-dom';
 import { Alert, Wizard, WizardStep, WizardStepType } from '@patternfly/react-core';
 import { listSenders } from '@app/api/campaigns';
 import { listAttributes } from '@app/api/contacts';
+import { previewSavedSegment } from '@app/api/crm';
 import { PageShell } from '@app/admin/PageShell';
 import { useLoad } from '@app/admin/useLoad';
 import { distinctPlaceholders, mergeMappings } from '@app/Campaigns/mapping';
@@ -35,6 +36,12 @@ const NewCampaignWizard: React.FunctionComponent<{ ws: string }> = ({ ws }) => {
     [sendersLoad.data],
   );
   const [draft, setDraft] = React.useState<Draft>(EMPTY_DRAFT);
+  // A segment audience is counted for the signed-in user here, so the footer can refuse a truncated one.
+  const segmentId = draft.kind === 'SEGMENT' ? draft.segmentId : '';
+  const segmentPreview = useLoad(
+    (tk) => (segmentId ? previewSavedSegment(tk, ws, segmentId) : Promise.resolve(null)),
+    [ws, segmentId],
+  );
   // The steps the user has moved away from; one of them that is no longer ready is marked in the nav.
   const [left, setLeft] = React.useState<ReadonlySet<string | number>>(new Set());
   const create = useCreateCampaign(draft);
@@ -64,7 +71,8 @@ const NewCampaignWizard: React.FunctionComponent<{ ws: string }> = ({ ws }) => {
     message: messageReady(draft),
     senders: draft.senderIds.length > 0,
   };
-  const ready = stepReady.audience && stepReady.message && stepReady.senders;
+  const truncated = segmentId !== '' && segmentPreview.data?.truncated === true;
+  const ready = stepReady.audience && stepReady.message && stepReady.senders && !truncated;
   const status = (id: keyof typeof stepReady) => (left.has(id) && !stepReady[id] ? 'error' : 'default');
   const onStepChange = (_e: unknown, _current: WizardStepType, prev: WizardStepType) =>
     setLeft((s) => (s.has(prev.id) ? s : new Set(s).add(prev.id)));
@@ -102,7 +110,14 @@ const NewCampaignWizard: React.FunctionComponent<{ ws: string }> = ({ ws }) => {
           id="review"
           footer={<ReviewFooter busy={create.busy} ready={ready} onSubmit={(start) => void create.submit(start)} />}
         >
-          <ReviewStep draft={draft} attributes={attributes} senders={senders ?? []} create={create} ready={ready} />
+          <ReviewStep
+            draft={draft}
+            attributes={attributes}
+            senders={senders ?? []}
+            create={create}
+            ready={ready}
+            segment={segmentId ? { preview: segmentPreview.data ?? null, error: segmentPreview.error } : undefined}
+          />
         </WizardStep>
       </Wizard>
     </>

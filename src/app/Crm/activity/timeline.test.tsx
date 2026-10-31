@@ -114,4 +114,46 @@ describe('CRM timeline', () => {
     expect(await screen.findByText('Choose a time that has already happened.')).toBeInTheDocument();
     expect(requestTo(f, `POST ${BASE}/activities/log`)).toBeUndefined();
   });
+
+  it('campaignSentRendersCampaignAndAccount', async () => {
+    mockFetch(
+      boardRoutes(
+        {
+          [`GET ${BASE}/deals/d1`]: { status: 200, body: sampleDeal() },
+          [`GET ${BASE}/activities`]: {
+            status: 200,
+            body: {
+              items: [
+                act({
+                  id: 'a1',
+                  type: 'CAMPAIGN_SENT',
+                  actor: null,
+                  actorType: 'SYSTEM',
+                  summary: 'Campaign "Diwali" sent',
+                  payload: {
+                    campaignId: 'k1',
+                    campaignName: 'Diwali',
+                    segmentId: 's1',
+                    segmentName: 'Gold leads',
+                    channelAccountId: 'n1',
+                    channelKind: 'WHATSAPP_WEB',
+                  },
+                }),
+              ],
+              total: 1,
+              page: 0,
+            },
+          },
+        },
+        {
+          authorities: ['crm:view', 'crm:edit'],
+          phones: [{ phoneNumberId: 'n1', number: '+91 98765 00001', label: 'Sales line', canChat: true }],
+        },
+      ),
+    );
+    const { user } = renderApp('/crm/deals/d1?pipelineId=p1');
+    await openTimeline(user);
+    expect(await screen.findByText('Campaign “Diwali” sent from Sales line')).toBeInTheDocument();
+    expect(screen.getByText('Segment Gold leads')).toBeInTheDocument();
+  });
 });

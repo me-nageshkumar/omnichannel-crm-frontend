@@ -3,7 +3,7 @@ import type { ContactFilterSpec } from '@app/api/contacts';
 import type { PhoneNumberStatus } from '@app/api/phoneNumbers';
 
 export type CampaignStatus = 'DRAFT' | 'RUNNING' | 'PAUSED' | 'COMPLETED' | 'TERMINATED';
-export type AudienceKind = 'FILTER' | 'CSV';
+export type AudienceKind = 'FILTER' | 'CSV' | 'SEGMENT';
 export type SourceKind = 'CONTACT_FIELD' | 'CONTACT_ATTRIBUTE' | 'CSV_COLUMN' | 'FIXED';
 
 export type PlaceholderSource =
@@ -41,6 +41,9 @@ export interface CampaignAudience {
   nameColumn: string | null;
   /** The saved filter's criteria (extra; the console may ignore it). */
   filterSpec: ContactFilterSpec | null;
+  /** The CRM segment of a SEGMENT audience, snapshotted by id and name. */
+  segmentId?: string | null;
+  segmentName?: string | null;
 }
 
 export type SenderState = 'WARMING' | 'ACTIVE' | 'RESTING' | 'SUSPENDED' | 'RETIRED';
@@ -154,7 +157,10 @@ export interface RecipientPage {
 
 export interface CampaignRequest {
   name: string;
-  audience: { kind: 'FILTER'; filterId: string } | { kind: 'CSV'; phoneColumn: string; nameColumn: string | null };
+  audience:
+    | { kind: 'FILTER'; filterId: string }
+    | { kind: 'CSV'; phoneColumn: string; nameColumn: string | null }
+    | { kind: 'SEGMENT'; segmentId: string };
   templateIds: string[];
   placeholders: CampaignPlaceholder[];
   senderIds: string[];
@@ -236,7 +242,12 @@ export const getCampaign = (token: string, ws: string, id: string) =>
   apiFetch<CampaignDetail>(`${base(ws)}/${encodeURIComponent(id)}`, { token });
 
 /** Creates a draft; a CSV audience goes as multipart (the request as the {@code campaign} part, the CSV as {@code file}). */
-export async function createCampaign(token: string, ws: string, req: CampaignRequest, file?: File): Promise<CampaignView> {
+export async function createCampaign(
+  token: string,
+  ws: string,
+  req: CampaignRequest,
+  file?: File,
+): Promise<CampaignView> {
   if (!file) return apiFetch<CampaignView>(base(ws), { method: 'POST', token, body: req });
   const body = new FormData();
   body.append('campaign', new Blob([JSON.stringify(req)], { type: 'application/json' }));

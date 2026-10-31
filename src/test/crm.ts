@@ -391,6 +391,8 @@ export function sampleCampaignsReport(overrides: Partial<CampaignsReport> = {}):
         replied: 15,
         failed: 2,
         crmContactsReached: 40,
+        segmentId: null,
+        segmentName: null,
       },
     ],
     truncated: false,

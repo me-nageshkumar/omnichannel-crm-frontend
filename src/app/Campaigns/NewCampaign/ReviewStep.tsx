@@ -1,5 +1,6 @@
 import * as React from 'react';
 import { useNavigate } from 'react-router-dom';
+import { ExclamationTriangleIcon } from '@patternfly/react-icons';
 import {
   Alert,
   Button,
@@ -7,6 +8,8 @@ import {
   DescriptionListDescription,
   DescriptionListGroup,
   DescriptionListTerm,
+  List,
+  ListItem,
   Spinner,
   Stack,
   WizardFooterWrapper,
@@ -16,6 +19,7 @@ import { SenderView, campaignAction, createCampaign } from '@app/api/campaigns';
 import { ApiError } from '@app/api/client';
 import { ContactAttribute, countContacts } from '@app/api/contacts';
 import { campaignActionMessage } from '@app/api/messages';
+import type { SegmentPreview } from '@app/api/crm';
 import { shown } from '@app/api/phoneNumbers';
 import { useAction } from '@app/admin/useAction';
 import { useLoad } from '@app/admin/useLoad';
@@ -27,7 +31,10 @@ import { countText } from '@app/Contacts/filterSpec';
 import { useSession } from '@app/session/SessionContext';
 
 /** The request fields the Review summarises; an error on any of them is shown beside its line. */
-const SHOWN_FIELDS = ['name', 'templateIds', 'placeholders', 'senderIds'];
+const SHOWN_FIELDS = ['name', 'templateIds', 'placeholders', 'senderIds', 'audience.segmentId'];
+
+export const TRUNCATED_SEGMENT_TEXT =
+  'This segment has more than 50,000 contacts for you; narrow its rules before sending.';
 
 export interface CreateCampaign {
   /** Creates the draft, starts it when {@code start}, and opens it; a second call while one runs is ignored. */
@@ -147,9 +154,11 @@ export const ReviewStep: React.FunctionComponent<{
   create: CreateCampaign;
   /** False when an earlier step no longer accepts the draft; the footer then cannot submit. */
   ready: boolean;
-}> = ({ draft, attributes, senders, create, ready }) => {
+  /** The segment's live preview for the signed-in user (a SEGMENT audience), with its load state. */
+  segment?: { preview: SegmentPreview | null; error: string | null };
+}> = ({ draft, attributes, senders, create, ready, segment }) => {
   const filterCount = useFilterCount(draft);
-  const size = audienceSize(draft, filterCount.count);
+  const size = audienceSize(draft, filterCount.count, segment?.preview?.total ?? null);
   const chosen = senders.filter((s) => draft.senderIds.includes(s.phoneNumberId));
   const perDay = capPerDay(chosen);
   const options = sourceOptions(mappingContext(draft, attributes));
@@ -158,17 +167,25 @@ export const ReviewStep: React.FunctionComponent<{
   const errorsFor = (field: string) => [fieldErrors[field], errorField === field ? error : null];
   const banner = error && !(errorField && SHOWN_FIELDS.includes(errorField)) ? error : null;
 
+  const preview = segment?.preview ?? null;
+  const segmentCounts = preview
+    ? preview.people === preview.total
+      ? `${preview.total.toLocaleString('en-US')} CRM contacts`
+      : `${preview.total.toLocaleString('en-US')} CRM contacts (${preview.people.toLocaleString('en-US')} people)`
+    : null;
   const audience =
     draft.kind === 'FILTER'
       ? `Saved filter ${draft.filterName}${filterCount.count === null ? '' : ` · ${countText(filterCount.count)}`}`
-      : [
-          `CSV ${draft.file?.name ?? ''}`,
-          `${(draft.preview?.rows ?? 0).toLocaleString('en-US')} rows`,
-          draft.phoneColumn && `phone column ${draft.phoneColumn}`,
-          draft.nameColumn && `name column ${draft.nameColumn}`,
-        ]
-          .filter(Boolean)
-          .join(' · ');
+      : draft.kind === 'SEGMENT'
+        ? `Segment ${draft.segmentName}${segmentCounts ? ` · ${segmentCounts}` : ''}`
+        : [
+            `CSV ${draft.file?.name ?? ''}`,
+            `${(draft.preview?.rows ?? 0).toLocaleString('en-US')} rows`,
+            draft.phoneColumn && `phone column ${draft.phoneColumn}`,
+            draft.nameColumn && `name column ${draft.nameColumn}`,
+          ]
+            .filter(Boolean)
+            .join(' · ');
 
   const sourceText = (name: string) => {
     const m = draft.mappings[name];
@@ -201,6 +218,26 @@ export const ReviewStep: React.FunctionComponent<{
           <DescriptionListDescription>
             <div>{audience}</div>
             {filterCount.error && <Alert variant="danger" isInline isPlain title={filterCount.error} />}
+            {segment?.error && <Alert variant="danger" isInline isPlain title={segment.error} />}
+            {preview?.truncated && <Alert variant="warning" isInline isPlain title={TRUNCATED_SEGMENT_TEXT} />}
+            {preview && preview.channelAccounts.length > 0 && (
+              <List isPlain aria-label="Contacts per channel account">
+                {preview.channelAccounts.map((row) => {
+                  const chosen = row.channelAccountId !== null && draft.senderIds.includes(row.channelAccountId);
+                  return (
+                    <ListItem
+                      key={row.channelAccountId ?? 'none'}
+                      icon={chosen ? undefined : <ExclamationTriangleIcon aria-label="Warning" />}
+                    >
+                      {chosen
+                        ? `${row.label}: ${row.count.toLocaleString('en-US')} contacts`
+                        : `${row.count.toLocaleString('en-US')} contacts landed on ${row.label}, which is not a chosen sender — those with chats there will be skipped`}
+                    </ListItem>
+                  );
+                })}
+              </List>
+            )}
+            <Errors messages={errorsFor('audience.segmentId')} />
           </DescriptionListDescription>
         </DescriptionListGroup>
         <DescriptionListGroup>

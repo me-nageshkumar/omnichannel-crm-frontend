@@ -866,6 +866,8 @@ export interface CampaignsReportRow {
   replied: number;
   failed: number;
   crmContactsReached: number;
+  segmentId: string | null;
+  segmentName: string | null;
 }
 export interface CampaignsReport {
   rows: CampaignsReportRow[];

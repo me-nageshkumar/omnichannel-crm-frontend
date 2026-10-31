@@ -1,5 +1,5 @@
 import * as React from 'react';
-import { Link } from 'react-router-dom';
+import { Link, useSearchParams } from 'react-router-dom';
 import {
   Alert,
   FileUpload,
@@ -18,6 +18,9 @@ import {
 import { Table, Tbody, Td, Th, Thead, Tr } from '@patternfly/react-table';
 import { previewCsv } from '@app/api/campaigns';
 import { countContacts, listFilters } from '@app/api/contacts';
+import { listSegments } from '@app/api/crm';
+import type { Segment } from '@app/api/crm';
+import { useAccess } from '@app/session/useAccess';
 import { messageFor } from '@app/api/messages';
 import { useLoad } from '@app/admin/useLoad';
 import { countText } from '@app/Contacts/filterSpec';
@@ -68,6 +71,40 @@ const FilterAudience: React.FunctionComponent<StepProps> = ({ draft, update }) =
           )}
           <Link to="/contacts">Manage filters</Link>
         </Flex>
+      </FormHelperText>
+    </FormGroup>
+  );
+};
+
+/** "Gold leads — 1,240 CRM contacts" (the cached count), or "— not counted yet". */
+export const segmentOptionText = (s: Segment): string =>
+  s.cachedCounts
+    ? `${s.name} — ${s.cachedCounts.total.toLocaleString('en-US')} CRM contacts`
+    : `${s.name} — not counted yet`;
+
+const SegmentAudience: React.FunctionComponent<StepProps> = ({ draft, update }) => {
+  const { workspace } = useSession();
+  const ws = workspace?.id ?? '';
+  const segments = useLoad((tk) => listSegments(tk, ws), [ws]);
+  return (
+    <FormGroup label="Segment" fieldId="audience-segment">
+      {segments.error && <Alert variant="danger" isInline isPlain title={segments.error} />}
+      <FormSelect
+        id="audience-segment"
+        aria-label="Segment"
+        value={draft.segmentId}
+        onChange={(_e, v) => update({ segmentId: v, segmentName: segments.data?.find((s) => s.id === v)?.name ?? '' })}
+      >
+        <FormSelectOption value="" label="Choose a segment" isPlaceholder />
+        {(segments.data ?? []).map((s) => (
+          <FormSelectOption key={s.id} value={s.id} label={segmentOptionText(s)} />
+        ))}
+      </FormSelect>
+      <FormHelperText>
+        <HelperText>
+          <HelperTextItem>Who matches is counted for you when you review the campaign.</HelperTextItem>
+        </HelperText>
+        <Link to="/crm/segments">Manage segments</Link>
       </FormHelperText>
     </FormGroup>
   );
@@ -190,32 +227,59 @@ const CsvAudience: React.FunctionComponent<StepProps> = ({ draft, update }) => {
   );
 };
 
-/** Name the campaign and choose who receives it: a saved contact filter or an uploaded CSV. */
-export const AudienceStep: React.FunctionComponent<StepProps> = ({ draft, update }) => (
-  <Form onSubmit={(e) => e.preventDefault()}>
-    <FormGroup label="Name" isRequired fieldId="campaign-name">
-      <TextInput id="campaign-name" isRequired value={draft.name} onChange={(_e, name) => update({ name })} />
-    </FormGroup>
-    <FormGroup label="Audience" role="radiogroup" isInline fieldId="audience-kind">
-      <Radio
-        id="audience-kind-filter"
-        name="audience-kind"
-        label="Saved contact filter"
-        isChecked={draft.kind === 'FILTER'}
-        onChange={() => update({ kind: 'FILTER' })}
-      />
-      <Radio
-        id="audience-kind-csv"
-        name="audience-kind"
-        label="CSV file"
-        isChecked={draft.kind === 'CSV'}
-        onChange={() => update({ kind: 'CSV' })}
-      />
-    </FormGroup>
-    {draft.kind === 'FILTER' ? (
-      <FilterAudience draft={draft} update={update} />
-    ) : (
-      <CsvAudience draft={draft} update={update} />
-    )}
-  </Form>
-);
+/** Name the campaign and choose who receives it: a saved contact filter, a CRM segment or an uploaded CSV. */
+export const AudienceStep: React.FunctionComponent<StepProps> = ({ draft, update }) => {
+  const access = useAccess();
+  const canUseSegments = access.hasInWorkspace('crm:view') && access.hasInWorkspace('crm:segments');
+  const [params] = useSearchParams();
+  const preselect = params.get('segmentId');
+  // Arriving from a segment's "Send campaign": the segment is chosen before anything else happens.
+  React.useEffect(() => {
+    if (preselect && canUseSegments)
+      update((d) =>
+        d.segmentId === '' && d.kind === 'FILTER' && d.filterId === ''
+          ? { kind: 'SEGMENT', segmentId: preselect }
+          : null,
+      );
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [preselect, canUseSegments]);
+  return (
+    <Form onSubmit={(e) => e.preventDefault()}>
+      <FormGroup label="Name" isRequired fieldId="campaign-name">
+        <TextInput id="campaign-name" isRequired value={draft.name} onChange={(_e, name) => update({ name })} />
+      </FormGroup>
+      <FormGroup label="Audience" role="radiogroup" isInline fieldId="audience-kind">
+        <Radio
+          id="audience-kind-filter"
+          name="audience-kind"
+          label="Saved contact filter"
+          isChecked={draft.kind === 'FILTER'}
+          onChange={() => update({ kind: 'FILTER' })}
+        />
+        {canUseSegments && (
+          <Radio
+            id="audience-kind-segment"
+            name="audience-kind"
+            label="CRM segment"
+            isChecked={draft.kind === 'SEGMENT'}
+            onChange={() => update({ kind: 'SEGMENT' })}
+          />
+        )}
+        <Radio
+          id="audience-kind-csv"
+          name="audience-kind"
+          label="CSV file"
+          isChecked={draft.kind === 'CSV'}
+          onChange={() => update({ kind: 'CSV' })}
+        />
+      </FormGroup>
+      {draft.kind === 'FILTER' ? (
+        <FilterAudience draft={draft} update={update} />
+      ) : draft.kind === 'SEGMENT' ? (
+        <SegmentAudience draft={draft} update={update} />
+      ) : (
+        <CsvAudience draft={draft} update={update} />
+      )}
+    </Form>
+  );
+};

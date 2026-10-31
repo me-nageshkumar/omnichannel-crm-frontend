@@ -184,6 +184,22 @@ describe('CRM report overview', () => {
     await waitFor(() => expect(card('Stage duration')).toHaveTextContent('No moves recorded yet.'));
   });
 
+  it('campaignsCardShowsTheSegmentColumn', async () => {
+    const report = sampleCampaignsReport();
+    report.rows[0] = { ...report.rows[0], segmentId: 'seg-1', segmentName: 'Gold tier' };
+    report.rows.push({ ...report.rows[0], campaignId: 'c2', name: 'Plain blast', segmentId: null, segmentName: null });
+    mockFetch(reportRoutes({ [reportPath('campaigns')]: { status: 200, body: report } }));
+    renderApp('/crm/reports');
+    const table = await screen.findByRole('grid', { name: 'Campaigns' });
+    const header = within(table)
+      .getAllByRole('columnheader')
+      .map((h) => h.textContent);
+    expect(header.indexOf('Segment')).toBe(header.indexOf('Campaign') + 1);
+    const rows = within(table).getAllByRole('row');
+    expect(rows[1]).toHaveTextContent('Gold tier');
+    expect(within(rows[2]).getAllByRole('cell')[1]).toHaveTextContent('—');
+  });
+
   it('campaignsRowShowsDeliveryFigures', async () => {
     mockFetch(
       reportRoutes({
