@@ -12,6 +12,8 @@ const reminder = (over = {}) => ({
   title: 'Call back',
   dueAt: '2026-10-24T09:30:00Z',
   target: { type: 'DEAL', id: 'd1', name: 'Acme order' },
+  kind: 'DUE',
+  assignedBy: null,
   ...over,
 });
 
@@ -127,5 +129,22 @@ describe('CRM reminders', () => {
     await waitFor(() => expect(requestTo(f, `POST ${BASE}/reminders/t9/seen`)).toBeDefined());
     expect(await screen.findByText(/no longer available|not available/i)).toBeInTheDocument();
     expect(screen.queryByText('Follow-up due: Call back')).toBeNull();
+  });
+
+  it('assignedToastShowsOncePerTask', async () => {
+    const f = mockFetch(
+      boardRoutes({
+        [LIST]: { status: 200, body: [reminder({ kind: 'ASSIGNED', assignedBy: { id: 'u2', name: 'Priya Agent' } })] },
+        [`POST ${BASE}/reminders/t1/seen`]: { status: 204 },
+      }),
+    );
+    const { user } = renderApp('/');
+    const toast = await screen.findByText('New task from Priya Agent: Call back');
+    expect(screen.getAllByText(/Call back/).length).toBe(1);
+    expect(await screen.findByRole('link', { name: 'Tasks (1)', hidden: true })).toBeInTheDocument();
+    const alert = toast.closest('.pf-v6-c-alert') as HTMLElement;
+    await user.click(within(alert).getByRole('button', { name: /Close/ }));
+    await waitFor(() => expect(requestTo(f, `POST ${BASE}/reminders/t1/seen`)).toBeDefined());
+    expect(await screen.findByRole('link', { name: 'Tasks', hidden: true })).toBeInTheDocument();
   });
 });
