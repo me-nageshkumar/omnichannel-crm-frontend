@@ -154,8 +154,11 @@ export function withField(rule: SegmentRule, field: string, catalog: SegmentFiel
 /** The rule with another operator; the value survives when the operator takes the same kind of value. */
 export function withOperator(rule: SegmentRule, operator: string, type: SegmentValueType): SegmentRule {
   const kind = valueKind(type, operator);
-  const { missing: _m, inaccessible: _i, ...plain } = rule;
-  return { ...plain, operator, value: kind === valueKind(type, rule.operator) ? rule.value : emptyValue(kind) };
+  return {
+    field: rule.field,
+    operator,
+    value: kind === valueKind(type, rule.operator) ? rule.value : emptyValue(kind),
+  };
 }
 
 export const isFlagged = (rule: SegmentRule): boolean => rule.missing === true || rule.inaccessible === true;
