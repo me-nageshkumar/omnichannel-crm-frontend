@@ -3,6 +3,8 @@ import {
   type Announcements,
   DndContext,
   type DragEndEvent,
+  DragOverlay,
+  type DragStartEvent,
   KeyboardSensor,
   PointerSensor,
   closestCorners,
@@ -10,6 +12,7 @@ import {
   useSensors,
 } from '@dnd-kit/core';
 import { sortableKeyboardCoordinates } from '@dnd-kit/sortable';
+import { Card, CardBody } from '@patternfly/react-core';
 import { KanbanLane, LANE_DROP_PREFIX } from './KanbanLane';
 import { type KanbanLaneData, moveCard } from './kanban';
 
@@ -70,6 +73,8 @@ export function KanbanBoard<C>({
 }: KanbanBoardProps<C>) {
   const narrow = useNarrow(narrowProp);
   const [pending, setPending] = React.useState<Pending | null>(null);
+  // The card under the pointer while a drag is on; drawn in an overlay so it can cross lanes.
+  const [activeId, setActiveId] = React.useState<string | null>(null);
   const [seen, setSeen] = React.useState(lanes);
   // Locked from the start of a move until fresh lanes arrive after it was saved (or it is rolled back).
   const busy = pending !== null;
@@ -101,7 +106,9 @@ export function KanbanBoard<C>({
     useSensor(KeyboardSensor, { coordinateGetter: sortableKeyboardCoordinates }),
   );
 
+  const onDragStart = ({ active }: DragStartEvent) => setActiveId(String(active.id));
   const onDragEnd = ({ active, over }: DragEndEvent) => {
+    setActiveId(null);
     if (busy || !over || active.id === over.id) return;
     const activeId = String(active.id);
     const overId = String(over.id);
@@ -154,11 +161,15 @@ export function KanbanBoard<C>({
     onDragCancel: ({ active }) => `Moving ${cardName(active.id)} was cancelled.`,
   };
 
+  const activeCard = activeId === null ? undefined : shown.flatMap((l) => l.cards).find((c) => idOf(c) === activeId);
+
   return (
     <DndContext
       sensors={sensors}
       collisionDetection={closestCorners}
+      onDragStart={onDragStart}
       onDragEnd={onDragEnd}
+      onDragCancel={() => setActiveId(null)}
       accessibility={{ announcements }}
     >
       <div
@@ -191,6 +202,13 @@ export function KanbanBoard<C>({
           />
         ))}
       </div>
+      <DragOverlay dropAnimation={null}>
+        {activeCard && (
+          <Card isCompact style={{ cursor: 'grabbing', boxShadow: 'var(--pf-t--global--box-shadow--lg)' }}>
+            <CardBody>{renderCard(activeCard)}</CardBody>
+          </Card>
+        )}
+      </DragOverlay>
     </DndContext>
   );
 }

@@ -60,7 +60,14 @@ describe('KanbanBoard', () => {
       let top = 0;
       let width = 0;
       let height = 0;
-      if (!Number.isNaN(lane)) {
+      // The drag overlay is a fixed wrapper that dnd-kit places with inline pixels and measures by its first child.
+      const overlay = [el, el.parentElement].find((n) => n?.style?.position === 'fixed')?.style;
+      if (overlay) {
+        left = parseFloat(overlay.left) || 0;
+        top = parseFloat(overlay.top) || 0;
+        width = parseFloat(overlay.width) || 280;
+        height = parseFloat(overlay.height) || 90;
+      } else if (!Number.isNaN(lane)) {
         left = lane * 300;
         width = 280;
         height = 600;
@@ -95,28 +102,51 @@ describe('KanbanBoard', () => {
     await user.keyboard(' ');
   }
 
-  /** A mouse drag that starts on {@code el} and ends at ({@code x}, {@code y}) of the board. */
-  async function pointerDrag(el: Element, from: [number, number], to: [number, number]) {
-    const opts = (x: number, y: number) => ({
-      clientX: x,
-      clientY: y,
-      pointerId: 1,
-      pointerType: 'mouse',
-      button: 0,
-      isPrimary: true,
-    });
-    fireEvent.pointerDown(el, opts(...from));
+  const pointerOpts = (x: number, y: number) => ({
+    clientX: x,
+    clientY: y,
+    pointerId: 1,
+    pointerType: 'mouse',
+    button: 0,
+    isPrimary: true,
+  });
+
+  /** Presses on {@code el} and moves the pointer to ({@code x}, {@code y}) of the board without releasing. */
+  async function startPointerDrag(el: Element, from: [number, number], to: [number, number]) {
+    fireEvent.pointerDown(el, pointerOpts(...from));
     for (let i = 1; i <= 4; i++) {
       fireEvent.pointerMove(
         document,
-        opts(from[0] + ((to[0] - from[0]) * i) / 4, from[1] + ((to[1] - from[1]) * i) / 4),
+        pointerOpts(from[0] + ((to[0] - from[0]) * i) / 4, from[1] + ((to[1] - from[1]) * i) / 4),
       );
       await act(async () => undefined);
     }
-    fireEvent.pointerUp(document, opts(...to));
+  }
+
+  async function endPointerDrag(at: [number, number]) {
+    fireEvent.pointerUp(document, pointerOpts(...at));
     // dnd-kit swallows clicks on the document for 50 ms after a drag ends; let that pass before the next step.
     await act(() => new Promise((r) => setTimeout(r, 60)));
   }
+
+  /** A mouse drag that starts on {@code el} and ends at ({@code x}, {@code y}) of the board. */
+  async function pointerDrag(el: Element, from: [number, number], to: [number, number]) {
+    await startPointerDrag(el, from, to);
+    await endPointerDrag(to);
+  }
+
+  it('dragShowsAnOverlayOfTheCardOutsideItsLane', async () => {
+    const onMove = vi.fn().mockResolvedValue(undefined);
+    render(board({ onMove }));
+    await startPointerDrag(screen.getByText('Card 1'), [100, 80], [440, 80]);
+    // While dragging, a copy of the card follows the pointer outside the lanes.
+    const copies = screen.getAllByText('Card 1');
+    expect(copies).toHaveLength(2);
+    expect(copies.filter((c) => !c.closest('section[aria-label]'))).toHaveLength(1);
+    await endPointerDrag([440, 80]);
+    await waitFor(() => expect(onMove).toHaveBeenCalledTimes(1));
+    expect(screen.getAllByText('Card 1')).toHaveLength(1);
+  });
 
   it('dragFromTheCardBodyMovesIt', async () => {
     const onMove = vi.fn().mockResolvedValue(undefined);
