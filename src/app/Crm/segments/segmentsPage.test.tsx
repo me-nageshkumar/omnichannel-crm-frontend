@@ -4,6 +4,7 @@ import { renderApp } from '../../../test/renderApp';
 import { callsTo, mockFetch, requestTo } from '../../../test/fetchMock';
 import { BRAND_A, BRAND_CODES, WORKSPACE_MANAGER, meAs, storeSession } from '../../../test/session';
 import { SEGMENTS_BASE, segmentRoutes } from '../../../test/crmSegments';
+import { sampleSegment } from '../../../test/crm';
 
 /** A manager whose brand role lacks the Segments authority. */
 const noSegments = meAs({
@@ -48,6 +49,16 @@ describe('CRM segments page', () => {
     expect(within(table).getByText('Not counted yet')).toBeInTheDocument();
     expect(within(table).getByText('Never')).toBeInTheDocument();
     expect(within(table).getByRole('link', { name: 'Diwali offer' })).toHaveAttribute('href', '/campaigns/k1');
+  });
+
+  it('aSegmentOfOneReadsInTheSingular', async () => {
+    const one = sampleSegment({
+      cachedCounts: { total: 1, people: 1, truncated: false, channelAccounts: [], at: '2026-10-31T03:35:00Z' },
+    });
+    mockFetch(segmentRoutes({ [`GET ${SEGMENTS_BASE}`]: { status: 200, body: [one] } }));
+    renderApp('/crm/segments');
+    const table = await screen.findByRole('grid', { name: 'Segments' });
+    expect(within(table).getByText('1 CRM contact')).toBeInTheDocument();
   });
 
   it('audiencePopoverListsChannelAccounts', async () => {

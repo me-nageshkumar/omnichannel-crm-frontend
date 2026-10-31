@@ -230,6 +230,15 @@ describe('CRM segment editor', () => {
     expect(within(card).getByText('3')).toBeInTheDocument();
   });
 
+  it('previewOfOneReadsInTheSingular', async () => {
+    const { user } = await openNew({
+      [PREVIEW]: { status: 200, body: sampleSegmentPreview({ total: 1, people: 1 }) },
+    });
+    await fillLifecycle(user);
+    const card = await screen.findByRole('region', { name: 'Who matches' });
+    expect(await within(card).findByText('1 CRM contact')).toBeInTheDocument();
+  });
+
   it('previewSaysTruncated', async () => {
     const { user } = await openNew({
       [PREVIEW]: { status: 200, body: sampleSegmentPreview({ total: 60000, people: 60000, truncated: true }) },
@@ -255,7 +264,7 @@ describe('CRM segment editor', () => {
     first.release();
     await act(() => new Promise((r) => setTimeout(r, 50)));
     expect(within(card).getByText('2 CRM contacts')).toBeInTheDocument();
-    expect(within(card).queryByText('1 CRM contacts')).toBeNull();
+    expect(within(card).queryByText(/^1 CRM contact/)).toBeNull();
   });
 
   it('incompleteRulesShowTheHint', async () => {

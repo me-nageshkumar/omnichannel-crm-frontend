@@ -8,6 +8,7 @@ import {
   MAX_VALUES,
   MAX_VALUE_LENGTH,
   cleanRules,
+  countsText,
   emptyGroup,
   hasFlagged,
   isComplete,
@@ -147,6 +148,13 @@ describe('segmentModel', () => {
     expect(removeRule(root, [1, 1])).toEqual(
       group('and', rule('deal.stageId', 'is', 's2'), group('and', rule('deal.pipelineId', 'is', 'p1'))),
     );
+  });
+
+  it('countsReadInTheSingularForOne', () => {
+    expect(countsText({ total: 1, people: 1 })).toBe('1 CRM contact');
+    expect(countsText({ total: 2, people: 1 })).toBe('2 CRM contacts (1 person)');
+    expect(countsText({ total: 1240, people: 1180 })).toBe('1,240 CRM contacts (1,180 people)');
+    expect(countsText({ total: 0, people: 0 })).toBe('0 CRM contacts');
   });
 
   it('capsMirrorTheServer', () => {

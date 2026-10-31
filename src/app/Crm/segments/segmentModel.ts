@@ -16,8 +16,8 @@ export const MAX_DAYS = 3650;
 /** "n CRM contacts", with the people in brackets when they differ (spec C20). */
 export function countsText({ total, people }: { total: number; people: number }): string {
   const count = (v: number) => v.toLocaleString('en-US');
-  const base = `${count(total)} CRM contacts`;
-  return people === total ? base : `${base} (${count(people)} people)`;
+  const base = `${count(total)} CRM contact${total === 1 ? '' : 's'}`;
+  return people === total ? base : `${base} (${count(people)} ${people === 1 ? 'person' : 'people'})`;
 }
 
 /** A count's or a send's time: "Oct 31, 9:05 AM". */

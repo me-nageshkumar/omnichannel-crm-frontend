@@ -113,6 +113,47 @@ describe('campaign wizard with a CRM segment audience', () => {
     expect(screen.getByRole('link', { name: 'Manage segments' })).toHaveAttribute('href', '/crm/segments');
   });
 
+  it('aSegmentOfOneReadsInTheSingularInTheSelect', async () => {
+    const one = {
+      ...SEGMENTS[0],
+      cachedCounts: { total: 1, people: 1, truncated: false, channelAccounts: [], at: '2026-10-31T03:35:00Z' },
+    };
+    mockFetch(routes({ [SEGMENTS_URL]: { status: 200, body: [one] } }));
+    const { user } = renderApp('/campaigns/new');
+    await chooseSegment(user);
+    const select = screen.getByRole('combobox', { name: 'Segment' });
+    expect(within(select).getByRole('option', { name: /^Gold leads — 1 CRM contact, as of .+/ })).toBeInTheDocument();
+  });
+
+  it('reviewOfOneReadsInTheSingular', async () => {
+    const preview = sampleSegmentPreview({
+      total: 2,
+      people: 1,
+      channelAccounts: [
+        { channelAccountId: 'p1', kind: 'WHATSAPP_WEB', label: 'Sales line', count: 1 },
+        { channelAccountId: 'p2', kind: 'WHATSAPP_WEB', label: 'Support line', count: 1 },
+      ],
+    });
+    mockFetch(routes({ [PREVIEW]: { status: 200, body: preview } }));
+    const { user } = renderApp('/campaigns/new');
+    await toReview(user);
+    expect(await screen.findByText('Segment Gold leads · 2 CRM contacts (1 person)')).toBeInTheDocument();
+    expect(screen.getByText('Sales line: 1 contact')).toBeInTheDocument();
+    expect(screen.getByText(/^1 contact landed on Support line, which is not a chosen sender/)).toBeInTheDocument();
+  });
+
+  it('reviewOfOneContactReadsInTheSingular', async () => {
+    const preview = sampleSegmentPreview({
+      total: 1,
+      people: 1,
+      channelAccounts: [{ channelAccountId: 'p1', kind: 'WHATSAPP_WEB', label: 'Sales line', count: 1 }],
+    });
+    mockFetch(routes({ [PREVIEW]: { status: 200, body: preview } }));
+    const { user } = renderApp('/campaigns/new');
+    await toReview(user);
+    expect(await screen.findByText('Segment Gold leads · 1 CRM contact')).toBeInTheDocument();
+  });
+
   it('segmentIdInTheUrlPreselects', async () => {
     mockFetch(routes());
     const { user } = renderApp('/campaigns/new?segmentId=s1');
