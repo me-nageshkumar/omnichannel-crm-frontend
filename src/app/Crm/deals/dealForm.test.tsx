@@ -125,4 +125,46 @@ describe('Deal form', () => {
     expect(body).not.toHaveProperty('pipelineId');
     expect(body).not.toHaveProperty('stageId');
   });
+
+  it('pipelineSelectResetsTheStage', async () => {
+    const support = samplePipeline({
+      id: 'p2',
+      name: 'Support',
+      stages: [
+        { id: 't1', name: 'Triage', color: null, position: 1000, probability: 10, type: 'OPEN', wipLimit: null },
+      ],
+    });
+    const f = mockFetch({
+      ...meAs(WORKSPACE_MANAGER),
+      [`GET ${BASE}/fields`]: { status: 200, body: [] },
+      [`POST ${BASE}/contacts/search`]: { status: 200, body: { items: [], total: 0, page: 0 } },
+      [`POST ${BASE}/deals`]: { status: 200, body: sampleDeal() },
+    });
+    const user = userEvent.setup();
+    render(
+      <MemoryRouter>
+        <SessionProvider>
+          <DealFormModal
+            pipeline={samplePipeline()}
+            pipelines={[samplePipeline(), support]}
+            settings={SETTINGS}
+            contact={{ id: 'c1', label: 'Priya Shah', channelAccountId: 'pn1' }}
+            onSaved={() => undefined}
+            onClose={() => undefined}
+          />
+        </SessionProvider>
+      </MemoryRouter>,
+    );
+    const dialog = await screen.findByRole('dialog', { name: 'New deal' });
+    await user.type(within(dialog).getByLabelText(/^Title/), 'Second');
+    await user.selectOptions(within(dialog).getByLabelText('Pipeline'), 'p2');
+    expect(within(dialog).getByLabelText('Stage')).toHaveValue('t1');
+    await user.click(within(dialog).getByRole('button', { name: 'Create deal' }));
+    await waitFor(() => expect(requestTo(f, `POST ${BASE}/deals`)).toBeDefined());
+    expect(requestTo(f, `POST ${BASE}/deals`)?.body).toMatchObject({
+      pipelineId: 'p2',
+      stageId: 't1',
+      primaryCrmContactId: 'c1',
+    });
+  });
 });
