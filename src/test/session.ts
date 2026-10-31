@@ -36,6 +36,7 @@ export const BRAND_CODES = [
   'inbox:send',
   'inbox:assign',
   'inbox:settings',
+  'inbox:import-history',
   'campaign:view',
   'campaign:manage',
   'campaign:settings',
