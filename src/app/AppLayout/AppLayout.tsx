@@ -53,7 +53,13 @@ const UserMenu: React.FunctionComponent = () => {
       onSelect={() => setIsOpen(false)}
       popperProps={{ position: 'right' }}
       toggle={(ref) => (
-        <MenuToggle ref={ref} variant="plainText" icon={<UserIcon />} isExpanded={isOpen} onClick={() => setIsOpen(!isOpen)}>
+        <MenuToggle
+          ref={ref}
+          variant="plainText"
+          icon={<UserIcon />}
+          isExpanded={isOpen}
+          onClick={() => setIsOpen(!isOpen)}
+        >
           {user.name}
         </MenuToggle>
       )}
@@ -77,7 +83,10 @@ const UserMenu: React.FunctionComponent = () => {
 
 /** The nav path the page falls under: the longest one that is the pathname or a parent of it. */
 function currentNavPath(sections: NavEntry[][], pathname: string): string | undefined {
-  const paths = sections.flat().flatMap((entry) => (isExpandable(entry) ? entry.links : [entry])).map((link) => link.path);
+  const paths = sections
+    .flat()
+    .flatMap((entry) => (isExpandable(entry) ? entry.links : [entry]))
+    .map((link) => link.path);
   return paths
     .filter((path) => path === pathname || (path !== '/' && pathname.startsWith(`${path}/`)))
     .sort((a, b) => b.length - a.length)[0];
@@ -103,17 +112,18 @@ const AppLayout: React.FunctionComponent<IAppLayout> = ({ children }) => {
       <MastheadContent>
         <Toolbar isFullHeight isStatic>
           <ToolbarContent>
+            {/* Each item centres its content: stretched, a plain label sits at the top and a switch's toggle high. */}
             <ToolbarGroup align={{ default: 'alignEnd' }}>
-              <ToolbarItem>
+              <ToolbarItem alignItems="center">
                 <WorkspaceSwitcher />
               </ToolbarItem>
-              <ToolbarItem>
+              <ToolbarItem alignItems="center">
                 <ThemeSwitcher />
               </ToolbarItem>
-              <ToolbarItem>
+              <ToolbarItem alignItems="center">
                 <AvailabilitySwitch />
               </ToolbarItem>
-              <ToolbarItem>
+              <ToolbarItem alignItems="center">
                 <UserMenu />
               </ToolbarItem>
             </ToolbarGroup>

@@ -89,3 +89,8 @@ body,
   display: block;
   padding: 4px 0;
 }
+
+/* The masthead's full-height toolbar stretches its items, which beats the items' own centre modifier. */
+.pf-v6-c-masthead .pf-v6-c-toolbar.pf-m-full-height .pf-v6-c-toolbar__item.pf-m-align-items-center {
+  align-items: center;
+}
