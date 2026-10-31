@@ -73,6 +73,8 @@ function instant(date: string, time: string): string | null {
   return Number.isNaN(d.getTime()) ? null : d.toISOString();
 }
 
+const FIRST_PROBLEM = '.pf-v6-c-alert, .pf-v6-c-helper-text__item.pf-m-error';
+
 /** Plans a task on a record, or edits one: title, type, priority, due and reminder times, assignee, notes. */
 export const TaskFormModal: React.FunctionComponent<{
   target: { type: TaskTargetType; id: string };
@@ -105,6 +107,12 @@ export const TaskFormModal: React.FunctionComponent<{
   const [checked, setChecked] = React.useState(false);
   const action = useAction([...FIELDS, ...steps.map((_s, i) => `checklist[${i}].text`)]);
   const brandUsers = useBrandUsers();
+  // the form scrolls, so a problem can land out of sight behind the footer
+  const body = React.useRef<HTMLDivElement>(null);
+  const [failedSaves, setFailedSaves] = React.useState(0);
+  React.useEffect(() => {
+    if (failedSaves > 0) body.current?.querySelector(FIRST_PROBLEM)?.scrollIntoView?.({ block: 'center' });
+  }, [failedSaves]);
 
   const types = taskTypes.filter((t) => t.active || t.key === task?.type).sort((a, b) => a.position - b.position);
   const assignees: Ref[] = [];
@@ -188,7 +196,10 @@ export const TaskFormModal: React.FunctionComponent<{
       (dueAt && reminderAt && reminderAt > dueAt) ||
       description.length > 5000 ||
       repeatBad;
-    if (bad) return;
+    if (bad) {
+      setFailedSaves((n) => n + 1);
+      return;
+    }
     // a step typed but not added yet is one the user means to keep
     const typed = stepDraft.trim() && steps.length < MAX_STEPS ? newStep(stepDraft.trim()) : null;
     const allSteps = typed ? [...steps, typed] : steps;
@@ -222,6 +233,7 @@ export const TaskFormModal: React.FunctionComponent<{
       },
     );
     if (saved) onSaved(saved);
+    else setFailedSaves((n) => n + 1);
   };
 
   const when = (
@@ -254,69 +266,71 @@ export const TaskFormModal: React.FunctionComponent<{
     <Modal isOpen variant="medium" onClose={onClose} aria-labelledby="crm-task-title">
       <ModalHeader title={task ? 'Edit task' : 'New task'} labelId="crm-task-title" />
       <ModalBody>
-        {action.error && <Alert variant="danger" isInline isPlain title={action.error} className="pf-v6-u-mb-md" />}
-        <Form id="crm-task-form" onSubmit={onSubmit}>
-          <Field label="Title" fieldId="crm-task-name" isRequired error={err('title')}>
-            <TextInput
-              id="crm-task-name"
-              value={title}
-              maxLength={200}
-              validated={err('title') ? 'error' : 'default'}
-              onChange={(_e, v) => setTitle(v)}
-            />
-          </Field>
-          {types.length > 0 && (
-            <Field label="Type" fieldId="crm-task-type" error={action.fieldErrors.type}>
-              <FormSelect id="crm-task-type" value={type} onChange={(_e, v) => setType(v)}>
-                <FormSelectOption value="" label="No type" />
-                {types.map((t) => (
-                  <FormSelectOption key={t.key} value={t.key} label={t.label} />
+        <div ref={body}>
+          {action.error && <Alert variant="danger" isInline isPlain title={action.error} className="pf-v6-u-mb-md" />}
+          <Form id="crm-task-form" onSubmit={onSubmit}>
+            <Field label="Title" fieldId="crm-task-name" isRequired error={err('title')}>
+              <TextInput
+                id="crm-task-name"
+                value={title}
+                maxLength={200}
+                validated={err('title') ? 'error' : 'default'}
+                onChange={(_e, v) => setTitle(v)}
+              />
+            </Field>
+            {types.length > 0 && (
+              <Field label="Type" fieldId="crm-task-type" error={action.fieldErrors.type}>
+                <FormSelect id="crm-task-type" value={type} onChange={(_e, v) => setType(v)}>
+                  <FormSelectOption value="" label="No type" />
+                  {types.map((t) => (
+                    <FormSelectOption key={t.key} value={t.key} label={t.label} />
+                  ))}
+                </FormSelect>
+              </Field>
+            )}
+            <Field label="Priority" fieldId="crm-task-priority">
+              <FormSelect id="crm-task-priority" value={priority} onChange={(_e, v) => setPriority(v as TaskPriority)}>
+                {(Object.keys(PRIORITY_LABELS) as TaskPriority[]).map((p) => (
+                  <FormSelectOption key={p} value={p} label={PRIORITY_LABELS[p]} />
                 ))}
               </FormSelect>
             </Field>
-          )}
-          <Field label="Priority" fieldId="crm-task-priority">
-            <FormSelect id="crm-task-priority" value={priority} onChange={(_e, v) => setPriority(v as TaskPriority)}>
-              {(Object.keys(PRIORITY_LABELS) as TaskPriority[]).map((p) => (
-                <FormSelectOption key={p} value={p} label={PRIORITY_LABELS[p]} />
-              ))}
-            </FormSelect>
-          </Field>
-          {when('Due', due, setDue, err('dueAt'))}
-          {when('Reminder', reminder, setReminder, err('reminderAt'))}
-          <Field label="Assignee" fieldId="crm-task-assignee" error={action.fieldErrors.assigneeId}>
-            <FormSelect id="crm-task-assignee" value={assigneeId} onChange={(_e, v) => setAssigneeId(v)}>
-              {assignees.map((a) => (
-                <FormSelectOption key={a.id} value={a.id} label={personName(a)} />
-              ))}
-            </FormSelect>
-          </Field>
-          <Field label="Description" fieldId="crm-task-description" error={err('description')}>
-            <TextArea
-              id="crm-task-description"
-              value={description}
-              resizeOrientation="vertical"
-              onChange={(_e, v) => setDescription(v)}
+            {when('Due', due, setDue, err('dueAt'))}
+            {when('Reminder', reminder, setReminder, err('reminderAt'))}
+            <Field label="Assignee" fieldId="crm-task-assignee" error={action.fieldErrors.assigneeId}>
+              <FormSelect id="crm-task-assignee" value={assigneeId} onChange={(_e, v) => setAssigneeId(v)}>
+                {assignees.map((a) => (
+                  <FormSelectOption key={a.id} value={a.id} label={personName(a)} />
+                ))}
+              </FormSelect>
+            </Field>
+            <Field label="Description" fieldId="crm-task-description" error={err('description')}>
+              <TextArea
+                id="crm-task-description"
+                value={description}
+                resizeOrientation="vertical"
+                onChange={(_e, v) => setDescription(v)}
+              />
+            </Field>
+            <Field label="Steps" fieldId="crm-task-steps" role="group" error={action.fieldErrors.checklist}>
+              <ChecklistEditor
+                value={steps}
+                onChange={setSteps}
+                errors={stepErrors}
+                draft={stepDraft}
+                onDraftChange={setStepDraft}
+              />
+            </Field>
+            <RepeatFields
+              value={repeat}
+              onChange={setRepeat}
+              dueAt={dueAt}
+              zone={task?.recurrence?.timeZone || browserTimeZone()}
+              summary={recurrenceSummary(recurrence)}
+              errors={repeatShown}
             />
-          </Field>
-          <Field label="Steps" fieldId="crm-task-steps" role="group" error={action.fieldErrors.checklist}>
-            <ChecklistEditor
-              value={steps}
-              onChange={setSteps}
-              errors={stepErrors}
-              draft={stepDraft}
-              onDraftChange={setStepDraft}
-            />
-          </Field>
-          <RepeatFields
-            value={repeat}
-            onChange={setRepeat}
-            dueAt={dueAt}
-            zone={task?.recurrence?.timeZone || browserTimeZone()}
-            summary={recurrenceSummary(recurrence)}
-            errors={repeatShown}
-          />
-        </Form>
+          </Form>
+        </div>
       </ModalBody>
       <ModalFooter>
         <Button type="submit" form="crm-task-form" isDisabled={action.busy} isLoading={action.busy}>

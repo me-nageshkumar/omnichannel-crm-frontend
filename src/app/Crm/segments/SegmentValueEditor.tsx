@@ -5,34 +5,56 @@ import { getCompany } from '@app/api/crm';
 import type { Ref, SegmentFieldOption, SegmentRule } from '@app/api/crm';
 import { LabelPicker } from '@app/Contacts/FilterPanel';
 import { CompanyTypeahead } from '@app/Crm/Companies/CompanyTypeahead';
+import { isCode } from '@app/Crm/Settings/ConflictAlert';
 import type { FieldUser } from '@app/Crm/common/fields/types';
 import { MAX_DAYS, MAX_VALUES, MAX_VALUE_LENGTH, type ValueKind } from '@app/Crm/segments/segmentModel';
 import { useSession } from '@app/session/SessionContext';
 
 const UNKNOWN_COMPANY = 'Unknown company';
+const NAME_UNAVAILABLE = 'Company name unavailable';
+const RETRY_MS = 1500;
 
 /**
- * The names of the company ids a rule stores: each is read once, and one that cannot be read (usually deleted) gets a
- * label rather than its id. {@code remember} keeps a name already in hand, so a picked company needs no read.
+ * The names of the company ids a rule stores: each is read once, and one that cannot be read gets a label rather than
+ * its id: a deleted company says so, and any other failure, which says nothing about the company, is tried once more
+ * before its label gives up. {@code remember} keeps a name already in hand, so a picked company needs no read.
  */
 function useCompanyNames(ids: string[]) {
   const { token, workspace } = useSession();
   const ws = workspace?.id ?? '';
   const [names, setNames] = React.useState<Record<string, string>>({});
   const asked = React.useRef(new Set<string>());
+  const retries = React.useRef(new Set<ReturnType<typeof setTimeout>>());
   const wanted = ids.filter((id) => id !== '').join('\n');
 
   React.useEffect(() => {
     if (!token || !wanted) return;
+    const read = (id: string, mayRetry: boolean) =>
+      getCompany(token, ws, id).then(
+        (company) => setNames((cur) => ({ ...cur, [id]: company.name })),
+        (e) => {
+          if (!isCode(e, 'NOT_FOUND') && mayRetry) {
+            const timer = setTimeout(() => {
+              retries.current.delete(timer);
+              read(id, false);
+            }, RETRY_MS);
+            retries.current.add(timer);
+            return;
+          }
+          setNames((cur) => ({ ...cur, [id]: isCode(e, 'NOT_FOUND') ? UNKNOWN_COMPANY : NAME_UNAVAILABLE }));
+        },
+      );
     for (const id of wanted.split('\n')) {
       if (asked.current.has(id)) continue;
       asked.current.add(id);
-      getCompany(token, ws, id).then(
-        (company) => setNames((cur) => ({ ...cur, [id]: company.name })),
-        () => setNames((cur) => ({ ...cur, [id]: UNKNOWN_COMPANY })),
-      );
+      read(id, true);
     }
   }, [token, ws, wanted]);
+
+  React.useEffect(() => {
+    const pending = retries.current;
+    return () => pending.forEach(clearTimeout);
+  }, []);
 
   return {
     nameOf: (id: string) => names[id] ?? 'Loading…',

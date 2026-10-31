@@ -296,4 +296,46 @@ describe('CRM task form: steps and repeat (phase E)', () => {
     await waitFor(() => expect(requestTo(f, PUT)).toBeDefined());
     expect(requestTo(f, PUT)?.body.recurrence).toMatchObject({ weekdays: ['TUESDAY'], timeZone: 'Pacific/Kiritimati' });
   });
+
+  describe('showing a save problem', () => {
+    const scrolled = vi.fn();
+    beforeEach(() => {
+      scrolled.mockClear();
+      Element.prototype.scrollIntoView = scrolled;
+    });
+    afterEach(() => {
+      delete (Element.prototype as Partial<Element>).scrollIntoView;
+    });
+
+    it('bringsARefusedFieldIntoView', async () => {
+      const { user } = open(undefined, {
+        [POST]: { status: 400, body: { code: 'VALIDATION', fields: { assigneeId: 'cannot use the CRM' } } },
+      });
+      const dialog = await screen.findByRole('dialog', { name: 'New task' });
+      await user.type(within(dialog).getByLabelText(/^Title/), 'Call back');
+      await user.click(within(dialog).getByRole('button', { name: 'Save task' }));
+      expect(await within(dialog).findByText('cannot use the CRM')).toBeInTheDocument();
+      await waitFor(() => expect(scrolled).toHaveBeenCalled());
+      expect((scrolled.mock.contexts[0] as Element).textContent).toContain('cannot use the CRM');
+    });
+
+    it('bringsABannerIntoView', async () => {
+      const { user } = open(undefined, { [POST]: { status: 500, body: {} } });
+      const dialog = await screen.findByRole('dialog', { name: 'New task' });
+      await user.type(within(dialog).getByLabelText(/^Title/), 'Call back');
+      await user.click(within(dialog).getByRole('button', { name: 'Save task' }));
+      expect(await within(dialog).findByText('Could not save the task. Try again.')).toBeInTheDocument();
+      await waitFor(() => expect(scrolled).toHaveBeenCalled());
+      expect((scrolled.mock.contexts[0] as Element).textContent).toContain('Could not save the task');
+    });
+
+    it('leavesTheFormAloneWhenTheSaveWorks', async () => {
+      const { user } = open();
+      const dialog = await screen.findByRole('dialog', { name: 'New task' });
+      await user.type(within(dialog).getByLabelText(/^Title/), 'Call back');
+      await user.click(within(dialog).getByRole('button', { name: 'Save task' }));
+      await waitFor(() => expect(within(dialog).getByRole('button', { name: 'Save task' })).toBeEnabled());
+      expect(scrolled).not.toHaveBeenCalled();
+    });
+  });
 });

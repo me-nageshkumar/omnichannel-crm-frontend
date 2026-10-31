@@ -28,6 +28,7 @@ import {
 import { SegmentValueEditor } from '@app/Crm/segments/SegmentValueEditor';
 
 export const MISSING_TEXT = 'This field no longer exists';
+export const MISSING_STAGE_TEXT = 'This stage is not in the chosen pipeline, or no longer exists';
 export const INACCESSIBLE_TEXT = "A pipeline you can't access";
 export const STAGE_HINT = 'Add a pipeline rule to this group first';
 export const STAGE_OR_HINT = 'Switch this group to "All of these" to pick a stage';
@@ -124,7 +125,11 @@ export const SegmentRuleRow: React.FunctionComponent<{
       </Flex>
       {(flagged || stageHint || error) && (
         <HelperText>
-          {rule.missing && <HelperTextItem variant="warning">{MISSING_TEXT}</HelperTextItem>}
+          {rule.missing && (
+            <HelperTextItem variant="warning">
+              {rule.field === 'deal.stageId' ? MISSING_STAGE_TEXT : MISSING_TEXT}
+            </HelperTextItem>
+          )}
           {rule.inaccessible && <HelperTextItem variant="warning">{INACCESSIBLE_TEXT}</HelperTextItem>}
           {stageHint && <HelperTextItem>{stageHint}</HelperTextItem>}
           {error && <HelperTextItem variant="error">{error}</HelperTextItem>}
