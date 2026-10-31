@@ -32,11 +32,12 @@ export const CampaignsCard: React.FunctionComponent<CardProps> = ({ ws, body, ti
   const table = (
     <ReportTable
       label={TITLE}
-      columns={['Campaign', 'Started', 'Numbers', 'Recipients', 'Delivery', 'CRM contacts reached']}
+      columns={['Campaign', 'Segment', 'Started', 'Numbers', 'Recipients', 'Delivery', 'CRM contacts reached']}
       rows={rows.map((r) => ({
         key: r.campaignId,
         cells: [
           r.name,
+          r.segmentName ?? '—',
           longDay(r.startedAt),
           r.numbers.map((n) => n.label).join(', ') || '—',
           r.recipients,

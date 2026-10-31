@@ -155,7 +155,7 @@ export const GeneralSettings: React.FunctionComponent<{ canManage: boolean }> = 
       <FormGroup role="group" fieldId="crm-show-messages">
         <Switch
           id="crm-show-messages"
-          label="Show WhatsApp messages on timelines"
+          label="Show channel messages on timelines"
           isChecked={showMessages}
           isDisabled={!canManage}
           onChange={(_e, v) => setShowMessages(v)}

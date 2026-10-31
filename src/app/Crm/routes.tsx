@@ -19,10 +19,14 @@ const CompaniesPage = React.lazy(() =>
 const CompanyDetailPage = React.lazy(() =>
   import('@app/Crm/Companies/CompanyDetailPage').then((m) => ({ default: m.CompanyDetailPage })),
 );
-const ReportsPage = React.lazy(() =>
-  import('@app/Crm/reports/ReportsPage').then((m) => ({ default: m.ReportsPage })),
-);
+const ReportsPage = React.lazy(() => import('@app/Crm/reports/ReportsPage').then((m) => ({ default: m.ReportsPage })));
 const TasksPage = React.lazy(() => import('@app/Crm/tasks/TasksPage').then((m) => ({ default: m.TasksPage })));
+const SegmentsPage = React.lazy(() =>
+  import('@app/Crm/segments/SegmentsPage').then((m) => ({ default: m.SegmentsPage })),
+);
+const SegmentEditorPage = React.lazy(() =>
+  import('@app/Crm/segments/SegmentEditorPage').then((m) => ({ default: m.SegmentEditorPage })),
+);
 const CrmSettingsPage = React.lazy(() =>
   import('@app/Crm/Settings/CrmSettingsPage').then((m) => ({ default: m.CrmSettingsPage })),
 );
@@ -54,6 +58,9 @@ export const crmRoutes: IAppRoute[] = [
   page('/crm/companies', CompaniesPage),
   page('/crm/companies/:id', CompanyDetailPage),
   page('/crm/reports', ReportsPage),
+  page('/crm/segments', SegmentsPage),
+  page('/crm/segments/new', SegmentEditorPage),
+  page('/crm/segments/:id', SegmentEditorPage),
   page('/crm/tasks', TasksPage),
   page('/crm/settings', CrmSettingsPage),
 ];

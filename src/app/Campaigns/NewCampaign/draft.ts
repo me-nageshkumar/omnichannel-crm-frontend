@@ -10,6 +10,9 @@ export interface Draft {
   filterId: string;
   /** The chosen filter's name, for the Review step. */
   filterName: string;
+  /** The CRM segment of a SEGMENT audience, and its name for the Review step. */
+  segmentId: string;
+  segmentName: string;
   file: File | null;
   /** True while {@link file}'s preview is being read; its preview and columns are null until then. */
   reading: boolean;
@@ -28,6 +31,8 @@ export const EMPTY_DRAFT: Draft = {
   kind: 'FILTER',
   filterId: '',
   filterName: '',
+  segmentId: '',
+  segmentName: '',
   file: null,
   reading: false,
   previewError: null,
@@ -59,6 +64,7 @@ export const hasLink = (body: string | null): boolean => body !== null && LINK.t
 export function audienceReady(d: Draft): boolean {
   if (d.name.trim() === '') return false;
   if (d.kind === 'FILTER') return d.filterId !== '';
+  if (d.kind === 'SEGMENT') return d.segmentId !== '';
   return !d.reading && (d.file === null || d.phoneColumn !== null);
 }
 
@@ -67,7 +73,7 @@ export function messageReady(d: Draft): boolean {
   if (n < 1 || n > MAX_TEMPLATES) return false;
   const { unmapped, reused } = mappingProblems(distinctPlaceholders(d.templates), d.mappings);
   if (unmapped.length > 0 || reused.length > 0) return false;
-  return d.kind === 'FILTER' || d.preview !== null;
+  return d.kind !== 'CSV' || d.preview !== null;
 }
 
 /** A change to the draft, or one computed from the current draft (null leaves it as it is). */
@@ -79,9 +85,14 @@ export interface StepProps {
   update(patch: DraftPatch): void;
 }
 
-/** How many recipients the audience has: the saved filter's live count, or the CSV's rows; null until known. */
-export function audienceSize(d: Draft, filterCount: number | null): number | null {
-  return d.kind === 'FILTER' ? filterCount : (d.preview?.rows ?? null);
+/**
+ * How many recipients the audience has: the saved filter's live count, the segment's live total, or the CSV's rows;
+ * null until known.
+ */
+export function audienceSize(d: Draft, filterCount: number | null, segmentTotal: number | null = null): number | null {
+  if (d.kind === 'FILTER') return filterCount;
+  if (d.kind === 'SEGMENT') return segmentTotal;
+  return d.preview?.rows ?? null;
 }
 
 /** The create request for a finished draft; a CSV audience's file goes alongside it. */
@@ -91,7 +102,9 @@ export function toRequest(d: Draft, placeholders: PlaceholderView[]): CampaignRe
     audience:
       d.kind === 'FILTER'
         ? { kind: 'FILTER', filterId: d.filterId }
-        : { kind: 'CSV', phoneColumn: d.phoneColumn ?? '', nameColumn: d.nameColumn },
+        : d.kind === 'SEGMENT'
+          ? { kind: 'SEGMENT', segmentId: d.segmentId }
+          : { kind: 'CSV', phoneColumn: d.phoneColumn ?? '', nameColumn: d.nameColumn },
     templateIds: d.templates.map((t) => t.id),
     placeholders: toPlaceholders(placeholders, d.mappings),
     senderIds: d.senderIds,

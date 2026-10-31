@@ -34,7 +34,10 @@ export function systemPauseText(reason: string | null): string {
 
 function audienceText(c: CampaignView): string {
   const a = c.audience;
-  return a.kind === 'FILTER' ? `Saved filter: ${a.filterName ?? '—'}` : `CSV: ${a.csvFileName ?? '—'} (${a.csvRows ?? 0} rows)`;
+  if (a.kind === 'SEGMENT') return `Segment: ${a.segmentName ?? '—'}`;
+  return a.kind === 'FILTER'
+    ? `Saved filter: ${a.filterName ?? '—'}`
+    : `CSV: ${a.csvFileName ?? '—'} (${a.csvRows ?? 0} rows)`;
 }
 
 /** The brand's campaigns with their progress and lifecycle actions. */

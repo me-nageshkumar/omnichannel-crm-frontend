@@ -1,6 +1,7 @@
 import * as React from 'react';
 import { Alert, Spinner } from '@patternfly/react-core';
 import {
+  BullhornIcon,
   CheckCircleIcon,
   EnvelopeIcon,
   ExchangeAltIcon,
@@ -18,6 +19,7 @@ import type { Activity, Stage, TargetType } from '@app/api/crm';
 import { crmMessage } from '@app/Crm/errors';
 import { useLoad } from '@app/admin/useLoad';
 import { useSession } from '@app/session/SessionContext';
+import { useCrmStatus } from '@app/Crm/status/CrmStatusContext';
 import { Timeline } from '@app/Crm/common/Timeline';
 import type { TimelineItem } from '@app/Crm/common/Timeline';
 import { LogActivityForm } from '@app/Crm/activity/LogActivityForm';
@@ -28,7 +30,12 @@ const str = (v: unknown): string | null => (typeof v === 'string' && v ? v : nul
 const show = (v: unknown): string => (v === null || v === undefined || v === '' ? 'empty' : String(v));
 
 /** The timeline rows an activity stands for (a field change with several diffs makes one row each). */
-export function itemsFor(a: Activity, stages: Stage[], reasonLabels: Record<string, string>): TimelineItem[] {
+export function itemsFor(
+  a: Activity,
+  stages: Stage[],
+  reasonLabels: Record<string, string>,
+  accountLabel: (id: string) => string = (id) => id,
+): TimelineItem[] {
   const base = { id: a.id, at: a.happenedAt, by: a.actor ? personName(a.actor) : undefined };
   const p = a.payload ?? {};
   const stageName = (name: unknown, id: unknown) =>
@@ -73,6 +80,19 @@ export function itemsFor(a: Activity, stages: Stage[], reasonLabels: Record<stri
       return [{ ...base, icon: <OutlinedCommentsIcon />, title: 'Note (from Contacts)', body: a.summary ?? undefined }];
     case 'NOTE_ADDED':
       return [{ ...base, icon: <OutlinedCommentsIcon />, title: 'Note', body: a.summary ?? undefined }];
+    case 'CAMPAIGN_SENT': {
+      const account = str(p.channelAccountId);
+      const segment = str(p.segmentName);
+      return [
+        {
+          ...base,
+          by: base.by ?? 'System',
+          icon: <BullhornIcon />,
+          title: `Campaign “${str(p.campaignName) ?? 'unnamed'}” sent${account ? ` from ${accountLabel(account)}` : ''}`,
+          body: segment ? `Segment ${segment}` : undefined,
+        },
+      ];
+    }
     case 'RECORD_CREATED':
       return [{ ...base, icon: <PlusCircleIcon />, title: 'Created', body: a.summary ?? undefined }];
     case 'FIELD_CHANGED': {
@@ -121,7 +141,18 @@ export const CrmTimeline: React.FunctionComponent<{
       .filter((a) => !seen.has(a.id) && !!seen.add(a.id))
       .sort((a, b) => Date.parse(b.happenedAt) - Date.parse(a.happenedAt));
   }, [logged, first.data, more]);
-  const items = React.useMemo(() => all.flatMap((a) => itemsFor(a, stages, reasonLabels)), [all, stages, reasonLabels]);
+  const status = useCrmStatus().status;
+  const accountLabel = React.useCallback(
+    (id: string) => {
+      const p = status?.phones.find((x) => x.phoneNumberId === id);
+      return p?.label ?? p?.number ?? id;
+    },
+    [status],
+  );
+  const items = React.useMemo(
+    () => all.flatMap((a) => itemsFor(a, stages, reasonLabels, accountLabel)),
+    [all, stages, reasonLabels, accountLabel],
+  );
   // The total counts activities only; the legacy notes merged into page 0 are not part of it.
   const loadedActivities = all.filter((a) => a.type !== 'LEGACY_NOTE').length;
   const hasMore = !!first.data && loadedActivities < first.data.total + logged.length;

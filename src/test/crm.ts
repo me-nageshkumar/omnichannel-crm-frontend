@@ -16,6 +16,9 @@ import type {
   Pipeline,
   PipelineSummary,
   ReportFilter,
+  Segment,
+  SegmentFieldCatalog,
+  SegmentPreview,
   StageDuration,
   Task,
 } from '@app/api/crm';
@@ -388,6 +391,8 @@ export function sampleCampaignsReport(overrides: Partial<CampaignsReport> = {}):
         replied: 15,
         failed: 2,
         crmContactsReached: 40,
+        segmentId: null,
+        segmentName: null,
       },
     ],
     truncated: false,
@@ -409,6 +414,156 @@ export function sampleGridReport(overrides: Partial<GridReport> = {}): GridRepor
     ],
     truncated: false,
     otherCurrencyDeals: 0,
+    ...overrides,
+  };
+}
+
+export function sampleSegment(overrides: Partial<Segment> = {}): Segment {
+  return {
+    id: 's1',
+    name: 'Gold leads',
+    description: 'Leads with a gold-tier deal',
+    rules: {
+      combinator: 'and',
+      not: false,
+      rules: [{ field: 'contact.lifecycleStatus', operator: 'is', value: 'lead' }],
+    },
+    cachedCounts: {
+      total: 1240,
+      people: 1180,
+      truncated: false,
+      channelAccounts: [
+        { channelAccountId: 'n1', count: 900 },
+        { channelAccountId: 'n2', count: 340 },
+      ],
+      at: '2026-10-31T03:35:00Z',
+    },
+    lastSentAt: null,
+    lastCampaignId: null,
+    lastCampaignName: null,
+    creationTime: '2026-10-30T10:00:00Z',
+    lastUpdateTime: '2026-10-30T10:00:00Z',
+    version: 0,
+    ...overrides,
+  };
+}
+
+const TEXT_OPS = ['is', 'isNot', 'contains', 'notContains', 'startsWith', 'isSet', 'isNotSet'];
+const NUMBER_OPS = ['eq', 'neq', 'lt', 'lte', 'gt', 'gte', 'between'];
+const DATE_OPS = ['before', 'after', 'between', 'withinLastDays', 'moreThanDaysAgo', 'isSet', 'isNotSet'];
+const PICK_OPS = ['is', 'isNot', 'in', 'notIn', 'isSet', 'isNotSet'];
+const LABEL_OPS = ['has', 'hasNot', 'hasAny', 'hasAll', 'hasNone', 'isEmpty', 'isNotEmpty'];
+
+export function sampleSegmentFields(overrides: Partial<SegmentFieldCatalog> = {}): SegmentFieldCatalog {
+  return {
+    groups: [
+      {
+        key: 'contact',
+        label: 'CRM contact',
+        fields: [
+          {
+            key: 'contact.lifecycleStatus',
+            label: 'Lifecycle',
+            type: 'PICK',
+            operators: PICK_OPS,
+            options: [
+              { value: 'lead', label: 'Lead' },
+              { value: 'customer', label: 'Customer' },
+            ],
+          },
+          { key: 'contact.ownerId', label: 'Owner', type: 'USER', operators: PICK_OPS },
+          { key: 'contact.companyId', label: 'Company', type: 'COMPANY', operators: PICK_OPS },
+          { key: 'contact.email', label: 'Email', type: 'TEXT', operators: TEXT_OPS },
+          { key: 'contact.creationTime', label: 'Created', type: 'DATE', operators: DATE_OPS },
+          { key: 'contact.openDealAmount', label: 'Open deal value', type: 'MONEY', operators: NUMBER_OPS },
+          {
+            key: 'contact.custom:tier',
+            label: 'Tier',
+            type: 'PICK',
+            operators: PICK_OPS,
+            options: [
+              { value: 'gold', label: 'Gold' },
+              { value: 'silver', label: 'Silver' },
+            ],
+          },
+        ],
+      },
+      {
+        key: 'deal',
+        label: 'Has a deal where',
+        fields: [
+          {
+            key: 'deal.pipelineId',
+            label: 'Pipeline',
+            type: 'PICK',
+            operators: PICK_OPS,
+            options: [
+              { value: 'p1', label: 'Sales' },
+              { value: 'p2', label: 'Support' },
+            ],
+          },
+          {
+            key: 'deal.stageId',
+            label: 'Stage',
+            type: 'PICK',
+            operators: PICK_OPS,
+            dependsOn: 'deal.pipelineId',
+            optionsByParent: {
+              p1: [
+                { value: 's1', label: 'New' },
+                { value: 's2', label: 'Proposal' },
+              ],
+              p2: [{ value: 's9', label: 'Open' }],
+            },
+          },
+          {
+            key: 'deal.status',
+            label: 'Status',
+            type: 'ENUM',
+            operators: PICK_OPS,
+            options: [
+              { value: 'OPEN', label: 'Open' },
+              { value: 'WON', label: 'Won' },
+              { value: 'LOST', label: 'Lost' },
+            ],
+          },
+          { key: 'deal.amount', label: 'Amount', type: 'MONEY', operators: NUMBER_OPS },
+          { key: 'deal.daysInStage', label: 'Days in stage', type: 'NUMBER', operators: NUMBER_OPS },
+        ],
+      },
+      {
+        key: 'channel',
+        label: 'Channel contact',
+        fields: [
+          {
+            key: 'channel.label',
+            label: 'Label',
+            type: 'LABEL',
+            operators: LABEL_OPS,
+            options: [
+              { value: 'l1', label: 'VIP' },
+              { value: 'l2', label: 'Gold' },
+            ],
+          },
+          { key: 'channel.attribute:a1', label: 'City', type: 'TEXT', operators: TEXT_OPS },
+          { key: 'channel.lastMessageAt', label: 'Last message', type: 'DATE', operators: DATE_OPS },
+          { key: 'channel.doNotContact', label: 'Do not contact', type: 'BOOLEAN', operators: ['is'] },
+        ],
+      },
+    ],
+    ...overrides,
+  };
+}
+
+export function sampleSegmentPreview(overrides: Partial<SegmentPreview> = {}): SegmentPreview {
+  return {
+    total: 12,
+    people: 11,
+    truncated: false,
+    channelAccounts: [
+      { channelAccountId: 'n1', kind: 'WHATSAPP_WEB', label: 'Sales line', count: 9 },
+      { channelAccountId: 'n2', kind: 'WHATSAPP_WEB', label: '+91 98765 00002', count: 3 },
+    ],
     ...overrides,
   };
 }
