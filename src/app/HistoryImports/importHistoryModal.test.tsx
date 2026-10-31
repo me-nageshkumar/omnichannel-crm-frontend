@@ -108,6 +108,22 @@ describe('ImportHistoryModal', () => {
     expect(callsTo(fetch, NUMBER_PATH)).toBe(0);
   });
 
+  // The body scrolls and is shorter than a calendar; a popup inside it scrolls its own field away and gets hidden.
+  it.each([
+    ['From', 0],
+    ['To', 1],
+  ])('calendarOpensOutsideTheDialogBody %s', async (_label, index) => {
+    const { user } = open({ kind: 'number', number: NUMBER });
+    await screen.findByText('Import chat history for +919928088743');
+    await user.click(screen.getAllByRole('button', { name: 'Toggle date picker' })[index]);
+    const calendar = await waitFor(() => {
+      const month = document.querySelector('.pf-v6-c-calendar-month');
+      expect(month).not.toBeNull();
+      return month as Element;
+    });
+    expect(calendar.closest('.pf-v6-c-modal-box__body')).toBeNull();
+  });
+
   it('chatModeShowsOnlyDates', async () => {
     const { fetch, onStarted, user } = open({ kind: 'chat', chat: CHAT }, { [CHAT_PATH]: { status: 201, body: VIEW } });
     expect(await screen.findByText('Import chat history with Asha Rao')).toBeInTheDocument();

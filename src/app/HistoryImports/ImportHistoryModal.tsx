@@ -34,6 +34,12 @@ const helper = (text: string | null | undefined) =>
     </FormHelperText>
   );
 
+/**
+ * Where a date picker draws its calendar. The dialog body scrolls and is shorter than a calendar: drawn inside it, the
+ * popup scrolls its own field out of view and PatternFly then hides it.
+ */
+const calendarHost = () => document.body;
+
 /** Asks which chats and which days to import, then queues the import. Callers decide who may see it. */
 export const ImportHistoryModal: React.FunctionComponent<{
   target: Target;
@@ -120,11 +126,11 @@ export const ImportHistoryModal: React.FunctionComponent<{
             </FormGroup>
           )}
           <FormGroup label="From" fieldId="import-from">
-            <DatePicker aria-label="From" value={from} onChange={(_e, v) => setFrom(v)} />
+            <DatePicker aria-label="From" value={from} onChange={(_e, v) => setFrom(v)} appendTo={calendarHost} />
             {helper(fromError)}
           </FormGroup>
           <FormGroup label="To" fieldId="import-to">
-            <DatePicker aria-label="To" value={to} onChange={(_e, v) => setTo(v)} />
+            <DatePicker aria-label="To" value={to} onChange={(_e, v) => setTo(v)} appendTo={calendarHost} />
             {helper(rangeError)}
           </FormGroup>
         </Form>
