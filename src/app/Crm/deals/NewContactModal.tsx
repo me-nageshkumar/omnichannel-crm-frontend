@@ -85,7 +85,7 @@ export const NewContactModal: React.FunctionComponent<{
               value={phone}
               inputMode="numeric"
               placeholder="919812345678"
-              validated={phoneError ?? errors.phone ? 'error' : 'default'}
+              validated={(phoneError ?? errors.phone) ? 'error' : 'default'}
               onChange={(_e, v) => setPhone(v)}
             />
           </Field>

@@ -12,14 +12,17 @@ import {
   ModalHeader,
   TextInput,
 } from '@patternfly/react-core';
-import { createDeal, updateDeal } from '@app/api/crm';
+import { createDeal, dealContacts, updateDeal } from '@app/api/crm';
 import { personName } from '@app/Crm/personName';
 import type { CrmSettings, Deal, DealInput, Pipeline, Ref } from '@app/api/crm';
 import { useAction } from '@app/admin/useAction';
+import { useLoad } from '@app/admin/useLoad';
 import { useSession } from '@app/session/SessionContext';
 import { CompanyTypeahead } from '@app/Crm/Companies/CompanyTypeahead';
 import { useCrmCan } from '@app/Crm/status/CrmStatusContext';
 import { ContactPicker } from '@app/Crm/deals/ContactPicker';
+import { OtherContactsField } from '@app/Crm/deals/OtherContactsField';
+import type { OtherContact } from '@app/Crm/deals/OtherContactsField';
 import { Field } from '@app/Crm/deals/fields';
 import { isCode } from '@app/Crm/Settings/ConflictAlert';
 import { useFieldDefinitions } from '@app/Crm/fields/useFieldDefinitions';
@@ -31,6 +34,7 @@ const ISO_DATE = /^\d{4}-\d{2}-\d{2}$/;
 const FIELDS = [
   'title',
   'primaryCrmContactId',
+  'crmContactIds',
   'amount',
   'currency',
   'expectedCloseDate',
@@ -69,6 +73,18 @@ export const DealFormModal: React.FunctionComponent<{
 
   const [title, setTitle] = React.useState(deal?.title ?? '');
   const [contactId, setContactId] = React.useState(deal?.primaryContact?.id ?? '');
+  const [primaryChannel, setPrimaryChannel] = React.useState(deal?.channel?.phoneNumberId);
+  const [others, setOthers] = React.useState<OtherContact[]>([]);
+  const [othersError, setOthersError] = React.useState<string | null>(null);
+  const linked = useLoad((t) => (deal ? dealContacts(t, ws, deal.id) : Promise.resolve([])), [ws, deal?.id ?? '']);
+  // Without the list the form must not send one: a PUT with only the primary would unlink everyone (spec F C5).
+  const othersLoaded = !deal || (!!linked.data && !linked.error);
+  const seeded = React.useRef(false);
+  React.useEffect(() => {
+    if (!deal || !linked.data || seeded.current) return;
+    seeded.current = true;
+    setOthers(linked.data.filter((c) => !c.primary).map((c) => ({ id: c.id, label: c.name || c.phone || c.id })));
+  }, [deal, linked.data]);
   const [company, setCompany] = React.useState<Ref | null>(deal?.company ?? null);
   const canCreateCompany = useCrmCan('crm:edit');
   const [amount, setAmount] = React.useState(deal?.amount == null ? '' : String(deal.amount));
@@ -127,6 +143,7 @@ export const DealFormModal: React.FunctionComponent<{
             source,
             customFields: customFields.payload,
             version,
+            ...(othersLoaded ? { crmContactIds: [contactId, ...others.map((o) => o.id)] } : {}),
           };
           return updateDeal(t, ws, deal.id, body);
         }
@@ -135,7 +152,7 @@ export const DealFormModal: React.FunctionComponent<{
           pipelineId: pipeline.id,
           stageId: stageId || undefined,
           primaryCrmContactId: contactId,
-          crmContactIds: [contactId],
+          crmContactIds: [contactId, ...others.map((o) => o.id)],
           amount: number,
           currency,
           expectedCloseDate: close || undefined,
@@ -150,6 +167,10 @@ export const DealFormModal: React.FunctionComponent<{
         if (isCode(e, 'VERSION_CONFLICT')) {
           setConflict(true);
           onConflict?.();
+          return '';
+        }
+        if (isCode(e, 'CHANNEL_MISMATCH')) {
+          setOthersError("All of a deal's contacts must be on the same number.");
           return '';
         }
         return (e as { serverMessage?: string }).serverMessage ?? 'Could not save the deal. Try again.';
@@ -199,9 +220,32 @@ export const DealFormModal: React.FunctionComponent<{
               selectedLabel={deal?.primaryContact?.name || deal?.primaryContact?.phone || undefined}
               isDisabled={isEdit}
               invalid={!!err('primaryCrmContactId', errors.contact)}
-              onChange={setContactId}
+              onChange={(id, picked) => {
+                setContactId(id);
+                setPrimaryChannel(picked?.channel?.phoneNumberId);
+                setOthers([]);
+                setOthersError(null);
+              }}
             />
           </Field>
+          <OtherContactsField
+            value={others}
+            onChange={(next) => {
+              setOthers(next);
+              setOthersError(null);
+            }}
+            channelAccountId={primaryChannel}
+            primaryId={contactId}
+            isDisabled={!contactId || !othersLoaded}
+            hint={
+              !contactId
+                ? 'Choose the primary contact first.'
+                : deal && linked.error
+                  ? "Couldn't load this deal's contacts. They stay as they are."
+                  : undefined
+            }
+            error={othersError ?? action.fieldErrors.crmContactIds}
+          />
           <Field label="Company" fieldId="crm-deal-company" error={action.fieldErrors.companyId}>
             <CompanyTypeahead
               id="crm-deal-company"
