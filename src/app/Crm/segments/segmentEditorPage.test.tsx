@@ -323,10 +323,10 @@ describe('CRM segment editor', () => {
     });
     mockFetch(segmentRoutes({ [`GET ${SEGMENTS_BASE}/s3`]: { status: 200, body: flagged } }));
     const { user } = renderApp('/crm/segments/s3');
-    expect(await screen.findByText('Remove the flagged rules to save.')).toBeInTheDocument();
+    expect(await screen.findByText('Remove the rules marked with a warning to save.')).toBeInTheDocument();
     expect(screen.getByRole('button', { name: 'Save' })).toBeDisabled();
     await user.click(rule('Rule 2').getByRole('button', { name: 'Remove rule' }));
-    expect(screen.queryByText('Remove the flagged rules to save.')).toBeNull();
+    expect(screen.queryByText('Remove the rules marked with a warning to save.')).toBeNull();
     expect(screen.getByRole('button', { name: 'Save' })).toBeEnabled();
   });
 

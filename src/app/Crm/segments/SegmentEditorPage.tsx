@@ -36,7 +36,7 @@ const LIST = '/crm/segments';
 export const MAX_NAME = 80;
 export const MAX_DESCRIPTION = 500;
 export const CONFLICT_TEXT = 'Someone changed this segment; reload to see their version';
-export const FLAGGED_TEXT = 'Remove the flagged rules to save.';
+export const FLAGGED_TEXT = 'Remove the rules marked with a warning to save.';
 
 const EditorForm: React.FunctionComponent<{
   existing?: Segment;
