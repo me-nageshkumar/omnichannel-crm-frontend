@@ -84,6 +84,28 @@ describe('Contacts on a deal', () => {
     expect(within(rows[1]).getByText(/Buyer/)).toBeInTheDocument();
   });
 
+  it('tabRefreshesAfterAnEdit', async () => {
+    let saved = false;
+    mockFetch(
+      routes({
+        [`GET ${BASE}/deals/d1/contacts`]: () => ({ status: 200, body: saved ? [sampleDealContact()] : LINKED }),
+        [`PUT ${BASE}/deals/d1`]: () => {
+          saved = true;
+          return { status: 200, body: sampleDeal({ crmContactIds: ['c1'], version: 3 }) };
+        },
+      }),
+    );
+    const { user } = renderApp('/crm/deals/d1?pipelineId=p1');
+    await user.click(await screen.findByRole('tab', { name: 'Contacts' }));
+    expect(await screen.findByRole('link', { name: 'Dave Ray' })).toBeInTheDocument();
+    await user.click(screen.getByRole('button', { name: 'Edit' }));
+    const dialog = await screen.findByRole('dialog', { name: 'Edit deal' });
+    await user.click(await within(dialog).findByRole('button', { name: 'Remove Dave Ray' }));
+    await user.click(within(dialog).getByRole('button', { name: 'Save deal' }));
+    await waitFor(() => expect(screen.queryByRole('link', { name: 'Dave Ray' })).toBeNull());
+    expect(screen.getByRole('link', { name: 'Priya Shah' })).toBeInTheDocument();
+  });
+
   it('chatOpensThatContactsOwnChat', async () => {
     const f = mockFetch(
       routes({

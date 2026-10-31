@@ -414,6 +414,26 @@ describe('CRM chat panel', () => {
     await waitFor(() => expect(callsTo(f, SUMMARY1)).toBe(2));
   });
 
+  it('stageStaysOnThePickedOneWhileTheSummaryRefreshes', async () => {
+    const f = mockFetch(
+      routes({
+        [SUMMARY1]: { status: 200, body: captured('Priya Shah') },
+        [MOVE]: { status: 200, body: sampleDeal({ stageId: 's2' }) },
+      }),
+    );
+    const held = gate(f, SUMMARY1, 2);
+    const { user } = renderApp('/inbox/chats/c1');
+    const panel = within(await screen.findByRole('complementary', { name: 'CRM' }));
+    const select = await panel.findByLabelText('Stage of Acme order');
+    await user.selectOptions(select, 's2');
+    await waitFor(() => expect(callsTo(f, SUMMARY1)).toBe(2));
+    expect(panel.getByLabelText('Stage of Acme order')).toHaveValue('s2');
+    await act(async () => {
+      held.release();
+      await new Promise((r) => setTimeout(r, 20));
+    });
+  });
+
   it('onlyOpenStagesAreOffered', async () => {
     mockFetch(routes({ [SUMMARY1]: { status: 200, body: captured('Priya Shah') } }));
     renderApp('/inbox/chats/c1');

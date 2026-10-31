@@ -178,6 +178,15 @@ describe('CRM CSV', () => {
     await waitFor(() => expect(saved).toEqual(['crm-companies-template.csv']));
   });
 
+  it('fileRowWrapsOnANarrowScreen', async () => {
+    mockFetch(routes());
+    const { user } = renderApp('/crm/contacts');
+    await user.click(await screen.findByRole('button', { name: 'Import CSV' }));
+    const dialog = await screen.findByRole('dialog', { name: 'Import contacts' });
+    const row = within(dialog).getByRole('button', { name: 'Choose file' }).parentElement as HTMLElement;
+    expect(row).toHaveStyle({ flexWrap: 'wrap' });
+  });
+
   it('templateFailureShows', async () => {
     mockFetch(
       routes({

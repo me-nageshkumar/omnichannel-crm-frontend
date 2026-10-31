@@ -115,7 +115,14 @@ export const ImportModal: React.FunctionComponent<{
         ) : (
           <Form onSubmit={(e) => e.preventDefault()}>
             <FormGroup label="File" fieldId="crm-import-file" isRequired>
-              <div style={{ display: 'flex', gap: 'var(--pf-t--global--spacer--sm)', alignItems: 'center' }}>
+              <div
+                style={{
+                  display: 'flex',
+                  flexWrap: 'wrap',
+                  gap: 'var(--pf-t--global--spacer--sm)',
+                  alignItems: 'center',
+                }}
+              >
                 <input
                   ref={input}
                   id="crm-import-file"
@@ -128,15 +135,17 @@ export const ImportModal: React.FunctionComponent<{
                 <Button variant="secondary" onClick={() => input.current?.click()}>
                   Choose file
                 </Button>
-                <Button variant="link" isInline icon={<DownloadIcon />} onClick={() => void downloadTemplate()}>
+                <Button variant="secondary" icon={<DownloadIcon />} onClick={() => void downloadTemplate()}>
                   Download template
                 </Button>
-                <TextInput
-                  aria-label="Chosen file"
-                  value={file?.name ?? ''}
-                  readOnlyVariant="plain"
-                  placeholder="No file"
-                />
+                <div style={{ flex: '1 1 12rem', minWidth: 0 }}>
+                  <TextInput
+                    aria-label="Chosen file"
+                    value={file?.name ?? ''}
+                    readOnlyVariant="plain"
+                    placeholder="No file"
+                  />
+                </div>
               </div>
             </FormGroup>
             {children}

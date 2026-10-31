@@ -123,8 +123,18 @@ export const CrmChatPanel: React.FunctionComponent<{ chatId: string }> = ({ chat
     setMoving(deal.id);
     setSaveError(null);
     try {
-      await moveDeal(token, ws, deal.id, { stageId });
-      if (openChat.current === startedOn) setTick((t) => t + 1);
+      const moved = await moveDeal(token, ws, deal.id, { stageId });
+      if (openChat.current !== startedOn) return;
+      // show the new stage now: the select must not fall back to the old one while the summary refreshes
+      setAnswer((a) =>
+        a && 'summary' in a && a.chatId === startedOn
+          ? {
+              ...a,
+              summary: { ...a.summary, openDeals: a.summary.openDeals.map((d) => (d.id === moved.id ? moved : d)) },
+            }
+          : a,
+      );
+      setTick((t) => t + 1);
     } catch (e) {
       if (openChat.current !== startedOn) return;
       setSaveError(moveMessage(e));

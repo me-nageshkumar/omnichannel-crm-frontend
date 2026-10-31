@@ -227,7 +227,7 @@ export const DealDrawer: React.FunctionComponent<{
     );
     tabs = [
       { key: 'details', title: 'Details', content: details },
-      { key: 'contacts', title: 'Contacts', content: <DealContacts dealId={deal.id} /> },
+      { key: 'contacts', title: 'Contacts', content: <DealContacts key={deal.version} dealId={deal.id} /> },
       { key: 'tasks', title: 'Tasks', content: <TaskList target={{ type: 'DEAL', id: deal.id }} canEdit={canEdit} /> },
       { key: 'notes', title: 'Notes', content: <CrmNotes target={{ type: 'DEAL', id: deal.id }} canEdit={canEdit} /> },
       {
