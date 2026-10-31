@@ -10,6 +10,9 @@ import { ApiError } from '@app/api/client';
 import { contactName } from '@app/Inbox/chatDisplay';
 import { useSession } from '@app/session/SessionContext';
 import { useAccess } from '@app/session/useAccess';
+import { ImportHistoryModal } from '@app/HistoryImports/ImportHistoryModal';
+import { statusLabel, waitingText } from '@app/HistoryImports/historyImportDisplay';
+import { useChatHistoryImport } from '@app/HistoryImports/useChatHistoryImport';
 
 const GAP = 'var(--pf-t--global--spacer--sm)';
 const TAKEN = 'Someone else took this chat';
@@ -27,12 +30,29 @@ export const ChatHeader: React.FunctionComponent<{
   /** The number the chat is on, when the viewer looks at more than one. */
   number?: PhoneNumber;
   onChange(chat: ChatView): void;
-}> = ({ chat, number, onChange }) => {
+  /** Called once when a history import of this chat completes, so the thread can show the new messages. */
+  onHistoryImported?(): void;
+}> = ({ chat, number, onChange, onHistoryImported }) => {
   const { token, user, workspace } = useSession();
   const ws = workspace?.id ?? '';
   const access = useAccess();
   const [error, setError] = React.useState<string | null>(null);
   const [busy, setBusy] = React.useState(false);
+  const [importing, setImporting] = React.useState(false);
+  const history = useChatHistoryImport();
+  const { current: imp, dismiss } = history;
+  const notified = React.useRef<string | null>(null);
+  const onImported = React.useRef(onHistoryImported);
+  onImported.current = onHistoryImported;
+  const impId = imp?.status === 'COMPLETED' ? imp.id : null;
+  React.useEffect(() => {
+    if (impId && notified.current !== impId) {
+      notified.current = impId;
+      onImported.current?.();
+    }
+  }, [impId]);
+  // Another chat's header must not show this chat's import.
+  React.useEffect(() => dismiss, [chat.id]); // eslint-disable-line react-hooks/exhaustive-deps
   const closed = chat.status === 'CLOSED';
   const name = contactName(chat);
 
@@ -105,6 +125,11 @@ export const ChatHeader: React.FunctionComponent<{
           {canSend && chat.assignedUser && (mine || manager) && (
             <ReassignMenu chat={chat} onChange={changed} onError={failed} />
           )}
+          {access.hasInWorkspace('inbox:import-history') && (
+            <Button variant="secondary" onClick={() => setImporting(true)}>
+              Fetch history
+            </Button>
+          )}
           {manager && <AssignMenu chat={chat} onChange={changed} onError={failed} />}
           {access.hasInWorkspace('inbox:send') && (
             <Button variant="secondary" onClick={() => void toggleStatus()} isDisabled={busy}>
@@ -114,6 +139,32 @@ export const ChatHeader: React.FunctionComponent<{
         </span>
       </div>
       {error && <Alert variant="danger" isInline isPlain title={error} />}
+      {imp && (imp.status === 'QUEUED' || imp.status === 'RUNNING') && (
+        <Alert
+          variant="info"
+          isInline
+          isPlain
+          title={`Importing history… ${imp.counts.messagesSeen} messages so far${
+            waitingText(imp.waiting) ? ` — ${waitingText(imp.waiting)}` : ''
+          }`}
+        />
+      )}
+      {imp?.status === 'COMPLETED' && (
+        <Alert variant="info" isInline isPlain title={`History imported: ${imp.counts.messagesInserted} new messages`} />
+      )}
+      {imp && (imp.status === 'FAILED' || imp.status === 'CANCELLED') && (
+        <Alert variant="warning" isInline isPlain title={`${statusLabel(imp.status)}${imp.error ? `: ${imp.error}` : ''}`} />
+      )}
+      {importing && (
+        <ImportHistoryModal
+          target={{ kind: 'chat', chat }}
+          onStarted={(started) => {
+            setImporting(false);
+            history.start(started);
+          }}
+          onCancel={() => setImporting(false)}
+        />
+      )}
     </div>
   );
 };
