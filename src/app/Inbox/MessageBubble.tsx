@@ -29,6 +29,15 @@ function Content({ message, contact }: { message: MessageView; contact: string }
     );
   }
   if (type === 'poll_creation') return <PollBody message={message} contact={contact} />;
+  // a business message: text, often with an image or video, and any of it may be missing
+  if (type === 'interactive' && (body || message.media)) {
+    return (
+      <>
+        {message.media && <MediaBody chatId={message.chatId} message={message} />}
+        {body && <div>{formatWhatsApp(body)}</div>}
+      </>
+    );
+  }
   if (MEDIA_TYPES.includes(type)) {
     return (
       <>

@@ -262,6 +262,77 @@ describe('thread', () => {
     expect(await within(log).findByText('Unsupported message')).toBeVisible();
   });
 
+  const interactive = (over: Partial<MessageView> = {}) =>
+    message({ id: 'i1', type: 'interactive', body: 'Dear *Asha*, your policy is due', ...over });
+  const cached = (mimetype: string): MessageView['media'] => ({
+    mimetype,
+    filename: null,
+    size: 2048,
+    available: true,
+  });
+
+  it('an interactive message shows its text, formatted', async () => {
+    const log = await showing(interactive());
+    expect((await within(log).findByText('Asha')).tagName).toBe('STRONG');
+    expect(screen.queryByText('Unsupported message')).toBeNull();
+    expect(screen.queryByText('Media not available')).toBeNull();
+    expect(log.querySelector('[data-side]')).not.toBeNull();
+  });
+
+  it('an interactive message with no text or media is still unsupported', async () => {
+    await showing(interactive({ body: null }));
+    expect(await screen.findByText('Unsupported message')).toBeVisible();
+  });
+
+  const showingMedia = async (item: ThreadItem) => {
+    mockFetch({
+      ...meAs(AGENT_IN_BRAND),
+      [`GET ${THREAD}`]: page([item]),
+      [`GET ${MEDIA('i1')}`]: { status: 200, text: 'x', headers: { 'Content-Type': 'application/octet-stream' } },
+    });
+    renderThread();
+    return screen.findByRole('log', { name: 'Messages' });
+  };
+
+  it('an interactive message plays a video as a video', async () => {
+    const log = await showingMedia(interactive({ media: cached('video/mp4') }));
+    await waitFor(() => expect(log.querySelector('video')).not.toBeNull());
+    expect(log.querySelector('img')).toBeNull();
+    expect(within(log).getByText('Asha')).toBeVisible();
+  });
+
+  it('an interactive message shows an image as an image', async () => {
+    const log = await showingMedia(interactive({ media: cached('image/jpeg') }));
+    await waitFor(() => expect(log.querySelector('img')).not.toBeNull());
+    expect(log.querySelector('img')?.getAttribute('alt')).toBe('Image');
+  });
+
+  it('a video not yet fetched waits for Download, then plays as a video', async () => {
+    const fetch = mockFetch({
+      ...meAs(AGENT_IN_BRAND),
+      [`GET ${THREAD}`]: page([
+        interactive({ media: { mimetype: 'video/mp4', filename: null, size: 2048, available: false } }),
+      ]),
+      [`GET ${MEDIA('i1')}`]: { status: 200, text: 'x', headers: { 'Content-Type': 'video/mp4' } },
+    });
+    const { user } = renderThread();
+    const log = await screen.findByRole('log', { name: 'Messages' });
+
+    await user.click(await within(log).findByRole('button', { name: 'Download' }));
+
+    await waitFor(() => expect(log.querySelector('video')).not.toBeNull());
+    expect(log.querySelector('img')).toBeNull();
+    expect(mediaCalls(fetch, 'i1')).toBe(1);
+  });
+
+  it('an interactive message offers anything else as a download', async () => {
+    const log = await showing(
+      interactive({ media: { mimetype: 'application/pdf', filename: 'policy.pdf', size: 2048, available: true } }),
+    );
+    expect(await within(log).findByText('policy.pdf')).toBeVisible();
+    expect(within(log).getByRole('button', { name: 'Download' })).toBeVisible();
+  });
+
   it('a call is a line, not a bubble, and has no ticks', async () => {
     const log = await showing(call('c1', 'OUT', null));
     await within(log).findByText('Outgoing call');
