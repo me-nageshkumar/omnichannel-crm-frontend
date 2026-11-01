@@ -10,6 +10,15 @@ const GAP = 'var(--pf-t--global--spacer--sm)';
 /** How close to the bottom (px) still counts as "at the bottom" for following new items. */
 const NEAR_BOTTOM = 40;
 
+/** WhatsApp's own notices. New ones are not stored; these show the rows from before that, which have no text. */
+const NOTICE_TYPES = [
+  'notification_template',
+  'e2e_notification',
+  'notification',
+  'group_notification',
+  'broadcast_notification',
+];
+
 /** A call is something that happened in the chat, not something said in it: a line, with no bubble and no ticks. */
 const CallLine: React.FunctionComponent<{ message: MessageView }> = ({ message }) => {
   const missed = message.call?.missed ?? false;
@@ -147,6 +156,12 @@ export const Thread: React.FunctionComponent<ThreadProps> = ({ chat, thread }) =
     }
     if (item.kind === 'message' && item.message?.type === 'call_log') {
       rows.push(<CallLine key={itemKey(item)} message={item.message} />);
+    } else if (item.kind === 'message' && item.message && NOTICE_TYPES.includes(item.message.type)) {
+      rows.push(
+        <div key={itemKey(item)} style={{ alignSelf: 'center', fontSize: 'small', fontStyle: 'italic' }}>
+          WhatsApp notice
+        </div>,
+      );
     } else if (item.kind === 'message' && item.message) {
       rows.push(
         <MessageBubble
