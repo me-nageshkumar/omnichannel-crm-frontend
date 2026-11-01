@@ -14,6 +14,16 @@ export function fileSize(bytes: number): string {
   return `${(bytes / (1024 * 1024)).toFixed(1)} MB`;
 }
 
+/** How to show a message's file. A business message has its own type, so only the file's mimetype says what it holds. */
+function kindOf({ type, media }: MessageView): 'image' | 'video' | 'audio' | 'document' {
+  if (type === 'interactive') {
+    const group = media?.mimetype?.split('/')[0];
+    return group === 'image' || group === 'video' || group === 'audio' ? group : 'document';
+  }
+  if (type === 'document' || type === 'video') return type;
+  return type === 'audio' || type === 'ptt' ? 'audio' : 'image';
+}
+
 export interface MediaBodyProps {
   chatId: string;
   message: MessageView;
@@ -28,7 +38,8 @@ export const MediaBody: React.FunctionComponent<MediaBodyProps> = ({ chatId, mes
   const { token, workspace } = useSession();
   const ws = workspace?.id ?? '';
   const { id, type, media } = message;
-  const isDocument = type === 'document';
+  const kind = kindOf(message);
+  const isDocument = kind === 'document';
   const autoLoad = !isDocument && media?.available === true;
   const [url, setUrl] = React.useState<string | null>(null);
   const [busy, setBusy] = React.useState(false);
@@ -77,12 +88,12 @@ export const MediaBody: React.FunctionComponent<MediaBodyProps> = ({ chatId, mes
     if (autoLoad) void download();
   }, [autoLoad, download]);
 
-  const label = media?.filename ?? type;
+  const label = media?.filename ?? (type === 'interactive' ? 'Image' : type);
   let shown: React.ReactNode = null;
   if (url) {
-    if (type === 'video') {
+    if (kind === 'video') {
       shown = <video controls src={url} style={MEDIA_STYLE} />;
-    } else if (type === 'audio' || type === 'ptt') {
+    } else if (kind === 'audio') {
       shown = <audio controls src={url} />;
     } else {
       shown = <img src={url} alt={label} style={MEDIA_STYLE} />;
