@@ -187,26 +187,34 @@ export const InboxPage: React.FunctionComponent = () => {
   // The open chat stays live even when its number is filtered out of the list.
   const openNumberId = chat && chat.id === chatId ? chat.phoneNumberId : null;
   const streamIds = React.useMemo(
-    () => (selected.length === 0 || !openNumberId || selected.includes(openNumberId) ? selected : [...selected, openNumberId]),
+    () =>
+      selected.length === 0 || !openNumberId || selected.includes(openNumberId)
+        ? selected
+        : [...selected, openNumberId],
     [selected, openNumberId],
   );
-  const { state: stream } = useInboxStream(streamIds, onEvent, () => {
-    list.reload();
-    numbers.reload();
-    thread.reload();
-    const reopened = openId.current;
-    if (token && reopened) {
-      getChat(token, ws, reopened).then(
-        (fresh) => {
-          if (openId.current === reopened) setChat(fresh);
-        },
-        (e) => {
-          // A chat that vanished while the stream was down is no longer ours to show.
-          if (e instanceof ApiError && e.status === 404 && openId.current === reopened) leave();
-        },
-      );
-    }
-  }, ready);
+  const { state: stream } = useInboxStream(
+    streamIds,
+    onEvent,
+    () => {
+      list.reload();
+      numbers.reload();
+      thread.reload();
+      const reopened = openId.current;
+      if (token && reopened) {
+        getChat(token, ws, reopened).then(
+          (fresh) => {
+            if (openId.current === reopened) setChat(fresh);
+          },
+          (e) => {
+            // A chat that vanished while the stream was down is no longer ours to show.
+            if (e instanceof ApiError && e.status === 404 && openId.current === reopened) leave();
+          },
+        );
+      }
+    },
+    ready,
+  );
 
   // A CRM link (?newChat=<phoneNumberId>&phone=<phone>) opens the New chat modal filled in, once, and is then consumed.
   const wantedNumber = params.get('newChat');
@@ -267,7 +275,9 @@ export const InboxPage: React.FunctionComponent = () => {
               </EmptyStateFooter>
             </>
           ) : (
-            <EmptyStateBody>Your teams work no WhatsApp number yet. Ask an admin to set your team on a number.</EmptyStateBody>
+            <EmptyStateBody>
+              Your teams work no WhatsApp number yet. Ask an admin to set your team on a number.
+            </EmptyStateBody>
           )}
         </EmptyState>
       </PageSection>
@@ -319,7 +329,7 @@ export const InboxPage: React.FunctionComponent = () => {
           )}
         </div>
         <div style={{ flex: '1 1 0', minHeight: 0, display: 'flex', position: 'relative' }}>
-          <div style={{ flex: '0 0 360px', minHeight: 0, borderInlineEnd: BORDER }}>
+          <div style={{ flex: '0 0 360px', minWidth: 0, minHeight: 0, borderInlineEnd: BORDER }}>
             <ChatList
               numbers={selected.length > 0 ? visible.filter((n) => selected.includes(n.id)) : visible}
               selectedId={chatId ?? null}
@@ -339,11 +349,7 @@ export const InboxPage: React.FunctionComponent = () => {
             }}
           >
             {stream === 'failed' && (
-              <Alert
-                variant="danger"
-                isInline
-                title="Live updates are unavailable; reload the page to try again"
-              />
+              <Alert variant="danger" isInline title="Live updates are unavailable; reload the page to try again" />
             )}
             {notice && <Alert variant="warning" isInline title={notice} />}
             {openError && <Alert variant="danger" isInline title={openError} />}

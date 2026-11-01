@@ -119,6 +119,15 @@ describe('inbox page', () => {
     vi.unstubAllGlobals();
   });
 
+  it('the chat list pane cannot be widened by what it holds', async () => {
+    const { routes: r } = routes();
+    mockFetch(r);
+    renderApp('/inbox', <Where />);
+    let pane: HTMLElement | null = await list();
+    while (pane && !pane.style.flex.includes('360px')) pane = pane.parentElement;
+    expect(pane?.style.minWidth).toBe('0');
+  });
+
   it('opening a chat loads thread and marks read', async () => {
     const { routes: r } = routes();
     const fetch = mockFetch(r);
@@ -755,9 +764,7 @@ describe('inbox page', () => {
     await user.click(screen.getByRole('menuitem', { name: /Demo Agent/ }));
     expect(await header().findByText('Agent: Demo Agent')).toBeVisible();
     expect(requestTo(fetch, HANDOFF)?.body).toEqual({ kind: 'TO_USER', userId: 'u9' });
-    expect(String(fetch.mock.calls.find(([u]) => String(u).includes('/assignees'))?.[0])).toContain(
-      'phoneNumberId=p1',
-    );
+    expect(String(fetch.mock.calls.find(([u]) => String(u).includes('/assignees'))?.[0])).toContain('phoneNumberId=p1');
   });
 
   it('backToTeamPostsToTeamWithoutId', async () => {

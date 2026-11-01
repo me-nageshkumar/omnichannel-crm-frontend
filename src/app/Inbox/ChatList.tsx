@@ -30,6 +30,7 @@ const Row: React.FunctionComponent<{
   const tick = last?.direction === 'OUT' ? STATUS_TICK[last.status] : null;
   const read = last?.status === 'READ' || last?.status === 'PLAYED';
   const preview = last ? (last.text ?? `[${last.type.toLowerCase()}]`) : '';
+  const name = contactName(chat);
   return (
     <li>
       <button
@@ -69,14 +70,17 @@ const Row: React.FunctionComponent<{
         </span>
         <span style={{ flex: '1 1 auto', minWidth: 0 }}>
           <span style={{ display: 'flex', justifyContent: 'space-between', gap: GAP }}>
-            <strong style={{ overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
-              {contactName(chat)}
+            <strong title={name} style={{ overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+              {name}
             </strong>
             <NumberChip number={number} />
             {chat.lastMessageAt && <small style={{ flex: '0 0 auto' }}>{relative(chat.lastMessageAt)}</small>}
           </span>
           <span style={{ display: 'flex', justifyContent: 'space-between', gap: GAP }}>
-            <span style={{ overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+            <span
+              title={preview || undefined}
+              style={{ overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}
+            >
               {tick && (
                 <span role="img" aria-label={tick.label} style={read ? { color: TICK_BLUE } : undefined}>
                   {tick.glyph}
