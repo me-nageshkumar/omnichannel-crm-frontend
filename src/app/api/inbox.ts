@@ -87,6 +87,8 @@ export interface MessageView {
   statusTimes: StatusTimes;
   sentBy: IdName | null;
   templateId: string | null;
+  /** The choices of a poll, else null. */
+  pollOptions?: string[] | null;
 }
 
 export interface ActionView {

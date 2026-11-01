@@ -17,7 +17,7 @@ const tickColor = (status: MessageView['status']) =>
   status === 'READ' || status === 'PLAYED' ? TICK_BLUE : status === 'FAILED' ? TICK_RED : undefined;
 
 function Content({ message }: { message: MessageView }) {
-  const { type, body, location } = message;
+  const { type, body, location, pollOptions } = message;
   if (type === 'revoked') return <em>This message was deleted</em>;
   if (type === 'location' && location) {
     const href = `https://maps.google.com/?q=${location.latitude},${location.longitude}`;
@@ -32,6 +32,13 @@ function Content({ message }: { message: MessageView }) {
       <>
         <small style={{ display: 'block' }}>Poll</small>
         {body && <div>{formatWhatsApp(body)}</div>}
+        {pollOptions && pollOptions.length > 0 && (
+          <ul aria-label="Poll options" style={{ margin: 0, paddingInlineStart: '1.25rem', listStyle: 'disc' }}>
+            {pollOptions.map((option, index) => (
+              <li key={index}>{option}</li>
+            ))}
+          </ul>
+        )}
       </>
     );
   }
