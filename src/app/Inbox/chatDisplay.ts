@@ -1,4 +1,4 @@
-import type { ChatContact, ChatStatus, ListScope, MessageStatus } from '@app/api/inbox';
+import type { ChatContact, ChatStatus, ListScope, MessageStatus, MessageView } from '@app/api/inbox';
 import type { Access } from '@app/session/useAccess';
 
 /** The list's filters as the pane edits them; `q` is the raw search text. */
@@ -68,4 +68,28 @@ export function dayLabel(iso: string, now: Date = new Date()): string {
   if (ago === 0) return 'Today';
   if (ago === 1) return 'Yesterday';
   return `${d.getDate()} ${MONTHS[d.getMonth()]} ${d.getFullYear()}`;
+}
+
+/** How many votes, as a phrase. */
+export const votesText = (n: number): string => `${n} ${n === 1 ? 'vote' : 'votes'}`;
+
+function durationText(seconds: number): string {
+  if (seconds < 60) return `${seconds} s`;
+  if (seconds < 3600) {
+    const left = seconds % 60;
+    return `${Math.floor(seconds / 60)} min${left ? ` ${left} s` : ''}`;
+  }
+  const minutes = Math.floor((seconds % 3600) / 60);
+  return `${Math.floor(seconds / 3600)} h${minutes ? ` ${minutes} min` : ''}`;
+}
+
+/** A call as one line; it says "voice" nowhere, as a call that does not say it is video may still be one. */
+export function callText({ call, direction }: Pick<MessageView, 'call' | 'direction'>): string {
+  const kind = call?.video ? 'video call' : 'call';
+  if (call?.missed) {
+    if (direction === 'IN') return `Missed ${kind}`;
+    return `${kind.charAt(0).toUpperCase()}${kind.slice(1)} not answered`;
+  }
+  const label = `${direction === 'OUT' ? 'Outgoing' : 'Incoming'} ${kind}`;
+  return call?.durationSeconds ? `${label} · ${durationText(call.durationSeconds)}` : label;
 }

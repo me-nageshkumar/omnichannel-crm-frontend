@@ -2,6 +2,7 @@ import * as React from 'react';
 import type { MessageView } from '@app/api/inbox';
 import { STATUS_TICK } from '@app/Inbox/chatDisplay';
 import { MediaBody } from '@app/Inbox/MediaBody';
+import { PollBody } from '@app/Inbox/PollBody';
 import { formatWhatsApp } from '@app/Templates/placeholders';
 
 const GAP = 'var(--pf-t--global--spacer--sm)';
@@ -16,8 +17,8 @@ export const timeOf = (iso: string) => new Date(iso).toLocaleTimeString([], { ho
 const tickColor = (status: MessageView['status']) =>
   status === 'READ' || status === 'PLAYED' ? TICK_BLUE : status === 'FAILED' ? TICK_RED : undefined;
 
-function Content({ message }: { message: MessageView }) {
-  const { type, body, location, pollOptions } = message;
+function Content({ message, contact }: { message: MessageView; contact: string }) {
+  const { type, body, location } = message;
   if (type === 'revoked') return <em>This message was deleted</em>;
   if (type === 'location' && location) {
     const href = `https://maps.google.com/?q=${location.latitude},${location.longitude}`;
@@ -27,21 +28,7 @@ function Content({ message }: { message: MessageView }) {
       </a>
     );
   }
-  if (type === 'poll_creation') {
-    return (
-      <>
-        <small style={{ display: 'block' }}>Poll</small>
-        {body && <div>{formatWhatsApp(body)}</div>}
-        {pollOptions && pollOptions.length > 0 && (
-          <ul aria-label="Poll options" style={{ margin: 0, paddingInlineStart: '1.25rem', listStyle: 'disc' }}>
-            {pollOptions.map((option, index) => (
-              <li key={index}>{option}</li>
-            ))}
-          </ul>
-        )}
-      </>
-    );
-  }
+  if (type === 'poll_creation') return <PollBody message={message} contact={contact} />;
   if (MEDIA_TYPES.includes(type)) {
     return (
       <>
@@ -58,9 +45,11 @@ export interface MessageBubbleProps {
   message: MessageView;
   /** Incoming bubbles sit on the left, outgoing on the right. */
   side: 'left' | 'right';
+  /** The contact of the chat, as a poll names its voters. */
+  contact: string;
 }
 
-export const MessageBubble: React.FunctionComponent<MessageBubbleProps> = ({ message, side }) => {
+export const MessageBubble: React.FunctionComponent<MessageBubbleProps> = ({ message, side, contact }) => {
   const outgoing = message.direction === 'OUT';
   const tick = outgoing ? STATUS_TICK[message.status] : null;
   const source =
@@ -86,7 +75,7 @@ export const MessageBubble: React.FunctionComponent<MessageBubbleProps> = ({ mes
           overflowWrap: 'anywhere',
         }}
       >
-        <Content message={message} />
+        <Content message={message} contact={contact} />
         <div
           style={{
             display: 'flex',
