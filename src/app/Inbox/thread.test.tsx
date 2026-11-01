@@ -190,6 +190,41 @@ describe('thread', () => {
     expect(within(failed).getByRole('img', { name: 'Failed' })).toBeInTheDocument();
   });
 
+  it('shows a poll with no options and a location with no name', async () => {
+    mockFetch({
+      ...meAs(AGENT_IN_BRAND),
+      [`GET ${THREAD}`]: page([
+        message({ id: 'm1', type: 'poll_creation', body: 'Lunch where?', pollOptions: null }),
+        message({ id: 'm2', type: 'location', location: { latitude: 0, longitude: 0, description: null } }),
+      ]),
+    });
+    renderThread();
+
+    expect(await screen.findByText('Lunch where?')).toBeInTheDocument();
+    expect(screen.queryByRole('list', { name: 'Poll options' })).toBeNull();
+    expect(screen.getByRole('link', { name: 'Location' })).toHaveAttribute('href', 'https://maps.google.com/?q=0,0');
+  });
+
+  it('lists every poll option even when two are the same', async () => {
+    const consoleError = vi.spyOn(console, 'error').mockImplementation(() => undefined);
+    mockFetch({
+      ...meAs(AGENT_IN_BRAND),
+      [`GET ${THREAD}`]: page([
+        message({ id: 'm1', type: 'poll_creation', body: 'Pick', pollOptions: ['Same', 'Same'] }),
+      ]),
+    });
+    renderThread();
+
+    const list = await screen.findByRole('list', { name: 'Poll options' });
+    expect(within(list).getAllByRole('listitem')).toHaveLength(2);
+    expect(consoleError).not.toHaveBeenCalledWith(
+      expect.stringContaining('same key'),
+      expect.anything(),
+      expect.anything(),
+    );
+    consoleError.mockRestore();
+  });
+
   it('shows deleted, location, poll and unsupported messages', async () => {
     mockFetch({
       ...meAs(AGENT_IN_BRAND),
@@ -200,7 +235,7 @@ describe('thread', () => {
           type: 'location',
           location: { latitude: 12.5, longitude: 77.25, description: 'Our shop' },
         }),
-        message({ id: 'm3', type: 'poll_creation', body: 'Lunch where?' }),
+        message({ id: 'm3', type: 'poll_creation', body: 'Lunch where?', pollOptions: ['Pizza', 'Sushi'] }),
         message({ id: 'm4', type: 'vcard' }),
       ]),
     });
@@ -214,6 +249,8 @@ describe('thread', () => {
     );
     expect(screen.getByText('Poll')).toBeInTheDocument();
     expect(screen.getByText('Lunch where?')).toBeInTheDocument();
+    const options = within(screen.getByRole('list', { name: 'Poll options' })).getAllByRole('listitem');
+    expect(options.map((o) => o.textContent)).toEqual(['Pizza', 'Sushi']);
     expect(screen.getByText('Unsupported message')).toBeInTheDocument();
   });
 
@@ -244,7 +281,14 @@ describe('thread', () => {
       'Routed to Demo Agent (the previous agent left the team)',
     );
     expect(
-      actionText(action({ type: 'TRANSFERRED', fromTeam: { id: 't1', name: 'Sales' }, toTeam: { id: 't2', name: 'Support' }, by })),
+      actionText(
+        action({
+          type: 'TRANSFERRED',
+          fromTeam: { id: 't1', name: 'Sales' },
+          toTeam: { id: 't2', name: 'Support' },
+          by,
+        }),
+      ),
     ).toBe('Transferred from Sales to Support by Ishaan');
     expect(actionText(action({ type: 'TRANSFERRED', toTeam: { id: 't2', name: 'Support' } }))).toBe(
       'Transferred to Support',
