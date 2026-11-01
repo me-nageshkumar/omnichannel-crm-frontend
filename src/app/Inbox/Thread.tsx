@@ -1,13 +1,35 @@
 import * as React from 'react';
 import { Alert, Button, Spinner } from '@patternfly/react-core';
-import type { ActionView, ChatView, ThreadItem } from '@app/api/inbox';
-import { dayLabel } from '@app/Inbox/chatDisplay';
-import { MessageBubble } from '@app/Inbox/MessageBubble';
+import type { ActionView, ChatView, MessageView, ThreadItem } from '@app/api/inbox';
+import { PhoneAltIcon, PhoneSlashIcon } from '@patternfly/react-icons';
+import { callText, contactName, dayLabel } from '@app/Inbox/chatDisplay';
+import { MessageBubble, timeOf } from '@app/Inbox/MessageBubble';
 import { ThreadState, itemKey } from '@app/Inbox/useThread';
 
 const GAP = 'var(--pf-t--global--spacer--sm)';
 /** How close to the bottom (px) still counts as "at the bottom" for following new items. */
 const NEAR_BOTTOM = 40;
+
+/** A call is something that happened in the chat, not something said in it: a line, with no bubble and no ticks. */
+const CallLine: React.FunctionComponent<{ message: MessageView }> = ({ message }) => {
+  const missed = message.call?.missed ?? false;
+  return (
+    <div
+      style={{
+        alignSelf: 'center',
+        display: 'flex',
+        alignItems: 'center',
+        gap: 'var(--pf-t--global--spacer--xs)',
+        fontSize: 'small',
+        color: missed ? 'var(--pf-t--global--text--color--status--danger--default)' : undefined,
+      }}
+    >
+      {missed ? <PhoneSlashIcon aria-hidden="true" /> : <PhoneAltIcon aria-hidden="true" />}
+      <span>{callText(message)}</span>
+      <span style={{ color: 'var(--pf-t--global--text--color--subtle)' }}>{timeOf(message.timestamp)}</span>
+    </div>
+  );
+};
 
 /** The system line for a chat action, e.g. "Assigned to Demo Agent by Demo Lead". */
 export function actionText(action: ActionView): string {
@@ -123,12 +145,15 @@ export const Thread: React.FunctionComponent<ThreadProps> = ({ chat, thread }) =
         </div>,
       );
     }
-    if (item.kind === 'message' && item.message) {
+    if (item.kind === 'message' && item.message?.type === 'call_log') {
+      rows.push(<CallLine key={itemKey(item)} message={item.message} />);
+    } else if (item.kind === 'message' && item.message) {
       rows.push(
         <MessageBubble
           key={itemKey(item)}
           message={item.message}
           side={item.message.direction === 'OUT' ? 'right' : 'left'}
+          contact={contactName(chat)}
         />,
       );
     } else if (item.action) {

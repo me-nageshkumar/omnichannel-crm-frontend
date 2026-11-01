@@ -225,6 +225,104 @@ describe('thread', () => {
     consoleError.mockRestore();
   });
 
+  const showing = async (...messages: ThreadItem[]) => {
+    mockFetch({ ...meAs(AGENT_IN_BRAND), [`GET ${THREAD}`]: page(messages) });
+    renderThread();
+    return screen.findByRole('log', { name: 'Messages' });
+  };
+
+  const call = (id: string, direction: 'IN' | 'OUT', detail: MessageView['call']) =>
+    message({ id, type: 'call_log', direction, call: detail });
+
+  it.each<[string, 'IN' | 'OUT', MessageView['call'], string]>([
+    ['nothing known, in', 'IN', null, 'Incoming call'],
+    ['nothing known, out', 'OUT', null, 'Outgoing call'],
+    ['an answered call', 'IN', { video: false, missed: false, durationSeconds: 125 }, 'Incoming call · 2 min 5 s'],
+    ['a short call', 'OUT', { video: false, missed: false, durationSeconds: 45 }, 'Outgoing call · 45 s'],
+    ['a long call', 'IN', { video: false, missed: false, durationSeconds: 3900 }, 'Incoming call · 1 h 5 min'],
+    ['a video call', 'OUT', { video: true, missed: false, durationSeconds: null }, 'Outgoing video call'],
+    ['a missed call', 'IN', { video: false, missed: true, durationSeconds: null }, 'Missed call'],
+    ['a missed video call', 'IN', { video: true, missed: true, durationSeconds: null }, 'Missed video call'],
+    ['an unanswered call', 'OUT', { video: false, missed: true, durationSeconds: null }, 'Call not answered'],
+  ])('shows %s as a line', async (_name, direction, detail, text) => {
+    await showing(call('c1', direction, detail));
+    expect(await screen.findByText(text)).toBeVisible();
+    expect(screen.queryByText('Unsupported message')).toBeNull();
+  });
+
+  it('a call is a line, not a bubble, and has no ticks', async () => {
+    const log = await showing(call('c1', 'OUT', null));
+    await within(log).findByText('Outgoing call');
+    expect(log.querySelector('[data-side]')).toBeNull();
+    expect(within(log).queryByRole('img', { name: /sent|pending|delivered|read/i })).toBeNull();
+  });
+
+  const poll = (over: Partial<MessageView> = {}) =>
+    message({ id: 'p1', type: 'poll_creation', body: 'Lunch?', pollOptions: ['Yes', 'No'], ...over });
+  const pollVote = (voter: string, options: number[], fromMe = false) => ({
+    voter,
+    fromMe,
+    options,
+    at: '2026-11-01T01:54:54Z',
+  });
+  const option = (name: string) => screen.getByRole('listitem', { name });
+
+  it('a poll without votes says so', async () => {
+    await showing(poll());
+    expect(await screen.findByText('No votes yet')).toBeVisible();
+    expect(option('Yes: 0 votes')).toBeVisible();
+    expect(option('No: 0 votes')).toBeVisible();
+  });
+
+  it('counts the votes on each option and names the contact', async () => {
+    await showing(poll({ pollVotes: [pollVote('1@lid', [0])] }));
+    expect(await screen.findByText('1 vote')).toBeVisible();
+    const yes = option('Yes: 1 vote');
+    expect(within(yes).getByText('Asha Rao')).toBeVisible();
+    expect(within(option('No: 0 votes')).queryByText('Asha Rao')).toBeNull();
+  });
+
+  it('a vote from this number shows as You', async () => {
+    await showing(poll({ pollVotes: [pollVote('me@c.us', [1], true)] }));
+    await screen.findByText('1 vote');
+    expect(within(option('No: 1 vote')).getByText('You')).toBeVisible();
+  });
+
+  it('a voter can pick several options and still counts once', async () => {
+    await showing(poll({ pollVotes: [pollVote('1@lid', [0, 1])] }));
+    expect(await screen.findByText('1 vote')).toBeVisible();
+    expect(option('Yes: 1 vote')).toBeVisible();
+    expect(option('No: 1 vote')).toBeVisible();
+  });
+
+  it("the bars show each option's share of the voters", async () => {
+    await showing(poll({ pollVotes: [pollVote('a', [0]), pollVote('b', [0, 1], true)] }));
+    await screen.findByText('2 votes');
+    const bar = (name: string) => option(name).querySelector<HTMLElement>('[data-poll-bar]');
+    expect(bar('Yes: 2 votes')?.style.width).toBe('100%');
+    expect(bar('No: 1 vote')?.style.width).toBe('50%');
+  });
+
+  it('a vote for an option the poll no longer lists is ignored', async () => {
+    await showing(poll({ pollVotes: [pollVote('a', [7])] }));
+    expect(await screen.findByText('1 vote')).toBeVisible();
+    expect(option('Yes: 0 votes')).toBeVisible();
+  });
+
+  it('a live vote updates the poll in place', async () => {
+    await showing(poll());
+    await screen.findByText('No votes yet');
+    act(() =>
+      shownThread?.apply({
+        type: 'message',
+        chatId: 'c1',
+        message: poll({ pollVotes: [pollVote('1@lid', [0])] }).message as MessageView,
+      }),
+    );
+    expect(await screen.findByText('1 vote')).toBeVisible();
+    expect(screen.queryByText('No votes yet')).toBeNull();
+  });
+
   it('shows deleted, location, poll and unsupported messages', async () => {
     mockFetch({
       ...meAs(AGENT_IN_BRAND),
@@ -250,7 +348,7 @@ describe('thread', () => {
     expect(screen.getByText('Poll')).toBeInTheDocument();
     expect(screen.getByText('Lunch where?')).toBeInTheDocument();
     const options = within(screen.getByRole('list', { name: 'Poll options' })).getAllByRole('listitem');
-    expect(options.map((o) => o.textContent)).toEqual(['Pizza', 'Sushi']);
+    expect(options.map((o) => o.getAttribute('aria-label'))).toEqual(['Pizza: 0 votes', 'Sushi: 0 votes']);
     expect(screen.getByText('Unsupported message')).toBeInTheDocument();
   });
 

@@ -72,6 +72,20 @@ export interface StatusTimes {
   failedAt: string | null;
 }
 
+export interface PollVote {
+  voter: string;
+  /** Voted from this number. */
+  fromMe: boolean;
+  options: number[];
+  at: string;
+}
+
+export interface CallDetail {
+  video: boolean;
+  missed: boolean;
+  durationSeconds: number | null;
+}
+
 export interface MessageView {
   id: string;
   chatId: string;
@@ -89,6 +103,10 @@ export interface MessageView {
   templateId: string | null;
   /** The choices of a poll, else null. */
   pollOptions?: string[] | null;
+  /** One voter's latest choice each; {@code options} are positions in {@link MessageView.pollOptions}. */
+  pollVotes?: PollVote[] | null;
+  /** What is known of a call, for a {@code call_log}. */
+  call?: CallDetail | null;
 }
 
 export interface ActionView {
