@@ -225,7 +225,7 @@ describe('history imports page', () => {
     );
     const { user } = renderApp('/inbox/history-imports');
     await user.click(within(await importRow()).getByRole('button', { name: 'Details' }));
-    expect(await screen.findByText('WhatsApp Web gave no older messages')).toBeVisible();
+    expect(await screen.findByText('Reached the oldest message WhatsApp Web would load')).toBeVisible();
   });
 
   it('expandLoadsChatItems', async () => {

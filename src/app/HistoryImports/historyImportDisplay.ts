@@ -84,6 +84,6 @@ export const chatStatusLabel = (s: HistoryChatStatus): string => CHAT_STATUS_TEX
 export function chatNote(c: HistoryChatView): string | null {
   if (c.skipReason === 'NO_CHAT') return 'No chat on the phone';
   if (c.error) return c.error;
-  if (c.olderUnavailable) return 'WhatsApp Web gave no older messages';
+  if (c.olderUnavailable) return 'Reached the oldest message WhatsApp Web would load';
   return c.capped ? 'Capped' : null;
 }
