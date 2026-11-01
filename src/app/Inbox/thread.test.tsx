@@ -565,6 +565,78 @@ describe('thread', () => {
     expect(shownThread?.loading).toBe(false);
   });
 
+  it('catchUpLeavesNoGapThatLoadEarlierCouldNotReach', async () => {
+    let calls = 0;
+    mockFetch({
+      ...meAs(AGENT_IN_BRAND),
+      [`GET ${THREAD}`]: () =>
+        ++calls === 1
+          ? page([
+              message({ id: 'march', body: 'March', timestamp: '2026-03-01T10:00:00Z' }),
+              message({ id: 'oct', body: 'October', timestamp: '2026-10-20T10:00:00Z' }),
+            ])
+          : page(
+              [
+                message({ id: 'sept', body: 'September', timestamp: '2026-09-01T10:00:00Z' }),
+                message({ id: 'oct', body: 'October', timestamp: '2026-10-20T10:00:00Z' }),
+              ],
+              true,
+            ),
+    });
+    renderThread();
+
+    await screen.findByText('March');
+    act(() => shownThread?.catchUp());
+    await screen.findByText('September');
+    // March comes back through Load earlier, walking past everything imported on the way
+    expect(shownThread?.items.map(itemKey)).toEqual(['m:sept', 'm:oct']);
+    expect(shownThread?.hasMore).toBe(true);
+  });
+
+  it('catchUpKeepsWhatTheReaderLoadedEarlier', async () => {
+    let calls = 0;
+    mockFetch({
+      ...meAs(AGENT_IN_BRAND),
+      [`GET ${THREAD}`]: () => {
+        calls += 1;
+        if (calls === 1)
+          return page([message({ id: 'oct', body: 'October', timestamp: '2026-10-20T10:00:00Z' })], true);
+        if (calls === 2) return page([message({ id: 'march', body: 'March', timestamp: '2026-03-01T10:00:00Z' })]);
+        return page([message({ id: 'sept', body: 'September', timestamp: '2026-09-01T10:00:00Z' })]);
+      },
+    });
+    renderThread();
+
+    await screen.findByText('October');
+    act(() => shownThread?.loadEarlier());
+    await screen.findByText('March');
+    act(() => shownThread?.catchUp());
+    await screen.findByText('September');
+    expect(shownThread?.items.map(itemKey)).toEqual(['m:march', 'm:sept', 'm:oct']);
+  });
+
+  it('catchUpKeepsAMessageNewerThanThePage', async () => {
+    let calls = 0;
+    const live = message({ id: 'live', body: 'Just arrived', timestamp: '2026-10-21T10:00:00Z' });
+    mockFetch({
+      ...meAs(AGENT_IN_BRAND),
+      [`GET ${THREAD}`]: () =>
+        ++calls === 1
+          ? page([message({ id: 'oct', body: 'October', timestamp: '2026-10-20T10:00:00Z' })])
+          : page([
+              message({ id: 'sept', body: 'September', timestamp: '2026-09-01T10:00:00Z' }),
+              message({ id: 'oct', body: 'October', timestamp: '2026-10-20T10:00:00Z' }),
+            ]),
+    });
+    renderThread();
+
+    await screen.findByText('October');
+    act(() => shownThread?.apply({ type: 'message', chatId: 'c1', message: live.message as MessageView }));
+    act(() => shownThread?.catchUp());
+    await screen.findByText('September');
+    expect(shownThread?.items.map(itemKey)).toEqual(['m:sept', 'm:oct', 'm:live']);
+  });
+
   it('asks for the page before the oldest item shown', async () => {
     let calls = 0;
     const fetch = mockFetch({

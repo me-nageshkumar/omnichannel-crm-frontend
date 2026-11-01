@@ -15,7 +15,11 @@ export interface ThreadState {
   reload(): void;
   /** Fetches the latest page again and shows only it, e.g. after older history was imported into the chat. */
   reset(): void;
-  /** Merges the latest page in while a history import is adding to the chat, keeping the reader's place. */
+  /**
+   * Shows the latest page while a history import is adding to the chat. What was shown behind it goes, so nothing
+   * imported between the two can stay out of reach of {@link ThreadState.loadEarlier}; pages the reader loaded earlier
+   * stay, because they are reading them.
+   */
   catchUp(): void;
   /** Folds a live event into the thread; events of other chats are ignored. */
   apply(event: InboxEvent): void;
@@ -46,6 +50,8 @@ export function useThread(chatId: string | null): ThreadState {
   const [error, setError] = React.useState<string | null>(null);
   const [loading, setLoading] = React.useState(chatId !== null);
   const epoch = React.useRef(0);
+  /** The reader went back past the newest page. */
+  const wentBack = React.useRef(false);
   const latest = React.useRef({ items, hasMore, loading });
   latest.current = { items, hasMore, loading };
 
@@ -65,6 +71,7 @@ export function useThread(chatId: string | null): ThreadState {
     (replace: boolean) => {
       if (!token || chatId === null) return;
       const mine = ++epoch.current;
+      wentBack.current = false;
       setLoading(true);
       setError(null);
       getThread(token, ws, chatId).then(
@@ -104,6 +111,7 @@ export function useThread(chatId: string | null): ThreadState {
     getThread(token, ws, chatId, before).then(
       (res) => {
         if (epoch.current !== mine) return;
+        wentBack.current = true;
         setItems((cur) => upsert(cur, res.items));
         setHasMore(res.hasMore);
         setLoading(false);
@@ -116,28 +124,48 @@ export function useThread(chatId: string | null): ThreadState {
     );
   }, [token, ws, chatId]);
 
-  /** Merges the newest page in; {@code imported} says older messages may have appeared behind what is shown. */
-  const mergeNewest = React.useCallback(
-    (imported: boolean) => {
-      if (!token || chatId === null) return;
-      const mine = epoch.current;
-      getThread(token, ws, chatId).then(
-        (res) => {
-          if (epoch.current !== mine) return;
-          setItems((cur) => upsert(cur, res.items));
-          if (imported) setHasMore((more) => more || res.hasMore);
-        },
-        (e) => {
-          if (epoch.current !== mine) return;
-          setError(messageFor(e));
-        },
-      );
-    },
-    [token, ws, chatId],
-  );
+  const reload = React.useCallback(() => {
+    if (!token || chatId === null) return;
+    const mine = epoch.current;
+    getThread(token, ws, chatId).then(
+      (res) => {
+        if (epoch.current !== mine) return;
+        setItems((cur) => upsert(cur, res.items));
+      },
+      (e) => {
+        if (epoch.current !== mine) return;
+        setError(messageFor(e));
+      },
+    );
+  }, [token, ws, chatId]);
 
-  const reload = React.useCallback(() => mergeNewest(false), [mergeNewest]);
-  const catchUp = React.useCallback(() => mergeNewest(true), [mergeNewest]);
+  const catchUp = React.useCallback(() => {
+    if (!token || chatId === null) return;
+    const mine = epoch.current;
+    getThread(token, ws, chatId).then(
+      (res) => {
+        if (epoch.current !== mine) return;
+        if (wentBack.current) {
+          setItems((cur) => upsert(cur, res.items));
+          setHasMore((more) => more || res.hasMore);
+          return;
+        }
+        // Only what is newer than the page stays: a live message that came in behind it.
+        const newest = Math.max(...res.items.map(time));
+        setItems((cur) =>
+          upsert(
+            cur.filter((item) => time(item) > newest),
+            res.items,
+          ),
+        );
+        setHasMore(res.hasMore);
+      },
+      (e) => {
+        if (epoch.current !== mine) return;
+        setError(messageFor(e));
+      },
+    );
+  }, [token, ws, chatId]);
 
   const apply = React.useCallback(
     (event: InboxEvent) => {

@@ -48,7 +48,6 @@ export function useHistoryImports(filters: HistoryImportFilters): HistoryImports
   const [fetching, setFetching] = React.useState(false);
   const latest = React.useRef(0);
   const timer = React.useRef<ReturnType<typeof setTimeout> | null>(null);
-  const settling = React.useRef<ReturnType<typeof setTimeout> | null>(null);
   const shown = React.useRef<Page<HistoryImportView> | undefined>(undefined);
   const loadRef = React.useRef<() => void>(() => undefined);
   const mounted = React.useRef(false);
@@ -91,7 +90,6 @@ export function useHistoryImports(filters: HistoryImportFilters): HistoryImports
     mounted.current = true;
     return () => {
       mounted.current = false;
-      if (settling.current !== null) clearTimeout(settling.current);
     };
   }, []);
 
@@ -123,7 +121,7 @@ export function useHistoryImports(filters: HistoryImportFilters): HistoryImports
     cancel: async (id: string) => {
       await cancelHistoryImport(token as string, ws, id);
       loadRef.current();
-      settling.current = setTimeout(() => loadRef.current(), REFRESH_SECONDS * 1000);
+      setTimeout(() => loadRef.current(), REFRESH_SECONDS * 1000);
     },
   };
 }
