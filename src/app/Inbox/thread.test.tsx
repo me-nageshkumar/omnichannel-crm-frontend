@@ -250,6 +250,18 @@ describe('thread', () => {
     expect(screen.queryByText('Unsupported message')).toBeNull();
   });
 
+  it('a stored WhatsApp notice is a quiet line, not an unsupported message', async () => {
+    const log = await showing(message({ id: 'n1', type: 'notification_template' }));
+    expect(await within(log).findByText('WhatsApp notice')).toBeVisible();
+    expect(screen.queryByText('Unsupported message')).toBeNull();
+    expect(log.querySelector('[data-side]')).toBeNull();
+  });
+
+  it('a type nobody knows still says it is unsupported', async () => {
+    const log = await showing(message({ id: 'x1', type: 'something_new' }));
+    expect(await within(log).findByText('Unsupported message')).toBeVisible();
+  });
+
   it('a call is a line, not a bubble, and has no ticks', async () => {
     const log = await showing(call('c1', 'OUT', null));
     await within(log).findByText('Outgoing call');
