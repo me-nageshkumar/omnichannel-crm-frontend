@@ -37,21 +37,7 @@ const lazyPanel = () =>
 
 // Below this the thread would be squeezed by the list and the panel, so the panel becomes a drawer.
 const NARROW = '(max-width: 1099px)';
-const panelKey = (userId: string) => `crm.panel.${userId}`;
-const readCollapsed = (userId: string): boolean => {
-  try {
-    return localStorage.getItem(panelKey(userId)) === 'collapsed';
-  } catch {
-    return false;
-  }
-};
-const writeCollapsed = (userId: string, collapsed: boolean) => {
-  try {
-    localStorage.setItem(panelKey(userId), collapsed ? 'collapsed' : 'open');
-  } catch {
-    // The choice just does not outlive this page.
-  }
-};
+
 /** Whether the viewport is narrower than 1100px (a drawer instead of a column). */
 function useNarrow(): boolean {
   const query = React.useMemo(
@@ -126,8 +112,8 @@ export const InboxPage: React.FunctionComponent = () => {
   const [panelTry, setPanelTry] = React.useState(0);
   // eslint-disable-next-line react-hooks/exhaustive-deps
   const CrmChatPanelLazy = React.useMemo(lazyPanel, [panelTry]);
-  const [collapsed, setCollapsed] = React.useState(() => readCollapsed(meId));
-  const [drawerOpen, setDrawerOpen] = React.useState(false);
+  // Closed until asked for, and not remembered: open, it stays open from chat to chat until closed or the page reloads.
+  const [panelOpen, setPanelOpen] = React.useState(false);
   const [params] = useSearchParams();
   const location = useLocation();
   const openId = React.useRef(chatId);
@@ -251,16 +237,7 @@ export const InboxPage: React.FunctionComponent = () => {
   const numberConnected = openNumber ? openNumber.status === 'CONNECTED' : true;
 
   const showPanel = crmOn && open !== null;
-  const toggle = () => {
-    if (narrow) {
-      setDrawerOpen((o) => !o);
-    } else {
-      const next = !collapsed;
-      setCollapsed(next);
-      writeCollapsed(meId, next);
-    }
-  };
-  const panelShown = showPanel && (narrow ? drawerOpen : !collapsed);
+  const panelShown = showPanel && panelOpen;
 
   if (numbers.data && visible.length === 0) {
     return (
@@ -322,7 +299,13 @@ export const InboxPage: React.FunctionComponent = () => {
             </Button>
           )}
           {showPanel && (
-            <Button variant="control" size="sm" aria-label="CRM panel" aria-pressed={panelShown} onClick={toggle}>
+            <Button
+              variant="control"
+              size="sm"
+              aria-label="CRM panel"
+              aria-pressed={panelShown}
+              onClick={() => setPanelOpen((o) => !o)}
+            >
               CRM
             </Button>
           )}

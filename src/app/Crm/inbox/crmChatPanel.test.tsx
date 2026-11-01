@@ -86,6 +86,13 @@ function routes(extra: Record<string, unknown> = {}, user: CurrentUser = WORKSPA
   } as Parameters<typeof mockFetch>[0];
 }
 
+/** Renders a chat and opens the panel, which starts closed. */
+async function withPanel(...args: Parameters<typeof renderApp>) {
+  const view = renderApp(...args);
+  await view.user.click(await screen.findByRole('button', { name: 'CRM panel' }));
+  return view;
+}
+
 describe('CRM chat panel', () => {
   beforeEach(() => {
     localStorage.clear();
@@ -114,7 +121,7 @@ describe('CRM chat panel', () => {
         },
       }),
     );
-    const { user } = renderApp('/inbox/chats/c1');
+    const { user } = await withPanel('/inbox/chats/c1');
     await user.click(await screen.findByRole('button', { name: 'Capture to CRM' }));
     const dialog = await screen.findByRole('dialog');
     expect(await within(dialog).findByLabelText('Deal title (optional)')).toBeVisible();
@@ -139,7 +146,7 @@ describe('CRM chat panel', () => {
         },
       }),
     );
-    const { user } = renderApp('/inbox/chats/c1');
+    const { user } = await withPanel('/inbox/chats/c1');
     await user.click(await screen.findByRole('button', { name: 'Capture to CRM' }));
     const dialog = await screen.findByRole('dialog');
     const pick = await within(dialog).findByLabelText('Pipeline');
@@ -172,7 +179,7 @@ describe('CRM chat panel', () => {
         },
       }),
     );
-    const { user } = renderApp('/inbox/chats/c1');
+    const { user } = await withPanel('/inbox/chats/c1');
     await user.click(await screen.findByRole('button', { name: 'Capture to CRM' }));
     await user.click(await within(await screen.findByRole('dialog')).findByRole('button', { name: 'Capture' }));
     expect(await screen.findByRole('link', { name: 'Older deal' })).toBeVisible();
@@ -190,7 +197,7 @@ describe('CRM chat panel', () => {
         },
       }),
     );
-    const { user } = renderApp('/inbox/chats/c1');
+    const { user } = await withPanel('/inbox/chats/c1');
     await user.click(await screen.findByRole('button', { name: 'Capture to CRM' }));
     const dialog = await screen.findByRole('dialog');
     await within(dialog).findByLabelText('Deal title (optional)');
@@ -205,7 +212,7 @@ describe('CRM chat panel', () => {
     mockFetch(
       routes({ [SUMMARY1]: { status: 200, body: summary({ canCapture: false, captureBlockedReason: reason }) } }),
     );
-    renderApp('/inbox/chats/c1');
+    await withPanel('/inbox/chats/c1');
     expect(await screen.findByText(copy)).toBeVisible();
     expect(screen.getByRole('button', { name: 'Capture to CRM' })).toBeDisabled();
   });
@@ -217,7 +224,7 @@ describe('CRM chat panel', () => {
         [UPDATE]: { status: 200, body: { ...captured('Priya Shah').contact, lifecycleStatus: 'customer', version: 6 } },
       }),
     );
-    const { user } = renderApp('/inbox/chats/c1');
+    const { user } = await withPanel('/inbox/chats/c1');
     const panel = within(await screen.findByRole('complementary', { name: 'CRM' }));
     expect(await panel.findByRole('link', { name: 'Acme order' })).toHaveAttribute(
       'href',
@@ -240,7 +247,7 @@ describe('CRM chat panel', () => {
         [UPDATE]: { status: 409, body: { code: 'VERSION_CONFLICT', message: 'x' } },
       }),
     );
-    const { user } = renderApp('/inbox/chats/c1');
+    const { user } = await withPanel('/inbox/chats/c1');
     const panel = within(await screen.findByRole('complementary', { name: 'CRM' }));
     await user.selectOptions(await panel.findByLabelText('Lifecycle status'), 'customer');
     await waitFor(() => expect(callsTo(f, SUMMARY1)).toBe(2));
@@ -254,7 +261,7 @@ describe('CRM chat panel', () => {
         [`POST ${B}/crm/tasks`]: { status: 200, body: sampleTask({ title: 'Follow up' }) },
       }),
     );
-    const { user } = renderApp('/inbox/chats/c1');
+    const { user } = await withPanel('/inbox/chats/c1');
     const panel = document.body;
     expect(await within(panel).findByText('Send catalogue')).toBeInTheDocument();
     expect(within(panel).getByText(/^in (59 minutes|1 hour)$/)).toBeInTheDocument();
@@ -276,7 +283,7 @@ describe('CRM chat panel', () => {
         [`POST ${B}/crm/activities/log`]: { status: 200, body: { id: 'a1' } },
       }),
     );
-    const { user } = renderApp('/inbox/chats/c1');
+    const { user } = await withPanel('/inbox/chats/c1');
     const panel = within(await screen.findByRole('complementary', { name: 'CRM' }));
     await user.click(await panel.findByRole('button', { name: 'Log call' }));
     await user.type(panel.getByLabelText('Summary'), 'Spoke about the quote');
@@ -298,7 +305,7 @@ describe('CRM chat panel', () => {
           ++n === 1 ? { status: 500, body: { code: 'X', message: 'boom' } } : { status: 200, body: summary() },
       }),
     );
-    const { user } = renderApp('/inbox/chats/c1');
+    const { user } = await withPanel('/inbox/chats/c1');
     const panel = within(await screen.findByRole('complementary', { name: 'CRM' }));
     expect(await panel.findByRole('button', { name: 'Retry' })).toBeVisible();
     expect(screen.getByRole('group', { name: 'Chat header' })).toBeVisible();
@@ -313,7 +320,7 @@ describe('CRM chat panel', () => {
         [SUMMARY2]: { status: 200, body: captured('Meena Nair', 'c2') },
       }),
     );
-    const { user } = renderApp('/inbox/chats/c1');
+    const { user } = await withPanel('/inbox/chats/c1');
     expect(await screen.findByRole('link', { name: 'Priya Shah' })).toBeVisible();
     await user.click(within(await screen.findByRole('list', { name: 'Chats' })).getByRole('button', { name: /Meena/ }));
     expect(await screen.findByRole('link', { name: 'Meena Nair' })).toBeVisible();
@@ -333,7 +340,7 @@ describe('CRM chat panel', () => {
           [PIPELINES]: () => ({ status: 200, body: [pipeline] }),
         }),
       );
-      renderApp('/inbox/chats/c1');
+      await withPanel('/inbox/chats/c1');
       const panel = within(await screen.findByRole('complementary', { name: 'CRM' }));
       const select = await panel.findByLabelText('Stage of Acme order');
       expect(within(select).queryByRole('option', { name: 'Demo' })).toBeNull();
@@ -365,7 +372,7 @@ describe('CRM chat panel', () => {
             fail ? { status: 500, body: { message: 'down' } } : { status: 200, body: [samplePipeline()] },
         }),
       );
-      renderApp('/inbox/chats/c1');
+      await withPanel('/inbox/chats/c1');
       const panel = within(await screen.findByRole('complementary', { name: 'CRM' }));
       const select = await panel.findByLabelText('Stage of Acme order');
       expect(within(select).getByRole('option', { name: 'Proposal' })).toBeInTheDocument();
@@ -391,7 +398,7 @@ describe('CRM chat panel', () => {
       }),
     );
     const held = gate(f, SUMMARY1, 1);
-    const { user } = renderApp('/inbox/chats/c1');
+    const { user } = await withPanel('/inbox/chats/c1');
     await waitFor(() => expect(callsTo(f, SUMMARY1)).toBe(1));
     await user.click(within(await screen.findByRole('list', { name: 'Chats' })).getByRole('button', { name: /Meena/ }));
     expect(await screen.findByRole('link', { name: 'Meena Nair' })).toBeVisible();
@@ -403,13 +410,41 @@ describe('CRM chat panel', () => {
     expect(screen.queryByRole('link', { name: 'Priya Shah' })).toBeNull();
   });
 
-  it('toggleCollapsesAndRemembersPerUser', async () => {
+  it('thePanelStartsClosedAndFetchesNothing', async () => {
+    const f = mockFetch(routes({ [SUMMARY1]: { status: 200, body: summary() } }));
+    renderApp('/inbox/chats/c1');
+    const toggle = await screen.findByRole('button', { name: 'CRM panel' });
+    expect(toggle).toHaveAttribute('aria-pressed', 'false');
+    expect(screen.queryByRole('complementary', { name: 'CRM' })).toBeNull();
+    expect(callsTo(f, SUMMARY1)).toBe(0);
+  });
+
+  it('theButtonOpensThePanelAndClosesItAgain', async () => {
+    const f = mockFetch(routes({ [SUMMARY1]: { status: 200, body: summary() } }));
+    const { user } = renderApp('/inbox/chats/c1');
+    const toggle = await screen.findByRole('button', { name: 'CRM panel' });
+    await user.click(toggle);
+    expect(await screen.findByRole('complementary', { name: 'CRM' })).toBeVisible();
+    expect(toggle).toHaveAttribute('aria-pressed', 'true');
+    await waitFor(() => expect(callsTo(f, SUMMARY1)).toBe(1));
+    await user.click(toggle);
+    expect(screen.queryByRole('complementary', { name: 'CRM' })).toBeNull();
+  });
+
+  it('aChoiceSavedByAnEarlierVersionDoesNotOpenIt', async () => {
+    localStorage.setItem('crm.panel.u4', 'open');
+    mockFetch(routes({ [SUMMARY1]: { status: 200, body: summary() } }));
+    renderApp('/inbox/chats/c1');
+    await screen.findByRole('button', { name: 'CRM panel' });
+    expect(screen.queryByRole('complementary', { name: 'CRM' })).toBeNull();
+  });
+
+  it('openingThePanelIsNotRemembered', async () => {
     mockFetch(routes({ [SUMMARY1]: { status: 200, body: summary() } }));
     const { user } = renderApp('/inbox/chats/c1');
+    await user.click(await screen.findByRole('button', { name: 'CRM panel' }));
     await screen.findByRole('complementary', { name: 'CRM' });
-    await user.click(screen.getByRole('button', { name: 'CRM panel' }));
-    expect(screen.queryByRole('complementary', { name: 'CRM' })).toBeNull();
-    expect(localStorage.getItem('crm.panel.u4')).toBe('collapsed');
+    expect(localStorage.getItem('crm.panel.u4')).toBeNull();
   });
 
   it('underElevenHundredPixelsThePanelIsADrawerOpenedByTheToggle', async () => {
@@ -426,16 +461,6 @@ describe('CRM chat panel', () => {
     expect(callsTo(f, SUMMARY1)).toBe(1);
     await user.click(screen.getByRole('button', { name: 'CRM panel' }));
     expect(screen.queryByRole('complementary', { name: 'CRM' })).toBeNull();
-  });
-
-  it('startsCollapsedWhenStored', async () => {
-    localStorage.setItem('crm.panel.u4', 'collapsed');
-    const f = mockFetch(routes({ [SUMMARY1]: { status: 200, body: summary() } }));
-    renderApp('/inbox/chats/c1');
-    await screen.findByRole('group', { name: 'Chat header' });
-    await screen.findByRole('button', { name: 'CRM panel' });
-    expect(screen.queryByRole('complementary', { name: 'CRM' })).toBeNull();
-    expect(callsTo(f, SUMMARY1)).toBe(0);
   });
 
   it('newChatQueryOpensPrefilledModal', async () => {
@@ -468,7 +493,7 @@ describe('CRM chat panel', () => {
         [MOVE]: { status: 200, body: sampleDeal() },
       }),
     );
-    const { user } = renderApp('/inbox/chats/c1');
+    const { user } = await withPanel('/inbox/chats/c1');
     const panel = within(await screen.findByRole('complementary', { name: 'CRM' }));
     await user.selectOptions(await panel.findByLabelText('Stage of Acme order'), 's2');
     await waitFor(() => expect(requestTo(f, MOVE)?.body).toEqual({ stageId: 's2' }));
@@ -483,7 +508,7 @@ describe('CRM chat panel', () => {
       }),
     );
     const held = gate(f, SUMMARY1, 2);
-    const { user } = renderApp('/inbox/chats/c1');
+    const { user } = await withPanel('/inbox/chats/c1');
     const panel = within(await screen.findByRole('complementary', { name: 'CRM' }));
     const select = await panel.findByLabelText('Stage of Acme order');
     await user.selectOptions(select, 's2');
@@ -497,7 +522,7 @@ describe('CRM chat panel', () => {
 
   it('onlyOpenStagesAreOffered', async () => {
     mockFetch(routes({ [SUMMARY1]: { status: 200, body: captured('Priya Shah') } }));
-    renderApp('/inbox/chats/c1');
+    await withPanel('/inbox/chats/c1');
     const panel = within(await screen.findByRole('complementary', { name: 'CRM' }));
     const select = await panel.findByLabelText('Stage of Acme order');
     expect(
@@ -514,7 +539,7 @@ describe('CRM chat panel', () => {
         [STATUS]: { status: 200, body: crmStatus({ authorities: ['crm:view'] }) },
       }),
     );
-    renderApp('/inbox/chats/c1');
+    await withPanel('/inbox/chats/c1');
     const panel = within(await screen.findByRole('complementary', { name: 'CRM' }));
     expect(await panel.findByText(/New · ₹1,500/)).toBeVisible();
     expect(panel.queryByLabelText('Stage of Acme order')).toBeNull();
@@ -528,7 +553,7 @@ describe('CRM chat panel', () => {
         [MOVE]: { status: 400, body: { code: 'WIP_LIMIT', message: 'The stage is full' } },
       }),
     );
-    const { user } = renderApp('/inbox/chats/c1');
+    const { user } = await withPanel('/inbox/chats/c1');
     const panel = within(await screen.findByRole('complementary', { name: 'CRM' }));
     await user.selectOptions(await panel.findByLabelText('Stage of Acme order'), 's2');
     expect(await panel.findByText('The stage is full')).toBeVisible();
@@ -543,7 +568,7 @@ describe('CRM chat panel', () => {
       }),
     );
     const held = gate(f, MOVE, 1);
-    const { user } = renderApp('/inbox/chats/c1');
+    const { user } = await withPanel('/inbox/chats/c1');
     const panel = within(await screen.findByRole('complementary', { name: 'CRM' }));
     await user.selectOptions(await panel.findByLabelText('Stage of Acme order'), 's2');
     await user.click(within(await screen.findByRole('list', { name: 'Chats' })).getByRole('button', { name: /Meena/ }));
@@ -565,7 +590,7 @@ describe('CRM chat panel', () => {
         [NEW_DEAL]: { status: 200, body: sampleDeal({ id: 'd9' }) },
       }),
     );
-    const { user } = renderApp('/inbox/chats/c1');
+    const { user } = await withPanel('/inbox/chats/c1');
     const panel = within(await screen.findByRole('complementary', { name: 'CRM' }));
     await user.click(await panel.findByRole('button', { name: 'New deal' }));
     const dialog = await screen.findByRole('dialog', { name: 'New deal' });
@@ -591,7 +616,7 @@ describe('CRM chat panel', () => {
         [PIPELINES]: { status: 200, body: [samplePipeline({ active: false })] },
       }),
     );
-    renderApp('/inbox/chats/c1');
+    await withPanel('/inbox/chats/c1');
     const panel = within(await screen.findByRole('complementary', { name: 'CRM' }));
     await panel.findByLabelText('Stage of Acme order');
     expect(panel.queryByRole('button', { name: 'New deal' })).toBeNull();
