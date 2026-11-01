@@ -147,7 +147,9 @@ export type HandoffBody = { kind: 'TO_USER'; userId: string } | { kind: 'TO_TEAM
 export type InboxEvent =
   | { type: 'chat'; chat: ChatView; visible: boolean }
   | { type: 'message'; chatId: string; message: MessageView }
-  | { type: 'action'; chatId: string; action: ActionView };
+  | { type: 'action'; chatId: string; action: ActionView }
+  /** A history import stored messages in the chat. */
+  | { type: 'history'; chatId: string };
 
 export interface ChatFilters {
   /** The numbers to list; empty or absent means every number the viewer may open. */
@@ -320,7 +322,7 @@ export function parseSse(buffer: string): { events: Array<{ event: string; data:
 
 /** The typed event for one SSE frame, or null for an unknown event name or unparseable data. */
 export function toInboxEvent(event: string, data: string): InboxEvent | null {
-  if (event !== 'chat' && event !== 'message' && event !== 'action') return null;
+  if (event !== 'chat' && event !== 'message' && event !== 'action' && event !== 'history') return null;
   try {
     return { type: event, ...JSON.parse(data) } as InboxEvent;
   } catch {

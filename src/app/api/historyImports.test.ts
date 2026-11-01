@@ -1,8 +1,12 @@
 import { afterEach, describe, expect, it, vi } from 'vitest';
 import {
   cancelHistoryImport,
+  getActiveChatImport,
   isActive,
+  isFetching,
   listHistoryImports,
+  pauseHistoryImport,
+  resumeHistoryImport,
   startNumberImport,
   type HistoryImportStatus,
 } from '@app/api/historyImports';
@@ -13,6 +17,32 @@ const B = '/api/workspaces/w1/inbox';
 afterEach(() => vi.unstubAllGlobals());
 
 describe('history imports api', () => {
+  it('pauseAndResumePostToTheirPaths', async () => {
+    const fetch = mockFetch({
+      [`POST ${B}/history-imports/h1/pause`]: { status: 200, body: { id: 'h1' } },
+      [`POST ${B}/history-imports/h1/resume`]: { status: 200, body: { id: 'h1' } },
+    });
+    await pauseHistoryImport('tok', 'w1', 'h1');
+    await resumeHistoryImport('tok', 'w1', 'h1');
+    expect(callsTo(fetch, `POST ${B}/history-imports/h1/pause`)).toBe(1);
+    expect(callsTo(fetch, `POST ${B}/history-imports/h1/resume`)).toBe(1);
+  });
+
+  it('activeChatImportIsTheViewOrNothing', async () => {
+    mockFetch({ [`GET ${B}/chats/c1/history-imports/active`]: { status: 200, body: { id: 'h1' } } });
+    expect(await getActiveChatImport('tok', 'w1', 'c1')).toEqual({ id: 'h1' });
+    mockFetch({ [`GET ${B}/chats/c1/history-imports/active`]: { status: 204 } });
+    expect(await getActiveChatImport('tok', 'w1', 'c1')).toBeUndefined();
+  });
+
+  it('aPausedImportIsActiveButNotFetching', () => {
+    expect(isActive('PAUSED')).toBe(true);
+    expect(isFetching('PAUSED')).toBe(false);
+    expect(isFetching('RUNNING')).toBe(true);
+    expect(isFetching('QUEUED')).toBe(true);
+    expect(isFetching('CANCELLED')).toBe(false);
+  });
+
   it('startNumberImportPostsScopeAndRange', async () => {
     const fetch = mockFetch({ [`POST ${B}/phone-numbers/p1/history-imports`]: { status: 200, body: { id: 'h1' } } });
     const body = { scope: { kind: 'CHATS' as const, phones: ['919928088743'] }, from: '2026-01-01', to: null };

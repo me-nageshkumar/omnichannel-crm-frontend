@@ -171,6 +171,10 @@ export const InboxPage: React.FunctionComponent = () => {
   };
 
   const onEvent = (event: InboxEvent) => {
+    if (event.type === 'history') {
+      if (event.chatId === openId.current) thread.catchUp();
+      return;
+    }
     if (event.type === 'chat' && event.chat.id === openId.current) {
       if (!event.visible) {
         leave();

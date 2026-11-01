@@ -303,6 +303,33 @@ describe('inbox page', () => {
     expect(await screen.findByText('WhatsApp is not connected on this number')).toBeVisible();
   });
 
+  it('history stored in the open chat shows without a reload; another chat is left alone', async () => {
+    const stream = streamMock();
+    let imported = false;
+    const old = message({ id: 'm2', body: 'From the phone', timestamp: '2026-01-01T10:00:00Z' });
+    const { routes: r } = routes({
+      [STREAM]: stream.response,
+      [THREAD]: () => ({
+        status: 200,
+        body: { items: imported ? [item(old), item(FIRST)] : [item(FIRST)], hasMore: false },
+      }),
+    });
+    const fetch = mockFetch(r);
+    renderApp('/inbox/chats/c1');
+    await list();
+    await screen.findByText('Hello from Asha', { selector: 'div' });
+    await streamOpened(fetch);
+
+    imported = true;
+    const before = callsTo(fetch, THREAD);
+    act(() => stream.push(frame('history', { chatId: 'other' })));
+    await act(async () => undefined);
+    expect(callsTo(fetch, THREAD)).toBe(before);
+
+    act(() => stream.push(frame('history', { chatId: 'c1' })));
+    expect(await screen.findByText('From the phone', { selector: 'div' })).toBeVisible();
+  });
+
   it('stream reconnect reloads the list once and catches up the open chat', async () => {
     vi.useFakeTimers({ shouldAdvanceTime: true });
     const streams: Array<ReturnType<typeof streamMock>> = [];

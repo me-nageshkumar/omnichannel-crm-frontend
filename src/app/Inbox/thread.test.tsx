@@ -546,6 +546,25 @@ describe('thread', () => {
     expect(calls).toBe(2);
   });
 
+  it('catchUpMergesWithoutDroppingAndOffersOlderMessages', async () => {
+    let calls = 0;
+    mockFetch({
+      ...meAs(AGENT_IN_BRAND),
+      [`GET ${THREAD}`]: () =>
+        ++calls === 1
+          ? page([message({ id: 'm1', body: 'Short', timestamp: '2026-10-20T10:00:00Z' })])
+          : page([message({ id: 'm9', body: 'Imported', timestamp: '2026-10-19T10:00:00Z' })], true),
+    });
+    renderThread();
+
+    await screen.findByText('Short');
+    act(() => shownThread?.catchUp());
+    await screen.findByText('Imported');
+    expect(shownThread?.items.map(itemKey)).toEqual(['m:m9', 'm:m1']);
+    expect(shownThread?.hasMore).toBe(true);
+    expect(shownThread?.loading).toBe(false);
+  });
+
   it('asks for the page before the oldest item shown', async () => {
     let calls = 0;
     const fetch = mockFetch({

@@ -10,6 +10,8 @@ const B = '/api/workspaces/w1/inbox';
 const LIST = `GET ${B}/history-imports`;
 const CHATS = `GET ${B}/history-imports/h1/chats`;
 const CANCEL = `POST ${B}/history-imports/h1/cancel`;
+const PAUSE = `POST ${B}/history-imports/h1/pause`;
+const RESUME = `POST ${B}/history-imports/h1/resume`;
 const NUMBER = '+919928088743';
 
 function view(over: Partial<HistoryImportView> = {}): HistoryImportView {
@@ -51,6 +53,7 @@ function chat(over: Partial<HistoryChatView> = {}): HistoryChatView {
     error: null,
     counts: { seen: 0, inserted: 0, updated: 0 },
     capped: false,
+    olderUnavailable: false,
     attemptedAt: null,
     finishedAt: null,
     ...over,
@@ -125,22 +128,104 @@ describe('history imports page', () => {
     expect(callsTo(fetch, LIST)).toBe(2);
   });
 
-  it('cancelAsksThenPosts', async () => {
+  const control = (row: HTMLElement, name: string) =>
+    within(row).getByRole('button', { name: `${name} import of ${NUMBER}` });
+  const noControl = (row: HTMLElement, name: string) =>
+    within(row).queryByRole('button', { name: `${name} import of ${NUMBER}` });
+
+  it('stopPostsAtOnceAndChecksTheCountsAgain', async () => {
+    vi.useFakeTimers({ shouldAdvanceTime: true });
+    const stopped = view({ status: 'CANCELLED' });
+    const late = view({ status: 'CANCELLED', counts: { ...view().counts, messagesSeen: 130 } });
+    const fetch = mockFetch(routes(inTurn([view()], [stopped], [late]), { [CANCEL]: { status: 200, body: stopped } }));
+    const { user } = renderApp('/inbox/history-imports', undefined, { advanceTimers: vi.advanceTimersByTime });
+    await user.click(control(await importRow(), 'Stop'));
+    await waitFor(() => expect(callsTo(fetch, CANCEL)).toBe(1));
+    expect(await within(await importRow()).findByText('Stopped')).toBeVisible();
+    // the page that was on its way lands after the stop
+    await act(() => vi.advanceTimersByTimeAsync(5000));
+    expect(await within(await importRow()).findByText(/130 seen/)).toBeVisible();
+    await act(() => vi.advanceTimersByTimeAsync(5000));
+    expect(callsTo(fetch, LIST)).toBe(3);
+  });
+
+  it('pauseShowsPlayAndStop', async () => {
     const fetch = mockFetch(
-      routes(inTurn([view()], [view({ status: 'CANCELLED' })]), {
-        [CANCEL]: { status: 200, body: view({ status: 'CANCELLED' }) },
+      routes(inTurn([view()], [view({ status: 'PAUSED' })]), {
+        [PAUSE]: { status: 200, body: view({ status: 'PAUSED' }) },
       }),
     );
     const { user } = renderApp('/inbox/history-imports');
-    await user.click(within(await importRow()).getByRole('button', { name: 'Kebab toggle' }));
-    await user.click(await screen.findByRole('menuitem', { name: 'Cancel import' }));
-    const dialog = await screen.findByRole('dialog');
-    expect(callsTo(fetch, CANCEL)).toBe(0);
-    await user.click(within(dialog).getByRole('button', { name: 'Cancel import' }));
-    await waitFor(() => expect(screen.queryByRole('dialog')).toBeNull());
-    expect(callsTo(fetch, CANCEL)).toBe(1);
-    expect(await within(await importRow()).findByText('Cancelled')).toBeVisible();
+    const running = await importRow();
+    expect(noControl(running, 'Play')).toBeNull();
+    await user.click(control(running, 'Pause'));
+    await waitFor(() => expect(callsTo(fetch, PAUSE)).toBe(1));
+    expect(await within(await importRow()).findByText('Paused')).toBeVisible();
+    const paused = await importRow();
+    expect(control(paused, 'Play')).toBeVisible();
+    expect(control(paused, 'Stop')).toBeVisible();
+    expect(noControl(paused, 'Pause')).toBeNull();
+  });
+
+  it('playPostsResume', async () => {
+    const fetch = mockFetch(
+      routes(inTurn([view({ status: 'PAUSED' })], [view()]), { [RESUME]: { status: 200, body: view() } }),
+    );
+    const { user } = renderApp('/inbox/history-imports');
+    await user.click(control(await importRow(), 'Play'));
+    await waitFor(() => expect(callsTo(fetch, RESUME)).toBe(1));
+    expect(await within(await importRow()).findByText('Running')).toBeVisible();
+  });
+
+  it('aFailedControlShowsWhy', async () => {
+    mockFetch(
+      routes(inTurn([view()]), {
+        [PAUSE]: { status: 409, body: { code: 'HISTORY_IMPORT_STATE', message: 'This import cannot be paused now.' } },
+      }),
+    );
+    const { user } = renderApp('/inbox/history-imports');
+    await user.click(control(await importRow(), 'Pause'));
+    expect(await screen.findByText('This import cannot be paused now.')).toBeVisible();
+  });
+
+  it('pollsWhilePaused', async () => {
+    vi.useFakeTimers({ shouldAdvanceTime: true });
+    const fetch = mockFetch(routes(inTurn([view({ status: 'PAUSED' })])));
+    renderApp('/inbox/history-imports', undefined, { advanceTimers: vi.advanceTimersByTime });
+    await importRow();
+    await act(() => vi.advanceTimersByTimeAsync(5000));
     expect(callsTo(fetch, LIST)).toBe(2);
+  });
+
+  it('aFinishedImportHasNoControls', async () => {
+    mockFetch(routes(inTurn([view({ status: 'COMPLETED' })])));
+    renderApp('/inbox/history-imports');
+    const row = await importRow();
+    for (const name of ['Pause', 'Play', 'Stop']) expect(noControl(row, name)).toBeNull();
+  });
+
+  it('aPausedImportShowsNoWaitingReason', async () => {
+    mockFetch(routes(inTurn([view({ status: 'PAUSED', waiting: 'NO_DEVICE' })])));
+    renderApp('/inbox/history-imports');
+    expect(within(await importRow()).queryByText('Waiting for the extension to connect')).toBeNull();
+  });
+
+  it('showsWhyAChatStoppedShort', async () => {
+    mockFetch(
+      routes(inTurn([view({ status: 'COMPLETED' })]), {
+        [CHATS]: {
+          status: 200,
+          body: {
+            items: [chat({ status: 'DONE', skipReason: null, olderUnavailable: true })],
+            total: 1,
+            page: 0,
+          },
+        },
+      }),
+    );
+    const { user } = renderApp('/inbox/history-imports');
+    await user.click(within(await importRow()).getByRole('button', { name: 'Details' }));
+    expect(await screen.findByText('WhatsApp Web gave no older messages')).toBeVisible();
   });
 
   it('expandLoadsChatItems', async () => {

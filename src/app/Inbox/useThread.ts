@@ -15,6 +15,8 @@ export interface ThreadState {
   reload(): void;
   /** Fetches the latest page again and shows only it, e.g. after older history was imported into the chat. */
   reset(): void;
+  /** Merges the latest page in while a history import is adding to the chat, keeping the reader's place. */
+  catchUp(): void;
   /** Folds a live event into the thread; events of other chats are ignored. */
   apply(event: InboxEvent): void;
 }
@@ -114,24 +116,32 @@ export function useThread(chatId: string | null): ThreadState {
     );
   }, [token, ws, chatId]);
 
-  const reload = React.useCallback(() => {
-    if (!token || chatId === null) return;
-    const mine = epoch.current;
-    getThread(token, ws, chatId).then(
-      (res) => {
-        if (epoch.current !== mine) return;
-        setItems((cur) => upsert(cur, res.items));
-      },
-      (e) => {
-        if (epoch.current !== mine) return;
-        setError(messageFor(e));
-      },
-    );
-  }, [token, ws, chatId]);
+  /** Merges the newest page in; {@code imported} says older messages may have appeared behind what is shown. */
+  const mergeNewest = React.useCallback(
+    (imported: boolean) => {
+      if (!token || chatId === null) return;
+      const mine = epoch.current;
+      getThread(token, ws, chatId).then(
+        (res) => {
+          if (epoch.current !== mine) return;
+          setItems((cur) => upsert(cur, res.items));
+          if (imported) setHasMore((more) => more || res.hasMore);
+        },
+        (e) => {
+          if (epoch.current !== mine) return;
+          setError(messageFor(e));
+        },
+      );
+    },
+    [token, ws, chatId],
+  );
+
+  const reload = React.useCallback(() => mergeNewest(false), [mergeNewest]);
+  const catchUp = React.useCallback(() => mergeNewest(true), [mergeNewest]);
 
   const apply = React.useCallback(
     (event: InboxEvent) => {
-      if (event.type === 'chat' || event.chatId !== chatId) return;
+      if (event.type === 'chat' || event.type === 'history' || event.chatId !== chatId) return;
       const item: ThreadItem =
         event.type === 'message'
           ? { kind: 'message', message: event.message, action: null, at: event.message.timestamp }
@@ -141,5 +151,5 @@ export function useThread(chatId: string | null): ThreadState {
     [chatId],
   );
 
-  return { items, loading, error, hasMore, loadEarlier, reload, reset, apply };
+  return { items, loading, error, hasMore, loadEarlier, reload, reset, catchUp, apply };
 }

@@ -17,5 +17,5 @@ export function streamMock() {
 }
 
 /** One SSE frame for {@code event} carrying {@code data} as JSON. */
-export const frame = (event: 'chat' | 'message' | 'action', data: unknown) =>
+export const frame = (event: 'chat' | 'message' | 'action' | 'history', data: unknown) =>
   `event: ${event}\ndata: ${JSON.stringify(data)}\n\n`;

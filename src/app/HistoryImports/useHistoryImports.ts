@@ -6,11 +6,13 @@ import {
   cancelHistoryImport,
   isActive,
   listHistoryImports,
+  pauseHistoryImport,
+  resumeHistoryImport,
 } from '@app/api/historyImports';
 import { messageFor } from '@app/api/messages';
 import { useSession } from '@app/session/SessionContext';
 
-/** How often the list is fetched again while an import in it is queued or running. */
+/** How often the list is fetched again while an import in it has not ended. */
 export const REFRESH_SECONDS = 5;
 
 export interface HistoryImportFilters {
@@ -24,7 +26,10 @@ export interface HistoryImports {
   error: string | null;
   fetching: boolean;
   refresh(): void;
-  /** Cancels an import, then fetches the list again; rejects with the cancel's failure. */
+  /** Each does its action, then fetches the list again; each rejects with the action's failure. */
+  pause(id: string): Promise<void>;
+  resume(id: string): Promise<void>;
+  /** Stops an import. The page on its way when it stopped still lands, so the list is fetched once more after that. */
   cancel(id: string): Promise<void>;
 }
 
@@ -43,6 +48,7 @@ export function useHistoryImports(filters: HistoryImportFilters): HistoryImports
   const [fetching, setFetching] = React.useState(false);
   const latest = React.useRef(0);
   const timer = React.useRef<ReturnType<typeof setTimeout> | null>(null);
+  const settling = React.useRef<ReturnType<typeof setTimeout> | null>(null);
   const shown = React.useRef<Page<HistoryImportView> | undefined>(undefined);
   const loadRef = React.useRef<() => void>(() => undefined);
   const mounted = React.useRef(false);
@@ -58,7 +64,7 @@ export function useHistoryImports(filters: HistoryImportFilters): HistoryImports
   };
 
   loadRef.current = () => {
-    // A cancel answered after unmount must not start a fetch for a page that is gone.
+    // An action answered after unmount must not start a fetch for a page that is gone.
     if (!token || !mounted.current) return;
     stop();
     const request = ++latest.current;
@@ -85,6 +91,7 @@ export function useHistoryImports(filters: HistoryImportFilters): HistoryImports
     mounted.current = true;
     return () => {
       mounted.current = false;
+      if (settling.current !== null) clearTimeout(settling.current);
     };
   }, []);
 
@@ -105,9 +112,18 @@ export function useHistoryImports(filters: HistoryImportFilters): HistoryImports
     error,
     fetching,
     refresh: () => loadRef.current(),
+    pause: async (id: string) => {
+      await pauseHistoryImport(token as string, ws, id);
+      loadRef.current();
+    },
+    resume: async (id: string) => {
+      await resumeHistoryImport(token as string, ws, id);
+      loadRef.current();
+    },
     cancel: async (id: string) => {
       await cancelHistoryImport(token as string, ws, id);
       loadRef.current();
+      settling.current = setTimeout(() => loadRef.current(), REFRESH_SECONDS * 1000);
     },
   };
 }
