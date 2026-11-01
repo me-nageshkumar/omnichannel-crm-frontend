@@ -1,5 +1,12 @@
 import * as React from 'react';
-import { HistoryImportView, getHistoryImport, isActive } from '@app/api/historyImports';
+import {
+  HistoryImportView,
+  cancelHistoryImport,
+  getHistoryImport,
+  isActive,
+  pauseHistoryImport,
+  resumeHistoryImport,
+} from '@app/api/historyImports';
 import { useSession } from '@app/session/SessionContext';
 import { completedCleanly } from './historyImportDisplay';
 import { REFRESH_SECONDS } from './useHistoryImports';
@@ -12,12 +19,17 @@ export interface ChatHistoryImport {
   current: HistoryImportView | null;
   /** Follows an import that was just started. */
   start(imp: HistoryImportView): void;
+  /** Each does its action on the import followed; each rejects with the action's failure. */
+  pause(): Promise<void>;
+  resume(): Promise<void>;
+  stop(): Promise<void>;
   dismiss(): void;
 }
 
 /**
- * Follows one chat's history import: fetches it every {@link REFRESH_SECONDS} seconds until it is no longer
- * active. Only the answer to the latest request counts; nothing is fetched or set after unmount.
+ * Follows one chat's history import: fetches it every {@link REFRESH_SECONDS} seconds until it has ended, and once
+ * more after a stop, because the page on its way when it stopped still lands. Only the answer to the latest request
+ * counts; nothing is fetched or set after unmount.
  */
 export function useChatHistoryImport(): ChatHistoryImport {
   const { token, workspace } = useSession();
@@ -25,15 +37,18 @@ export function useChatHistoryImport(): ChatHistoryImport {
   const [current, setCurrent] = React.useState<HistoryImportView | null>(null);
   // Bumped after a failed poll so the effect schedules the next one.
   const [retry, setRetry] = React.useState(0);
+  const [settling, setSettling] = React.useState(false);
   const latest = React.useRef(0);
 
   React.useEffect(() => {
-    if (!current || !token || !isActive(current.status)) return undefined;
+    if (!current || !token || (!isActive(current.status) && !settling)) return undefined;
     const request = ++latest.current;
     const timer = setTimeout(() => {
       getHistoryImport(token, ws, current.id).then(
         (view) => {
-          if (request === latest.current) setCurrent(view);
+          if (request !== latest.current) return;
+          setCurrent(view);
+          setSettling(false);
         },
         () => {
           if (request === latest.current) setRetry((n) => n + 1);
@@ -44,7 +59,7 @@ export function useChatHistoryImport(): ChatHistoryImport {
       clearTimeout(timer);
       latest.current += 1;
     };
-  }, [current, retry, token, ws]);
+  }, [current, retry, settling, token, ws]);
 
   const completed = current !== null && completedCleanly(current);
   React.useEffect(() => {
@@ -53,11 +68,26 @@ export function useChatHistoryImport(): ChatHistoryImport {
     return () => clearTimeout(timer);
   }, [completed, current?.id]);
 
+  /** Does an action on the import followed; an answer to a fetch already on its way no longer counts. */
+  const act = async (action: typeof pauseHistoryImport) => {
+    if (!current) return;
+    const view = await action(token as string, ws, current.id);
+    latest.current += 1;
+    setCurrent(view);
+  };
+
   return {
     current,
     start: setCurrent,
+    pause: () => act(pauseHistoryImport),
+    resume: () => act(resumeHistoryImport),
+    stop: async () => {
+      await act(cancelHistoryImport);
+      setSettling(true);
+    },
     dismiss: () => {
       latest.current += 1;
+      setSettling(false);
       setCurrent(null);
     },
   };

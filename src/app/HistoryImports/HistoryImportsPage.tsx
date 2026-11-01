@@ -13,17 +13,17 @@ import {
   ToolbarContent,
   ToolbarItem,
 } from '@patternfly/react-core';
-import { ActionsColumn, ExpandableRowContent, Table, Tbody, Td, Th, Thead, Tr } from '@patternfly/react-table';
-import { HistoryImportStatus, HistoryImportView, isActive } from '@app/api/historyImports';
+import { ExpandableRowContent, Table, Tbody, Td, Th, Thead, Tr } from '@patternfly/react-table';
+import { HistoryImportStatus, HistoryImportView, isFetching } from '@app/api/historyImports';
 import { listInboxNumbers } from '@app/api/inbox';
 import { messageFor } from '@app/api/messages';
 import { shown } from '@app/api/phoneNumbers';
-import { ConfirmModal } from '@app/admin/ConfirmModal';
 import { PageShell } from '@app/admin/PageShell';
 import { useLoad } from '@app/admin/useLoad';
 import { relative } from '@app/PhoneNumbers/PhoneNumberStatusLabel';
 import { useSession } from '@app/session/SessionContext';
 import { HistoryImportChats } from '@app/HistoryImports/HistoryImportChats';
+import { HistoryImportControls } from '@app/HistoryImports/HistoryImportControls';
 import {
   HISTORY_STATUSES,
   countsText,
@@ -49,10 +49,10 @@ const ProgressCell: React.FunctionComponent<{ v: HistoryImportView }> = ({ v }) 
       />
     );
   }
-  return <>{isActive(v.status) ? 'Listing chats…' : '—'}</>;
+  return <>{isFetching(v.status) ? 'Listing chats…' : '—'}</>;
 };
 
-/** The brand's chat history imports, with their progress, their chats and a way to cancel them. */
+/** The brand's chat history imports, with their progress, their chats and a way to pause, play or stop them. */
 export const HistoryImportsPage: React.FunctionComponent = () => {
   const { workspace } = useSession();
   const ws = workspace?.id ?? '';
@@ -63,9 +63,8 @@ export const HistoryImportsPage: React.FunctionComponent = () => {
   const [expanded, setExpanded] = React.useState<ReadonlySet<string>>(new Set());
   // Rows expanded at least once keep their chats mounted, so the chats load only on the first expand.
   const [opened, setOpened] = React.useState<ReadonlySet<string>>(new Set());
-  const [confirming, setConfirming] = React.useState<HistoryImportView | null>(null);
-  const [busy, setBusy] = React.useState(false);
-  const [cancelError, setCancelError] = React.useState<string | null>(null);
+  const [busyId, setBusyId] = React.useState<string | null>(null);
+  const [actionError, setActionError] = React.useState<string | null>(null);
 
   const toggle = (id: string) => {
     setExpanded((s) => {
@@ -76,16 +75,15 @@ export const HistoryImportsPage: React.FunctionComponent = () => {
     setOpened((s) => (s.has(id) ? s : new Set(s).add(id)));
   };
 
-  const confirmCancel = async (v: HistoryImportView) => {
-    setBusy(true);
-    setCancelError(null);
+  const run = async (id: string, action: (id: string) => Promise<void>) => {
+    setBusyId(id);
+    setActionError(null);
     try {
-      await imports.cancel(v.id);
-      setConfirming(null);
+      await action(id);
     } catch (e) {
-      setCancelError(messageFor(e));
+      setActionError(messageFor(e));
     } finally {
-      setBusy(false);
+      setBusyId(null);
     }
   };
 
@@ -94,14 +92,11 @@ export const HistoryImportsPage: React.FunctionComponent = () => {
   return (
     <PageShell title="History imports">
       {imports.error && <Alert variant="danger" isInline title={imports.error} />}
+      {actionError && <Alert variant="danger" isInline title={actionError} />}
       <Toolbar>
         <ToolbarContent>
           <ToolbarItem>
-            <FormSelect
-              aria-label="Number"
-              value={phoneNumberId}
-              onChange={(_e, value) => setPhoneNumberId(value)}
-            >
+            <FormSelect aria-label="Number" value={phoneNumberId} onChange={(_e, value) => setPhoneNumberId(value)}>
               <FormSelectOption value="" label="All numbers" />
               {(numbers.data ?? []).map((n) => (
                 <FormSelectOption
@@ -152,7 +147,12 @@ export const HistoryImportsPage: React.FunctionComponent = () => {
           ) : (
             items.map((v, rowIndex) => {
               const isExpanded = expanded.has(v.id);
-              const note = v.status === 'FAILED' && v.error ? importErrorText(v.error) : waitingText(v.waiting);
+              const note =
+                v.status === 'FAILED' && v.error
+                  ? importErrorText(v.error)
+                  : isFetching(v.status)
+                    ? waitingText(v.waiting)
+                    : null;
               const c = v.counts;
               return (
                 <Tbody key={v.id} isExpanded={isExpanded}>
@@ -182,19 +182,14 @@ export const HistoryImportsPage: React.FunctionComponent = () => {
                     <Td dataLabel="Messages">{countsText(v.counts)}</Td>
                     <Td dataLabel="Started">{relative(v.creationTime)}</Td>
                     <Td isActionCell>
-                      {isActive(v.status) && (
-                        <ActionsColumn
-                          items={[
-                            {
-                              title: 'Cancel import',
-                              onClick: () => {
-                                setCancelError(null);
-                                setConfirming(v);
-                              },
-                            },
-                          ]}
-                        />
-                      )}
+                      <HistoryImportControls
+                        status={v.status}
+                        busy={busyId === v.id}
+                        subject={shown(v.phoneNumber.number)}
+                        onPause={() => void run(v.id, imports.pause)}
+                        onPlay={() => void run(v.id, imports.resume)}
+                        onStop={() => void run(v.id, imports.cancel)}
+                      />
                     </Td>
                   </Tr>
                   <Tr isExpanded={isExpanded}>
@@ -211,22 +206,6 @@ export const HistoryImportsPage: React.FunctionComponent = () => {
             })
           )}
         </Table>
-      )}
-      {confirming && (
-        <ConfirmModal
-          title="Cancel import?"
-          confirmLabel="Cancel import"
-          variant="danger"
-          busy={busy}
-          error={cancelError}
-          onConfirm={() => void confirmCancel(confirming)}
-          onCancel={() => {
-            setConfirming(null);
-            setCancelError(null);
-          }}
-        >
-          {`Chats of ${shown(confirming.phoneNumber.number)} not imported yet will not be imported. Messages already imported stay.`}
-        </ConfirmModal>
       )}
     </PageShell>
   );

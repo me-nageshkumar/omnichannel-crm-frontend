@@ -76,6 +76,7 @@ describe('toInboxEvent', () => {
       chatId: 'c1',
       action: { id: 'a1' },
     });
+    expect(toInboxEvent('history', '{"chatId":"c1"}')).toEqual({ type: 'history', chatId: 'c1' });
     expect(toInboxEvent('other', '{}')).toBeNull();
     expect(toInboxEvent('chat', '{not json')).toBeNull();
   });
@@ -84,7 +85,13 @@ describe('toInboxEvent', () => {
 describe('inbox api', () => {
   it('listChats joins the selected numbers and the filters into one query', async () => {
     const fetch = mockFetch({ [`GET ${B}/chats`]: { status: 200, body: { items: [], hasMore: false } } });
-    await listChats('tok', 'w1', { phoneNumberIds: ['a', 'b'], scope: 'TEAM', status: 'OPEN', unread: true, limit: 50 });
+    await listChats('tok', 'w1', {
+      phoneNumberIds: ['a', 'b'],
+      scope: 'TEAM',
+      status: 'OPEN',
+      unread: true,
+      limit: 50,
+    });
     const url = String(fetch.mock.calls[0][0]);
     expect(url).toBe(`${B}/chats?phoneNumberIds=a%2Cb&scope=TEAM&status=OPEN&unread=true&limit=50`);
     expect(requestTo(fetch, `GET ${B}/chats`)?.headers.get('Authorization')).toBe('Bearer tok');

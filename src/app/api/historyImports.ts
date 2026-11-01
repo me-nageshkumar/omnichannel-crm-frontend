@@ -1,8 +1,8 @@
 import { apiFetch } from '@app/api/client';
 
-export type HistoryImportStatus = 'QUEUED' | 'RUNNING' | 'COMPLETED' | 'CANCELLED' | 'FAILED';
+export type HistoryImportStatus = 'QUEUED' | 'RUNNING' | 'PAUSED' | 'COMPLETED' | 'CANCELLED' | 'FAILED';
 export type HistoryScopeKind = 'ALL' | 'CHATS';
-/** Why a queued or running import is paused: no connected device, or WhatsApp Web not ready. */
+/** Why a queued or running import is not moving: no connected device, or WhatsApp Web not ready. */
 export type HistoryWaiting = 'NO_DEVICE' | 'WHATSAPP_NOT_READY' | null;
 export type HistoryChatStatus = 'PENDING' | 'RUNNING' | 'DONE' | 'SKIPPED' | 'FAILED';
 
@@ -45,6 +45,8 @@ export interface HistoryChatView {
   error: string | null;
   counts: { seen: number; inserted: number; updated: number };
   capped: boolean;
+  /** WhatsApp Web stopped giving older messages although it did not say there are none. */
+  olderUnavailable: boolean;
   attemptedAt: string | null;
   finishedAt: string | null;
 }
@@ -66,10 +68,13 @@ export interface RangeRequest {
   to?: string | null;
 }
 
-export const ACTIVE: ReadonlySet<HistoryImportStatus> = new Set<HistoryImportStatus>(['QUEUED', 'RUNNING']);
+export const ACTIVE: ReadonlySet<HistoryImportStatus> = new Set<HistoryImportStatus>(['QUEUED', 'RUNNING', 'PAUSED']);
 
-/** True while an import is still queued or running. */
+/** True until an import has ended: queued, running or paused. */
 export const isActive = (s: HistoryImportStatus) => ACTIVE.has(s);
+
+/** True while an import is queued or running: it can be paused. */
+export const isFetching = (s: HistoryImportStatus) => s === 'QUEUED' || s === 'RUNNING';
 
 const base = (ws: string) => `/api/workspaces/${encodeURIComponent(ws)}/inbox`;
 const importPath = (ws: string, id: string) => `${base(ws)}/history-imports/${encodeURIComponent(id)}`;
@@ -94,6 +99,12 @@ export const startChatImport = (token: string, ws: string, chatId: string, body:
     token,
     method: 'POST',
     body,
+  });
+
+/** The queued, running or paused import that names this chat, if there is one. */
+export const getActiveChatImport = (token: string, ws: string, chatId: string) =>
+  apiFetch<HistoryImportView | undefined>(`${base(ws)}/chats/${encodeURIComponent(chatId)}/history-imports/active`, {
+    token,
   });
 
 export const listHistoryImports = (
@@ -122,6 +133,12 @@ export const listHistoryImportChats = (
   apiFetch<Page<HistoryChatView>>(withQuery(`${importPath(ws, id)}/chats`, { status: opts.status, page: opts.page }), {
     token,
   });
+
+export const pauseHistoryImport = (token: string, ws: string, id: string) =>
+  apiFetch<HistoryImportView>(`${importPath(ws, id)}/pause`, { token, method: 'POST' });
+
+export const resumeHistoryImport = (token: string, ws: string, id: string) =>
+  apiFetch<HistoryImportView>(`${importPath(ws, id)}/resume`, { token, method: 'POST' });
 
 export const cancelHistoryImport = (token: string, ws: string, id: string) =>
   apiFetch<HistoryImportView>(`${importPath(ws, id)}/cancel`, { token, method: 'POST' });

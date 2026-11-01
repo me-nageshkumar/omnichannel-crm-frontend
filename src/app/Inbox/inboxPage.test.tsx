@@ -303,6 +303,73 @@ describe('inbox page', () => {
     expect(await screen.findByText('WhatsApp is not connected on this number')).toBeVisible();
   });
 
+  it('history stored in the open chat shows without a reload; another chat is left alone', async () => {
+    const stream = streamMock();
+    let imported = false;
+    const old = message({ id: 'm2', body: 'From the phone', timestamp: '2026-01-01T10:00:00Z' });
+    const { routes: r } = routes({
+      [STREAM]: stream.response,
+      [THREAD]: () => ({
+        status: 200,
+        body: { items: imported ? [item(old), item(FIRST)] : [item(FIRST)], hasMore: false },
+      }),
+    });
+    const fetch = mockFetch(r);
+    renderApp('/inbox/chats/c1');
+    await list();
+    await screen.findByText('Hello from Asha', { selector: 'div' });
+    await streamOpened(fetch);
+
+    imported = true;
+    const before = callsTo(fetch, THREAD);
+    act(() => stream.push(frame('history', { chatId: 'other' })));
+    await act(async () => undefined);
+    expect(callsTo(fetch, THREAD)).toBe(before);
+
+    act(() => stream.push(frame('history', { chatId: 'c1' })));
+    expect(await screen.findByText('From the phone', { selector: 'div' })).toBeVisible();
+  });
+
+  it('a stop answered after moving to another chat stays out of that chat', async () => {
+    const imp = {
+      id: 'imp1',
+      status: 'RUNNING',
+      waiting: null,
+      error: null,
+      counts: { messagesSeen: 100, messagesInserted: 100, chatsSkipped: 0, chatsFailed: 0 },
+    };
+    const { routes: r } = routes({
+      [`GET ${B}/inbox/chats/c1/history-imports/active`]: { status: 200, body: imp },
+      [`GET ${B}/inbox/chats/c2/history-imports/active`]: { status: 204 },
+      [`POST ${B}/inbox/history-imports/imp1/cancel`]: { status: 200, body: { ...imp, status: 'CANCELLED' } },
+      [`GET ${B}/inbox/chats/c2`]: { status: 200, body: MEENA },
+      [`GET ${B}/inbox/chats/c2/thread`]: { status: 200, body: { items: [], hasMore: false } },
+    });
+    const fetch = mockFetch(r);
+    let answer!: () => void;
+    const held = new Promise<void>((resolve) => {
+      answer = resolve;
+    });
+    vi.stubGlobal('fetch', async (input: RequestInfo | URL, init?: RequestInit) => {
+      if (String(input).endsWith('/cancel')) await held;
+      return fetch(input, init);
+    });
+    const { user } = renderApp('/inbox/chats/c1');
+    await list();
+    await user.click(await screen.findByRole('button', { name: 'Stop' }));
+    await user.click(screen.getByText('Meena'));
+    await screen.findByRole('button', { name: 'Fetch history' });
+    await waitFor(() => expect(header().getByText('Meena')).toBeVisible());
+
+    await act(async () => {
+      answer();
+      await held;
+    });
+    await act(async () => undefined);
+
+    expect(screen.queryByText(/History import stopped/)).toBeNull();
+  });
+
   it('stream reconnect reloads the list once and catches up the open chat', async () => {
     vi.useFakeTimers({ shouldAdvanceTime: true });
     const streams: Array<ReturnType<typeof streamMock>> = [];
