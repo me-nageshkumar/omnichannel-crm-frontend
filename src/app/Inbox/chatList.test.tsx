@@ -144,6 +144,21 @@ describe('chat list', () => {
   });
   afterEach(() => vi.unstubAllGlobals());
 
+  it('hovering a row shows the whole name and last message', async () => {
+    const name = 'A contact with a really long name that cannot fit';
+    const text = 'x'.repeat(300);
+    const long = chat({
+      id: 'e',
+      contact: { id: 'c-e', name, phone: null, numberHidden: false },
+      lastMessage: { direction: 'OUT', type: 'chat', text, status: 'READ' },
+    });
+    mockFetch({ ...meAs(AGENT), [`GET ${LIST}`]: page([long]) });
+    renderList();
+    const [row] = await rows();
+    expect(within(row).getByTitle(name)).toHaveTextContent(name);
+    expect(within(row).getByTitle(text)).toHaveTextContent(text);
+  });
+
   it('offers only allowed scopes and defaults to the widest', async () => {
     const agent = mockFetch({ ...meAs(AGENT), [`GET ${LIST}`]: page([ASHA]) });
     const first = renderList();
