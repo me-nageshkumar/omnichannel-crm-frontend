@@ -46,7 +46,10 @@ describe('CRM panel failure', () => {
     const stream = streamMock();
     mockFetch({
       ...meAs(WORKSPACE_MANAGER),
-      [`GET ${B}/inbox/phone-numbers`]: { status: 200, body: [phoneNumber({ id: 'p1', number: '919928088743', status: 'CONNECTED' })] },
+      [`GET ${B}/inbox/phone-numbers`]: {
+        status: 200,
+        body: [phoneNumber({ id: 'p1', number: '919928088743', status: 'CONNECTED' })],
+      },
       [`GET ${B}/inbox/chats`]: { status: 200, body: { items: [ASHA], hasMore: false } },
       [`GET ${B}/inbox/chats/c1`]: { status: 200, body: ASHA },
       [`GET ${B}/inbox/chats/c1/thread`]: { status: 200, body: { items: [], hasMore: false } },
@@ -55,6 +58,7 @@ describe('CRM panel failure', () => {
       [`GET ${B}/crm/status`]: { status: 200, body: crmStatus() },
     } as Parameters<typeof mockFetch>[0]);
     const { user } = renderApp('/inbox/chats/c1');
+    await user.click(await screen.findByRole('button', { name: 'CRM panel' }));
     const panel = within(await screen.findByRole('complementary', { name: 'CRM' }));
     expect(await panel.findByText('CRM unavailable')).toBeVisible();
     expect(screen.getByRole('group', { name: 'Chat header' })).toBeVisible();
