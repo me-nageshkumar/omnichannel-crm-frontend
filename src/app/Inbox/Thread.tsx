@@ -72,6 +72,8 @@ function routedReason(action: ActionView): string {
       return ' (the number changed team)';
     case 'MEMBER_REMOVED':
       return ' (the previous agent left the team)';
+    case 'FETCHED':
+      return ' (fetched from WhatsApp, waiting for a reply)';
     default:
       return '';
   }
