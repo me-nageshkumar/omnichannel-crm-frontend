@@ -55,6 +55,10 @@ function Content({ message, contact }: { message: MessageView; contact: string }
   }
   if (TEXT_TYPES.includes(type)) return <div>{body ? formatWhatsApp(body) : null}</div>;
   if (type === 'vcard' || type === 'multi_vcard') return <ContactCardBody body={body} />;
+  if (type === 'biz_content_placeholder' && message.businessTag === 'AUTHENTICATION') {
+    return <em>A verification code only the phone can show</em>;
+  }
+  if (type === 'newsletter_follower_invite' && body) return <em>An invitation to follow the channel “{body}”</em>;
   if (ONLY_ON_PHONE[type]) return <em>{ONLY_ON_PHONE[type]}</em>;
   return <em>Unsupported message</em>;
 }

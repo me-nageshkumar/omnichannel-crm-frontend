@@ -284,6 +284,16 @@ describe('thread', () => {
     expect(screen.queryByText('Unsupported message')).toBeNull();
   });
 
+  it('a verification code WhatsApp keeps on the phone says so', async () => {
+    const log = await showing(message({ id: 'b1', type: 'biz_content_placeholder', businessTag: 'AUTHENTICATION' }));
+    expect(await within(log).findByText('A verification code only the phone can show')).toBeVisible();
+  });
+
+  it('a channel invite names the channel', async () => {
+    const log = await showing(message({ id: 'n1', type: 'newsletter_follower_invite', body: 'Speak English' }));
+    expect(await within(log).findByText('An invitation to follow the channel “Speak English”')).toBeVisible();
+  });
+
   it.each([
     ['biz_content_placeholder', 'A business message only the phone can show'],
     ['unknown', 'A message only the phone can show'],
