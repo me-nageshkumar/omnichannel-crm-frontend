@@ -107,6 +107,8 @@ export interface MessageView {
   pollVotes?: PollVote[] | null;
   /** What is known of a call, for a {@code call_log}. */
   call?: CallDetail | null;
+  /** WhatsApp's tag on a business template: MARKETING, UTILITY or AUTHENTICATION (a verification code). */
+  businessTag?: string | null;
 }
 
 export interface ActionView {
