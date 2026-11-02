@@ -508,6 +508,9 @@ describe('thread', () => {
     expect(actionText(action({ type: 'ROUTED', toUser: to, reason: 'MEMBER_REMOVED' }))).toBe(
       'Routed to Demo Agent (the previous agent left the team)',
     );
+    expect(actionText(action({ type: 'ROUTED', toUser: to, reason: 'FETCHED' }))).toBe(
+      'Routed to Demo Agent (fetched from WhatsApp, waiting for a reply)',
+    );
     expect(
       actionText(
         action({

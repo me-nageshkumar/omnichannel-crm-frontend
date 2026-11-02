@@ -13,7 +13,7 @@ export type ListScope = 'MINE' | 'TEAM' | 'UNASSIGNED' | 'ALL';
 export type RoutingMode = 'NONE' | 'TEAM' | 'USER' | 'ROUND_ROBIN';
 export type ActionType = 'ROUTED' | 'ASSIGNED' | 'UNASSIGNED' | 'CLOSED' | 'REOPENED' | 'TRANSFERRED';
 /** Why a ROUTED action chose as it did, when it was not the plain routing setting. */
-export type RoutedReason = 'STICKY' | 'HANDED_BACK' | 'OWNER_CHANGED' | 'MEMBER_REMOVED';
+export type RoutedReason = 'STICKY' | 'HANDED_BACK' | 'OWNER_CHANGED' | 'MEMBER_REMOVED' | 'FETCHED';
 
 export interface IdName {
   id: string;
