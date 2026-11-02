@@ -257,6 +257,43 @@ describe('thread', () => {
     expect(log.querySelector('[data-side]')).toBeNull();
   });
 
+  const WIFE =
+    'BEGIN:VCARD\nVERSION:3.0\nN:;Wife;;;\nFN:Wife\nTEL;type=CELL;waid=919799750743:+91 97997 50743\nEMAIL;type=INTERNET:wife@example.com\nEND:VCARD';
+  const ASHA = 'BEGIN:VCARD\nVERSION:3.0\nN:Rao;Asha;;;\nTEL:+91 98100 00001\nEND:VCARD';
+
+  it('a contact card shows the name, number and email on it', async () => {
+    const log = await showing(message({ id: 'v1', type: 'vcard', body: WIFE }));
+    const card = await within(log).findByRole('group', { name: 'Contact card: Wife' });
+    expect(within(card).getByText('Wife')).toBeVisible();
+    expect(within(card).getByText('+91 97997 50743')).toBeVisible();
+    expect(within(card).getByText('wife@example.com')).toBeVisible();
+    expect(screen.queryByText('Unsupported message')).toBeNull();
+    expect(screen.queryByText(/BEGIN:VCARD/)).toBeNull();
+  });
+
+  it('several contact cards show one after the other, named from N when FN is missing', async () => {
+    const log = await showing(message({ id: 'v2', type: 'multi_vcard', body: `${WIFE}\n${ASHA}` }));
+    expect(await within(log).findByRole('group', { name: 'Contact card: Wife' })).toBeVisible();
+    const asha = within(log).getByRole('group', { name: 'Contact card: Asha Rao' });
+    expect(within(asha).getByText('+91 98100 00001')).toBeVisible();
+  });
+
+  it('a contact card with nothing readable on it still says it is a contact card', async () => {
+    const log = await showing(message({ id: 'v3', type: 'vcard', body: null }));
+    expect(await within(log).findByText('Contact card')).toBeVisible();
+    expect(screen.queryByText('Unsupported message')).toBeNull();
+  });
+
+  it.each([
+    ['biz_content_placeholder', 'A business message only the phone can show'],
+    ['unknown', 'A message only the phone can show'],
+    ['newsletter_follower_invite', 'An invitation to follow a WhatsApp channel'],
+  ])('a %s message says what it is', async (type, text) => {
+    const log = await showing(message({ id: 'u1', type }));
+    expect(await within(log).findByText(text)).toBeVisible();
+    expect(screen.queryByText('Unsupported message')).toBeNull();
+  });
+
   it('a type nobody knows still says it is unsupported', async () => {
     const log = await showing(message({ id: 'x1', type: 'something_new' }));
     expect(await within(log).findByText('Unsupported message')).toBeVisible();
@@ -417,7 +454,7 @@ describe('thread', () => {
           location: { latitude: 12.5, longitude: 77.25, description: 'Our shop' },
         }),
         message({ id: 'm3', type: 'poll_creation', body: 'Lunch where?', pollOptions: ['Pizza', 'Sushi'] }),
-        message({ id: 'm4', type: 'vcard' }),
+        message({ id: 'm4', type: 'something_new' }),
       ]),
     });
     renderThread();

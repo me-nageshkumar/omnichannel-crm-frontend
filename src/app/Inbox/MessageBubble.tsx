@@ -1,6 +1,7 @@
 import * as React from 'react';
 import type { MessageView } from '@app/api/inbox';
 import { STATUS_TICK } from '@app/Inbox/chatDisplay';
+import { ContactCardBody } from '@app/Inbox/ContactCardBody';
 import { MediaBody } from '@app/Inbox/MediaBody';
 import { PollBody } from '@app/Inbox/PollBody';
 import { formatWhatsApp } from '@app/Templates/placeholders';
@@ -11,6 +12,12 @@ const TICK_RED = 'var(--pf-t--global--icon--color--status--danger--default)';
 
 const MEDIA_TYPES = ['image', 'sticker', 'video', 'audio', 'ptt', 'document'];
 const TEXT_TYPES = ['text', 'chat'];
+/** Types WhatsApp Web itself does not show: the stored message holds nothing more than its type. */
+const ONLY_ON_PHONE: Record<string, string> = {
+  biz_content_placeholder: 'A business message only the phone can show',
+  unknown: 'A message only the phone can show',
+  newsletter_follower_invite: 'An invitation to follow a WhatsApp channel',
+};
 
 export const timeOf = (iso: string) => new Date(iso).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
 
@@ -47,6 +54,8 @@ function Content({ message, contact }: { message: MessageView; contact: string }
     );
   }
   if (TEXT_TYPES.includes(type)) return <div>{body ? formatWhatsApp(body) : null}</div>;
+  if (type === 'vcard' || type === 'multi_vcard') return <ContactCardBody body={body} />;
+  if (ONLY_ON_PHONE[type]) return <em>{ONLY_ON_PHONE[type]}</em>;
   return <em>Unsupported message</em>;
 }
 
