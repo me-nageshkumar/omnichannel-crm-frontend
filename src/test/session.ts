@@ -40,6 +40,8 @@ export const BRAND_CODES = [
   'campaign:view',
   'campaign:manage',
   'campaign:settings',
+  'automation:view',
+  'automation:manage',
   'crm:view',
   'crm:view-all',
   'crm:edit',
