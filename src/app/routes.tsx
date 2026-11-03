@@ -29,6 +29,7 @@ import { InboxRedirect } from '@app/Inbox/InboxRedirect';
 import { InboxPage } from '@app/Inbox/InboxPage';
 import { RoutingSettingsPage } from '@app/Inbox/RoutingSettingsPage';
 import { AutomationsPage } from '@app/Automations/AutomationsPage';
+import { AutomationEditorPage } from '@app/Automations/AutomationEditorPage';
 import { HistoryImportsPage } from '@app/HistoryImports/HistoryImportsPage';
 import { crmRoutes } from '@app/Crm/routes';
 import { useCrmReminderCount, useCrmStatus } from '@app/Crm/status/CrmStatusContext';
@@ -256,6 +257,16 @@ const routes: IAppRoute[] = [
   {
     element: <AutomationsPage />,
     path: '/automations',
+    requires: (a) => a.hasInWorkspace('automation:view'),
+  },
+  {
+    element: <AutomationEditorPage />,
+    path: '/automations/new',
+    requires: (a) => a.hasInWorkspace('automation:view'),
+  },
+  {
+    element: <AutomationEditorPage />,
+    path: '/automations/:id',
     requires: (a) => a.hasInWorkspace('automation:view'),
   },
   {
