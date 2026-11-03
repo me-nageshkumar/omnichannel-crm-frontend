@@ -158,4 +158,26 @@ describe('rules list', () => {
     const items = (await screen.findAllByRole('menuitem')).map((i) => i.textContent);
     expect(items).toEqual(['View', 'Runs']);
   });
+
+  it('kebab navigation items move the router without a page load', async () => {
+    mockFetch({ ...meAs(WORKSPACE_MANAGER), ...automationRoutes(listRoute()) });
+    const { user } = renderApp('/automations', <LocationProbe />);
+    const open = async () => {
+      const row = within(await rowFor('Welcome'));
+      await user.click(row.getByRole('button', { name: 'Actions for Welcome' }));
+    };
+    await open();
+    await user.click(await screen.findByRole('menuitem', { name: 'Edit' }));
+    expect(screen.getByLabelText('Location')).toHaveTextContent('/automations/r1');
+    expect(screen.getByLabelText('Location')).not.toHaveTextContent('/automations/r1/');
+  });
+
+  it('kebab Runs and Test go to their routes', async () => {
+    mockFetch({ ...meAs(WORKSPACE_MANAGER), ...automationRoutes(listRoute()) });
+    const { user } = renderApp('/automations', <LocationProbe />);
+    const row = within(await rowFor('Welcome'));
+    await user.click(row.getByRole('button', { name: 'Actions for Welcome' }));
+    await user.click(await screen.findByRole('menuitem', { name: 'Test' }));
+    expect(screen.getByLabelText('Location')).toHaveTextContent('/automations/r1/test');
+  });
 });

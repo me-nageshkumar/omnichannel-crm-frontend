@@ -52,7 +52,7 @@ const RowActions: React.FunctionComponent<{ rule: RuleSummary; items: Item[] }> 
       <DropdownList>
         {items.map((i) =>
           i.to ? (
-            <DropdownItem key={i.key} to={i.to}>
+            <DropdownItem key={i.key} component={(props) => <Link {...props} to={i.to as string} />}>
               {i.label}
             </DropdownItem>
           ) : (
