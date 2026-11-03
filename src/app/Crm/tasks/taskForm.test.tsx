@@ -319,6 +319,22 @@ describe('CRM task form: steps and repeat (phase E)', () => {
       expect((scrolled.mock.contexts[0] as Element).textContent).toContain('cannot use the CRM');
     });
 
+    it('bringsARefusedStepIntoView', async () => {
+      const { user } = open(undefined, {
+        [POST]: {
+          status: 400,
+          body: { code: 'VALIDATION', fields: { 'checklist[0].text': 'must be 1 to 200 characters' } },
+        },
+      });
+      const dialog = await screen.findByRole('dialog', { name: 'New task' });
+      await user.type(within(dialog).getByLabelText(/^Title/), 'Onboard');
+      await user.type(within(dialog).getByLabelText('Add a step'), 'Send price list{Enter}');
+      await user.click(within(dialog).getByRole('button', { name: 'Save task' }));
+      expect(await within(dialog).findByText('must be 1 to 200 characters')).toBeInTheDocument();
+      await waitFor(() => expect(scrolled).toHaveBeenCalled());
+      expect((scrolled.mock.contexts[0] as Element).textContent).toContain('must be 1 to 200 characters');
+    });
+
     it('bringsABannerIntoView', async () => {
       const { user } = open(undefined, { [POST]: { status: 500, body: {} } });
       const dialog = await screen.findByRole('dialog', { name: 'New task' });
