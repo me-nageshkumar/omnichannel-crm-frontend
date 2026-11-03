@@ -1,5 +1,5 @@
 import * as React from 'react';
-import { Button, Label, TextInput } from '@patternfly/react-core';
+import { Button, HelperText, HelperTextItem, Label, TextInput } from '@patternfly/react-core';
 import { AngleDownIcon, AngleUpIcon, PlusIcon, TimesIcon } from '@patternfly/react-icons';
 
 export const MAX_STEPS = 30;
@@ -87,9 +87,10 @@ export const ChecklistEditor: React.FunctionComponent<{
             />
           </div>
           {errors[index] && (
-            <small style={{ color: 'var(--pf-t--global--text--color--status--danger--default)' }}>
-              {errors[index]}
-            </small>
+            // the form scrolls to the first error helper text after a failed save
+            <HelperText>
+              <HelperTextItem variant="error">{errors[index]}</HelperTextItem>
+            </HelperText>
           )}
         </div>
       ))}

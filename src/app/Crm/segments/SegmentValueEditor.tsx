@@ -25,6 +25,8 @@ function useCompanyNames(ids: string[]) {
   const [names, setNames] = React.useState<Record<string, string>>({});
   const asked = React.useRef(new Set<string>());
   const retries = React.useRef(new Set<ReturnType<typeof setTimeout>>());
+  // a lookup can fail after the editor has closed: no retry is started then
+  const closed = React.useRef(false);
   const wanted = ids.filter((id) => id !== '').join('\n');
 
   React.useEffect(() => {
@@ -33,6 +35,7 @@ function useCompanyNames(ids: string[]) {
       getCompany(token, ws, id).then(
         (company) => setNames((cur) => ({ ...cur, [id]: company.name })),
         (e) => {
+          if (closed.current) return;
           if (!isCode(e, 'NOT_FOUND') && mayRetry) {
             const timer = setTimeout(() => {
               retries.current.delete(timer);
@@ -52,8 +55,12 @@ function useCompanyNames(ids: string[]) {
   }, [token, ws, wanted]);
 
   React.useEffect(() => {
+    closed.current = false;
     const pending = retries.current;
-    return () => pending.forEach(clearTimeout);
+    return () => {
+      closed.current = true;
+      pending.forEach(clearTimeout);
+    };
   }, []);
 
   return {
