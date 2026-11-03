@@ -37,7 +37,15 @@ import { useAction } from '@app/admin/useAction';
 import { useLoad } from '@app/admin/useLoad';
 import { useSession } from '@app/session/SessionContext';
 import { useAccess } from '@app/session/useAccess';
-import { EVENTS, conditionErrors, emptyRule, isGroup, pruneConditions } from '@app/Automations/automationModel';
+import {
+  EVENTS,
+  type Path,
+  conditionErrors,
+  emptyRule,
+  isGroup,
+  pruneConditions,
+  rulePath,
+} from '@app/Automations/automationModel';
 import { eventLabel, statusColor, statusLabel } from '@app/Automations/automationDisplay';
 import { ActionList } from '@app/Automations/ActionList';
 import { ConditionTreeEditor } from '@app/Automations/ConditionTreeEditor';
@@ -54,6 +62,19 @@ const ROUTED = /^(?:conditions\.|actions\[\d+\]\.)/;
 /** The editor works on a group: a rule saved with a lone condition shows it inside "All of these". */
 const asGroup = (c: ConditionNode | null): ConditionGroup | null =>
   !c ? null : isGroup(c) ? c : { combinator: 'and', not: false, rules: [c] };
+
+/** The error keys of every node the condition editor renders ("rules" is the root, shown even with no conditions). */
+function renderedPaths(root: ConditionGroup | null): string[] {
+  const out = ['rules'];
+  const walk = (g: ConditionGroup, path: Path) =>
+    g.rules.forEach((n, i) => {
+      const at = path.concat(i);
+      out.push(rulePath(at));
+      if (isGroup(n)) walk(n, at);
+    });
+  if (root) walk(root, []);
+  return out;
+}
 
 const FieldError: React.FunctionComponent<{ message?: string }> = ({ message }) =>
   message ? (
@@ -94,11 +115,22 @@ const EditorForm: React.FunctionComponent<{
   const fieldErrors = action.fieldErrors;
   const split = conditionErrors(fieldErrors);
   const fieldKeys = Object.keys(fieldErrors);
+  // a message for a condition or action the form does not show (or a root key such as "combinator") is not dropped
+  const rendered = renderedPaths(conditions);
+  const strays = Object.keys(split.byPath)
+    .filter((p) => rendered.indexOf(p) < 0)
+    .map((p) => `Conditions: ${split.byPath[p]}`)
+    .concat(
+      Object.keys(split.byAction)
+        .filter((i) => Number(i) >= actions.length)
+        .map((i) => `Action ${Number(i) + 1}: ${Object.values(split.byAction[Number(i)]).join('; ')}`),
+    );
   const banner =
     fieldKeys.length > 0
       ? fieldKeys
           .filter((k) => SHOWN.indexOf(k) < 0 && !ROUTED.test(k))
           .map((k) => `${k}: ${fieldErrors[k]}`)
+          .concat(strays)
           .join('; ') || null
       : action.error;
 
@@ -120,20 +152,29 @@ const EditorForm: React.FunctionComponent<{
     else applyEvent(next);
   };
 
-  const request = (): RuleRequest => ({
-    name: name.trim(),
-    description: description.trim() === '' ? null : description.trim(),
-    event,
-    priority: priority.trim() === '' ? null : Number(priority),
-    conditions: pruneConditions(conditions),
-    actions,
-  });
+  /**
+   * The rule as sent. The form takes the pruned conditions too, so the paths of the server's errors name the rows on
+   * screen (a message type row with every kind ticked is dropped, which would shift the rows after it).
+   */
+  const request = (): RuleRequest => {
+    const pruned = pruneConditions(conditions);
+    setConditions(pruned);
+    return {
+      name: name.trim(),
+      description: description.trim() === '' ? null : description.trim(),
+      event,
+      priority: priority.trim() === '' ? null : Number(priority),
+      conditions: pruned,
+      actions,
+    };
+  };
 
   /** Creates the rule (moving to its URL) or updates it; the form keeps what the user typed. */
   const persist = async (): Promise<Rule> => {
+    const body = request();
     const rule = saved
-      ? await updateRule(t, ws, saved.id, { ...request(), version: saved.version })
-      : await createRule(t, ws, request());
+      ? await updateRule(t, ws, saved.id, { ...body, version: saved.version })
+      : await createRule(t, ws, body);
     setSaved(rule);
     if (!saved) {
       onCreated(rule.id);

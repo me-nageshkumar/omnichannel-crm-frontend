@@ -202,6 +202,74 @@ describe('automation rule editor', () => {
     expect(screen.getByText('mystery: is odd')).toBeVisible();
   });
 
+  it('prunedAllKindsRowDoesNotShiftErrors', async () => {
+    const ALL = ['TEXT', 'PHOTO', 'VIDEO', 'AUDIO', 'DOCUMENT', 'STICKER', 'LOCATION', 'CONTACT_CARD', 'POLL'];
+    const rows: Rule = {
+      ...WELCOME_RULE,
+      conditions: {
+        combinator: 'and',
+        not: false,
+        rules: [
+          { field: 'chat.new', operator: 'is', value: true },
+          { field: 'message.type', operator: 'is_one_of', value: ALL },
+          { field: 'message.text', operator: 'contains', value: '' },
+        ],
+      },
+    };
+    const { f, user } = open('/automations/r1', {
+      [`GET ${RULES}/r1`]: { status: 200, body: rows },
+      [`PUT ${RULES}/r1`]: { status: 200, body: rows },
+      [`POST ${RULES}/r1/publish`]: {
+        status: 400,
+        body: { code: 'VALIDATION', fields: { 'conditions.rules[1].value': 'Type the words to look for' } },
+      },
+    });
+    await nameInput();
+    expect(condition('2').getByLabelText('Field')).toHaveValue('message.type');
+    await user.click(screen.getByRole('button', { name: 'Publish' }));
+    expect(await condition('2').findByText('Type the words to look for')).toBeVisible();
+    expect(condition('2').getByLabelText('Field')).toHaveValue('message.text');
+    expect(screen.queryByRole('group', { name: 'Condition 3' })).toBeNull();
+    expect(screen.getAllByLabelText('Field').map((el) => (el as HTMLSelectElement).value)).toEqual([
+      'chat.new',
+      'message.text',
+    ]);
+    expect(requestTo(f, `PUT ${RULES}/r1`)?.body.conditions.rules).toHaveLength(2);
+  });
+
+  it('unmatchedConditionErrorReachesTheBanner', async () => {
+    const twoRows: Rule = {
+      ...WELCOME_RULE,
+      conditions: {
+        combinator: 'and',
+        not: false,
+        rules: [
+          { field: 'chat.new', operator: 'is', value: true },
+          { field: 'message.text', operator: 'contains', value: 'price' },
+        ],
+      },
+    };
+    const { user } = open('/automations/r1', {
+      [`GET ${RULES}/r1`]: { status: 200, body: twoRows },
+      [`PUT ${RULES}/r1`]: { status: 200, body: twoRows },
+      [`POST ${RULES}/r1/publish`]: {
+        status: 400,
+        body: {
+          code: 'VALIDATION',
+          fields: { 'conditions.rules[5].value': 'Choose a value', 'conditions.combinator': 'Choose all or any' },
+        },
+      },
+    });
+    await nameInput();
+    await user.click(screen.getByRole('button', { name: 'Publish' }));
+    const banner = (await screen.findByText(/Choose a value/)).closest('.pf-v6-c-alert') as HTMLElement;
+    expect(banner).toHaveClass('pf-m-danger');
+    expect(banner).toHaveTextContent('Choose a value');
+    expect(banner).toHaveTextContent('Choose all or any');
+    expect(condition('1').queryByText(/Choose a value/)).toBeNull();
+    expect(condition('2').queryByText(/Choose a value/)).toBeNull();
+  });
+
   it('newRulePublishFailureKeepsTheFormAndUpdatesNext', async () => {
     const { f, user } = open('/automations/new', {
       [`POST ${RULES}`]: { status: 201, body: CREATED },
