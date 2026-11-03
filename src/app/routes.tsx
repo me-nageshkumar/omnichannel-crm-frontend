@@ -28,6 +28,7 @@ import { CampaignDetailPage } from '@app/Campaigns/CampaignDetailPage';
 import { InboxRedirect } from '@app/Inbox/InboxRedirect';
 import { InboxPage } from '@app/Inbox/InboxPage';
 import { RoutingSettingsPage } from '@app/Inbox/RoutingSettingsPage';
+import { AutomationsPage } from '@app/Automations/AutomationsPage';
 import { HistoryImportsPage } from '@app/HistoryImports/HistoryImportsPage';
 import { crmRoutes } from '@app/Crm/routes';
 import { useCrmReminderCount, useCrmStatus } from '@app/Crm/status/CrmStatusContext';
@@ -88,6 +89,7 @@ const NAV_SECTIONS: NavEntry[][] = [
         { label: 'Settings', path: '/crm/settings' },
       ],
     },
+    { label: 'Automations', path: '/automations', requires: (a) => a.hasInWorkspace('automation:view') },
   ],
   [
     {
@@ -250,6 +252,11 @@ const routes: IAppRoute[] = [
     element: <ContactFieldsPage />,
     path: '/contact-fields',
     requires: (a) => a.hasInWorkspace('contact-field:manage'),
+  },
+  {
+    element: <AutomationsPage />,
+    path: '/automations',
+    requires: (a) => a.hasInWorkspace('automation:view'),
   },
   {
     element: <TemplatesPage />,

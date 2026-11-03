@@ -33,6 +33,7 @@ const BRAND_LINKS = [
   'Inbox',
   'Routing',
   'History imports',
+  'Automations',
   'All contacts',
   'Saved filters',
   'Contact fields',
@@ -72,7 +73,13 @@ describe('authority-driven navigation', () => {
   });
 
   it('super admin sees platform users, roles and customers', async () => {
-    expect(await navFor(SUPER_ADMIN)).toEqual(['Customers', 'All phone numbers', 'Platform users', 'Roles', 'Authorities']);
+    expect(await navFor(SUPER_ADMIN)).toEqual([
+      'Customers',
+      'All phone numbers',
+      'Platform users',
+      'Roles',
+      'Authorities',
+    ]);
   });
 
   it('dividers split everyday work, brand work and administration', async () => {
@@ -92,7 +99,7 @@ describe('authority-driven navigation', () => {
     expect(nav.getByRole('link', { name: 'All contacts', hidden: true })).not.toHaveAttribute('aria-current');
   });
 
-  it('a group with one allowed page shows as that page\'s link', async () => {
+  it("a group with one allowed page shows as that page's link", async () => {
     const user = { ...AGENT_NO_BRANDS, authorities: ['platform-user:manage'] };
     expect(await navFor(user)).toEqual(['Platform users']);
     expect(within(sidebarNav()).queryByRole('button', { name: 'Access control', hidden: true })).toBeNull();
@@ -118,6 +125,23 @@ describe('authority-driven navigation', () => {
     mockFetch(meAs(BRAND_VIEWER));
     renderApp('/inbox/history-imports');
     expect(await screen.findByText('404 Page not found')).toBeVisible();
+  });
+
+  it('automations open for a manager and are not found without automation:view', async () => {
+    storeSession();
+    mockFetch({ ...meAs(WORKSPACE_MANAGER), 'GET /api/workspaces/w1/automations/rules': { status: 200, body: [] } });
+    renderApp('/automations');
+    expect(await screen.findByRole('heading', { name: 'Automations' })).toBeVisible();
+    cleanup();
+    mockFetch(meAs(BRAND_VIEWER));
+    renderApp('/automations');
+    expect(await screen.findByText('404 Page not found')).toBeVisible();
+  });
+
+  it('the nav shows Automations for a manager and not for an agent', async () => {
+    expect(await navFor(WORKSPACE_MANAGER)).toContain('Automations');
+    cleanup();
+    expect(await navFor(AGENT_IN_BRAND)).not.toContain('Automations');
   });
 
   it('the template editor routes need template:view and have no nav entry', async () => {
