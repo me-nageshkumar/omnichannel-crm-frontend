@@ -18,6 +18,9 @@ const inr = (n: number) => formatMoney(n, null, 'INR');
 /** The card whose Chart/Table toggle is named after {@code title}. */
 const card = (title: string) =>
   screen.getByRole('group', { name: `View of ${title}` }).closest('.crm-report-card') as HTMLElement;
+/** A table-only card, found by its table's name. */
+const tableCard = (title: string) =>
+  screen.getByRole('grid', { name: title }).closest('.crm-report-card') as HTMLElement;
 const labelsIn = (el: HTMLElement) =>
   Array.from(el.querySelectorAll('text.crm-chart__label')).map((t) => t.textContent);
 const tile = (label: string) => screen.getByText(label).closest('.crm-stat') as HTMLElement;
@@ -200,6 +203,14 @@ describe('CRM report overview', () => {
     expect(within(rows[2]).getAllByRole('cell')[1]).toHaveTextContent('—');
   });
 
+  it('campaignsCardSaysContactsReachedCoversAllPipelines', async () => {
+    mockFetch(reportRoutes({ [reportPath('campaigns')]: { status: 200, body: sampleCampaignsReport() } }));
+    renderApp('/crm/reports');
+    await screen.findByRole('grid', { name: 'Campaigns' });
+    expect(tableCard('Campaigns')).toHaveTextContent('CRM contacts reached covers all pipelines.');
+    expect(tableCard('Campaigns')).not.toHaveTextContent('Showing the latest 200');
+  });
+
   it('campaignsRowShowsDeliveryFigures', async () => {
     mockFetch(
       reportRoutes({
@@ -219,7 +230,7 @@ describe('CRM report overview', () => {
     expect(row).toHaveTextContent('120 read');
     expect(row).toHaveTextContent('2 failed');
     expect(row).toHaveTextContent('40');
-    expect(screen.getByText('Showing the latest 200')).toBeInTheDocument();
+    expect(tableCard('Campaigns')).toHaveTextContent('Showing the latest 200');
     expect(screen.queryByRole('group', { name: 'View of Campaigns' })).toBeNull();
     expect(screen.queryByRole('group', { name: 'View of Activity by person' })).toBeNull();
     const activity = screen.getByRole('grid', { name: 'Activity by person' });
