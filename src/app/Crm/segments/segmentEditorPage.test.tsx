@@ -417,6 +417,24 @@ describe('CRM segment editor', () => {
       expect(await chips().findByText('Acme Ltd', {}, { timeout: 4000 })).toBeInTheDocument();
     });
 
+    it('aLookupFailingAfterTheEditorClosedIsNotTriedAgain', async () => {
+      let reads = 0;
+      const { f, user } = openWith('in', ['co7'], {
+        [`GET ${COMPANIES}/co7`]: () => {
+          reads++;
+          return { status: 500, body: {} };
+        },
+      });
+      const held = gate(f, `GET ${COMPANIES}/co7`, 1);
+      await screen.findByLabelText(/^Name/);
+      await waitFor(() => expect(reads).toBe(1));
+      await user.click(screen.getByRole('button', { name: 'Cancel' }));
+      await screen.findByRole('grid', { name: 'Segments' });
+      held.release();
+      await act(() => new Promise((resolve) => setTimeout(resolve, 1800)));
+      expect(reads).toBe(1);
+    });
+
     it('aPickedCompanyShowsItsNameWithoutAskingTheServer', async () => {
       const { f, user } = openWith('in', ['co1'], {
         ...named('co1', 'Acme Ltd'),
