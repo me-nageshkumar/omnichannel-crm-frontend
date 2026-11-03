@@ -56,6 +56,7 @@ export const AssignChatModal: React.FunctionComponent<{
           id="assign-chat-form"
           onSubmit={(e) => {
             e.preventDefault();
+            e.stopPropagation();
             save();
           }}
         >

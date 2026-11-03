@@ -1,6 +1,6 @@
 import * as React from 'react';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
-import { render, screen } from '@testing-library/react';
+import { render, screen, within } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import type { AutomationAction, AutomationOptions } from '@app/api/automations';
 import { AssignChatModal } from '@app/Automations/AssignChatModal';
@@ -109,13 +109,13 @@ describe('assign chat in the editor', () => {
   beforeEach(() => storeSession());
   afterEach(() => vi.unstubAllGlobals());
 
-  const open = () => {
+  const open = (path = '/automations/new') => {
     const routes: Record<string, MockRoute> = {
       ...meAs(WORKSPACE_MANAGER),
       ...automationRoutes({ [`GET ${AUTOMATIONS_BASE}/rules/r1`]: { status: 200, body: WELCOME_RULE } }),
     };
     mockFetch(routes);
-    return renderApp('/automations/new');
+    return renderApp(path);
   };
   const add = async (user: ReturnType<typeof renderApp>['user']) => {
     await user.click(await screen.findByRole('button', { name: 'Add action' }));
@@ -138,5 +138,27 @@ describe('assign chat in the editor', () => {
     await add(user);
     await user.click(await screen.findByRole('button', { name: 'Cancel' }));
     expect(screen.queryByRole('region', { name: '1. Assign chat' })).toBeNull();
+  });
+
+  it('changeOnExistingCardOpensTheDialogAndCancelKeepsIt', async () => {
+    const { user } = open('/automations/r1');
+    const card = await screen.findByRole('region', { name: '2. Assign chat' });
+    expect(within(card).getByText('Round robin in Support')).toBeVisible();
+    await user.click(within(card).getByRole('button', { name: 'Change…' }));
+    expect(await screen.findByRole('heading', { name: 'Assign chat', level: 1 })).toBeVisible();
+    await user.click(screen.getByRole('button', { name: 'Cancel' }));
+    expect(screen.queryByRole('dialog')).toBeNull();
+    expect(
+      within(screen.getByRole('region', { name: '2. Assign chat' })).getByText('Round robin in Support'),
+    ).toBeVisible();
+    await user.click(
+      within(screen.getByRole('region', { name: '2. Assign chat' })).getByRole('button', { name: 'Change…' }),
+    );
+    await user.click(await screen.findByRole('radio', { name: 'An agent' }));
+    await user.selectOptions(screen.getByLabelText('Agent'), 'Demo Agent');
+    await user.click(screen.getByRole('button', { name: 'Save' }));
+    expect(
+      await within(screen.getByRole('region', { name: '2. Assign chat' })).findByText('Assign to Demo Agent'),
+    ).toBeVisible();
   });
 });
