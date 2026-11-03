@@ -74,6 +74,8 @@ function routedReason(action: ActionView): string {
       return ' (the previous agent left the team)';
     case 'FETCHED':
       return ' (fetched from WhatsApp, waiting for a reply)';
+    case 'AUTOMATION':
+      return action.reasonDetail ? ` (by automation: ${action.reasonDetail})` : ' (by automation)';
     default:
       return '';
   }
