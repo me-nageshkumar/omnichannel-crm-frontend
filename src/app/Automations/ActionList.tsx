@@ -18,6 +18,7 @@ import { PlusCircleIcon } from '@patternfly/react-icons';
 import type { AutomationAction, AutomationOptions, EventKind } from '@app/api/automations';
 import { ACTIONS, actionSummary } from '@app/Automations/automationModel';
 import { AddToCrmFields, addToCrmShows } from '@app/Automations/AddToCrmFields';
+import { AssignChatModal } from '@app/Automations/AssignChatModal';
 import { SendTemplateFields, sendTemplateShows } from '@app/Automations/SendTemplateFields';
 
 const labelOf = (type: AutomationAction['type']) => ACTIONS.find((a) => a.type === type)?.label ?? type;
@@ -40,19 +41,24 @@ const shownByFields = (type: AutomationAction['type'], key: string): boolean => 
   return false;
 };
 
-/** Assign chat: who gets the chat, in words; Task 5's dialog chooses it. */
-const AssignChatBody: React.FunctionComponent<{ action: AutomationAction; options: AutomationOptions }> = ({
-  action,
-  options,
-}) => {
+/** Assign chat: who gets the chat, in words; the dialog chooses it. */
+const AssignChatBody: React.FunctionComponent<{
+  action: AutomationAction;
+  options: AutomationOptions;
+  isDisabled: boolean;
+  isOpen: boolean;
+  onOpen(): void;
+  onSave(a: AutomationAction): void;
+  onCancel(): void;
+}> = ({ action, options, isDisabled, isOpen, onOpen, onSave, onCancel }) => {
   const chosen = Boolean(action.userId || action.teamId);
   return (
     <Flex alignItems={{ default: 'alignItemsCenter' }} spaceItems={{ default: 'spaceItemsMd' }}>
       <Content component="p">{chosen ? actionSummary(action, options) : 'Nobody is chosen yet.'}</Content>
-      {/* the Assign chat dialog (Task 5) opens from here */}
-      <Button variant="link" isInline isDisabled>
+      <Button variant="link" isInline isDisabled={isDisabled} onClick={onOpen}>
         {chosen ? 'Change…' : 'Choose…'}
       </Button>
+      {isOpen && <AssignChatModal action={action} options={options} onSave={onSave} onCancel={onCancel} />}
     </Flex>
   );
 };
@@ -102,6 +108,8 @@ export const ActionList: React.FunctionComponent<{
   isDisabled: boolean;
   onChange(next: AutomationAction[]): void;
 }> = ({ event, actions, options, errors, isDisabled, onChange }) => {
+  // the action whose dialog is open, and whether it was just added (cancelling then removes it)
+  const [dialog, setDialog] = React.useState<{ index: number; fresh: boolean } | null>(null);
   const replace = (i: number, a: AutomationAction) => onChange(actions.map((x, j) => (j === i ? a : x)));
   const swap = (i: number, j: number) => {
     const next = actions.slice();
@@ -160,7 +168,23 @@ export const ActionList: React.FunctionComponent<{
               <Flex direction={{ default: 'column' }} spaceItems={{ default: 'spaceItemsMd' }}>
                 {a.type === 'SEND_TEMPLATE' && <SendTemplateFields {...fieldProps} />}
                 {a.type === 'ADD_TO_CRM' && <AddToCrmFields {...fieldProps} />}
-                {a.type === 'ASSIGN_CHAT' && <AssignChatBody action={a} options={options} />}
+                {a.type === 'ASSIGN_CHAT' && (
+                  <AssignChatBody
+                    action={a}
+                    options={options}
+                    isDisabled={isDisabled}
+                    isOpen={dialog?.index === i}
+                    onOpen={() => setDialog({ index: i, fresh: false })}
+                    onSave={(next) => {
+                      replace(i, next);
+                      setDialog(null);
+                    }}
+                    onCancel={() => {
+                      if (dialog?.fresh) onChange(actions.filter((_x, j) => j !== i));
+                      setDialog(null);
+                    }}
+                  />
+                )}
                 {others.length > 0 && (
                   <HelperText>
                     {others.map((k) => (
@@ -179,7 +203,10 @@ export const ActionList: React.FunctionComponent<{
         <AddActionMenu
           event={event}
           isDisabled={isDisabled}
-          onAdd={(type) => onChange(actions.concat(newAction(type)))}
+          onAdd={(type) => {
+            onChange(actions.concat(newAction(type)));
+            if (type === 'ASSIGN_CHAT') setDialog({ index: actions.length, fresh: true });
+          }}
         />
       </div>
     </Flex>
