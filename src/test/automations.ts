@@ -1,4 +1,4 @@
-import type { AutomationOptions, AutomationTest, Rule, RuleSummary } from '@app/api/automations';
+import type { AutomationOptions, AutomationTest, EventRecord, Rule, RuleSummary, Run } from '@app/api/automations';
 import type { MockRoute } from './fetchMock';
 
 export const AUTOMATIONS_BASE = '/api/workspaces/w1/automations';
@@ -170,3 +170,51 @@ export function automationRoutes(overrides: Record<string, MockRoute> = {}): Rec
     ...overrides,
   };
 }
+
+export const RUN: Run = {
+  id: 'run1',
+  eventId: 'e1',
+  ruleId: 'r1',
+  ruleName: 'Welcome',
+  test: false,
+  status: 'FAILED',
+  eventKind: 'MESSAGE_RECEIVED',
+  summary: 'Message from Asha',
+  contact: { id: 'c1', name: 'Asha', phone: '919811100001' },
+  deal: null,
+  startedAt: '2026-11-03T10:00:00Z',
+  finishedAt: '2026-11-03T10:00:05Z',
+  steps: [
+    {
+      index: 0,
+      type: 'SEND_TEMPLATE',
+      summary: 'Send “Welcome”',
+      outcome: 'DONE',
+      reason: 'Sent “Welcome”',
+      at: '2026-11-03T10:00:01Z',
+    },
+    {
+      index: 1,
+      type: 'ASSIGN_CHAT',
+      summary: 'Assign chat',
+      outcome: 'FAILED',
+      reason: 'Demo Agent cannot see this number',
+      at: '2026-11-03T10:00:02Z',
+    },
+  ],
+};
+
+export const EVENT: EventRecord = {
+  id: 'e1',
+  kind: 'MESSAGE_RECEIVED',
+  createdAt: '2026-11-03T10:00:00Z',
+  finishedAt: '2026-11-03T10:00:05Z',
+  outcome: 'DONE',
+  error: null,
+  summary: 'Message from Asha',
+  contact: RUN.contact,
+  deal: null,
+  number: { id: 'n1', number: '919928088743', label: 'Main line' },
+  test: false,
+  runs: [RUN],
+};

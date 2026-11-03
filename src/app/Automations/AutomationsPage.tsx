@@ -3,9 +3,10 @@ import { Link, useSearchParams } from 'react-router-dom';
 import { Button, Tab, TabTitleText, Tabs } from '@patternfly/react-core';
 import { PageShell } from '@app/admin/PageShell';
 import { useAccess } from '@app/session/useAccess';
+import { EventHistoryTab } from '@app/Automations/EventHistoryTab';
 import { RulesTab } from '@app/Automations/RulesTab';
 
-/** The brand's automation rules, and (Task 7) the history of the events they saw. */
+/** The brand's automation rules  and the history of the events they saw. */
 export const AutomationsPage: React.FunctionComponent = () => {
   const canManage = useAccess().hasInWorkspace('automation:manage');
   const [params, setParams] = useSearchParams();
@@ -31,7 +32,7 @@ export const AutomationsPage: React.FunctionComponent = () => {
           <RulesTab />
         </Tab>
         <Tab eventKey="history" title={<TabTitleText>Event history</TabTitleText>}>
-          <div className="pf-v6-u-pt-md">The event history is coming soon.</div>
+          <EventHistoryTab />
         </Tab>
       </Tabs>
     </PageShell>

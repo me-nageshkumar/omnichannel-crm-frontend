@@ -30,6 +30,7 @@ import { InboxPage } from '@app/Inbox/InboxPage';
 import { RoutingSettingsPage } from '@app/Inbox/RoutingSettingsPage';
 import { AutomationsPage } from '@app/Automations/AutomationsPage';
 import { AutomationEditorPage } from '@app/Automations/AutomationEditorPage';
+import { AutomationRunsPage } from '@app/Automations/AutomationRunsPage';
 import { AutomationTestPage } from '@app/Automations/AutomationTestPage';
 import { HistoryImportsPage } from '@app/HistoryImports/HistoryImportsPage';
 import { crmRoutes } from '@app/Crm/routes';
@@ -268,6 +269,11 @@ const routes: IAppRoute[] = [
   {
     element: <AutomationEditorPage />,
     path: '/automations/:id',
+    requires: (a) => a.hasInWorkspace('automation:view'),
+  },
+  {
+    element: <AutomationRunsPage />,
+    path: '/automations/:id/runs',
     requires: (a) => a.hasInWorkspace('automation:view'),
   },
   {
