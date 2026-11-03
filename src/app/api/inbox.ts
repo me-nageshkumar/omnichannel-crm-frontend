@@ -7,13 +7,13 @@ export type { Availability } from '@app/api/users';
 export type ChatStatus = 'OPEN' | 'CLOSED';
 export type MessageDirection = 'IN' | 'OUT';
 /** Who produced the message: the contact, our console, or the phone / WhatsApp Web tab. */
-export type MessageSource = 'CONTACT' | 'CONSOLE' | 'WHATSAPP_WEB' | 'CAMPAIGN';
+export type MessageSource = 'CONTACT' | 'CONSOLE' | 'WHATSAPP_WEB' | 'CAMPAIGN' | 'AUTOMATION';
 export type MessageStatus = 'PENDING' | 'SENT' | 'DELIVERED' | 'READ' | 'PLAYED' | 'FAILED';
 export type ListScope = 'MINE' | 'TEAM' | 'UNASSIGNED' | 'ALL';
 export type RoutingMode = 'NONE' | 'TEAM' | 'USER' | 'ROUND_ROBIN';
 export type ActionType = 'ROUTED' | 'ASSIGNED' | 'UNASSIGNED' | 'CLOSED' | 'REOPENED' | 'TRANSFERRED';
 /** Why a ROUTED action chose as it did, when it was not the plain routing setting. */
-export type RoutedReason = 'STICKY' | 'HANDED_BACK' | 'OWNER_CHANGED' | 'MEMBER_REMOVED' | 'FETCHED';
+export type RoutedReason = 'STICKY' | 'HANDED_BACK' | 'OWNER_CHANGED' | 'MEMBER_REMOVED' | 'FETCHED' | 'AUTOMATION';
 
 export interface IdName {
   id: string;
@@ -99,7 +99,8 @@ export interface MessageView {
   timestamp: string;
   status: MessageStatus;
   statusTimes: StatusTimes;
-  sentBy: IdName | null;
+  /** Null id when a campaign or automation sent it: the name is then "Campaign: <name>" or "Automation: <name>". */
+  sentBy: { id: string | null; name: string } | null;
   templateId: string | null;
   /** The choices of a poll, else null. */
   pollOptions?: string[] | null;
@@ -122,6 +123,8 @@ export interface ActionView {
   reason: RoutedReason | null;
   /** On TRANSFERRED: the team the chat left. */
   fromTeam: IdName | null;
+  /** On AUTOMATION: the rule's name. */
+  reasonDetail: string | null;
 }
 
 /** One line of a thread: exactly one of `message` / `action` is set, matching `kind`; `at` orders the items. */

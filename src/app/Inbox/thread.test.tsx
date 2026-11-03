@@ -64,6 +64,7 @@ function action(over: Partial<ActionView> & { id: string }): ThreadItem {
     at: hoursAgo(2),
     reason: null,
     fromTeam: null,
+    reasonDetail: null,
     ...over,
   };
   return { kind: 'action', message: null, action: a, at: a.at };
@@ -494,6 +495,7 @@ describe('thread', () => {
       at: hoursAgo(1),
       reason: null,
       fromTeam: null,
+      reasonDetail: null,
       ...over,
     });
     expect(actionText(action({ type: 'ROUTED', toUser: to, reason: 'STICKY' }))).toBe(
@@ -1027,6 +1029,42 @@ describe('thread', () => {
 
     fireEvent.loadedMetadata(container.querySelector('video') as HTMLVideoElement);
     expect(scroller.scrollTop).toBe(900);
+  });
+
+  it('showsTheAutomationAsTheSender', async () => {
+    mockFetch({
+      ...meAs(AGENT_IN_BRAND),
+      [`GET ${THREAD}`]: page([
+        message({
+          id: 'm1',
+          direction: 'OUT',
+          source: 'AUTOMATION',
+          body: 'Welcome aboard',
+          sentBy: { id: null, name: 'Automation: Welcome' },
+        }),
+      ]),
+    });
+    renderThread();
+    const bubble = (await screen.findByText('Welcome aboard')).closest('[data-side]') as HTMLElement;
+    expect(within(bubble).getByText('Automation: Welcome')).toBeInTheDocument();
+    expect(within(bubble).queryByText('WhatsApp Web')).toBeNull();
+  });
+
+  it('routedByAutomationLine', () => {
+    const action = (over: Partial<ActionView>): ActionView => ({
+      id: 'a',
+      type: 'ROUTED',
+      by: null,
+      toUser: null,
+      toTeam: { id: 't1', name: 'Support' },
+      at: hoursAgo(1),
+      reason: 'AUTOMATION',
+      fromTeam: null,
+      reasonDetail: null,
+      ...over,
+    });
+    expect(actionText(action({ reasonDetail: 'Welcome' }))).toBe('Routed to Support (by automation: Welcome)');
+    expect(actionText(action({ reasonDetail: null }))).toBe('Routed to Support (by automation)');
   });
 
   it('fetches nothing without a chat', async () => {

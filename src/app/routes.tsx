@@ -28,6 +28,10 @@ import { CampaignDetailPage } from '@app/Campaigns/CampaignDetailPage';
 import { InboxRedirect } from '@app/Inbox/InboxRedirect';
 import { InboxPage } from '@app/Inbox/InboxPage';
 import { RoutingSettingsPage } from '@app/Inbox/RoutingSettingsPage';
+import { AutomationsPage } from '@app/Automations/AutomationsPage';
+import { AutomationEditorPage } from '@app/Automations/AutomationEditorPage';
+import { AutomationRunsPage } from '@app/Automations/AutomationRunsPage';
+import { AutomationTestPage } from '@app/Automations/AutomationTestPage';
 import { HistoryImportsPage } from '@app/HistoryImports/HistoryImportsPage';
 import { crmRoutes } from '@app/Crm/routes';
 import { useCrmReminderCount, useCrmStatus } from '@app/Crm/status/CrmStatusContext';
@@ -88,6 +92,7 @@ const NAV_SECTIONS: NavEntry[][] = [
         { label: 'Settings', path: '/crm/settings' },
       ],
     },
+    { label: 'Automations', path: '/automations', requires: (a) => a.hasInWorkspace('automation:view') },
   ],
   [
     {
@@ -250,6 +255,37 @@ const routes: IAppRoute[] = [
     element: <ContactFieldsPage />,
     path: '/contact-fields',
     requires: (a) => a.hasInWorkspace('contact-field:manage'),
+  },
+  {
+    element: <AutomationsPage />,
+    path: '/automations',
+    requires: (a) => a.hasInWorkspace('automation:view'),
+  },
+  {
+    element: <AutomationEditorPage />,
+    path: '/automations/new',
+    requires: (a) => a.hasInWorkspace('automation:manage'),
+  },
+  {
+    // without it, /automations/:id would open "new" as a rule id
+    element: <NotFound />,
+    path: '/automations/new',
+    requires: (a) => !a.hasInWorkspace('automation:manage'),
+  },
+  {
+    element: <AutomationEditorPage />,
+    path: '/automations/:id',
+    requires: (a) => a.hasInWorkspace('automation:view'),
+  },
+  {
+    element: <AutomationRunsPage />,
+    path: '/automations/:id/runs',
+    requires: (a) => a.hasInWorkspace('automation:view'),
+  },
+  {
+    element: <AutomationTestPage />,
+    path: '/automations/:id/test',
+    requires: (a) => a.hasInWorkspace('automation:manage'),
   },
   {
     element: <TemplatesPage />,
