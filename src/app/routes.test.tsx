@@ -138,6 +138,20 @@ describe('authority-driven navigation', () => {
     expect(await screen.findByText('404 Page not found')).toBeVisible();
   });
 
+  it('a new rule and the test page need automation:manage', async () => {
+    const viewer: CurrentUser = {
+      ...WORKSPACE_MANAGER,
+      workspaces: WORKSPACE_MANAGER.workspaces.map((w) => ({ ...w, authorities: ['automation:view'] })),
+    };
+    for (const path of ['/automations/new', '/automations/r1/test']) {
+      storeSession();
+      mockFetch(meAs(viewer));
+      renderApp(path);
+      expect(await screen.findByText('404 Page not found')).toBeVisible();
+      cleanup();
+    }
+  });
+
   it('the nav shows Automations for a manager and not for an agent', async () => {
     expect(await navFor(WORKSPACE_MANAGER)).toContain('Automations');
     cleanup();

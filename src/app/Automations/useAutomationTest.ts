@@ -18,6 +18,8 @@ import { useSession } from '@app/session/SessionContext';
 
 /** How often a waiting test is fetched; every fetch also keeps the test alive on the server. */
 export const POLL_MS = 2000;
+/** How often a captured test is fetched while the page is open: the fetch is its heartbeat, so it is not idle-ended. */
+export const HEARTBEAT_MS = 60000;
 
 /** Someone else's open test of the rule, which stopped this user's start. */
 export interface OtherTest {
@@ -40,7 +42,7 @@ export interface AutomationTestState {
   published: boolean;
   reloadPreflight(): Promise<void>;
   start(body: TestStartRequest): Promise<void>;
-  /** Ends {@link otherTest}, then starts again with the request it stopped. */
+  /** Ends {@link otherTest}, then (when a start found it) starts again with the request it stopped. */
   endOtherTest(): Promise<void>;
   check(): Promise<void>;
   run(index: number): Promise<void>;
@@ -73,9 +75,10 @@ function runningTest(e: unknown): { testId: string; startedById: string; started
 }
 
 /**
- * One rule's test: the open test (resumed on mount) and the preflight, loaded independently. A WAITING test is
- * fetched {@link POLL_MS} after each answer (never two at once); a poll the server refuses stops the polling with an
- * error, other failures are retried. Nothing else is polled. Every step call replaces the test with the server's answer, and an answer
+ * One rule's test: the user's own open test (resumed on mount; another manager's is offered to end instead) and the
+ * preflight, loaded independently. A WAITING test is fetched {@link POLL_MS} after each answer (never two at once), a
+ * CAPTURED one every {@link HEARTBEAT_MS} to keep it alive; a poll the server refuses stops the polling with an
+ * error, other failures are retried. Every step call replaces the test with the server's answer, and an answer
  * to a poll that was on its way meanwhile is dropped.
  */
 export function useAutomationTest(ruleId: string): AutomationTestState {
@@ -88,7 +91,7 @@ export function useAutomationTest(ruleId: string): AutomationTestState {
   const [loading, setLoading] = React.useState(true);
   const [error, setError] = React.useState<string | null>(null);
   const [busy, setBusy] = React.useState(false);
-  const [otherTest, setOtherTest] = React.useState<(OtherTest & { body: TestStartRequest }) | null>(null);
+  const [otherTest, setOtherTest] = React.useState<(OtherTest & { body: TestStartRequest | null }) | null>(null);
   const [published, setPublished] = React.useState(false);
   // Bumped when a step call starts (and on unmount): a poll sent before it no longer counts.
   const generation = React.useRef(0);
@@ -111,7 +114,10 @@ export function useAutomationTest(ruleId: string): AutomationTestState {
     getActiveTest(token, ws, ruleId).then(
       (active) => {
         if (!live) return;
-        setTest(active ?? undefined);
+        if (active && active.startedBy.id !== user?.id) {
+          // another manager's test is theirs to step through: offer to end it instead
+          setOtherTest({ testId: active.id, startedByName: active.startedBy.name, body: null });
+        } else setTest(active ?? undefined);
         setLoading(false);
       },
       (e) => {
@@ -133,17 +139,21 @@ export function useAutomationTest(ruleId: string): AutomationTestState {
     return () => {
       live = false;
     };
+    // the user is read once the active test arrives; a change of user signs out and remounts the page
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [token, ws, ruleId]);
 
-  const waitingId = test?.status === 'WAITING' ? test.id : null;
+  // WAITING is fetched often (its answer is what the page waits for), CAPTURED slowly to keep it alive
+  const pollId = test && test.status !== 'ENDED' ? test.id : null;
+  const every = test?.status === 'WAITING' ? POLL_MS : HEARTBEAT_MS;
   React.useEffect(() => {
-    if (!waitingId || !token) return undefined;
+    if (!pollId || !token) return undefined;
     let live = true;
     let timer: ReturnType<typeof setTimeout> | undefined;
     const poll = () => {
       timer = setTimeout(() => {
         const sent = generation.current;
-        getTest(token, ws, waitingId).then(
+        getTest(token, ws, pollId).then(
           (next) => {
             if (!live) return;
             if (sent === generation.current) setTest(next);
@@ -156,14 +166,14 @@ export function useAutomationTest(ruleId: string): AutomationTestState {
             else poll();
           },
         );
-      }, POLL_MS);
+      }, every);
     };
     poll();
     return () => {
       live = false;
       clearTimeout(timer);
     };
-  }, [waitingId, token, ws]);
+  }, [pollId, every, token, ws]);
 
   /**
    * Runs one call that answers with the test and shows its answer; a failure goes to {@code refused} when it takes
@@ -221,7 +231,13 @@ export function useAutomationTest(ruleId: string): AutomationTestState {
       }
       return;
     }
-    if (mounted.current) await start(otherTest.body);
+    if (!mounted.current) return;
+    if (otherTest.body) {
+      await start(otherTest.body);
+    } else {
+      setOtherTest(null);
+      setBusy(false);
+    }
   };
 
   const reloadPreflight = async (): Promise<void> => {
@@ -238,9 +254,30 @@ export function useAutomationTest(ruleId: string): AutomationTestState {
     }
   };
 
-  /** A step on the open test; resolves true when the server took it. */
-  const on = (fn: (id: string) => Promise<AutomationTest>): Promise<boolean> =>
-    test ? step(() => fn(test.id)) : Promise.resolve(false);
+  /**
+   * A step on the open test; resolves true when the server took it. A test that moved on meanwhile (it ended, e.g.
+   * idle) is fetched again, so the page shows why instead of the stale steps.
+   */
+  const on = (fn: (id: string) => Promise<AutomationTest>): Promise<boolean> => {
+    if (!test) return Promise.resolve(false);
+    const id = test.id;
+    return step(
+      () => fn(id),
+      (e) => {
+        if (!(e instanceof ApiError && e.code === 'AUTOMATION_TEST_STATE')) return false;
+        const sent = generation.current;
+        getTest(t, ws, id).then(
+          (fresh) => {
+            if (mounted.current && sent === generation.current) setTest(fresh);
+          },
+          () => {
+            if (mounted.current) setError(describe(e));
+          },
+        );
+        return true;
+      },
+    );
+  };
   const onVoid = async (fn: (id: string) => Promise<AutomationTest>): Promise<void> => {
     await on(fn);
   };

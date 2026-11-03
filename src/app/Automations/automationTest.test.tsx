@@ -33,12 +33,15 @@ const ASHA: TestContact = {
 };
 const HIDDEN: TestContact = { ...ASHA, contactId: 'c2', name: 'Ravi', phone: null };
 const NUMBERS = OPTIONS.numbers.map(({ id, number, label }) => ({ id, number, label }));
+/** The signed-in manager (WORKSPACE_MANAGER), so the page resumes the test as theirs. */
+const ME = { id: 'u4', name: 'Meera Manager' };
 const WAITING: AutomationTest = {
   ...WAITING_TEST,
+  startedBy: ME,
   target: { contactId: 'c1', name: 'Asha', phone: '919811100001' },
   numbers: NUMBERS,
 };
-const CAPTURED: AutomationTest = { ...CAPTURED_TEST, matched: true };
+const CAPTURED: AutomationTest = { ...CAPTURED_TEST, startedBy: ME, matched: true };
 const step = (index: number, summary: string, extra: Partial<StepView> = {}): StepView => ({
   ...CAPTURED_TEST.actions[index],
   summary,
@@ -315,6 +318,81 @@ describe('automation test page', () => {
     expect(screen.getByText('Main line')).toBeVisible();
     expect(screen.queryByRole('heading', { name: 'Choose the test contact' })).toBeNull();
     expect(screen.queryByRole('button', { name: 'Start test' })).toBeNull();
+  });
+
+  it('anotherManagersTestIsNotResumed', async () => {
+    const theirs: AutomationTest = { ...CAPTURED, id: 'x9', startedBy: { id: 'u9', name: 'Demo Admin' } };
+    const { f, user } = open({
+      [`GET ${ACTIVE}`]: ok(theirs),
+      [`POST ${AUTOMATIONS_BASE}/tests/x9/end`]: ok({ ...theirs, status: 'ENDED', endReason: 'DONE' }),
+    });
+    expect(await screen.findByText('Demo Admin is testing this rule.')).toBeVisible();
+    expect(screen.getByRole('heading', { name: 'Choose the test contact' })).toBeVisible();
+    expect(screen.queryByRole('heading', { name: 'The event' })).toBeNull();
+    expect(screen.queryByRole('button', { name: 'Run' })).toBeNull();
+    expect(screen.queryByRole('button', { name: 'Check next condition' })).toBeNull();
+    await user.click(screen.getByRole('button', { name: 'End that test' }));
+    await waitFor(() => expect(callsTo(f, `POST ${AUTOMATIONS_BASE}/tests/x9/end`)).toBe(1));
+    await waitFor(() => expect(screen.queryByText('Demo Admin is testing this rule.')).toBeNull());
+    expect(callsTo(f, `POST ${TESTS}`)).toBe(0);
+    expect(screen.getByRole('heading', { name: 'Choose the test contact' })).toBeVisible();
+  });
+
+  it('capturedTestIsKeptAlive', async () => {
+    vi.useFakeTimers({ shouldAdvanceTime: true });
+    const { f } = open({ [`GET ${ACTIVE}`]: ok(CAPTURED), [`GET ${X1}`]: ok(CAPTURED) }, { fake: true });
+    expect(await screen.findByRole('heading', { name: 'The event' })).toBeVisible();
+    await advance(59000);
+    expect(callsTo(f, `GET ${X1}`)).toBe(0);
+    await advance(1000);
+    expect(callsTo(f, `GET ${X1}`)).toBe(1);
+    await advance(30000);
+    expect(callsTo(f, `GET ${X1}`)).toBe(1);
+    await advance(30000);
+    expect(callsTo(f, `GET ${X1}`)).toBe(2);
+  });
+
+  it('aStepOnAnEndedTestShowsWhyItEnded', async () => {
+    const { f, user } = open({
+      [`GET ${ACTIVE}`]: ok(CAPTURED),
+      [`POST ${X1}/actions/0/run`]: {
+        status: 409,
+        body: { code: 'AUTOMATION_TEST_STATE', message: 'The test has ended' },
+      },
+      [`GET ${X1}`]: ok({ ...CAPTURED, status: 'ENDED', endReason: 'IDLE' }),
+    });
+    await user.click(await screen.findByRole('button', { name: 'Run' }));
+    expect(await screen.findByText('The test ended: nothing happened for 30 minutes.')).toBeVisible();
+    expect(callsTo(f, `GET ${X1}`)).toBe(1);
+    expect(screen.queryByRole('button', { name: 'Run' })).toBeNull();
+  });
+
+  it('conditionsShowLabelsNotIds', async () => {
+    const byNumber = open({
+      [`GET ${ACTIVE}`]: ok({
+        ...CAPTURED,
+        conditions: [{ path: '0', field: 'number', operator: 'is', value: ['n1'], actual: 'n1', passed: true }],
+      }),
+    });
+    expect(await screen.findByText('✔ Number is Main line · saw Main line')).toBeVisible();
+    byNumber.unmount();
+
+    const lane: Rule = { ...WELCOME_RULE, event: 'DEAL_LANE_CHANGED', conditions: null, actions: [] };
+    open({
+      [`GET ${RULE}`]: ok(lane),
+      [`GET ${ACTIVE}`]: ok({
+        ...CAPTURED,
+        event: 'DEAL_LANE_CHANGED',
+        conditions: [
+          { path: '0', field: 'toLane', operator: 'is', value: ['s3'], actual: 's3', passed: true },
+          { path: '1', field: 'toLane.type', operator: 'is', value: ['WON'], actual: 'WON', passed: true },
+        ],
+        conditionCount: 2,
+      }),
+    });
+    expect(await screen.findByText('✔ Moved into lane is Sales › Won · saw Sales › Won')).toBeVisible();
+    expect(screen.getByText('✔ Lane type is Won · saw Won')).toBeVisible();
+    expect(screen.queryByText(/saw s3/)).toBeNull();
   });
 
   it('idleEndStopsPollingAndSaysWhy', async () => {

@@ -264,7 +264,13 @@ const routes: IAppRoute[] = [
   {
     element: <AutomationEditorPage />,
     path: '/automations/new',
-    requires: (a) => a.hasInWorkspace('automation:view'),
+    requires: (a) => a.hasInWorkspace('automation:manage'),
+  },
+  {
+    // without it, /automations/:id would open "new" as a rule id
+    element: <NotFound />,
+    path: '/automations/new',
+    requires: (a) => !a.hasInWorkspace('automation:manage'),
   },
   {
     element: <AutomationEditorPage />,

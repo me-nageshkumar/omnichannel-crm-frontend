@@ -30,7 +30,7 @@ import { PageShell } from '@app/admin/PageShell';
 import { useLoad } from '@app/admin/useLoad';
 import { useSession } from '@app/session/SessionContext';
 import { MESSAGE_KINDS, conditionText } from '@app/Automations/automationModel';
-import { actualText, endedText, waitingText } from '@app/Automations/automationDisplay';
+import { actualLabel, endedText, waitingText } from '@app/Automations/automationDisplay';
 import { useAutomationOptions } from '@app/Automations/useAutomationOptions';
 import { useAutomationTest } from '@app/Automations/useAutomationTest';
 import { TestContactPicker } from '@app/Automations/TestContactPicker';
@@ -157,7 +157,7 @@ const ConditionsSection: React.FunctionComponent<{
               return (
                 <li
                   key={c.path}
-                >{`${c.passed ? '✔' : '✖'} ${conditionText(leaf, options)} · saw ${actualText(c.actual)}`}</li>
+                >{`${c.passed ? '✔' : '✖'} ${conditionText(leaf, options)} · saw ${actualLabel(c.field, c.actual, options, test.captured?.data ?? null)}`}</li>
               );
             })}
           </ul>

@@ -1,6 +1,8 @@
 import { describe, expect, it } from 'vitest';
-import { OPTIONS, WAITING_TEST } from '../../test/automations';
+import { CAPTURED_TEST, OPTIONS, WAITING_TEST } from '../../test/automations';
+import type { EventData } from '@app/api/automations';
 import {
+  actualLabel,
   actualText,
   endedText,
   eventLabel,
@@ -41,6 +43,48 @@ describe('automationDisplay', () => {
     expect(endedText('RULE_DELETED')).toBe('The test ended because the rule was deleted.');
     expect(endedText('DONE')).toBe('The test is done.');
     expect(endedText(null)).toBe('The test is done.');
+  });
+
+  it('actualLabelNamesWhatTheFieldStores', () => {
+    const data = CAPTURED_TEST.captured?.data as EventData;
+    expect(actualLabel('number', 'n1', OPTIONS, data)).toBe('Main line');
+    expect(actualLabel('number', ['n1', 'n2'], OPTIONS, data)).toBe('Main line, Sales line');
+    expect(actualLabel('message.type', 'PHOTO', OPTIONS, data)).toBe('Photo');
+    expect(actualLabel('message.type', ['TEXT', 'AUDIO'], OPTIONS, data)).toBe('Text, Audio / voice note');
+    expect(actualLabel('pipeline', 'p1', OPTIONS, data)).toBe('Sales');
+    expect(actualLabel('toLane', 's3', OPTIONS, data)).toBe('Sales › Won');
+    expect(actualLabel('fromLane', 's1', OPTIONS, data)).toBe('Sales › New');
+    expect(actualLabel('toLane.type', 'LOST', OPTIONS, data)).toBe('Lost');
+    expect(actualLabel('deal.owner', 'u1', OPTIONS, data)).toBe('Demo Agent');
+    expect(actualLabel('chat.new', true, OPTIONS, data)).toBe('yes');
+    expect(actualLabel('deal.owner', null, OPTIONS, data)).toBe('empty');
+    expect(actualLabel('message.text', 'Hello', OPTIONS, data)).toBe('Hello');
+    expect(actualLabel('deal.amount', 5000, OPTIONS, data)).toBe('5000');
+  });
+
+  it('actualLabelFallsBackToTheEventsNames', () => {
+    const data: EventData = {
+      ...(CAPTURED_TEST.captured?.data as EventData),
+      number: { id: 'n9', number: '919900000009', label: null },
+      deal: {
+        id: 'd1',
+        title: 'Big order',
+        status: 'OPEN',
+        amount: null,
+        currency: null,
+        owner: { id: 'u9', name: 'Gone Agent' },
+        lostReason: null,
+      },
+      pipeline: { id: 'p9', name: 'Old pipeline' },
+      fromLane: { id: 's8', name: 'Archived', type: 'OPEN' },
+      toLane: { id: 's9', name: 'Closed', type: 'WON' },
+    };
+    expect(actualLabel('number', 'n9', OPTIONS, data)).toBe('+919900000009');
+    expect(actualLabel('pipeline', 'p9', OPTIONS, data)).toBe('Old pipeline');
+    expect(actualLabel('toLane', 's9', OPTIONS, data)).toBe('Closed');
+    expect(actualLabel('fromLane', 's8', OPTIONS, data)).toBe('Archived');
+    expect(actualLabel('deal.owner', 'u9', OPTIONS, data)).toBe('Gone Agent');
+    expect(actualLabel('number', 'n7', OPTIONS, null)).toBe('n7');
   });
 
   it('actualTextFormats', () => {
