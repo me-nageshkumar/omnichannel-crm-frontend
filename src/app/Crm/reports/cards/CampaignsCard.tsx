@@ -6,6 +6,8 @@ import { useReport } from '@app/Crm/reports/useReport';
 import { type CardProps, ReportTable, longDay } from './cardShared';
 
 const TITLE = 'Campaigns';
+/** A campaign reaches people, not deals: the server ignores the pipeline filter for this column. */
+const ALL_PIPELINES = 'CRM contacts reached covers all pipelines.';
 
 const Delivery: React.FunctionComponent<{ row: CampaignsReportRow }> = ({ row: r }) => (
   <div className="crm-reports__delivery">
@@ -57,7 +59,7 @@ export const CampaignsCard: React.FunctionComponent<CardProps> = ({ ws, body, ti
       onRetry={q.reload}
       empty={rows.length === 0}
       emptyText="No campaigns started in this period."
-      note={q.data?.truncated ? 'Showing the latest 200' : undefined}
+      note={(q.data?.truncated ? 'Showing the latest 200. ' : '') + ALL_PIPELINES}
       tableOnly
       chart={table}
       table={table}
