@@ -236,6 +236,21 @@ describe('CRM task form: steps and repeat (phase E)', () => {
     expect(within(d).getByLabelText('Step 1')).not.toHaveAttribute('aria-invalid', 'true');
   });
 
+  it('aStepErrorIsTheStepsDescription', async () => {
+    const { user } = open(undefined, {
+      [POST]: {
+        status: 400,
+        body: { code: 'VALIDATION', fields: { 'checklist[0].text': 'must be 1 to 200 characters' } },
+      },
+    });
+    const d = await dialog('New task');
+    await user.type(within(d).getByLabelText(/^Title/), 'Onboard');
+    await user.type(within(d).getByLabelText('Add a step'), 'Send price list{Enter}');
+    await user.click(within(d).getByRole('button', { name: 'Save task' }));
+    await within(d).findByText('must be 1 to 200 characters');
+    expect(within(d).getByLabelText('Step 1')).toHaveAccessibleDescription(/must be 1 to 200 characters/);
+  });
+
   it('textLeftInAddAStepIsSaved', async () => {
     const { f, user } = open();
     const d = await dialog('New task');

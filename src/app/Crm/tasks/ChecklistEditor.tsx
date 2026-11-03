@@ -54,6 +54,7 @@ export const ChecklistEditor: React.FunctionComponent<{
               value={item.text}
               maxLength={200}
               validated={errors[index] ? 'error' : 'default'}
+              aria-describedby={errors[index] ? `step-error-${item.key}` : undefined}
               onChange={(_e, text) => onChange(value.map((s, i) => (i === index ? { ...s, text } : s)))}
               onKeyDown={(e) => {
                 if (e.key === 'Enter') e.preventDefault();
@@ -89,7 +90,9 @@ export const ChecklistEditor: React.FunctionComponent<{
           {errors[index] && (
             // the form scrolls to the first error helper text after a failed save
             <HelperText>
-              <HelperTextItem variant="error">{errors[index]}</HelperTextItem>
+              <HelperTextItem variant="error" id={`step-error-${item.key}`}>
+                {errors[index]}
+              </HelperTextItem>
             </HelperText>
           )}
         </div>

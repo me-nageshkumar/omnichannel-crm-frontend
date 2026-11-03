@@ -418,6 +418,7 @@ describe('CRM segment editor', () => {
     });
 
     it('aLookupFailingAfterTheEditorClosedIsNotTriedAgain', async () => {
+      vi.useFakeTimers({ shouldAdvanceTime: true });
       let reads = 0;
       const { f, user } = openWith('in', ['co7'], {
         [`GET ${COMPANIES}/co7`]: () => {
@@ -431,7 +432,8 @@ describe('CRM segment editor', () => {
       await user.click(screen.getByRole('button', { name: 'Cancel' }));
       await screen.findByRole('grid', { name: 'Segments' });
       held.release();
-      await act(() => new Promise((resolve) => setTimeout(resolve, 1800)));
+      // past the retry delay (1.5 s)
+      await advance(2000);
       expect(reads).toBe(1);
     });
 
