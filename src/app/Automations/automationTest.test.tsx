@@ -165,6 +165,39 @@ describe('automation test page', () => {
     expect(callsTo(f, `GET ${X1}`)).toBe(2);
   });
 
+  it('aPollRefusedByTheServerStopsPolling', async () => {
+    vi.useFakeTimers({ shouldAdvanceTime: true });
+    const { f } = open(
+      { [`GET ${ACTIVE}`]: ok(WAITING), [`GET ${X1}`]: inTurn(ok(WAITING), { status: 404, body: {} }) },
+      { fake: true },
+    );
+    expect(await screen.findByText(WAIT_MESSAGE)).toBeVisible();
+    await advance(2000);
+    expect(callsTo(f, `GET ${X1}`)).toBe(1);
+    await advance(2000);
+    expect(callsTo(f, `GET ${X1}`)).toBe(2);
+    expect(
+      await screen.findByText('This test is no longer open. Reload the page to see where it stands.'),
+    ).toBeVisible();
+    await advance(2000);
+    await advance(2000);
+    expect(callsTo(f, `GET ${X1}`)).toBe(2);
+  });
+
+  it('aFailedPollIsRetried', async () => {
+    vi.useFakeTimers({ shouldAdvanceTime: true });
+    const { f } = open(
+      { [`GET ${ACTIVE}`]: ok(WAITING), [`GET ${X1}`]: inTurn({ status: 503, body: {} }, ok(CAPTURED)) },
+      { fake: true },
+    );
+    expect(await screen.findByText(WAIT_MESSAGE)).toBeVisible();
+    await advance(2000);
+    expect(callsTo(f, `GET ${X1}`)).toBe(1);
+    await advance(2000);
+    expect(callsTo(f, `GET ${X1}`)).toBe(2);
+    expect(await screen.findByRole('heading', { name: 'The event' })).toBeVisible();
+  });
+
   it('leavingThePageStopsPolling', async () => {
     vi.useFakeTimers({ shouldAdvanceTime: true });
     const { f, unmount } = open({ [`GET ${ACTIVE}`]: ok(WAITING), [`GET ${X1}`]: ok(WAITING) }, { fake: true });
@@ -344,6 +377,49 @@ describe('automation test page', () => {
     expect(await screen.findByRole('heading', { name: 'The event' })).toBeVisible();
     expect(callsTo(f, `GET ${X1}`)).toBe(1);
     expect(screen.queryByText('Meera Manager is testing this rule.')).toBeNull();
+  });
+
+  it('changingTheSearchDropsThePickedContact', async () => {
+    const { f, user } = open({
+      [`GET ${CONTACTS}`]: inTurn(ok([ASHA, HIDDEN]), ok([HIDDEN])),
+      [`POST ${TESTS}`]: { status: 201, body: WAITING },
+    });
+    const search = await screen.findByRole('textbox', { name: 'Search contacts' });
+    await user.type(search, 'a');
+    await user.click(await screen.findByRole('radio', { name: 'Asha · +919811100001 · on Main line' }));
+    expect(await startButton()).toBeEnabled();
+    await user.clear(search);
+    await user.type(search, 'ravi');
+    expect(await startButton()).toBeDisabled();
+    await waitFor(() => expect(callsTo(f, `GET ${CONTACTS}`)).toBe(2));
+    const ravi = await screen.findByRole('radio', { name: 'Ravi · Number hidden · on Main line' });
+    expect(screen.queryByRole('radio', { name: 'Asha · +919811100001 · on Main line' })).toBeNull();
+    expect(await startButton()).toBeDisabled();
+    await user.click(ravi);
+    await user.click(await startButton());
+    await waitFor(() => expect(callsTo(f, `POST ${TESTS}`)).toBe(1));
+    expect(requestTo(f, `POST ${TESTS}`)?.body).toEqual({ contactId: 'c2', phone: null, treatAsNew: false });
+  });
+
+  it('preflightFailureKeepsTheActiveTest', async () => {
+    const { f, user } = open({
+      [`GET ${ACTIVE}`]: ok(WAITING),
+      [`GET ${PREFLIGHT}`]: inTurn({ status: 500, body: {} }, { status: 500, body: {} }, ok(READY)),
+      [`POST ${X1}/end`]: ok({ ...WAITING, status: 'ENDED', endReason: 'DONE' }),
+    });
+    // the open test resumes although the preflight failed
+    expect(await screen.findByText(WAIT_MESSAGE)).toBeVisible();
+    await user.click(screen.getByRole('button', { name: 'Stop test' }));
+    await user.click(await screen.findByRole('button', { name: 'Start a new test' }));
+    expect(await screen.findByRole('heading', { name: 'Choose the test contact' })).toBeVisible();
+    await waitFor(() => expect(callsTo(f, `GET ${PREFLIGHT}`)).toBe(2));
+    expect(await screen.findByText('The checks before testing could not be loaded.')).toBeVisible();
+    await user.click(screen.getByRole('radio', { name: 'A number that has never messaged you' }));
+    await user.type(screen.getByRole('textbox', { name: 'Phone number, country code first' }), '919811100009');
+    expect(await startButton()).toBeDisabled();
+    await user.click(screen.getByRole('button', { name: 'Check again' }));
+    await waitFor(() => expect(screen.getByRole('button', { name: 'Start test' })).toBeEnabled());
+    expect(screen.queryByText('The checks before testing could not be loaded.')).toBeNull();
   });
 
   it('laneChangeTestNeedsAContact', async () => {

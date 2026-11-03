@@ -53,13 +53,14 @@ const Section: React.FunctionComponent<{ title: string; children: React.ReactNod
 );
 
 /** Blockers stop the start; warnings say what the test will really do to the contact. */
-const PreflightPanel: React.FunctionComponent<{ preflight: Preflight | undefined; onCheckAgain(): void }> = ({
-  preflight,
-  onCheckAgain,
-}) => {
-  if (!preflight) return null;
-  const blockers = preflight.checks.filter((c) => c.level === 'BLOCKER');
-  const warnings = preflight.checks.filter((c) => c.level === 'WARNING');
+const PreflightPanel: React.FunctionComponent<{
+  preflight: Preflight | undefined;
+  error: string | null;
+  onCheckAgain(): void;
+}> = ({ preflight, error, onCheckAgain }) => {
+  const checks = preflight?.checks ?? [];
+  const blockers = checks.filter((c) => c.level === 'BLOCKER');
+  const warnings = checks.filter((c) => c.level === 'WARNING');
   const list = (checks: Preflight['checks']) => (
     <ul>
       {checks.map((c, i) => (
@@ -69,6 +70,7 @@ const PreflightPanel: React.FunctionComponent<{ preflight: Preflight | undefined
   );
   return (
     <Stack hasGutter>
+      {error && <Alert variant="danger" isInline title={error} />}
       {blockers.length > 0 && (
         <Alert variant="danger" isInline title="Fix these before testing">
           {list(blockers)}
@@ -227,7 +229,13 @@ const TestRunner: React.FunctionComponent<{ rule: Rule; options: AutomationOptio
               canStart={h.preflight?.canRun ?? false}
               busy={h.busy}
               onStart={(body) => void h.start(body)}
-              preflight={<PreflightPanel preflight={h.preflight} onCheckAgain={() => void h.reloadPreflight()} />}
+              preflight={
+                <PreflightPanel
+                  preflight={h.preflight}
+                  error={h.preflightError}
+                  onCheckAgain={() => void h.reloadPreflight()}
+                />
+              }
             />
           </Section>
         )}

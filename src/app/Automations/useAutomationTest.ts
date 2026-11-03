@@ -28,6 +28,8 @@ export interface OtherTest {
 export interface AutomationTestState {
   test: AutomationTest | undefined;
   preflight: Preflight | undefined;
+  /** The last preflight load failed (the preflight is then undefined). */
+  preflightError: string | null;
   loading: boolean;
   error: string | null;
   /** A step call is on its way. */
@@ -53,6 +55,13 @@ export interface AutomationTestState {
 
 const describe = (e: unknown): string => (e instanceof ApiError && e.serverMessage) || messageFor(e);
 
+export const PREFLIGHT_FAILED = 'The checks before testing could not be loaded.';
+export const TEST_GONE = 'This test is no longer open. Reload the page to see where it stands.';
+
+/** A poll the server refused (the test is gone, or no longer the user's to see): asking again will not help. */
+const refusedPoll = (e: unknown): boolean =>
+  e instanceof ApiError && e.status >= 400 && e.status < 500 && e.status !== 408 && e.status !== 429;
+
 /** The open test named by a start refused with AUTOMATION_TEST_RUNNING, or null. */
 function runningTest(e: unknown): { testId: string; startedById: string; startedByName: string } | null {
   if (!(e instanceof ApiError) || e.code !== 'AUTOMATION_TEST_RUNNING' || !e.extra?.testId) return null;
@@ -64,8 +73,9 @@ function runningTest(e: unknown): { testId: string; startedById: string; started
 }
 
 /**
- * One rule's test: the open test (resumed on mount) and the preflight. A WAITING test is fetched every
- * {@link POLL_MS}; nothing else is polled. Every step call replaces the test with the server's answer, and an answer
+ * One rule's test: the open test (resumed on mount) and the preflight, loaded independently. A WAITING test is
+ * fetched {@link POLL_MS} after each answer (never two at once); a poll the server refuses stops the polling with an
+ * error, other failures are retried. Nothing else is polled. Every step call replaces the test with the server's answer, and an answer
  * to a poll that was on its way meanwhile is dropped.
  */
 export function useAutomationTest(ruleId: string): AutomationTestState {
@@ -74,6 +84,7 @@ export function useAutomationTest(ruleId: string): AutomationTestState {
   const ws = workspace?.id ?? '';
   const [test, setTest] = React.useState<AutomationTest | undefined>(undefined);
   const [preflight, setPreflight] = React.useState<Preflight | undefined>(undefined);
+  const [preflightError, setPreflightError] = React.useState<string | null>(null);
   const [loading, setLoading] = React.useState(true);
   const [error, setError] = React.useState<string | null>(null);
   const [busy, setBusy] = React.useState(false);
@@ -97,17 +108,26 @@ export function useAutomationTest(ruleId: string): AutomationTestState {
     if (!token) return undefined;
     let live = true;
     setLoading(true);
-    Promise.all([getActiveTest(token, ws, ruleId), getTestPreflight(token, ws, ruleId)]).then(
-      ([active, checks]) => {
+    getActiveTest(token, ws, ruleId).then(
+      (active) => {
         if (!live) return;
         setTest(active ?? undefined);
-        setPreflight(checks);
         setLoading(false);
       },
       (e) => {
         if (!live) return;
         setError(describe(e));
         setLoading(false);
+      },
+    );
+    getTestPreflight(token, ws, ruleId).then(
+      (checks) => {
+        if (!live) return;
+        setPreflight(checks);
+        setPreflightError(null);
+      },
+      () => {
+        if (live) setPreflightError(PREFLIGHT_FAILED);
       },
     );
     return () => {
@@ -119,18 +139,29 @@ export function useAutomationTest(ruleId: string): AutomationTestState {
   React.useEffect(() => {
     if (!waitingId || !token) return undefined;
     let live = true;
-    const timer = setInterval(() => {
-      const sent = generation.current;
-      getTest(token, ws, waitingId).then(
-        (next) => {
-          if (live && sent === generation.current) setTest(next);
-        },
-        () => undefined, // the next poll tries again
-      );
-    }, POLL_MS);
+    let timer: ReturnType<typeof setTimeout> | undefined;
+    const poll = () => {
+      timer = setTimeout(() => {
+        const sent = generation.current;
+        getTest(token, ws, waitingId).then(
+          (next) => {
+            if (!live) return;
+            if (sent === generation.current) setTest(next);
+            // a test that moved on re-runs this effect, whose clean-up clears this timer
+            poll();
+          },
+          (e) => {
+            if (!live) return;
+            if (refusedPoll(e)) setError(e instanceof ApiError && e.status === 404 ? TEST_GONE : describe(e));
+            else poll();
+          },
+        );
+      }, POLL_MS);
+    };
+    poll();
     return () => {
       live = false;
-      clearInterval(timer);
+      clearTimeout(timer);
     };
   }, [waitingId, token, ws]);
 
@@ -196,9 +227,14 @@ export function useAutomationTest(ruleId: string): AutomationTestState {
   const reloadPreflight = async (): Promise<void> => {
     try {
       const checks = await getTestPreflight(t, ws, ruleId);
-      if (mounted.current) setPreflight(checks);
-    } catch (e) {
-      if (mounted.current) setError(describe(e));
+      if (!mounted.current) return;
+      setPreflight(checks);
+      setPreflightError(null);
+    } catch {
+      if (!mounted.current) return;
+      // a start must not rest on checks that could not be made again
+      setPreflight(undefined);
+      setPreflightError(PREFLIGHT_FAILED);
     }
   };
 
@@ -212,6 +248,7 @@ export function useAutomationTest(ruleId: string): AutomationTestState {
   return {
     test,
     preflight,
+    preflightError,
     loading,
     error,
     busy,

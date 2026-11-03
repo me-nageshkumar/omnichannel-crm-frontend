@@ -88,23 +88,31 @@ export const TestContactPicker: React.FunctionComponent<{
   const byNumber = messages && typed;
   const digits = normaliseNumber(phone.trim());
   const phoneValid = NUMBER_PATTERN.test(digits);
-  const chosen = byNumber ? phoneValid : contactId !== null;
+  // only a contact the current results show counts as picked
+  const picked = found && !searching && found.some((c) => c.contactId === contactId) ? contactId : null;
+  const chosen = byNumber ? phoneValid : picked !== null;
+
+  /** A new query drops the contact picked from the old results. */
+  const search = (v: string) => {
+    setQ(v);
+    setContactId(null);
+  };
 
   const start = () =>
     onStart({
-      contactId: byNumber ? null : contactId,
+      contactId: byNumber ? null : picked,
       phone: byNumber ? digits : null,
       treatAsNew: messages && treatAsNew,
     });
 
-  const search = (
+  const searchBox = (
     <>
       <SearchInput
         aria-label="Search contacts"
         placeholder="Name or number"
         value={q}
-        onChange={(_e, v) => setQ(v)}
-        onClear={() => setQ('')}
+        onChange={(_e, v) => search(v)}
+        onClear={() => search('')}
       />
       {searching && <Spinner size="md" aria-label="Searching contacts" />}
       {searchError && <Alert variant="danger" isInline title={searchError} />}
@@ -137,7 +145,7 @@ export const TestContactPicker: React.FunctionComponent<{
             label="An existing contact"
             isChecked={!typed}
             onChange={() => setTyped(false)}
-            body={!typed && search}
+            body={!typed && searchBox}
           />
           <Radio
             id="test-contact-number"
@@ -172,7 +180,7 @@ export const TestContactPicker: React.FunctionComponent<{
         </FormGroup>
       ) : (
         <FormGroup label="Test contact" isStack fieldId="test-contact-search">
-          {search}
+          {searchBox}
         </FormGroup>
       )}
       {messages && (
