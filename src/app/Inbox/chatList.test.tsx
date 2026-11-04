@@ -30,6 +30,7 @@ function chat(over: Partial<ChatView> & { id: string }): ChatView {
     creationTime: hoursAgo(48),
     lastAgent: null,
     adClick: null,
+    otherChats: [],
     ...over,
   };
 }

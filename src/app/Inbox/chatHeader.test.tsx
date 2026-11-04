@@ -32,6 +32,7 @@ const CHAT: ChatView = {
   creationTime: new Date().toISOString(),
   lastAgent: null,
   adClick: null,
+  otherChats: [],
 };
 
 const view = (over: Partial<HistoryImportView>, counts: Partial<HistoryImportView['counts']> = {}) =>
@@ -253,5 +254,45 @@ describe('chat header: fetch history', () => {
     setup(WORKSPACE_MANAGER);
     await screen.findByText('Asha Rao');
     expect(screen.queryByText('Ad')).toBeNull();
+  });
+});
+
+describe("chat header: the person's other chats", () => {
+  beforeEach(() => {
+    localStorage.clear();
+    storeSession();
+  });
+  afterEach(() => vi.unstubAllGlobals());
+  const other = { id: 'c2', remoteId: '919876543210@c.us' };
+  const LINE = 'This person also has another chat on this number';
+
+  it('oneOtherChatShowsTheLine', async () => {
+    setup(WORKSPACE_MANAGER, {}, { ...CHAT, otherChats: [other] });
+    expect(await screen.findByText(LINE, { exact: false })).toBeTruthy();
+    expect(screen.getByRole('link', { name: '+919876543210' })).toBeTruthy();
+  });
+
+  it('severalOtherChatsUsePlural', async () => {
+    setup(WORKSPACE_MANAGER, {}, { ...CHAT, otherChats: [other, { id: 'c3', remoteId: '1234@lid' }] });
+    expect(await screen.findByText('This person also has other chats on this number', { exact: false })).toBeTruthy();
+    expect(screen.queryByText(LINE, { exact: false })).toBeNull();
+    expect(screen.getByRole('link', { name: 'hidden number' })).toBeTruthy();
+  });
+
+  it('noOtherChatsNoLine', async () => {
+    setup(WORKSPACE_MANAGER, {}, { ...CHAT, otherChats: [] });
+    await screen.findByText('Asha Rao');
+    expect(screen.queryByText('also has', { exact: false })).toBeNull();
+  });
+
+  it('olderResponsesWithoutTheFieldShowNoLine', async () => {
+    setup(WORKSPACE_MANAGER, {}, { ...CHAT, otherChats: undefined } as unknown as ChatView);
+    await screen.findByText('Asha Rao');
+    expect(screen.queryByText('also has', { exact: false })).toBeNull();
+  });
+
+  it('otherChatLinksToIt', async () => {
+    setup(WORKSPACE_MANAGER, {}, { ...CHAT, otherChats: [{ id: 'c 2', remoteId: '1234@lid' }] });
+    expect(await screen.findByRole('link', { name: 'hidden number' })).toHaveAttribute('href', '/inbox/chats/c%202');
   });
 });

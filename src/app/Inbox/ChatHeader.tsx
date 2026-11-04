@@ -8,7 +8,7 @@ import { messageFor } from '@app/api/messages';
 import { AssignMenu } from '@app/Inbox/AssignMenu';
 import { ReassignMenu } from '@app/Inbox/ReassignMenu';
 import { ApiError } from '@app/api/client';
-import { contactName } from '@app/Inbox/chatDisplay';
+import { contactName, otherChatLabel } from '@app/Inbox/chatDisplay';
 import { useSession } from '@app/session/SessionContext';
 import { useAccess } from '@app/session/useAccess';
 import { ImportHistoryModal } from '@app/HistoryImports/ImportHistoryModal';
@@ -175,6 +175,21 @@ export const ChatHeader: React.FunctionComponent<{
           )}
         </span>
       </div>
+      {chat.otherChats && chat.otherChats.length > 0 && (
+        <div
+          style={{ fontSize: 'var(--pf-t--global--font--size--sm)', color: 'var(--pf-t--global--text--color--subtle)' }}
+        >
+          {chat.otherChats.length === 1
+            ? 'This person also has another chat on this number: '
+            : 'This person also has other chats on this number: '}
+          {chat.otherChats.map((o, i) => (
+            <React.Fragment key={o.id}>
+              {i > 0 && ', '}
+              <Link to={`/inbox/chats/${encodeURIComponent(o.id)}`}>{otherChatLabel(o.remoteId)}</Link>
+            </React.Fragment>
+          ))}
+        </div>
+      )}
       {error && <Alert variant="danger" isInline isPlain title={error} />}
       {imp && isActive(imp.status) && (
         <Alert
