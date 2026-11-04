@@ -172,6 +172,23 @@ describe('CRM contact drawer', () => {
     expect(text.querySelector('a')).toBeNull();
   });
 
+  it('ctwaOriginWithUnsafeUrlIsText', async () => {
+    mockFetch(
+      routes({
+        [CONTACT]: {
+          status: 200,
+          body: originBody('CTWA_AD', { sourceId: 's1', sourceUrl: 'javascript:alert(1)', headline: 'Diwali sale' }),
+        },
+      }),
+    );
+    renderApp('/crm/contacts/c1');
+    expect(
+      await screen.findByText('Came from a click-to-WhatsApp ad \u201cDiwali sale\u201d on 1 Oct 2026'),
+    ).toBeInTheDocument();
+    expect(screen.queryByRole('link', { name: 'Diwali sale' })).toBeNull();
+    expect(document.querySelector('a[href^="javascript"]')).toBeNull();
+  });
+
   it('inboundOriginUnchanged', async () => {
     mockFetch(routes({ [CONTACT]: { status: 200, body: originBody('INBOUND_CHAT', null) } }));
     renderApp('/crm/contacts/c1');
