@@ -41,7 +41,7 @@ export interface Contact {
   id: string;
   name: string | null;
   phone: string | null;
-  waId: string | null;
+  waIds: string[];
   numberHidden: boolean;
   doNotContact: { at: string; reason: 'STOP_REPLY' | 'MANUAL'; campaignId: string | null } | null;
   labels: string[];
@@ -305,3 +305,7 @@ export function saveFile(blob: Blob, fileName: string): void {
   a.remove();
   URL.revokeObjectURL(url);
 }
+
+/** Queues the brand's contacts that lack a phone or a hidden id for a WhatsApp Web lookup. */
+export const resolveContactIds = (token: string, ws: string) =>
+  apiFetch<{ queued: number }>(`${base(ws)}/contacts/resolve-ids`, { method: 'POST', token });

@@ -1,6 +1,6 @@
 import { afterEach, describe, expect, it, vi } from 'vitest';
-import { createFilter, getFilter, isAdvanced, previewFilter, updateFilter } from '@app/api/contacts';
-import { mockFetch, requestTo } from '../../test/fetchMock';
+import { createFilter, resolveContactIds, getFilter, isAdvanced, previewFilter, updateFilter } from '@app/api/contacts';
+import { callsTo, mockFetch, requestTo } from '../../test/fetchMock';
 import { LAPSED_TREE, advancedFilter, filterPreview } from '../../test/contacts';
 
 const B = '/api/workspaces/w1';
@@ -56,5 +56,11 @@ describe('contact filters api', () => {
     expect(isAdvanced({})).toBe(false);
     expect(isAdvanced({ kind: 'SIMPLE' })).toBe(false);
     expect(isAdvanced({ kind: 'ADVANCED' })).toBe(true);
+  });
+
+  it('resolvesHiddenIds', async () => {
+    const fetch = mockFetch({ [`POST ${B}/contacts/resolve-ids`]: { status: 202, body: { queued: 3 } } });
+    await expect(resolveContactIds('t', 'w1')).resolves.toEqual({ queued: 3 });
+    expect(callsTo(fetch, `POST ${B}/contacts/resolve-ids`)).toBe(1);
   });
 });

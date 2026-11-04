@@ -22,7 +22,7 @@ export function contact(over: Partial<Contact> & Pick<Contact, 'id'>): Contact {
   return {
     name: null,
     phone: null,
-    waId: null,
+    waIds: [],
     numberHidden: false,
     doNotContact: null,
     labels: [],

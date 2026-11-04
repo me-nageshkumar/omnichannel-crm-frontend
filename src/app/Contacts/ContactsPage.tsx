@@ -36,6 +36,7 @@ import {
   listAttributes,
   listFilters,
   listLabels,
+  resolveContactIds,
   saveFile,
   searchContacts,
 } from '@app/api/contacts';
@@ -91,6 +92,13 @@ export const ContactsPage: React.FunctionComponent = () => {
   const [exporting, setExporting] = React.useState(false);
   const [exportError, setExportError] = React.useState<string | null>(null);
   const removal = useAction();
+  const resolving = useAction();
+  const [resolveNote, setResolveNote] = React.useState<string | null>(null);
+  const onResolve = async () => {
+    setResolveNote(null);
+    const r = await resolving.run(() => resolveContactIds(t, ws));
+    if (r) setResolveNote(`${r.queued} ${r.queued === 1 ? 'contact' : 'contacts'} queued`);
+  };
 
   React.useEffect(() => {
     const timer = setTimeout(() => {
@@ -225,6 +233,11 @@ export const ContactsPage: React.FunctionComponent = () => {
               Import
             </Button>
           )}{' '}
+          {canEdit && (
+            <Button variant="secondary" onClick={onResolve} isDisabled={resolving.busy} isLoading={resolving.busy}>
+              Resolve hidden numbers
+            </Button>
+          )}{' '}
           {canExport && (
             <Button variant="secondary" onClick={onExport} isDisabled={exporting} isLoading={exporting}>
               Export
@@ -322,6 +335,16 @@ export const ContactsPage: React.FunctionComponent = () => {
           onChange={changeFilter}
         />
       </ExpandableSection>
+      {resolveNote && (
+        <Alert
+          variant="info"
+          isInline
+          isLiveRegion
+          title={resolveNote}
+          actionClose={<AlertActionCloseButton onClose={() => setResolveNote(null)} />}
+        />
+      )}
+      {resolving.error && <Alert variant="danger" isInline title={resolving.error} />}
       {bulkNote && (
         <Alert
           variant="success"

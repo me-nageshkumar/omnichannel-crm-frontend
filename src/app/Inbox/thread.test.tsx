@@ -34,6 +34,7 @@ const CHAT: ChatView = {
   creationTime: hoursAgo(48),
   lastAgent: null,
   adClick: null,
+  otherChats: [],
 };
 
 function message(over: Partial<MessageView> & { id: string }): ThreadItem {

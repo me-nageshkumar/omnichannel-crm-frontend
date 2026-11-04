@@ -24,6 +24,11 @@ export function contactName(chat: { contact: Pick<ChatContact, 'name' | 'phone'>
   return phone ? `+${phone}` : 'Number hidden';
 }
 
+/** How another chat of the same person is named: `+digits` for a phone id, "hidden number" for a `@lid` one. */
+export function otherChatLabel(remoteId: string): string {
+  return remoteId.endsWith('@c.us') ? `+${remoteId.slice(0, -'@c.us'.length)}` : 'hidden number';
+}
+
 /**
  * The lists the user may look at: their own always; the unassigned (their teams' queue) with view-queue; the team's
  * too with view-team; all with view-all.

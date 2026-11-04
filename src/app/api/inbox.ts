@@ -43,6 +43,12 @@ export interface AdClickView {
   description: string | null;
 }
 
+/** Another chat on the same number that belongs to the same person. */
+export interface OtherChat {
+  id: string;
+  remoteId: string;
+}
+
 export interface ChatView {
   id: string;
   phoneNumberId: string;
@@ -59,6 +65,8 @@ export interface ChatView {
   lastAgent: IdName | null;
   /** Set when the person came in through a click-to-WhatsApp ad. */
   adClick: AdClickView | null;
+  /** The person's other chats on this number (a phone id and a hidden-number id); absent from older servers. */
+  otherChats: OtherChat[];
 }
 
 export interface MessageMedia {

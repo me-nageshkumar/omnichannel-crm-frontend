@@ -48,6 +48,7 @@ const ASHA: ChatView = {
   creationTime: '2026-10-20T10:00:00Z',
   lastAgent: null,
   adClick: null,
+  otherChats: [],
 };
 const MEENA: ChatView = {
   ...ASHA,
