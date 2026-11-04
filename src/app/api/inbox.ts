@@ -34,6 +34,15 @@ export interface LastMessage {
   status: MessageStatus;
 }
 
+/** The click-to-WhatsApp ad a person came in through. */
+export interface AdClickView {
+  sourceId: string | null;
+  sourceUrl: string | null;
+  sourceApp: string | null;
+  headline: string | null;
+  description: string | null;
+}
+
 export interface ChatView {
   id: string;
   phoneNumberId: string;
@@ -48,6 +57,8 @@ export interface ChatView {
   creationTime: string;
   /** The user who last handled the chat; a returning customer may stick to them. */
   lastAgent: IdName | null;
+  /** Set when the person came in through a click-to-WhatsApp ad. */
+  adClick: AdClickView | null;
 }
 
 export interface MessageMedia {
@@ -110,6 +121,8 @@ export interface MessageView {
   call?: CallDetail | null;
   /** WhatsApp's tag on a business template: MARKETING, UTILITY or AUTHENTICATION (a verification code). */
   businessTag?: string | null;
+  /** Set when the message came in through a click-to-WhatsApp ad. */
+  adClick: AdClickView | null;
 }
 
 export interface ActionView {

@@ -27,6 +27,7 @@ const CHAT: ChatView = {
   lastMessage: null,
   creationTime: '2026-10-20T10:00:00Z',
   lastAgent: null,
+  adClick: null,
 };
 
 const SENT: MessageView = {
@@ -44,6 +45,7 @@ const SENT: MessageView = {
   statusTimes: { sentAt: null, deliveredAt: null, readAt: null, playedAt: null, failedAt: null },
   sentBy: null,
   templateId: null,
+  adClick: null,
 };
 
 const Host: React.FunctionComponent<{

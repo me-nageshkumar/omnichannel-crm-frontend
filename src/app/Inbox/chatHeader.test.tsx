@@ -31,6 +31,7 @@ const CHAT: ChatView = {
   lastMessage: null,
   creationTime: new Date().toISOString(),
   lastAgent: null,
+  adClick: null,
 };
 
 const view = (over: Partial<HistoryImportView>, counts: Partial<HistoryImportView['counts']> = {}) =>
@@ -43,23 +44,23 @@ const view = (over: Partial<HistoryImportView>, counts: Partial<HistoryImportVie
     ...over,
   }) as HistoryImportView;
 
-const Host: React.FunctionComponent<{ onImported(): void }> = ({ onImported }) => {
+const Host: React.FunctionComponent<{ onImported(): void; chat?: ChatView }> = ({ onImported, chat = CHAT }) => {
   const { status } = useSession();
   return status === 'signedIn' ? (
     <MemoryRouter>
-      <ChatHeader chat={CHAT} onChange={() => undefined} onHistoryImported={onImported} />
+      <ChatHeader chat={chat} onChange={() => undefined} onHistoryImported={onImported} />
     </MemoryRouter>
   ) : null;
 };
 
-function setup(user: typeof WORKSPACE_MANAGER, routes: Parameters<typeof mockFetch>[0] = {}) {
+function setup(user: typeof WORKSPACE_MANAGER, routes: Parameters<typeof mockFetch>[0] = {}, chat?: ChatView) {
   const fetch = mockFetch({ ...meAs(user), ...routes });
   const onImported = vi.fn();
   const ui = userEvent.setup({ advanceTimers: vi.advanceTimersByTime });
   render(
     <ThemeProvider>
       <SessionProvider>
-        <Host onImported={onImported} />
+        <Host onImported={onImported} chat={chat} />
       </SessionProvider>
     </ThemeProvider>,
   );
@@ -239,5 +240,18 @@ describe('chat header: fetch history', () => {
     setup(BRAND_VIEWER);
     await screen.findByText('Asha Rao');
     expect(screen.queryByRole('button', { name: 'Fetch history' })).toBeNull();
+  });
+
+  it('adChatShowsTheLabel', async () => {
+    const adClick = { sourceId: '1', sourceUrl: null, sourceApp: null, headline: 'Diwali sale', description: null };
+    setup(WORKSPACE_MANAGER, {}, { ...CHAT, adClick });
+    const label = (await screen.findByText('Ad')).closest('.pf-v6-c-label');
+    expect(label).toHaveAttribute('title', 'Diwali sale');
+  });
+
+  it('noAdNoLabel', async () => {
+    setup(WORKSPACE_MANAGER);
+    await screen.findByText('Asha Rao');
+    expect(screen.queryByText('Ad')).toBeNull();
   });
 });

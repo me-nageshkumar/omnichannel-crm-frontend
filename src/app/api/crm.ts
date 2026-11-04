@@ -174,6 +174,7 @@ export interface CrmContact {
     chatId: string | null;
     firstMessageAt: string | null;
     capturedBy: Ref | null;
+    ad: { sourceId: string | null; sourceUrl: string | null; headline: string | null } | null;
   } | null;
   customFields: Record<string, unknown>;
   openDealCount: number;

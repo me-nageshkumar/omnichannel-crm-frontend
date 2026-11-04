@@ -234,6 +234,24 @@ describe('automation test page', () => {
     expect(screen.queryByRole('button', { name: 'Check next condition' })).toBeNull();
   });
 
+  it('capturedEventShowsFromAd', async () => {
+    const ad = { sourceId: 'a1', sourceUrl: 'https://fb.me/x', headline: 'Diwali sale' };
+    const data = { ...CAPTURED.captured!.data, message: { ...CAPTURED.captured!.data.message!, ad } };
+    open({ [`GET ${ACTIVE}`]: ok({ ...CAPTURED, captured: { ...CAPTURED.captured!, data } }) });
+    const term = await screen.findByText('From ad');
+    expect(term).toBeVisible();
+    const link = screen.getByRole('link', { name: 'Diwali sale' });
+    expect(link).toHaveAttribute('href', 'https://fb.me/x');
+    expect(link).toHaveAttribute('target', '_blank');
+    expect(link).toHaveAttribute('rel', 'noopener noreferrer');
+  });
+
+  it('noAdRowWithoutAd', async () => {
+    open({ [`GET ${ACTIVE}`]: ok(CAPTURED) });
+    expect(await screen.findByText('Hello')).toBeVisible();
+    expect(screen.queryByText('From ad')).toBeNull();
+  });
+
   it('noConditionsMatchesEveryEvent', async () => {
     open({ [`GET ${ACTIVE}`]: ok({ ...CAPTURED, conditionCount: 0, conditions: [] }) });
     expect(await screen.findByText('No conditions: the rule matches every event.')).toBeVisible();

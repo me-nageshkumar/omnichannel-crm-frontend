@@ -93,3 +93,6 @@ export function callText({ call, direction }: Pick<MessageView, 'call' | 'direct
   const label = `${direction === 'OUT' ? 'Outgoing' : 'Incoming'} ${kind}`;
   return call?.durationSeconds ? `${label} · ${durationText(call.durationSeconds)}` : label;
 }
+
+/** The ad's URL when it is safe to link (http or https), else null. */
+export const adLink = (url: string | null): string | null => (url && /^https?:\/\//.test(url) ? url : null);

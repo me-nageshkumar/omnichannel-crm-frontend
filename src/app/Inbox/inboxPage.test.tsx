@@ -47,6 +47,7 @@ const ASHA: ChatView = {
   lastMessage: { direction: 'IN', type: 'text', text: 'Hello from Asha', status: 'READ' },
   creationTime: '2026-10-20T10:00:00Z',
   lastAgent: null,
+  adClick: null,
 };
 const MEENA: ChatView = {
   ...ASHA,
@@ -73,6 +74,7 @@ function message(over: Partial<MessageView> & { id: string }): MessageView {
     statusTimes: { sentAt: null, deliveredAt: null, readAt: null, playedAt: null, failedAt: null },
     sentBy: null,
     templateId: null,
+    adClick: null,
     ...over,
   };
 }

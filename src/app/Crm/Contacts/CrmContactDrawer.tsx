@@ -36,7 +36,8 @@ import { useCrmCan, useCrmStatus } from '@app/Crm/status/CrmStatusContext';
 import { useOpenChat } from '@app/Crm/deals/useOpenChat';
 import { CrmContactFormModal } from '@app/Crm/Contacts/CrmContactFormModal';
 import { MoveChannelModal } from '@app/Crm/Contacts/MoveChannelModal';
-import { DELETED_NOTICE, contactName, formatDate, originLine } from '@app/Crm/Contacts/contactColumns';
+import { DELETED_NOTICE, contactName, formatDate } from '@app/Crm/Contacts/contactColumns';
+import { originNode } from '@app/Crm/Contacts/OriginLine';
 import { personName } from '@app/Crm/personName';
 import { LabelChip } from '@app/Contacts/LabelChip';
 
@@ -197,7 +198,7 @@ export const CrmContactDrawer: React.FunctionComponent<{
         )}
       </>
     );
-    const origin = originLine(contact);
+    const origin = originNode(contact);
     const details = (
       <>
         {contact.contactDeleted && <Alert variant="info" isInline title={DELETED_NOTICE} className="pf-v6-u-mb-md" />}

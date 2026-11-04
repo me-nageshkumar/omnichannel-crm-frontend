@@ -40,13 +40,25 @@ export function formatDate(iso: string): string {
 /** The name to show for a contact: its name, else its number. */
 export const contactName = (c: Pick<CrmContact, 'name' | 'phone'>): string => c.name || c.phone || 'Contact';
 
+/** The click-to-WhatsApp sentence in parts, so the string and the linked version share one wording. */
+export function adOriginParts(c: CrmContact): { before: string; headline: string | null; after: string } | null {
+  if (c.origin?.kind !== 'CTWA_AD') return null;
+  return {
+    before: 'Came from a click-to-WhatsApp ad',
+    headline: c.origin.ad?.headline || null,
+    after: `on ${formatDate(c.creationTime)}`,
+  };
+}
+
 /** How the contact came to be in the CRM, in a sentence. */
 export function originLine(c: CrmContact): string {
   const kind = c.origin?.kind;
+  const ad = adOriginParts(c);
+  if (ad) return [ad.before, ad.headline && `\u201c${ad.headline}\u201d`, ad.after].filter(Boolean).join(' ');
   if (kind === 'MANUAL') return 'Added by hand';
   if (kind === 'IMPORT') return 'Imported';
   if (kind === 'API') return 'Added through the API';
-  if (kind === 'INBOUND_CHAT' || kind === 'CTWA_AD' || kind === 'FACEBOOK_LEAD' || kind === 'WEBSITE_LEAD') {
+  if (kind === 'INBOUND_CHAT' || kind === 'FACEBOOK_LEAD' || kind === 'WEBSITE_LEAD') {
     const by = c.origin?.capturedBy ? personName(c.origin.capturedBy) : null;
     return `Captured from a chat${by ? ` by ${by}` : ''} on ${formatDate(c.creationTime)}`;
   }

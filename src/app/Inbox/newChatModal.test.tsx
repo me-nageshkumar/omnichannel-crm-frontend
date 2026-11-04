@@ -38,6 +38,7 @@ const STARTED: MessageView = {
   statusTimes: { sentAt: null, deliveredAt: null, readAt: null, playedAt: null, failedAt: null },
   sentBy: null,
   templateId: null,
+  adClick: null,
 };
 
 const Host: React.FunctionComponent<{
