@@ -339,6 +339,7 @@ export const ContactsPage: React.FunctionComponent = () => {
         <Alert
           variant="info"
           isInline
+          isLiveRegion
           title={resolveNote}
           actionClose={<AlertActionCloseButton onClose={() => setResolveNote(null)} />}
         />

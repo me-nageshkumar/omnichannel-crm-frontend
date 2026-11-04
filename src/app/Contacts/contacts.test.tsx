@@ -343,4 +343,14 @@ describe('contacts page', () => {
     await screen.findByText('Source');
     expect(screen.queryByText('WhatsApp ids')).toBeNull();
   });
+
+  it('detailPutsThePhoneIdFirst', async () => {
+    mockFetch(
+      routes(WORKSPACE_MANAGER, {
+        [`GET ${B}/contacts/c1`]: { status: 200, body: { ...ASHA, waIds: ['1203@lid', '919876543210@c.us'] } },
+      }),
+    );
+    renderApp('/contacts/c1');
+    expect(await screen.findByText('919876543210@c.us, 1203@lid')).toBeVisible();
+  });
 });

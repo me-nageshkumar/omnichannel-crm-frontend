@@ -41,6 +41,12 @@ import { SOURCE_TEXT, displayName, phoneText } from '@app/Contacts/contactDispla
 const when = (iso: string | null) => (iso ? relative(iso) : '—');
 
 /** One contact: details, labels, attributes and notes. */
+/** Phone ids (@c.us) before hidden ones, each group in server order. */
+const phoneIdsFirst = (ids: string[]) => {
+  const isPhone = (id: string) => id.slice(-5) === '@c.us';
+  return ids.filter(isPhone).concat(ids.filter((id) => !isPhone(id)));
+};
+
 export const ContactDetailPage: React.FunctionComponent = () => {
   const { id = '' } = useParams();
   const { token, workspace } = useSession();
@@ -125,7 +131,7 @@ export const ContactDetailPage: React.FunctionComponent = () => {
               {c.waIds && c.waIds.length > 0 && (
                 <DescriptionListGroup>
                   <DescriptionListTerm>WhatsApp ids</DescriptionListTerm>
-                  <DescriptionListDescription>{c.waIds.join(', ')}</DescriptionListDescription>
+                  <DescriptionListDescription>{phoneIdsFirst(c.waIds).join(', ')}</DescriptionListDescription>
                 </DescriptionListGroup>
               )}
               <DescriptionListGroup>
