@@ -33,6 +33,7 @@ const CHAT: ChatView = {
   lastMessage: null,
   creationTime: hoursAgo(48),
   lastAgent: null,
+  adClick: null,
 };
 
 function message(over: Partial<MessageView> & { id: string }): ThreadItem {
@@ -50,6 +51,7 @@ function message(over: Partial<MessageView> & { id: string }): ThreadItem {
     statusTimes: { sentAt: null, deliveredAt: null, readAt: null, playedAt: null, failedAt: null },
     sentBy: null,
     templateId: null,
+    adClick: null,
     ...over,
   };
   return { kind: 'message', message: m, action: null, at: m.timestamp };
@@ -1065,6 +1067,45 @@ describe('thread', () => {
     });
     expect(actionText(action({ reasonDetail: 'Welcome' }))).toBe('Routed to Support (by automation: Welcome)');
     expect(actionText(action({ reasonDetail: null }))).toBe('Routed to Support (by automation)');
+  });
+
+  const AD = {
+    sourceId: '1',
+    sourceUrl: 'https://fb.me/x',
+    sourceApp: 'facebook',
+    headline: 'Diwali sale',
+    description: null,
+  };
+
+  it('showsTheAdLine', async () => {
+    mockFetch({ ...meAs(AGENT_IN_BRAND), [`GET ${THREAD}`]: page([message({ id: 'm1', body: 'Hi', adClick: AD })]) });
+    renderThread();
+    const link = await screen.findByRole('link', { name: 'Diwali sale' });
+    expect(link).toHaveAttribute('href', 'https://fb.me/x');
+    expect(link).toHaveAttribute('target', '_blank');
+    expect(link.parentElement).toHaveTextContent('From ad: Diwali sale');
+  });
+
+  it('adLineWithoutLinkIsText', async () => {
+    mockFetch({
+      ...meAs(AGENT_IN_BRAND),
+      [`GET ${THREAD}`]: page([message({ id: 'm1', body: 'Hi', adClick: { ...AD, sourceUrl: null } })]),
+    });
+    renderThread();
+    expect(await screen.findByText('From ad: Diwali sale')).toBeInTheDocument();
+    expect(screen.queryByRole('link', { name: 'Diwali sale' })).toBeNull();
+  });
+
+  it('adLineFallsBackToAnAd', async () => {
+    mockFetch({
+      ...meAs(AGENT_IN_BRAND),
+      [`GET ${THREAD}`]: page([
+        message({ id: 'm1', body: 'Hi', adClick: { ...AD, sourceUrl: 'javascript:alert(1)', headline: null } }),
+      ]),
+    });
+    renderThread();
+    expect(await screen.findByText('From ad: an ad')).toBeInTheDocument();
+    expect(screen.queryByRole('link', { name: 'an ad' })).toBeNull();
   });
 
   it('fetches nothing without a chat', async () => {

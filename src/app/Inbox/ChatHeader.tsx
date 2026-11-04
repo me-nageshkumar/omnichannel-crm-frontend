@@ -145,6 +145,11 @@ export const ChatHeader: React.FunctionComponent<{
             {shown(number.number)}
           </Label>
         )}
+        {chat.adClick && (
+          <Label isCompact color="purple" title={chat.adClick.headline ?? chat.adClick.description ?? undefined}>
+            Ad
+          </Label>
+        )}
         <Label isCompact color={chat.assignedUser || chat.assignedTeam ? 'blue' : 'grey'}>
           {assignmentText(chat)}
         </Label>

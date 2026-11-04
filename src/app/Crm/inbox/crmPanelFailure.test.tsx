@@ -31,6 +31,7 @@ const ASHA: ChatView = {
   lastMessage: { direction: 'IN', type: 'text', text: 'Hello', status: 'READ' },
   creationTime: '2026-10-20T10:00:00Z',
   lastAgent: null,
+  adClick: null,
 };
 
 describe('CRM panel failure', () => {

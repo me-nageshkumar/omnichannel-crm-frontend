@@ -1,6 +1,6 @@
 import * as React from 'react';
-import type { MessageView } from '@app/api/inbox';
-import { STATUS_TICK } from '@app/Inbox/chatDisplay';
+import type { AdClickView, MessageView } from '@app/api/inbox';
+import { STATUS_TICK, adLink } from '@app/Inbox/chatDisplay';
 import { ContactCardBody } from '@app/Inbox/ContactCardBody';
 import { MediaBody } from '@app/Inbox/MediaBody';
 import { PollBody } from '@app/Inbox/PollBody';
@@ -63,6 +63,23 @@ function Content({ message, contact }: { message: MessageView; contact: string }
   return <em>Unsupported message</em>;
 }
 
+function AdLine({ ad }: { ad: AdClickView }) {
+  const text = ad.headline ?? ad.description ?? 'an ad';
+  const href = adLink(ad.sourceUrl);
+  return (
+    <div style={{ color: 'var(--pf-t--global--text--color--subtle)', fontSize: 'var(--pf-t--global--font--size--sm)' }}>
+      From ad:{' '}
+      {href ? (
+        <a href={href} target="_blank" rel="noopener noreferrer">
+          {text}
+        </a>
+      ) : (
+        text
+      )}
+    </div>
+  );
+}
+
 export interface MessageBubbleProps {
   message: MessageView;
   /** Incoming bubbles sit on the left, outgoing on the right. */
@@ -99,6 +116,7 @@ export const MessageBubble: React.FunctionComponent<MessageBubbleProps> = ({ mes
           overflowWrap: 'anywhere',
         }}
       >
+        {message.adClick && <AdLine ad={message.adClick} />}
         <Content message={message} contact={contact} />
         <div
           style={{
