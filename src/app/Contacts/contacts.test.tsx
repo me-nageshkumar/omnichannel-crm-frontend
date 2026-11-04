@@ -305,4 +305,42 @@ describe('contacts page', () => {
     await waitFor(() => expect(callsTo(fetch, `DELETE ${B}/contacts/c1`)).toBe(1));
     expect(await screen.findByRole('heading', { name: 'Contacts' })).toBeVisible();
   });
+
+  it('resolveHiddenNumbersShowsTheCount', async () => {
+    const fetch = mockFetch(
+      routes(WORKSPACE_MANAGER, { [`POST ${B}/contacts/resolve-ids`]: { status: 202, body: { queued: 3 } } }),
+    );
+    const { user } = renderApp('/contacts');
+    await rowWith('Asha Rao');
+    await user.click(screen.getByRole('button', { name: 'Resolve hidden numbers' }));
+    expect(await screen.findByText('3 contacts queued')).toBeVisible();
+    expect(callsTo(fetch, `POST ${B}/contacts/resolve-ids`)).toBe(1);
+  });
+
+  it('resolveHiddenNumbersNeedsEdit', async () => {
+    mockFetch(routes(AGENT_IN_BRAND));
+    renderApp('/contacts');
+    await rowWith('Asha Rao');
+    expect(screen.queryByRole('button', { name: 'Resolve hidden numbers' })).toBeNull();
+  });
+
+  it('detailListsWhatsAppIds', async () => {
+    mockFetch(
+      routes(WORKSPACE_MANAGER, {
+        [`GET ${B}/contacts/c1`]: { status: 200, body: { ...ASHA, waIds: ['919876543210@c.us', '1203@lid'] } },
+      }),
+    );
+    renderApp('/contacts/c1');
+    expect(await screen.findByText('WhatsApp ids')).toBeVisible();
+    expect(screen.getByText('919876543210@c.us, 1203@lid')).toBeVisible();
+  });
+
+  it('missingWaIdsRendersNothing', async () => {
+    const old: Partial<typeof ASHA> = { ...ASHA };
+    delete old.waIds;
+    mockFetch(routes(WORKSPACE_MANAGER, { [`GET ${B}/contacts/c1`]: { status: 200, body: old } }));
+    renderApp('/contacts/c1');
+    await screen.findByText('Source');
+    expect(screen.queryByText('WhatsApp ids')).toBeNull();
+  });
 });

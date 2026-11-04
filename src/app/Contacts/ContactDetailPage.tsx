@@ -73,9 +73,7 @@ export const ContactDetailPage: React.FunctionComponent = () => {
     if (updated) contact.setData(() => updated);
   };
   const setDoNotContact = async (on: boolean) => {
-    const updated = await suppression.run(() =>
-      on ? markDoNotContact(t, ws, id) : clearDoNotContact(t, ws, id),
-    );
+    const updated = await suppression.run(() => (on ? markDoNotContact(t, ws, id) : clearDoNotContact(t, ws, id)));
     if (updated) contact.setData(() => updated);
   };
   const onDelete = async () => {
@@ -124,6 +122,12 @@ export const ContactDetailPage: React.FunctionComponent = () => {
                 <DescriptionListTerm>Phone</DescriptionListTerm>
                 <DescriptionListDescription>{phoneText(c)}</DescriptionListDescription>
               </DescriptionListGroup>
+              {c.waIds && c.waIds.length > 0 && (
+                <DescriptionListGroup>
+                  <DescriptionListTerm>WhatsApp ids</DescriptionListTerm>
+                  <DescriptionListDescription>{c.waIds.join(', ')}</DescriptionListDescription>
+                </DescriptionListGroup>
+              )}
               <DescriptionListGroup>
                 <DescriptionListTerm>Source</DescriptionListTerm>
                 <DescriptionListDescription>{SOURCE_TEXT[c.source]}</DescriptionListDescription>
@@ -146,7 +150,12 @@ export const ContactDetailPage: React.FunctionComponent = () => {
                       </Label>{' '}
                       {c.doNotContact.reason === 'STOP_REPLY' ? 'Replied with a stop word' : 'Marked by hand'}{' '}
                       {canEdit && (
-                        <Button variant="link" isInline isDisabled={suppression.busy} onClick={() => setDoNotContact(false)}>
+                        <Button
+                          variant="link"
+                          isInline
+                          isDisabled={suppression.busy}
+                          onClick={() => setDoNotContact(false)}
+                        >
                           Clear
                         </Button>
                       )}
@@ -155,7 +164,12 @@ export const ContactDetailPage: React.FunctionComponent = () => {
                     <>
                       No{' '}
                       {canEdit && (
-                        <Button variant="link" isInline isDisabled={suppression.busy} onClick={() => setDoNotContact(true)}>
+                        <Button
+                          variant="link"
+                          isInline
+                          isDisabled={suppression.busy}
+                          onClick={() => setDoNotContact(true)}
+                        >
                           Mark do not contact
                         </Button>
                       )}
