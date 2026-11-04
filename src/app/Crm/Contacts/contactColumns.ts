@@ -43,10 +43,14 @@ export const contactName = (c: Pick<CrmContact, 'name' | 'phone'>): string => c.
 /** How the contact came to be in the CRM, in a sentence. */
 export function originLine(c: CrmContact): string {
   const kind = c.origin?.kind;
+  if (kind === 'CTWA_AD') {
+    const headline = c.origin?.ad?.headline;
+    return `Came from a click-to-WhatsApp ad${headline ? ` \u201c${headline}\u201d` : ''} on ${formatDate(c.creationTime)}`;
+  }
   if (kind === 'MANUAL') return 'Added by hand';
   if (kind === 'IMPORT') return 'Imported';
   if (kind === 'API') return 'Added through the API';
-  if (kind === 'INBOUND_CHAT' || kind === 'CTWA_AD' || kind === 'FACEBOOK_LEAD' || kind === 'WEBSITE_LEAD') {
+  if (kind === 'INBOUND_CHAT' || kind === 'FACEBOOK_LEAD' || kind === 'WEBSITE_LEAD') {
     const by = c.origin?.capturedBy ? personName(c.origin.capturedBy) : null;
     return `Captured from a chat${by ? ` by ${by}` : ''} on ${formatDate(c.creationTime)}`;
   }

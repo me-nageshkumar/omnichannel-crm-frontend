@@ -129,6 +129,7 @@ describe('CRM contact drawer', () => {
               chatId: 'ch1',
               firstMessageAt: null,
               capturedBy: { id: 'o1', name: 'Asha Rao' },
+              ad: null,
             },
             creationTime: '2026-10-01T10:00:00Z',
           }),
@@ -137,6 +138,44 @@ describe('CRM contact drawer', () => {
     );
     renderApp('/crm/contacts/c1');
     expect(await screen.findByText(/Captured from a chat by Asha Rao on 1 Oct 2026/)).toBeInTheDocument();
+  });
+
+  const originBody = (kind: string, ad: unknown) =>
+    sampleCrmContact({
+      origin: { kind, phoneNumberId: 'pn1', chatId: 'ch1', firstMessageAt: null, capturedBy: null, ad } as never,
+      creationTime: '2026-10-01T10:00:00Z',
+    });
+
+  it('ctwaOriginNamesTheAd', async () => {
+    mockFetch(
+      routes({
+        [CONTACT]: {
+          status: 200,
+          body: originBody('CTWA_AD', { sourceId: 's1', sourceUrl: 'https://fb.me/x', headline: 'Diwali sale' }),
+        },
+      }),
+    );
+    renderApp('/crm/contacts/c1');
+    const link = await screen.findByRole('link', { name: 'Diwali sale' });
+    expect(link).toHaveAttribute('href', 'https://fb.me/x');
+    expect(link).toHaveAttribute('target', '_blank');
+    expect(link).toHaveAttribute('rel', 'noopener noreferrer');
+    expect(link.parentElement).toHaveTextContent(
+      'Came from a click-to-WhatsApp ad \u201cDiwali sale\u201d on 1 Oct 2026',
+    );
+  });
+
+  it('ctwaOriginWithoutAd', async () => {
+    mockFetch(routes({ [CONTACT]: { status: 200, body: originBody('CTWA_AD', null) } }));
+    renderApp('/crm/contacts/c1');
+    const text = await screen.findByText('Came from a click-to-WhatsApp ad on 1 Oct 2026');
+    expect(text.querySelector('a')).toBeNull();
+  });
+
+  it('inboundOriginUnchanged', async () => {
+    mockFetch(routes({ [CONTACT]: { status: 200, body: originBody('INBOUND_CHAT', null) } }));
+    renderApp('/crm/contacts/c1');
+    expect(await screen.findByText('Captured from a chat on 1 Oct 2026')).toBeInTheDocument();
   });
 
   it('dealsTabListsContactDeals', async () => {
