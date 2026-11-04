@@ -144,7 +144,7 @@ export const CAPTURED_TEST: AutomationTest = {
     treatedAsNew: true,
     data: {
       chat: { id: 'ch1', isNew: true, status: 'OPEN', assignedUser: null, assignedTeam: null },
-      message: { id: 'm1', text: 'Hello', type: 'TEXT' },
+      message: { id: 'm1', text: 'Hello', type: 'TEXT', ad: null },
       number: { id: 'n1', number: '919928088743', label: 'Main line' },
       contact: { id: 'c1', name: 'Asha Rao', phone: '919876543210', inCrm: false, doNotContact: false },
       deal: null,

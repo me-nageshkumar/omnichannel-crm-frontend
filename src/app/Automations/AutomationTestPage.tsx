@@ -28,6 +28,7 @@ import type {
 } from '@app/api/automations';
 import { PageShell } from '@app/admin/PageShell';
 import { useLoad } from '@app/admin/useLoad';
+import { adLink } from '@app/Inbox/chatDisplay';
 import { useSession } from '@app/session/SessionContext';
 import { MESSAGE_KINDS, conditionText } from '@app/Automations/automationModel';
 import { actualLabel, endedText, waitingText } from '@app/Automations/automationDisplay';
@@ -93,8 +94,8 @@ const PreflightPanel: React.FunctionComponent<{
 const money = (amount: number, currency: string | null) => (currency ? `${amount} ${currency}` : String(amount));
 
 /** The captured event's data as label / value pairs. */
-function eventRows(t: AutomationTest, data: EventData): [string, string][] {
-  const rows: [string, string | null | undefined][] = [];
+function eventRows(t: AutomationTest, data: EventData): [string, React.ReactNode][] {
+  const rows: [string, React.ReactNode][] = [];
   if (t.event === 'MESSAGE_RECEIVED') {
     if (data.chat) {
       const chat = data.chat.isNew ? 'New' : 'Existing';
@@ -103,6 +104,21 @@ function eventRows(t: AutomationTest, data: EventData): [string, string][] {
     if (data.message) {
       rows.push(['Message', data.message.text ?? '—']);
       rows.push(['Type', MESSAGE_KINDS.find((k) => k.kind === data.message?.type)?.label ?? data.message.type]);
+      const ad = data.message.ad;
+      if (ad) {
+        const href = adLink(ad.sourceUrl);
+        const headline = ad.headline || 'an ad';
+        rows.push([
+          'From ad',
+          href ? (
+            <a href={href} target="_blank" rel="noopener noreferrer">
+              {headline}
+            </a>
+          ) : (
+            headline
+          ),
+        ]);
+      }
     }
     if (data.number) rows.push(['Number', data.number.label ?? `+${data.number.number}`]);
   } else {
@@ -120,7 +136,7 @@ function eventRows(t: AutomationTest, data: EventData): [string, string][] {
     rows.push(['Contact', [c.name, c.phone ? `+${c.phone}` : 'Number hidden'].filter(Boolean).join(' · ')]);
     if (t.event === 'MESSAGE_RECEIVED') rows.push(['In the CRM', c.inCrm ? 'Yes' : 'No']);
   }
-  return rows.filter((r): r is [string, string] => typeof r[1] === 'string' && r[1] !== '');
+  return rows.filter((r) => r[1] !== undefined && r[1] !== null && r[1] !== '');
 }
 
 const EventSection: React.FunctionComponent<{ test: AutomationTest }> = ({ test }) => {

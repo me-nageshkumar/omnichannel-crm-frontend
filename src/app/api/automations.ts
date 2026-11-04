@@ -113,7 +113,12 @@ export type EventData = {
     assignedUser: Ref | null;
     assignedTeam: Ref | null;
   } | null;
-  message: { id: string; text: string | null; type: MessageKind } | null;
+  message: {
+    id: string;
+    text: string | null;
+    type: MessageKind;
+    ad: { sourceId: string | null; sourceUrl: string | null; headline: string | null } | null;
+  } | null;
   number: { id: string; number: string; label: string | null } | null;
   contact: { id: string; name: string | null; phone: string | null; inCrm: boolean; doNotContact: boolean } | null;
   deal: {

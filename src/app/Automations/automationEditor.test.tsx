@@ -79,6 +79,22 @@ describe('automation rule editor', () => {
     expect(callsTo(f, `GET ${RULES}/r9`)).toBe(0);
   });
 
+  it('adConditionSavesABoolean', async () => {
+    const { f, user } = open('/automations/new', { [`POST ${RULES}`]: { status: 201, body: CREATED } });
+    await user.type(await nameInput(), 'Ads');
+    await user.click(screen.getByRole('button', { name: 'Add condition' }));
+    await user.selectOptions(condition('1').getByLabelText('Field'), 'Ad');
+    // a boolean field has only "is", so no operator choice is offered
+    expect(condition('1').queryByLabelText('Operator')).toBeNull();
+    await user.selectOptions(condition('1').getByLabelText('Value'), 'Message did not come from an ad');
+    await addAction(user, 'Add to CRM');
+    await user.click(screen.getByRole('button', { name: 'Save draft' }));
+    await waitFor(() => expect(callsTo(f, `POST ${RULES}`)).toBe(1));
+    expect(requestTo(f, `POST ${RULES}`)?.body.conditions.rules).toEqual([
+      { field: 'message.ad', operator: 'is', value: false },
+    ]);
+  });
+
   it('agentPlaceholderNeedsAValue', async () => {
     const { f, user } = open('/automations/new', { [`POST ${RULES}`]: { status: 201, body: CREATED } });
     await user.type(await nameInput(), 'Order ready');

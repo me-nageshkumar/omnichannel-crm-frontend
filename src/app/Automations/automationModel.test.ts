@@ -29,7 +29,7 @@ const ALL_KINDS = MESSAGE_KINDS.map((k) => k.kind);
 describe('field catalogue', () => {
   it('fieldsFollowTheContract', () => {
     const message = FIELDS.MESSAGE_RECEIVED;
-    expect(message).toHaveLength(6);
+    expect(message).toHaveLength(9);
     for (const f of [...message, ...FIELDS.DEAL_LANE_CHANGED]) expect(f.description).not.toBe('');
     const by = (list: typeof message, field: string) => list.find((f) => f.field === field)!;
     expect(by(message, 'message.type').operators).toEqual(['is_one_of']);
@@ -39,6 +39,21 @@ describe('field catalogue', () => {
     expect(MESSAGE_KINDS).toHaveLength(9);
     expect(MAX_DEPTH).toBe(3);
     expect(MAX_CONDITIONS).toBe(30);
+  });
+
+  it('adFieldsFollowTheContract', () => {
+    const by = (field: string) => FIELDS.MESSAGE_RECEIVED.find((f) => f.field === field)!;
+    expect(by('message.ad')).toMatchObject({ type: 'boolean', operators: ['is'] });
+    expect(by('message.ad.headline').type).toBe('text');
+    expect(by('message.ad.headline').operators).toContain('contains');
+    expect(by('message.ad.sourceId').type).toBe('text');
+    expect(by('message.ad.sourceId').operators).toContain('is');
+    expect(conditionText({ field: 'message.ad', operator: 'is', value: true }, OPTIONS)).toBe(
+      'Message came from an ad',
+    );
+    expect(conditionText({ field: 'message.ad', operator: 'is', value: false }, OPTIONS)).toBe(
+      'Message did not come from an ad',
+    );
   });
 
   it('choicesListLanesWithPipeline', () => {

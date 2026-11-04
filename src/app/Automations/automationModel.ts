@@ -67,6 +67,28 @@ export const FIELDS: Record<EventKind, AutomationField[]> = {
       operators: ['is_one_of'],
     },
     {
+      field: 'message.ad',
+      label: 'Ad',
+      description: 'Whether the message came from a click-to-WhatsApp ad.',
+      type: 'boolean',
+      operators: ['is'],
+    },
+    {
+      field: 'message.ad.headline',
+      label: 'Ad headline',
+      description: 'The headline of the ad the contact tapped.',
+      placeholder: 'For example: Diwali sale',
+      type: 'text',
+      operators: TEXT_OPERATORS,
+    },
+    {
+      field: 'message.ad.sourceId',
+      label: 'Ad id',
+      description: 'The id of the ad, as Meta reports it.',
+      type: 'text',
+      operators: TEXT_OPERATORS,
+    },
+    {
       field: 'number',
       label: 'Number',
       description: 'The WhatsApp number of yours that received the message.',
@@ -207,9 +229,10 @@ export const MESSAGE_KINDS: { kind: MessageKind; label: string }[] = [
   { kind: 'POLL', label: 'Poll' },
 ];
 
-export const BOOLEAN_CHOICES: Record<'chat.new' | 'contact.inCrm', [string, string]> = {
+export const BOOLEAN_CHOICES: Record<'chat.new' | 'contact.inCrm' | 'message.ad', [string, string]> = {
   'chat.new': ['Chat is new', 'Chat is existing'],
   'contact.inCrm': ['Contact is in the CRM', 'Contact is not in the CRM'],
+  'message.ad': ['Message came from an ad', 'Message did not come from an ad'],
 };
 
 const LANE_TYPES = [
@@ -337,7 +360,7 @@ export function conditionText(leaf: ConditionLeaf, o: AutomationOptions): string
   const spec = fieldSpec(leaf.field);
   const label = spec?.label ?? leaf.field;
   if (spec?.type === 'boolean') {
-    const [yes, no] = BOOLEAN_CHOICES[leaf.field as 'chat.new' | 'contact.inCrm'];
+    const [yes, no] = BOOLEAN_CHOICES[leaf.field as keyof typeof BOOLEAN_CHOICES];
     return leaf.value === false ? no : yes;
   }
   const operator = OPERATOR_LABELS[leaf.operator] ?? leaf.operator;
