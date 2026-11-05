@@ -17,6 +17,9 @@ const ONLY_ON_PHONE: Record<string, string> = {
   biz_content_placeholder: 'A business message only the phone can show',
   unknown: 'A message only the phone can show',
   newsletter_follower_invite: 'An invitation to follow a WhatsApp channel',
+  // the parent of several photos sent together; the photos themselves follow as image messages
+  album: 'A set of photos',
+  rich_response: 'A reply from a WhatsApp bot',
 };
 
 export const timeOf = (iso: string) => new Date(iso).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
