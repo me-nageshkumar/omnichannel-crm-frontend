@@ -16,6 +16,7 @@ const TEXT_TYPES = ['text', 'chat'];
 const ONLY_ON_PHONE: Record<string, string> = {
   biz_content_placeholder: 'A business message only the phone can show',
   unknown: 'A message only the phone can show',
+  unsupported: 'A message only the phone can show',
   newsletter_follower_invite: 'An invitation to follow a WhatsApp channel',
   // the parent of several photos sent together; the photos themselves follow as image messages
   album: 'A set of photos',
@@ -57,7 +58,7 @@ function Content({ message, contact }: { message: MessageView; contact: string }
     );
   }
   if (TEXT_TYPES.includes(type)) return <div>{body ? formatWhatsApp(body) : null}</div>;
-  if (type === 'vcard' || type === 'multi_vcard') return <ContactCardBody body={body} />;
+  if (type === 'vcard' || type === 'multi_vcard' || type === 'contacts') return <ContactCardBody body={body} />;
   if (type === 'biz_content_placeholder' && message.businessTag === 'AUTHENTICATION') {
     return <em>A verification code only the phone can show</em>;
   }
