@@ -293,6 +293,13 @@ describe('thread', () => {
     expect(await within(log).findByText('A verification code only the phone can show')).toBeVisible();
   });
 
+  it('a set of photos and a bot reply are quiet lines, not unsupported messages', async () => {
+    const log = await showing(message({ id: 'a1', type: 'album' }), message({ id: 'r1', type: 'rich_response' }));
+    expect(await within(log).findByText('A set of photos')).toBeVisible();
+    expect(within(log).getByText('A reply from a WhatsApp bot')).toBeVisible();
+    expect(screen.queryByText('Unsupported message')).toBeNull();
+  });
+
   it('a channel invite names the channel', async () => {
     const log = await showing(message({ id: 'n1', type: 'newsletter_follower_invite', body: 'Speak English' }));
     expect(await within(log).findByText('An invitation to follow the channel “Speak English”')).toBeVisible();
