@@ -315,6 +315,34 @@ describe('thread', () => {
     expect(screen.queryByText('Unsupported message')).toBeNull();
   });
 
+  it('a contact card stored under the Cloud name renders as a card', async () => {
+    const log = await showing(message({ id: 'c1', type: 'contacts', body: WIFE }));
+    expect(await within(log).findByRole('group', { name: 'Contact card: Wife' })).toBeVisible();
+    expect(screen.queryByText('Unsupported message')).toBeNull();
+  });
+
+  it('a message only the phone can show, under the Cloud name', async () => {
+    const log = await showing(message({ id: 'u1', type: 'unsupported' }));
+    expect(await within(log).findByText('A message only the phone can show')).toBeVisible();
+    expect(screen.queryByText('Unsupported message')).toBeNull();
+  });
+
+  it('a text stored as text renders its body', async () => {
+    const log = await showing(message({ id: 't1', type: 'text', body: 'hello there' }));
+    expect(await within(log).findByText('hello there')).toBeVisible();
+  });
+
+  it('a voice note stored as audio offers the download', async () => {
+    const log = await showing(
+      message({
+        id: 'a1',
+        type: 'audio',
+        media: { mimetype: 'audio/ogg', filename: null, size: 10, available: false },
+      }),
+    );
+    expect(await within(log).findByRole('button', { name: 'Download' })).toBeVisible();
+  });
+
   it('a type nobody knows still says it is unsupported', async () => {
     const log = await showing(message({ id: 'x1', type: 'something_new' }));
     expect(await within(log).findByText('Unsupported message')).toBeVisible();
