@@ -3,6 +3,7 @@ import type { AdClickView, MessageView } from '@app/api/inbox';
 import { STATUS_TICK, adLink } from '@app/Inbox/chatDisplay';
 import { ContactCardBody } from '@app/Inbox/ContactCardBody';
 import { MediaBody } from '@app/Inbox/MediaBody';
+import { MessagePageCard } from '@app/Inbox/MessagePageCard';
 import { PollBody } from '@app/Inbox/PollBody';
 import { formatWhatsApp } from '@app/Templates/placeholders';
 
@@ -31,6 +32,15 @@ const tickColor = (status: MessageView['status']) =>
 function Content({ message, contact }: { message: MessageView; contact: string }) {
   const { type, body, location } = message;
   if (type === 'revoked') return <em>This message was deleted</em>;
+  // a Cloud interactive message: what the customer did on its page, then the link that was sent
+  if (message.messagePage) {
+    return (
+      <>
+        <MessagePageCard page={message.messagePage} />
+        <div>{body ? formatWhatsApp(body) : null}</div>
+      </>
+    );
+  }
   if (type === 'location' && location) {
     const href = `https://maps.google.com/?q=${location.latitude},${location.longitude}`;
     return (

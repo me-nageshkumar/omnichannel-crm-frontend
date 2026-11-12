@@ -46,6 +46,8 @@ const SENT: MessageView = {
   statusTimes: { sentAt: null, deliveredAt: null, readAt: null, playedAt: null, failedAt: null },
   sentBy: null,
   templateId: null,
+  messagePageId: null,
+  messagePage: null,
   adClick: null,
 };
 
@@ -94,6 +96,21 @@ describe('composer', () => {
     storeSession();
   });
   afterEach(() => vi.unstubAllGlobals());
+
+  it('buttonFollowsTheComposerNotice', async () => {
+    mockFetch({ ...meAs(AGENT_IN_BRAND), [SEND]: { status: 200, body: SENT } });
+    const { user } = renderComposer();
+    await box();
+    await user.click(screen.getByRole('button', { name: 'Interactive' }));
+    expect(await screen.findByText('Send an interactive message')).toBeInTheDocument();
+  });
+
+  it('interactive button is disabled when the chat is closed', async () => {
+    mockFetch({ ...meAs(AGENT_IN_BRAND) });
+    renderComposer({ chat: { ...CHAT, status: 'CLOSED' } });
+    await box();
+    expect(screen.getByRole('button', { name: 'Interactive' })).toBeDisabled();
+  });
 
   it('enter sends trimmed text and clears', async () => {
     const fetch = mockFetch({ ...meAs(AGENT_IN_BRAND), [SEND]: { status: 200, body: SENT } });

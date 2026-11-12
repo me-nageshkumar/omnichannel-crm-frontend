@@ -75,6 +75,8 @@ function message(over: Partial<MessageView> & { id: string }): MessageView {
     statusTimes: { sentAt: null, deliveredAt: null, readAt: null, playedAt: null, failedAt: null },
     sentBy: null,
     templateId: null,
+    messagePageId: null,
+    messagePage: null,
     adClick: null,
     ...over,
   };

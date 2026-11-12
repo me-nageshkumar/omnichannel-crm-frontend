@@ -131,6 +131,30 @@ export interface MessageView {
   businessTag?: string | null;
   /** Set when the message came in through a click-to-WhatsApp ad. */
   adClick: AdClickView | null;
+  /** The message page a Cloud interactive message was sent as, else null. */
+  messagePageId: string | null;
+  /** What the customer did on that page, else null. */
+  messagePage: MessagePageView | null;
+}
+
+/** Taps of one button, row or link; `replied` once the customer's WhatsApp reply was matched to it. */
+export interface MessagePageCount {
+  id: string;
+  title: string;
+  count: number;
+  replied: boolean;
+}
+
+/** What the customer did on a message page, as shown under the message. */
+export interface MessagePageView {
+  url: string;
+  expiresAt: string;
+  openedAt: string | null;
+  openCount: number;
+  buttons: MessagePageCount[];
+  rows: MessagePageCount[];
+  cta: MessagePageCount | null;
+  location: { latitude: number; longitude: number; at: string } | null;
 }
 
 export interface ActionView {
