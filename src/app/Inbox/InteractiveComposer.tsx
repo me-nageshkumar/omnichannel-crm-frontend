@@ -126,6 +126,10 @@ export const InteractiveComposer: React.FunctionComponent<{
     setError((e instanceof ApiError && e.serverMessage) || messageFor(e));
   };
 
+  // the preview effect reports errors through the latest handler without depending on it (it closes over draft)
+  const showServerErrorRef = React.useRef(showServerError);
+  showServerErrorRef.current = showServerError;
+
   React.useEffect(() => {
     if (!complete) {
       setHtml(null);
@@ -146,7 +150,7 @@ export const InteractiveComposer: React.FunctionComponent<{
           if (!live) return;
           setRendering(false);
           setHtml(null);
-          showServerError(e);
+          showServerErrorRef.current(e);
         },
       );
     }, DEBOUNCE_MS);
