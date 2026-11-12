@@ -46,6 +46,8 @@ const SENT: MessageView = {
   statusTimes: { sentAt: null, deliveredAt: null, readAt: null, playedAt: null, failedAt: null },
   sentBy: null,
   templateId: null,
+  messagePageId: null,
+  messagePage: null,
   adClick: null,
 };
 

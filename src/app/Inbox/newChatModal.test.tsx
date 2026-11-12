@@ -38,6 +38,8 @@ const STARTED: MessageView = {
   statusTimes: { sentAt: null, deliveredAt: null, readAt: null, playedAt: null, failedAt: null },
   sentBy: null,
   templateId: null,
+  messagePageId: null,
+  messagePage: null,
   adClick: null,
 };
 
@@ -48,7 +50,11 @@ const Host: React.FunctionComponent<{
 }> = (props) => {
   const { status } = useSession();
   const { numberConnected, ...rest } = props;
-  const number = phoneNumber({ id: 'p1', number: '919928088743', status: numberConnected ? 'CONNECTED' : 'DISCONNECTED' });
+  const number = phoneNumber({
+    id: 'p1',
+    number: '919928088743',
+    status: numberConnected ? 'CONNECTED' : 'DISCONNECTED',
+  });
   return status === 'signedIn' ? <NewChatModal numbers={[number]} {...rest} /> : null;
 };
 
