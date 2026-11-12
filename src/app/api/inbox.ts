@@ -7,7 +7,7 @@ export type { Availability } from '@app/api/users';
 export type ChatStatus = 'OPEN' | 'CLOSED';
 export type MessageDirection = 'IN' | 'OUT';
 /** Who produced the message: the contact, our console, or the phone / WhatsApp Web tab. */
-export type MessageSource = 'CONTACT' | 'CONSOLE' | 'WHATSAPP_WEB' | 'CAMPAIGN' | 'AUTOMATION';
+export type MessageSource = 'CONTACT' | 'CONSOLE' | 'WHATSAPP_WEB' | 'CAMPAIGN' | 'AUTOMATION' | 'CHATBOT';
 export type MessageStatus = 'PENDING' | 'SENT' | 'DELIVERED' | 'READ' | 'PLAYED' | 'FAILED';
 export type ListScope = 'MINE' | 'TEAM' | 'UNASSIGNED' | 'ALL';
 export type RoutingMode = 'NONE' | 'TEAM' | 'USER' | 'ROUND_ROBIN';
@@ -67,6 +67,17 @@ export interface ChatView {
   adClick: AdClickView | null;
   /** The person's other chats on this number (a phone id and a hidden-number id); absent from older servers. */
   otherChats: OtherChat[];
+  /** The chatbot run active on the chat, else null. */
+  chatbot?: ActiveChatbot | null;
+}
+
+/** `waitingFor` is "WhatsApp reply", "form", "timer" or null while a node runs. */
+export interface ActiveChatbot {
+  runId: string;
+  chatbotId: string;
+  name: string;
+  nodeName: string | null;
+  waitingFor: string | null;
 }
 
 export interface MessageMedia {
@@ -309,6 +320,10 @@ export const unassignChat = (token: string, ws: string, chatId: string) =>
 
 export const closeChat = (token: string, ws: string, chatId: string) =>
   post<ChatView>(token, `${chatPath(ws, chatId)}/close`);
+
+/** Stops the chatbot run on the chat (needs inbox:send). */
+export const stopChatbot = (token: string, ws: string, chatId: string) =>
+  apiFetch<void>(`${chatPath(ws, chatId)}/chatbot/stop`, { token, method: 'POST' });
 
 export const reopenChat = (token: string, ws: string, chatId: string) =>
   post<ChatView>(token, `${chatPath(ws, chatId)}/reopen`);

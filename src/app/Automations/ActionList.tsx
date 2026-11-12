@@ -32,6 +32,8 @@ export function newAction(type: AutomationAction['type']): AutomationAction {
       return { type, mode: 'AGENT', userId: null, teamId: null, whenAway: null };
     case 'ADD_TO_CRM':
       return { type, pipelineId: null, stageId: null, dealTitle: null };
+    case 'START_CHATBOT':
+      return { type, chatbotId: null, ifRunning: 'SKIP' };
   }
 }
 

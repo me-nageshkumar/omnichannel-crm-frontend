@@ -397,6 +397,8 @@ export function actionSummary(a: AutomationAction, o: AutomationOptions): string
       const name = pipeline?.name ?? a.pipelineId;
       return `Add to CRM (${a.stageId ? `${name} › ${lane?.name ?? a.stageId}` : name})`;
     }
+    case 'START_CHATBOT':
+      return `Start “${o.chatbots.find((c) => c.id === a.chatbotId)?.name ?? a.chatbotId ?? ''}”`;
   }
 }
 
