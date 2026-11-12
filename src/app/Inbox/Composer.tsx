@@ -3,18 +3,24 @@ import { Alert, Button, FormHelperText, HelperText, HelperTextItem, TextArea } f
 import { ApiError } from '@app/api/client';
 import { ChatView, MessageView, sendTemplate, sendText } from '@app/api/inbox';
 import { messageFor } from '@app/api/messages';
+import { InteractiveComposer } from '@app/Inbox/InteractiveComposer';
 import { TemplatePickerModal } from '@app/Inbox/TemplatePickerModal';
 import { useSession } from '@app/session/SessionContext';
 
 export const MAX_LENGTH = 4096;
 export const COUNTER_FROM = 3900;
 
-/** The text box under a thread: Enter sends, Shift+Enter breaks the line, and a template can be sent instead. */
+/**
+ * The text box under a thread: Enter sends, Shift+Enter breaks the line, and a template or an interactive message
+ * can be sent instead. An interactive send answers with the message id only, so {@code onSentId} lets the thread
+ * reload.
+ */
 export const Composer: React.FunctionComponent<{
   chat: ChatView;
   numberConnected: boolean;
   onSent(message: MessageView): void;
-}> = ({ chat, numberConnected, onSent }) => {
+  onSentId?(messageId: string): void;
+}> = ({ chat, numberConnected, onSent, onSentId }) => {
   const { token, workspace } = useSession();
   const ws = workspace?.id ?? '';
   const [text, setText] = React.useState('');
@@ -22,6 +28,7 @@ export const Composer: React.FunctionComponent<{
   const [error, setError] = React.useState<string | null>(null);
   const [textError, setTextError] = React.useState<string | null>(null);
   const [picking, setPicking] = React.useState(false);
+  const [composing, setComposing] = React.useState(false);
   // A second Enter can arrive before the first send has re-rendered the button as disabled.
   const inFlight = React.useRef(false);
 
@@ -89,6 +96,9 @@ export const Composer: React.FunctionComponent<{
         </FormHelperText>
       )}
       <div style={{ display: 'flex', gap: 'var(--pf-t--global--spacer--sm)', justifyContent: 'flex-end' }}>
+        <Button variant="secondary" onClick={() => setComposing(true)} isDisabled={notice !== null || sending}>
+          Interactive
+        </Button>
         <Button variant="secondary" onClick={() => setPicking(true)} isDisabled={notice !== null || sending}>
           Template
         </Button>
@@ -96,6 +106,16 @@ export const Composer: React.FunctionComponent<{
           Send
         </Button>
       </div>
+      {composing && (
+        <InteractiveComposer
+          chat={chat}
+          onClose={() => setComposing(false)}
+          onSent={(id) => {
+            setComposing(false);
+            onSentId?.(id);
+          }}
+        />
+      )}
       {picking && (
         <TemplatePickerModal
           contactId={chat.contact.id}

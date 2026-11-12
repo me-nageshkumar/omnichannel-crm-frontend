@@ -362,6 +362,7 @@ export const InboxPage: React.FunctionComponent = () => {
                     chat={open}
                     numberConnected={numberConnected}
                     onSent={(message) => thread.apply({ type: 'message', chatId: open.id, message })}
+                    onSentId={() => thread.reload()}
                   />
                 </div>
               </>
