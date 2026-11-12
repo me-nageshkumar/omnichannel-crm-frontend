@@ -97,9 +97,42 @@ export function slug(title: string): string {
     .replace(/-+$/g, '');
 }
 
-/** The button with a new title; its id follows the title unless the agent edited the id. */
-export function withTitle<T extends { id: string; title: string; idEdited: boolean }>(item: T, title: string): T {
-  return { ...item, title, id: item.idEdited ? item.id : slug(title) };
+/**
+ * The button or row with a new title; its id follows the title unless the agent edited the id. A title the slug
+ * cannot read (Hindi, Kannada, emoji) gets {@code fallbackId}, its position, so the id field never surprises.
+ */
+export function withTitle<T extends { id: string; title: string; idEdited: boolean }>(
+  item: T,
+  title: string,
+  fallbackId = '',
+): T {
+  if (item.idEdited) return { ...item, title };
+  const s = slug(title);
+  return { ...item, title, id: s || (title.trim() ? fallbackId : '') };
+}
+
+/** The JSON paths the composer renders a field for; a server key outside this set needs the form-level alert. */
+export function renderedPaths(d: Draft): string[] {
+  const out = ['interactive.body.text', 'interactive.footer.text', 'interactive.header.text'];
+  if (d.header.type !== 'none' && d.header.type !== 'text') out.push(`interactive.header.${d.header.type}.id`);
+  if (d.kind === 'button') {
+    out.push('interactive.action.buttons');
+    d.buttons.forEach((_b, n) =>
+      out.push(`interactive.action.buttons.${n}.reply.title`, `interactive.action.buttons.${n}.reply.id`),
+    );
+  } else if (d.kind === 'list') {
+    out.push('interactive.action.button', 'interactive.action.sections');
+    d.sections.forEach((s, i) => {
+      out.push(`interactive.action.sections.${i}.title`, `interactive.action.sections.${i}.rows`);
+      s.rows.forEach((_r, n) => {
+        const rp = `interactive.action.sections.${i}.rows.${n}`;
+        out.push(`${rp}.title`, `${rp}.description`, `${rp}.id`);
+      });
+    });
+  } else if (d.kind === 'cta_url') {
+    out.push('interactive.action.parameters.display_text', 'interactive.action.parameters.url');
+  }
+  return out;
 }
 
 const blank = (s: string | null | undefined) => s === null || s === undefined || s.trim() === '';

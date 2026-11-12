@@ -127,6 +127,13 @@ describe('interactive composer model', () => {
     expect(edited).toEqual({ id: 'custom', title: 'New', idEdited: true });
   });
 
+  it('a title the slug cannot read still gets an id from its position', () => {
+    const hindi = withTitle({ id: '', title: '', idEdited: false }, '\u0939\u093e\u0901', 'button-2');
+    expect(hindi.id).toBe('button-2');
+    const latin = withTitle({ id: '', title: '', idEdited: false }, 'Yes', 'button-2');
+    expect(latin.id).toBe('yes');
+  });
+
   it('problems reports required and over-length fields by json path', () => {
     const d = buttonDraft({
       body: '',

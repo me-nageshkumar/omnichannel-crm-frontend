@@ -108,7 +108,8 @@ describe('interactive composer', () => {
     await fillButtonMessage(user);
     await waitFor(() => expect(callsTo(fetch, PREVIEW)).toBeGreaterThan(0), { timeout: 2000 });
     await waitFor(() => expect(screen.getByTitle('Preview')).toHaveAttribute('srcdoc', '<!doctype html><p>ok</p>'));
-    expect(screen.getByTitle('Preview')).toHaveAttribute('sandbox', '');
+    // scripts run so the list sheet can open; no allow-same-origin, so the frame cannot reach the console's token
+    expect(screen.getByTitle('Preview')).toHaveAttribute('sandbox', 'allow-scripts');
     expect(requestTo(fetch, PREVIEW)?.body.interactive.body.text).toBe('Hi');
   });
 
@@ -191,6 +192,89 @@ describe('interactive composer', () => {
       button: 'Options',
       sections: [{ title: 'Fast', rows: [{ id: 'overnight', title: 'Overnight' }] }],
     });
+  });
+
+  it('an unmapped server key shows a form-level alert', async () => {
+    mockFetch({
+      ...meAs(AGENT_IN_BRAND),
+      [PREVIEW]: PREVIEW_OK,
+      [SEND]: {
+        status: 400,
+        body: {
+          code: 'VALIDATION',
+          message: 'interactive.header.type must be text',
+          fields: { 'interactive.header.type': 'must be text' },
+        },
+      },
+    });
+    const { user, onSent } = renderComposer();
+    await fillButtonMessage(user);
+    await user.click(sendButton());
+    expect(await screen.findByText('interactive.header.type must be text')).toBeInTheDocument();
+    expect(onSent).not.toHaveBeenCalled();
+  });
+
+  it('a kind switch during an upload does not resurrect the media header', async () => {
+    let controller: ReadableStreamDefaultController<Uint8Array> | null = null;
+    const slow = new Response(
+      new ReadableStream<Uint8Array>({
+        start: (c) => {
+          controller = c;
+        },
+      }),
+      { status: 200, headers: { 'Content-Type': 'application/json' } },
+    );
+    const fetch = mockFetch({ ...meAs(AGENT_IN_BRAND), [PREVIEW]: PREVIEW_OK, [MEDIA]: slow });
+    const { user } = renderComposer();
+    await body();
+    await user.selectOptions(screen.getByRole('combobox', { name: 'Header' }), 'image');
+    const input = document.querySelector('input[type="file"]') as HTMLInputElement;
+    fireEvent.drop(input.parentElement as HTMLElement, {
+      dataTransfer: {
+        files: [new File([new Uint8Array([137, 80, 78, 71])], 'a.png', { type: 'image/png' })],
+        types: ['Files'],
+      },
+    });
+    await waitFor(() => expect(callsTo(fetch, MEDIA)).toBe(1));
+    await user.selectOptions(screen.getByRole('combobox', { name: 'Message kind' }), 'list');
+    // the upload now finishes, after the header it was for is gone
+    (controller as ReadableStreamDefaultController<Uint8Array> | null)?.enqueue(
+      new TextEncoder().encode(JSON.stringify({ id: 'img1' })),
+    );
+    (controller as ReadableStreamDefaultController<Uint8Array> | null)?.close();
+    await new Promise((r) => setTimeout(r, 50));
+    await user.click(screen.getByRole('tab', { name: 'JSON' }));
+    expect(jsonShown().interactive).not.toHaveProperty('header');
+    await user.selectOptions(screen.getByRole('combobox', { name: 'Message kind' }), 'button');
+    await user.selectOptions(screen.getByRole('combobox', { name: 'Header' }), 'image');
+    expect(screen.queryByDisplayValue('a.png')).not.toBeInTheDocument();
+  });
+
+  it('the spinner stops when the form turns incomplete mid-debounce', async () => {
+    mockFetch({ ...meAs(AGENT_IN_BRAND), [PREVIEW]: PREVIEW_OK });
+    const { user } = renderComposer();
+    await fillButtonMessage(user);
+    await user.clear(screen.getByRole('textbox', { name: 'Button 1 title' }));
+    expect(screen.queryByLabelText('Rendering the preview')).not.toBeInTheDocument();
+    expect(screen.getByText('Fill in the message to see how it will look')).toBeInTheDocument();
+  });
+
+  it('a preview failure clears once a later preview succeeds', async () => {
+    let calls = 0;
+    mockFetch({
+      ...meAs(AGENT_IN_BRAND),
+      [PREVIEW]: () => (++calls === 1 ? { status: 500, body: { code: 'OOPS', message: 'boom' } } : PREVIEW_OK),
+    });
+    const { user } = renderComposer();
+    await fillButtonMessage(user);
+    await screen.findByRole('heading', { name: /boom|went wrong|error/i }, { timeout: 2000 }).catch(() => undefined);
+    const alerts = () => document.querySelectorAll('.pf-v6-c-alert.pf-m-danger').length;
+    await waitFor(() => expect(alerts()).toBe(1), { timeout: 2000 });
+    await user.type(screen.getByRole('textbox', { name: 'Body' }), '!');
+    await waitFor(() => expect(screen.getByTitle('Preview')).toHaveAttribute('srcdoc', '<!doctype html><p>ok</p>'), {
+      timeout: 2000,
+    });
+    expect(alerts()).toBe(0);
   });
 
   it('disables Send until required fields are filled', async () => {

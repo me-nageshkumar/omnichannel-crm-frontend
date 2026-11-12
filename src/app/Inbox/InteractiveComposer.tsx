@@ -33,6 +33,7 @@ import {
   initialDraft,
   keyFor,
   problems,
+  renderedPaths,
   toCloudMessage,
   withTitle,
 } from '@app/Inbox/interactiveModel';
@@ -115,9 +116,20 @@ export const InteractiveComposer: React.FunctionComponent<{
     setServerErrors({});
   };
 
+  /** A VALIDATION error lands on its fields; a key the form has no field for becomes the form-level alert. */
+  const showServerError = (e: unknown) => {
+    const fields = e instanceof ApiError && e.code?.toUpperCase() === 'VALIDATION' ? e.fields : undefined;
+    const keys = Object.keys(fields ?? {});
+    if (keys.length > 0) setServerErrors(fields as Record<string, string>);
+    const known = renderedPaths(draft);
+    if (keys.length > 0 && keys.every((k) => known.indexOf(keyFor(k)) >= 0)) return;
+    setError((e instanceof ApiError && e.serverMessage) || messageFor(e));
+  };
+
   React.useEffect(() => {
     if (!complete) {
       setHtml(null);
+      setRendering(false);
       return undefined;
     }
     let live = true;
@@ -128,13 +140,13 @@ export const InteractiveComposer: React.FunctionComponent<{
           if (!live) return;
           setHtml(h);
           setRendering(false);
+          setError(null);
         },
         (e) => {
           if (!live) return;
           setRendering(false);
-          const fields = e instanceof ApiError && e.code?.toUpperCase() === 'VALIDATION' ? e.fields : undefined;
-          if (fields) setServerErrors(fields);
-          else setError(messageFor(e));
+          setHtml(null);
+          showServerError(e);
         },
       );
     }, DEBOUNCE_MS);
@@ -154,9 +166,7 @@ export const InteractiveComposer: React.FunctionComponent<{
       const res = await sendCloudMessage(t, ws, chat.id, message);
       onSent(res.messages[0]?.id ?? '');
     } catch (e) {
-      const fields = e instanceof ApiError && e.code?.toUpperCase() === 'VALIDATION' ? e.fields : undefined;
-      if (fields && Object.keys(fields).length > 0) setServerErrors(fields);
-      else setError(messageFor(e));
+      showServerError(e);
       inFlight.current = false;
       setSending(false);
     }
@@ -170,7 +180,11 @@ export const InteractiveComposer: React.FunctionComponent<{
     setUploading(true);
     try {
       const { id } = await uploadCloudMedia(t, ws, chat.phoneNumberId, type, file);
-      update({ header: { ...draft.header, mediaId: id, fileName: file.name } });
+      // the header this upload was for may be gone by now (kind or header type changed): then drop the result
+      setDraft((d) =>
+        d.header.type === type ? { ...d, header: { ...d.header, mediaId: id, fileName: file.name } } : d,
+      );
+      setServerErrors({});
     } catch (e) {
       setUploadProblem(messageFor(e));
     } finally {
@@ -311,7 +325,9 @@ export const InteractiveComposer: React.FunctionComponent<{
                         value={b.title}
                         maxLength={LIMITS.buttonTitle}
                         onChange={(_e, v) =>
-                          update({ buttons: draft.buttons.map((x, i) => (i === n ? withTitle(x, v) : x)) })
+                          update({
+                            buttons: draft.buttons.map((x, i) => (i === n ? withTitle(x, v, `button-${n + 1}`) : x)),
+                          })
                         }
                       />
                       <Problem errors={errors} path={`interactive.action.buttons.${n}.reply.title`} />
@@ -411,7 +427,12 @@ export const InteractiveComposer: React.FunctionComponent<{
                             onChange={(_e, v) =>
                               update({
                                 sections: draft.sections.map((x, j) =>
-                                  j === i ? { ...x, rows: x.rows.map((y, m) => (m === n ? withTitle(y, v) : y)) } : x,
+                                  j === i
+                                    ? {
+                                        ...x,
+                                        rows: x.rows.map((y, m) => (m === n ? withTitle(y, v, `row-${n + 1}`) : y)),
+                                      }
+                                    : x,
                                 ),
                               })
                             }
@@ -557,7 +578,7 @@ export const InteractiveComposer: React.FunctionComponent<{
                   {html ? (
                     <iframe
                       title="Preview"
-                      sandbox=""
+                      sandbox="allow-scripts"
                       srcDoc={html}
                       style={{ width: '100%', height: '100%', border: 0 }}
                     />
