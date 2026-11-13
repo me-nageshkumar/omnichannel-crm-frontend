@@ -283,9 +283,12 @@ const Editor: React.FunctionComponent<{
   );
 };
 
-/** A `back` parameter is followed only inside this app: an absolute path that is not protocol-relative. */
-export const sameAppPath = (p: string | null): string | null =>
-  p && p.startsWith('/') && !p.startsWith('//') ? p : null;
+/**
+ * A `back` parameter is followed only to a rule test page: a whitelist, since browsers resolve shapes like `/\\evil`
+ * or `/<tab>/evil` cross-origin even though they start with a slash.
+ */
+export const ruleTestPath = (p: string | null): string | null =>
+  p && /^\/automations\/[A-Za-z0-9_-]+\/test$/.test(p) ? p : null;
 
 /** The chatbot editor (spec §8.1); its canvas library lives in this lazy chunk. */
 export const ChatbotEditorPage: React.FunctionComponent = () => {
@@ -303,7 +306,7 @@ export const ChatbotEditorPage: React.FunctionComponent = () => {
       initial={chatbot.data}
       options={options.data ?? null}
       initialRunId={search.get('run')}
-      backHref={sameAppPath(search.get('back'))}
+      backHref={ruleTestPath(search.get('back'))}
     />
   );
 };
