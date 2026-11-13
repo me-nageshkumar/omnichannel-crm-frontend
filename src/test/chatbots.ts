@@ -85,8 +85,24 @@ export const PUBLISHED_BOT: Chatbot = {
 };
 
 export const SUMMARIES: ChatbotSummary[] = [
-  { id: 'c1', name: 'Lead qualifier', status: 'DRAFT', runs7d: 0, activeNow: 0, lastRunAt: null, lastUpdateTime: '2026-11-13T09:30:00Z' },
-  { id: 'c2', name: 'Price bot', status: 'PUBLISHED', runs7d: 12, activeNow: 2, lastRunAt: '2026-11-13T10:30:00Z', lastUpdateTime: '2026-11-13T10:00:00Z' },
+  {
+    id: 'c1',
+    name: 'Lead qualifier',
+    status: 'DRAFT',
+    runs7d: 0,
+    activeNow: 0,
+    lastRunAt: null,
+    lastUpdateTime: '2026-11-13T09:30:00Z',
+  },
+  {
+    id: 'c2',
+    name: 'Price bot',
+    status: 'PUBLISHED',
+    runs7d: 12,
+    activeNow: 2,
+    lastRunAt: '2026-11-13T10:30:00Z',
+    lastUpdateTime: '2026-11-13T10:00:00Z',
+  },
 ];
 
 export const OPTIONS: ChatbotOptions = {
@@ -122,7 +138,13 @@ export const RUN_WAITING: Run = {
   status: 'WAITING',
   currentNodeId: 'n2',
   currentNodeName: 'AskBudget',
-  waiting: { kind: 'WHATSAPP_REPLY', key: 'ch1', since: '2026-11-13T10:00:05Z', expiresAt: null, prompt: 'Your budget?' },
+  waiting: {
+    kind: 'WHATSAPP_REPLY',
+    key: 'ch1',
+    since: '2026-11-13T10:00:05Z',
+    expiresAt: null,
+    prompt: 'Your budget?',
+  },
   test: true,
   startedBy: { ruleId: null, ruleName: 'Test', eventId: null, userId: 'u2' },
   steps: [
@@ -152,7 +174,13 @@ export const RUN_WAITING: Run = {
       summary: 'Asked “Your budget?”',
       error: null,
       result: null,
-      waitedFor: { kind: 'WHATSAPP_REPLY', key: 'ch1', since: '2026-11-13T10:00:05Z', expiresAt: null, prompt: 'Your budget?' },
+      waitedFor: {
+        kind: 'WHATSAPP_REPLY',
+        key: 'ch1',
+        since: '2026-11-13T10:00:05Z',
+        expiresAt: null,
+        prompt: 'Your budget?',
+      },
     },
   ],
   variables: {
@@ -169,7 +197,13 @@ export const RUN_FORM_WAITING: Run = {
   ...RUN_WAITING,
   id: 'r3',
   currentNodeName: 'AskDetails',
-  waiting: { kind: 'FORM', key: 'tok123', since: '2026-11-13T10:00:05Z', expiresAt: '2026-11-14T10:00:05Z', prompt: 'Your details' },
+  waiting: {
+    kind: 'FORM',
+    key: 'tok123',
+    since: '2026-11-13T10:00:05Z',
+    expiresAt: '2026-11-14T10:00:05Z',
+    prompt: 'Your details',
+  },
 };
 
 export const RUN_DONE: Run = {
@@ -181,7 +215,13 @@ export const RUN_DONE: Run = {
   waiting: null,
   steps: [
     RUN_WAITING.steps[0],
-    { ...RUN_WAITING.steps[1], finishedAt: '2026-11-13T10:01:00Z', outcome: 'DONE', output: 'next', result: { answer: 7000 } },
+    {
+      ...RUN_WAITING.steps[1],
+      finishedAt: '2026-11-13T10:01:00Z',
+      outcome: 'DONE',
+      output: 'next',
+      result: { answer: 7000 },
+    },
     {
       index: 2,
       nodeId: 'n3',

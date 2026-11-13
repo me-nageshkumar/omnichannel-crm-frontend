@@ -1,6 +1,9 @@
 import { describe, expect, it } from 'vitest';
 import type { Problem, SavedFlow, SavedNode } from '@app/api/chatbots';
 import {
+  addNodeConnected,
+  applyEdgeChangesToFlow,
+  applyNodeChangesToFlow,
   canConnect,
   clientProblems,
   duplicateNode,
@@ -35,7 +38,12 @@ describe('flowModel', () => {
 
   it('fromCanvasDropsMeasuredAndSelected', () => {
     const { nodes, edges } = toCanvas(flow());
-    const decorated = nodes.map((n) => ({ ...n, measured: { width: 300, height: 100 }, selected: true, dragging: false }));
+    const decorated = nodes.map((n) => ({
+      ...n,
+      measured: { width: 300, height: 100 },
+      selected: true,
+      dragging: false,
+    }));
     const back = fromCanvas(decorated, edges, undefined);
     expect(Object.keys(back.nodes[0])).toEqual(['id', 'type', 'position', 'data']);
     expect(back.viewport).toBeUndefined();
@@ -58,7 +66,8 @@ describe('flowModel', () => {
     const high = renamed.nodes[2].data.settings as { message: { text: { body: string } } };
     expect(high.message.text.body).toBe('Great, {{Budget.answer}} it is');
     const f = flow();
-    (f.nodes[2].data.settings as { message: { text: { body: string } } }).message.text.body = '{{AskBudgetX.answer}} {{AskBudget.answer}}';
+    (f.nodes[2].data.settings as { message: { text: { body: string } } }).message.text.body =
+      '{{AskBudgetX.answer}} {{AskBudget.answer}}';
     const r2 = renameNode(f, 'n2', 'B');
     expect((r2.nodes[2].data.settings as { message: { text: { body: string } } }).message.text.body).toBe(
       '{{AskBudgetX.answer}} {{B.answer}}',
@@ -80,8 +89,18 @@ describe('flowModel', () => {
     expect(entryNodeId(flow())).toBe('n1');
     const cycle: SavedFlow = {
       nodes: [
-        { id: 'a', type: 'wait', position: { x: 0, y: 0 }, data: { name: 'A', settings: { amount: 1, unit: 'HOURS' } } },
-        { id: 'b', type: 'wait', position: { x: 0, y: 0 }, data: { name: 'B', settings: { amount: 1, unit: 'HOURS' } } },
+        {
+          id: 'a',
+          type: 'wait',
+          position: { x: 0, y: 0 },
+          data: { name: 'A', settings: { amount: 1, unit: 'HOURS' } },
+        },
+        {
+          id: 'b',
+          type: 'wait',
+          position: { x: 0, y: 0 },
+          data: { name: 'B', settings: { amount: 1, unit: 'HOURS' } },
+        },
       ],
       edges: [
         { id: 'e1', source: 'a', sourceHandle: 'next', target: 'b' },
@@ -102,7 +121,13 @@ describe('flowModel', () => {
   it('signatureIgnoresSelectionAndEdgeOrder', () => {
     const f = flow();
     const { nodes, edges } = toCanvas(f);
-    const a = signature(fromCanvas(nodes.map((n) => ({ ...n, selected: true })), edges, undefined));
+    const a = signature(
+      fromCanvas(
+        nodes.map((n) => ({ ...n, selected: true })),
+        edges,
+        undefined,
+      ),
+    );
     expect(a).toBe(signature(f));
     const g = flow();
     g.edges.reverse();
@@ -136,7 +161,10 @@ describe('flowModel', () => {
   });
 
   it('publishErrorsParseKeys', () => {
-    const p = publishErrorsToProblems({ 'nodes.n2.settings.text': 'is required', 'flow.entry': 'two or more entry nodes' });
+    const p = publishErrorsToProblems({
+      'nodes.n2.settings.text': 'is required',
+      'flow.entry': 'two or more entry nodes',
+    });
     expect(p).toEqual([
       { nodeId: 'n2', nodeName: null, field: 'settings.text', message: 'is required', severity: 'ERROR' },
       { nodeId: null, nodeName: null, field: 'entry', message: 'two or more entry nodes', severity: 'ERROR' },
@@ -153,7 +181,46 @@ describe('flowModel', () => {
     expect(p.some((x) => x.nodeId === null && x.field === 'entry')).toBe(true);
     expect(p.some((x) => x.nodeId === 'n1' && x.severity === 'WARNING' && x.field === 'settings.message')).toBe(true);
     expect(clientProblems(flow())).toEqual([]);
-    const self: SavedNode = { id: 'j', type: 'jump', position: { x: 0, y: 0 }, data: { name: 'J', settings: { chatbotId: 'c1' } } };
+    const self: SavedNode = {
+      id: 'j',
+      type: 'jump',
+      position: { x: 0, y: 0 },
+      data: { name: 'J', settings: { chatbotId: 'c1' } },
+    };
     expect(clientProblems({ nodes: [self], edges: [] }, 'c1').some((x) => x.field === 'settings.chatbotId')).toBe(true);
+  });
+
+  // review fix: the canvas applies React Flow's change sets to the saved flow itself, so a keyboard Delete of a node
+  // takes its edges along even though React Flow reports the edge and node removals in two separate callbacks
+  it('applyNodeChangesRemovesNodeAndItsEdges', () => {
+    const f = flow();
+    const next = applyNodeChangesToFlow(f, [{ type: 'remove', id: 'n2' }]);
+    expect(next.nodes.map((n) => n.id)).toEqual(['n1', 'n3']);
+    expect(next.edges).toEqual([]);
+    const moved = applyNodeChangesToFlow(f, [{ type: 'position', id: 'n1', position: { x: 5, y: 6 } }]);
+    expect(moved.nodes[0].position).toEqual({ x: 5, y: 6 });
+    expect(applyNodeChangesToFlow(f, [{ type: 'select', id: 'n1', selected: true }])).toBe(f);
+  });
+
+  it('applyEdgeChangesRemovesEdge', () => {
+    const f = flow();
+    expect(applyEdgeChangesToFlow(f, [{ type: 'remove', id: 'e1' }]).edges.map((e) => e.id)).toEqual(['e2']);
+    expect(applyEdgeChangesToFlow(f, [{ type: 'select', id: 'e1', selected: true }])).toBe(f);
+  });
+
+  // review fix: a connection dropped on empty canvas respects one edge per output like any other connection
+  it('addNodeConnectedRefusesSecondEdge', () => {
+    const f = flow();
+    const taken = addNodeConnected(f, 'wait', { x: 0, y: 0 }, { source: 'n2', sourceHandle: 'next' });
+    expect(taken.flow.nodes).toHaveLength(4);
+    expect(taken.flow.edges).toHaveLength(2);
+    const free = addNodeConnected(f, 'wait', { x: 0, y: 0 }, { source: 'n3', sourceHandle: null });
+    expect(free.flow.edges).toHaveLength(3);
+    expect(free.flow.edges[2]).toEqual({
+      id: `n3-next-${free.id}`,
+      source: 'n3',
+      sourceHandle: 'next',
+      target: free.id,
+    });
   });
 });

@@ -209,12 +209,14 @@ const withQuery = (path: string, q: Record<string, string | number | undefined>)
   const parts: string[] = [];
   Object.keys(q).forEach((k) => {
     const v = q[k];
-    if (v !== undefined && v !== null && v !== '') parts.push(`${encodeURIComponent(k)}=${encodeURIComponent(String(v))}`);
+    if (v !== undefined && v !== null && v !== '')
+      parts.push(`${encodeURIComponent(k)}=${encodeURIComponent(String(v))}`);
   });
   return parts.length ? `${path}?${parts.join('&')}` : path;
 };
 
-export const getChatbotOptions = (token: string, ws: string) => apiFetch<ChatbotOptions>(`${base(ws)}/options`, { token });
+export const getChatbotOptions = (token: string, ws: string) =>
+  apiFetch<ChatbotOptions>(`${base(ws)}/options`, { token });
 export const listChatbots = (token: string, ws: string) => apiFetch<ChatbotSummary[]>(base(ws), { token });
 export const createChatbot = (token: string, ws: string, name: string) =>
   apiFetch<Chatbot>(base(ws), { token, method: 'POST', body: { name } });
@@ -236,9 +238,12 @@ export const restoreVersion = (token: string, ws: string, id: string, n: number)
 export const startChatbotTest = (token: string, ws: string, id: string, body: TestStartRequest) =>
   apiFetch<Run>(`${one(ws, id)}/test`, { token, method: 'POST', body });
 export const listRuns = (token: string, ws: string, id: string, q: RunsQuery = {}) =>
-  apiFetch<RunPage>(withQuery(`${one(ws, id)}/runs`, { status: q.status, from: q.from, to: q.to, page: q.page, size: q.size }), {
-    token,
-  });
+  apiFetch<RunPage>(
+    withQuery(`${one(ws, id)}/runs`, { status: q.status, from: q.from, to: q.to, page: q.page, size: q.size }),
+    {
+      token,
+    },
+  );
 export const getRun = (token: string, ws: string, id: string, runId: string) =>
   apiFetch<Run>(`${one(ws, id)}/runs/${encodeURIComponent(runId)}`, { token });
 export const stopRun = (token: string, ws: string, id: string, runId: string) =>
@@ -260,7 +265,12 @@ export async function uploadChatbotMedia(
 }
 
 /** The inert preview of a Send message node's message, as HTML text. */
-export async function previewChatbotMessage(token: string, ws: string, id: string, message: CloudMessage): Promise<string> {
+export async function previewChatbotMessage(
+  token: string,
+  ws: string,
+  id: string,
+  message: CloudMessage,
+): Promise<string> {
   const res = await apiFetchFile(`${one(ws, id)}/preview`, { token, body: message, json: true });
   return res.text();
 }

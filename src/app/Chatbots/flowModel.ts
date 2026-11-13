@@ -167,7 +167,11 @@ export function newNodeId(flow: SavedFlow): string {
   return `n${i}`;
 }
 
-export function addNode(flow: SavedFlow, type: SavedNode['type'], position: { x: number; y: number }): { flow: SavedFlow; id: string } {
+export function addNode(
+  flow: SavedFlow,
+  type: SavedNode['type'],
+  position: { x: number; y: number },
+): { flow: SavedFlow; id: string } {
   const id = newNodeId(flow);
   const node: SavedNode = {
     id,
@@ -223,7 +227,10 @@ export function signature(flow: SavedFlow): string {
   return JSON.stringify({ nodes, edges });
 }
 
-export function problemsByNode(problems: Problem[], flow: SavedFlow): { byNode: Record<string, Problem[]>; flow: Problem[]; stray: Problem[] } {
+export function problemsByNode(
+  problems: Problem[],
+  flow: SavedFlow,
+): { byNode: Record<string, Problem[]>; flow: Problem[]; stray: Problem[] } {
   const known: Record<string, true> = {};
   flow.nodes.forEach((n) => (known[n.id] = true));
   const byNode: Record<string, Problem[]> = {};
@@ -256,9 +263,21 @@ export function clientProblems(flow: SavedFlow, chatbotId?: string): Problem[] {
   flow.nodes.forEach((n) => {
     const name = n.data.name;
     if (!isValidName(name)) {
-      out.push({ nodeId: n.id, nodeName: name, field: 'name', message: 'must be 1 to 40 letters, digits or underscores', severity: 'ERROR' });
+      out.push({
+        nodeId: n.id,
+        nodeName: name,
+        field: 'name',
+        message: 'must be 1 to 40 letters, digits or underscores',
+        severity: 'ERROR',
+      });
     } else if (seen[name.toLowerCase()]) {
-      out.push({ nodeId: n.id, nodeName: name, field: 'name', message: 'another node has this name', severity: 'ERROR' });
+      out.push({
+        nodeId: n.id,
+        nodeName: name,
+        field: 'name',
+        message: 'another node has this name',
+        severity: 'ERROR',
+      });
     }
     seen[name.toLowerCase()] = true;
   });
@@ -268,7 +287,14 @@ export function clientProblems(flow: SavedFlow, chatbotId?: string): Problem[] {
     const targets: Record<string, true> = {};
     flow.edges.forEach((e) => (targets[e.target] = true));
     const roots = flow.nodes.filter((n) => !targets[n.id]);
-    if (roots.length === 0) out.push({ nodeId: null, nodeName: null, field: 'entry', message: 'no entry node: every node has an edge pointing to it', severity: 'ERROR' });
+    if (roots.length === 0)
+      out.push({
+        nodeId: null,
+        nodeName: null,
+        field: 'entry',
+        message: 'no entry node: every node has an edge pointing to it',
+        severity: 'ERROR',
+      });
     if (roots.length > 1) {
       out.push({
         nodeId: null,
@@ -293,8 +319,68 @@ export function clientProblems(flow: SavedFlow, chatbotId?: string): Problem[] {
       }
     }
     if (n.type === 'jump' && chatbotId && n.data.settings.chatbotId === chatbotId) {
-      out.push({ nodeId: n.id, nodeName: n.data.name, field: 'settings.chatbotId', message: 'a chatbot cannot jump to itself', severity: 'ERROR' });
+      out.push({
+        nodeId: n.id,
+        nodeName: n.data.name,
+        field: 'settings.chatbotId',
+        message: 'a chatbot cannot jump to itself',
+        severity: 'ERROR',
+      });
     }
   });
   return out;
+}
+
+/** A node change from React Flow, as the canvas applies it to the saved flow. */
+export interface NodeChangeLike {
+  type: string;
+  id?: string;
+  position?: { x: number; y: number };
+  dragging?: boolean;
+  /** React Flow's change objects carry more; it is ignored. */
+  [extra: string]: unknown;
+}
+
+export interface EdgeChangeLike {
+  type: string;
+  id?: string;
+  [extra: string]: unknown;
+}
+
+/**
+ * Applies React Flow's node changes to the saved flow itself: a removed node takes its edges along, a moved node keeps
+ * its new position; anything else leaves the flow as it is (same object).
+ */
+export function applyNodeChangesToFlow(flow: SavedFlow, changes: NodeChangeLike[]): SavedFlow {
+  let next = flow;
+  changes.forEach((c) => {
+    if (c.type === 'remove' && c.id) next = removeNode(next, c.id);
+    else if (c.type === 'position' && c.id && c.position) {
+      const pos = c.position;
+      next = {
+        ...next,
+        nodes: next.nodes.map((n) => (n.id === c.id ? { ...n, position: { x: pos.x, y: pos.y } } : n)),
+      };
+    }
+  });
+  return next;
+}
+
+/** Applies React Flow's edge changes: only removals touch the saved flow. */
+export function applyEdgeChangesToFlow(flow: SavedFlow, changes: EdgeChangeLike[]): SavedFlow {
+  const removed = changes.filter((c) => c.type === 'remove' && c.id).map((c) => c.id as string);
+  if (removed.length === 0) return flow;
+  return { ...flow, edges: flow.edges.filter((e) => removed.indexOf(e.id) < 0) };
+}
+
+/** Adds a node at a position and, when asked, the edge from an output to it; the edge obeys one-per-output. */
+export function addNodeConnected(
+  flow: SavedFlow,
+  type: SavedNode['type'],
+  position: { x: number; y: number },
+  connectFrom: { source: string; sourceHandle: string | null } | null,
+): { flow: SavedFlow; id: string } {
+  const added = addNode(flow, type, position);
+  if (!connectFrom) return added;
+  return { flow: addEdge(added.flow, connectFrom.source, connectFrom.sourceHandle, added.id), id: added.id };
 }

@@ -33,7 +33,10 @@ describe('chatbots api', () => {
     });
     const run = await startChatbotTest('tok', 'w1', 'c1', { contactId: 'k1', phoneNumberId: 'n1' });
     expect(run.id).toBe('r1');
-    expect(requestTo(fetch, 'POST /api/workspaces/w1/chatbots/c1/test')?.body).toEqual({ contactId: 'k1', phoneNumberId: 'n1' });
+    expect(requestTo(fetch, 'POST /api/workspaces/w1/chatbots/c1/test')?.body).toEqual({
+      contactId: 'k1',
+      phoneNumberId: 'n1',
+    });
   });
 
   it('listRunsBuildsQuery', async () => {

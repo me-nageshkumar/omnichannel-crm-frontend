@@ -14,6 +14,13 @@ import {
 
 export const STALE_TEXT = 'This chatbot was saved by someone else. Reload the page to continue.';
 
+/** Each node's data as text, keyed by id. */
+function nodeSignatures(flow: SavedFlow): Record<string, string> {
+  const out: Record<string, string> = {};
+  flow.nodes.forEach((n) => (out[n.id] = JSON.stringify(n.data)));
+  return out;
+}
+
 export interface EditorState {
   chatbot: Chatbot;
   flow: SavedFlow;
@@ -33,6 +40,8 @@ export interface EditorState {
   clearError(): void;
   /** Changes the run settings; they travel with the flow on the next save. */
   updateSettings(next: ChatbotSettings): void;
+  /** Renames the draft; the name travels with the next save. Answers an error text, or null when accepted. */
+  rename(name: string): string | null;
   /** Takes a restored version (or any server save) as the new saved state. */
   applySaved(result: SaveResult): void;
 }
@@ -50,23 +59,25 @@ export function useEditorState(initial: Chatbot): EditorState {
   const [saving, setSaving] = React.useState(false);
   const [error, setError] = React.useState<string | null>(null);
   const [settingsDirty, setSettingsDirty] = React.useState(false);
+  const [nameDirty, setNameDirty] = React.useState(false);
+  // what each node looked like at the last save: a server problem outlives edits to other nodes, not to its own
+  const [savedNodes, setSavedNodes] = React.useState<Record<string, string>>(() => nodeSignatures(initial.flow));
 
   const setFlow = React.useCallback((next: SavedFlow | ((current: SavedFlow) => SavedFlow)) => {
     setFlowState((current) => (typeof next === 'function' ? next(current) : next));
   }, []);
 
-  const dirty = settingsDirty || signature(flow) !== savedSignature;
-  const problems = React.useMemo(
-    () =>
-      dirty
-        ? clientProblems(flow, chatbot.id)
-        : serverProblems.concat(
-            clientProblems(flow, chatbot.id).filter(
-              (p) => !serverProblems.some((s) => s.nodeId === p.nodeId && s.field === p.field),
-            ),
-          ),
-    [dirty, flow, serverProblems, chatbot.id],
-  );
+  const dirty = settingsDirty || nameDirty || signature(flow) !== savedSignature;
+  const problems = React.useMemo(() => {
+    const current = nodeSignatures(flow);
+    // the server's word stands until the next save, except about a node that changed since (then it may be stale)
+    const kept = serverProblems.filter((s) =>
+      s.nodeId === null ? !dirty : current[s.nodeId] === savedNodes[s.nodeId],
+    );
+    return kept.concat(
+      clientProblems(flow, chatbot.id).filter((p) => !kept.some((s) => s.nodeId === p.nodeId && s.field === p.field)),
+    );
+  }, [dirty, flow, serverProblems, savedNodes, chatbot.id]);
   const buckets = React.useMemo(() => problemsByNode(problems, flow), [problems, flow]);
 
   const save = React.useCallback(async (): Promise<Chatbot | undefined> => {
@@ -75,6 +86,7 @@ export function useEditorState(initial: Chatbot): EditorState {
     try {
       const pruned = pruneEdges(flow);
       const result = await saveChatbot(t, ws, chatbot.id, {
+        name: chatbot.name,
         flow: pruned,
         settings: chatbot.settings,
         version: chatbot.version,
@@ -82,7 +94,9 @@ export function useEditorState(initial: Chatbot): EditorState {
       setChatbot(result.chatbot);
       setFlowState(pruned);
       setSavedSignature(signature(pruned));
+      setSavedNodes(nodeSignatures(pruned));
       setSettingsDirty(false);
+      setNameDirty(false);
       setServerProblems(result.problems);
       return result.chatbot;
     } catch (e) {
@@ -150,11 +164,21 @@ export function useEditorState(initial: Chatbot): EditorState {
       setChatbot((c) => ({ ...c, settings: next }));
       setSettingsDirty(true);
     },
+    rename: (name) => {
+      if (name.length === 0 || name.length > 80) return 'Use 1 to 80 characters';
+      if (name !== chatbot.name) {
+        setChatbot((c) => ({ ...c, name }));
+        setNameDirty(true);
+      }
+      return null;
+    },
     applySaved: (result) => {
       setChatbot(result.chatbot);
       setFlowState(result.chatbot.flow);
       setSavedSignature(signature(result.chatbot.flow));
+      setSavedNodes(nodeSignatures(result.chatbot.flow));
       setSettingsDirty(false);
+      setNameDirty(false);
       setServerProblems(result.problems);
       setSelectedId(null);
     },

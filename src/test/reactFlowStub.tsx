@@ -7,21 +7,34 @@ import { vi } from 'vitest';
  * page under test.
  */
 vi.mock('@xyflow/react', () => {
-  type AnyNode = { id: string; type?: string; data: Record<string, unknown>; position: { x: number; y: number }; selected?: boolean };
+  type AnyNode = {
+    id: string;
+    type?: string;
+    data: Record<string, unknown>;
+    position: { x: number; y: number };
+    selected?: boolean;
+  };
   type AnyEdge = { id: string; source: string; target: string; sourceHandle?: string | null };
   const ReactFlow: React.FunctionComponent<{
     nodes: AnyNode[];
     edges: AnyEdge[];
     nodeTypes?: Record<string, React.ComponentType<{ id: string; data: Record<string, unknown>; selected?: boolean }>>;
     onNodeClick?(e: React.MouseEvent, node: AnyNode): void;
+    onDrop?(e: React.DragEvent): void;
+    onDragOver?(e: React.DragEvent): void;
     children?: React.ReactNode;
-  }> = ({ nodes, edges, nodeTypes, onNodeClick, children }) => (
-    <div data-testid="react-flow">
+  }> = ({ nodes, edges, nodeTypes, onNodeClick, onDrop, onDragOver, children }) => (
+    <div data-testid="react-flow" onDrop={onDrop} onDragOver={onDragOver}>
       <ul aria-label="Nodes">
         {nodes.map((n) => {
           const Type = nodeTypes?.[n.type ?? 'default'];
           return (
-            <li key={n.id} role="listitem" aria-label={String(n.data.name ?? n.id)} onClick={(e) => onNodeClick?.(e, n)}>
+            <li
+              key={n.id}
+              role="listitem"
+              aria-label={String(n.data.name ?? n.id)}
+              onClick={(e) => onNodeClick?.(e, n)}
+            >
               {Type ? <Type id={n.id} data={n.data} selected={n.selected} /> : String(n.data.name)}
             </li>
           );

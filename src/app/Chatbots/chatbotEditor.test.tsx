@@ -143,4 +143,96 @@ describe('chatbot editor', () => {
     await user.click(screen.getByRole('button', { name: 'Save' }));
     expect(await screen.findByText(/saved by someone else/)).toBeVisible();
   });
+
+  const PROBLEM_SAVE = {
+    [`PUT ${CHATBOTS_BASE}/c1`]: {
+      status: 200,
+      body: {
+        chatbot: { ...LEAD_QUALIFIER, version: 4 },
+        problems: [
+          { nodeId: 'n2', nodeName: 'AskBudget', field: 'settings.text', message: 'is required', severity: 'WARNING' },
+        ],
+      },
+    },
+  };
+
+  // review fix: the server's problems stay until the next save; editing another node does not clear them
+  it('serverProblemsStayUntilNextSave', async () => {
+    const { user } = open('/chatbots/c1', PROBLEM_SAVE);
+    await screen.findByRole('heading', { name: 'Lead qualifier' });
+    await user.click(nodeItem('AskBudget').getByRole('button', { name: 'Rename AskBudget' }));
+    await user.type(await screen.findByRole('textbox', { name: 'Node name' }), '2{Enter}');
+    await user.click(screen.getByRole('button', { name: 'Save' }));
+    expect(await screen.findByRole('button', { name: '1 problem' })).toBeVisible();
+    await user.click(nodeItem('High').getByRole('button', { name: 'Rename High' }));
+    await user.type(await screen.findByRole('textbox', { name: 'Node name' }), '2{Enter}');
+    expect(screen.getByRole('button', { name: 'Save' })).toBeEnabled();
+    expect(screen.getByRole('button', { name: '1 problem' })).toBeVisible();
+    // the problem's own node changed: the server's word about it is stale and goes
+    await user.click(nodeItem('AskBudget2').getByRole('button', { name: 'Rename AskBudget2' }));
+    await user.type(await screen.findByRole('textbox', { name: 'Node name' }), '3{Enter}');
+    expect(screen.queryByRole('button', { name: '1 problem' })).toBeNull();
+  });
+
+  // review fix: a draft can be renamed from the header; the name travels with the save
+  it('renameChatbotSavesName', async () => {
+    const { f, user } = open('/chatbots/c1', {
+      [`PUT ${CHATBOTS_BASE}/c1`]: {
+        status: 200,
+        body: { chatbot: { ...LEAD_QUALIFIER, name: 'Lead bot', version: 4 }, problems: [] },
+      },
+    });
+    await screen.findByRole('heading', { name: 'Lead qualifier' });
+    await user.click(screen.getByRole('button', { name: 'Rename chatbot' }));
+    const input = await screen.findByRole('textbox', { name: 'Chatbot name' });
+    await user.clear(input);
+    await user.type(input, 'Lead bot{Enter}');
+    expect(screen.getByRole('heading', { name: 'Lead bot' })).toBeVisible();
+    await user.click(screen.getByRole('button', { name: 'Save' }));
+    await waitFor(() => expect(callsTo(f, `PUT ${CHATBOTS_BASE}/c1`)).toBe(1));
+    expect(requestTo(f, `PUT ${CHATBOTS_BASE}/c1`)?.body.name).toBe('Lead bot');
+  });
+
+  // review fix (Review Focus 4): the sidebar asks too, not only the editor's own buttons
+  it('sidebarLinkAsksWhenDirty', async () => {
+    const { user } = open('/chatbots/c1');
+    await screen.findByRole('heading', { name: 'Lead qualifier' });
+    await user.click(screen.getByRole('button', { name: 'Add node' }));
+    await user.click(await screen.findByRole('button', { name: /^Wait/ }));
+    // the sidebar is collapsed in jsdom: its links are in the DOM but hidden
+    await user.click(
+      within(screen.getByRole('navigation', { name: 'Global', hidden: true })).getByRole('link', {
+        name: 'Chatbots',
+        hidden: true,
+      }),
+    );
+    expect(await screen.findByText('Leave without saving?')).toBeVisible();
+    expect(screen.getByLabelText('Location')).toHaveTextContent('/chatbots/c1');
+    await user.click(screen.getByRole('button', { name: 'Leave' }));
+    expect(screen.getByLabelText('Location')).toHaveTextContent(/^\/chatbots$/);
+  });
+
+  // review fix: a palette entry dragged onto the canvas lands there
+  it('paletteDropAddsNodeAtPoint', async () => {
+    open('/chatbots/c1');
+    await screen.findByRole('heading', { name: 'Lead qualifier' });
+    const dataTransfer = {
+      getData: (t: string) => (t === 'application/x-chatbot-node' ? 'wait' : ''),
+      types: ['application/x-chatbot-node'],
+      dropEffect: 'move',
+    };
+    fireEvent.dragOver(screen.getByTestId('react-flow'), { dataTransfer });
+    fireEvent.drop(screen.getByTestId('react-flow'), { dataTransfer, clientX: 300, clientY: 200 });
+    expect(await screen.findByRole('listitem', { name: /^Wait/ })).toBeVisible();
+    expect(screen.getByRole('button', { name: 'Save' })).toBeEnabled();
+  });
+
+  // review fix: Backspace inside the header or a side panel must not delete the selected node
+  it('panelsAreNoKeyZones', async () => {
+    const { user } = open('/chatbots/c1');
+    await screen.findByRole('heading', { name: 'Lead qualifier' });
+    await user.click(nodeItem('AskBudget').getByText('AskBudget'));
+    expect(await screen.findByRole('dialog', { name: 'AskBudget' })).toHaveClass('nokey');
+    expect(document.querySelector('.omni-flow-header')).toHaveClass('nokey');
+  });
 });

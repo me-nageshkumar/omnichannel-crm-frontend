@@ -37,7 +37,7 @@ export const NodeDrawer: React.FunctionComponent<{
     if (!errors[p.field]) errors[p.field] = p.message;
   });
   return (
-    <section className="omni-drawer" role="dialog" aria-label={node.data.name}>
+    <section className="omni-drawer nokey" role="dialog" aria-label={node.data.name}>
       <div className="omni-drawer__head">
         <span aria-hidden="true">
           <Icon />
@@ -51,7 +51,11 @@ export const NodeDrawer: React.FunctionComponent<{
         </Button>
       </div>
       {problems.length > 0 && (
-        <Alert variant={problems.some((p) => p.severity === 'ERROR') ? 'danger' : 'warning'} isInline title="This node has problems">
+        <Alert
+          variant={problems.some((p) => p.severity === 'ERROR') ? 'danger' : 'warning'}
+          isInline
+          title="This node has problems"
+        >
           <ul>
             {problems.map((p, i) => (
               <li key={i}>{p.message}</li>
@@ -60,7 +64,16 @@ export const NodeDrawer: React.FunctionComponent<{
         </Alert>
       )}
       {Fields ? (
-        <Fields settings={node.data.settings} onChange={onChange} options={options} errors={errors} isDisabled={readOnly} flow={flow} node={node} chatbotId={chatbotId} />
+        <Fields
+          settings={node.data.settings}
+          onChange={onChange}
+          options={options}
+          errors={errors}
+          isDisabled={readOnly}
+          flow={flow}
+          node={node}
+          chatbotId={chatbotId}
+        />
       ) : (
         <p className="pf-v6-u-color-200">{meta.description}</p>
       )}

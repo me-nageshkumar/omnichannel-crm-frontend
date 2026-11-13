@@ -44,4 +44,13 @@ export function waitingLabel(w: Waiting | null | undefined): string {
   return 'for the timer';
 }
 
-export const RUN_STATUSES: RunStatus[] = ['RUNNING', 'WAITING', 'COMPLETED', 'ENDED', 'STOPPED', 'HANDED_OVER', 'JUMPED', 'FAILED'];
+export const RUN_STATUSES: RunStatus[] = [
+  'RUNNING',
+  'WAITING',
+  'COMPLETED',
+  'ENDED',
+  'STOPPED',
+  'HANDED_OVER',
+  'JUMPED',
+  'FAILED',
+];

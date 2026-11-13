@@ -60,7 +60,7 @@ export const VersionsDrawer: React.FunctionComponent<{
   };
 
   return (
-    <section className="omni-drawer" role="dialog" aria-label="Versions">
+    <section className="omni-drawer nokey" role="dialog" aria-label="Versions">
       <div className="omni-drawer__head">
         <Title headingLevel="h2" size="lg">
           Versions

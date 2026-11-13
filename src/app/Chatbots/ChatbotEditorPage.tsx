@@ -8,7 +8,7 @@ import { useLoad } from '@app/admin/useLoad';
 import { useSession } from '@app/session/SessionContext';
 import { useAccess } from '@app/session/useAccess';
 import { useDocumentTitle } from '@app/utils/useDocumentTitle';
-import { addNode, duplicateNode, isValidName, removeNode, renameNode } from '@app/Chatbots/flowModel';
+import { addNodeConnected, duplicateNode, isValidName, removeNode, renameNode } from '@app/Chatbots/flowModel';
 import { EditorContext } from '@app/Chatbots/editor/EditorContext';
 import { EditorHeader } from '@app/Chatbots/editor/EditorHeader';
 import { FlowCanvas } from '@app/Chatbots/editor/FlowCanvas';
@@ -88,22 +88,7 @@ const Editor: React.FunctionComponent<{
     (type: NodeType) => {
       setFlow((current) => {
         const at = position ?? { x: 120 + 60 * current.nodes.length, y: 120 + 40 * current.nodes.length };
-        const added = addNode(current, type, at);
-        let next = added.flow;
-        if (connectFrom) {
-          next = {
-            ...next,
-            edges: next.edges.concat([
-              {
-                id: `${connectFrom.source}-${connectFrom.sourceHandle ?? 'next'}-${added.id}`,
-                source: connectFrom.source,
-                sourceHandle: connectFrom.sourceHandle ?? 'next',
-                target: added.id,
-              },
-            ]),
-          };
-        }
-        return next;
+        return addNodeConnected(current, type, at, connectFrom).flow;
       });
       setPalette(false);
     };
@@ -135,7 +120,7 @@ const Editor: React.FunctionComponent<{
 
   const selected = selectedId ? (flow.nodes.find((n) => n.id === selectedId) ?? null) : null;
   const panel = versions ? (
-    <DrawerPanelContent widths={{ default: 'width_100', lg: 'width_33' }}>
+    <DrawerPanelContent className="nokey" widths={{ default: 'width_100', lg: 'width_33' }}>
       <VersionsDrawer
         chatbot={chatbot}
         readOnly={!canManage || chatbot.status === 'PUBLISHED'}
@@ -151,15 +136,15 @@ const Editor: React.FunctionComponent<{
       />
     </DrawerPanelContent>
   ) : run ? (
-    <DrawerPanelContent widths={{ default: 'width_100', lg: 'width_33' }}>
+    <DrawerPanelContent className="nokey" widths={{ default: 'width_100', lg: 'width_33' }}>
       <RunOverlayPanel run={run} flow={flow} onStop={() => void stopTheRun()} onClose={() => setRunId(null)} />
     </DrawerPanelContent>
   ) : palette || pendingAdd ? (
-    <DrawerPanelContent widths={{ default: 'width_100', lg: 'width_33' }}>
+    <DrawerPanelContent className="nokey" widths={{ default: 'width_100', lg: 'width_33' }}>
       <NodePalette onPick={pendingAdd ? place(pendingAdd.connectFrom, pendingAdd.position) : place(null)} />
     </DrawerPanelContent>
   ) : selected ? (
-    <DrawerPanelContent widths={{ default: 'width_100', lg: 'width_50', '2xl': 'width_33' }}>
+    <DrawerPanelContent className="nokey" widths={{ default: 'width_100', lg: 'width_50', '2xl': 'width_33' }}>
       <NodeDrawer
         node={selected}
         flow={flow}
@@ -206,6 +191,7 @@ const Editor: React.FunctionComponent<{
           onPickProblem={(nodeId) => {
             if (nodeId) select(nodeId);
           }}
+          onRename={state.rename}
         />
         {chatbot.status === 'PUBLISHED' && <Alert variant="info" isInline title={PUBLISHED_TEXT} />}
         {preview && <Alert variant="info" isInline title={PREVIEW_TEXT} />}
@@ -243,6 +229,7 @@ const Editor: React.FunctionComponent<{
                   select(id);
                 }}
                 onAddAt={(position, connectFrom) => setPendingAdd({ position, connectFrom })}
+                onDropType={(type, position) => place(null, position)(type)}
               />
             </DrawerContentBody>
           </DrawerContent>

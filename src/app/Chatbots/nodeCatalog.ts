@@ -86,7 +86,9 @@ export const CATALOG: Record<NodeType, NodeMeta> = {
     outputs: (s) => {
       const replies = repliesOf(s.message);
       if (replies.length === 0) return [NEXT];
-      return replies.map((r) => ({ id: `reply:${r.id}`, label: r.title })).concat([{ id: 'other', label: 'Other reply' }]);
+      return replies
+        .map((r) => ({ id: `reply:${r.id}`, label: r.title }))
+        .concat([{ id: 'other', label: 'Other reply' }]);
     },
     preview: (s) => cut(bodyOf(s.message)) || 'Empty message',
     waitsFor: (s) => (repliesOf(s.message).length > 0 ? 'WHATSAPP_REPLY' : null),
@@ -108,7 +110,15 @@ export const CATALOG: Record<NodeType, NodeMeta> = {
     label: 'Ask a question',
     description: 'Asks and waits for an answer of a type: text, number, email, phone, date, location or a file.',
     icon: QuestionCircleIcon,
-    defaultSettings: () => ({ text: '', answerType: 'TEXT', saveAs: '', attributeId: null, retries: 2, retryMessage: '', giveUpMessage: '' }),
+    defaultSettings: () => ({
+      text: '',
+      answerType: 'TEXT',
+      saveAs: '',
+      attributeId: null,
+      retries: 2,
+      retryMessage: '',
+      giveUpMessage: '',
+    }),
     outputs: () => [NEXT, { id: 'noAnswer', label: 'No valid answer' }],
     preview: (s) => `${cut(String(s.text ?? '')) || 'Empty question'}\n${String(s.answerType ?? 'TEXT').toLowerCase()}`,
     waitsFor: () => 'WHATSAPP_REPLY',
@@ -130,7 +140,11 @@ export const CATALOG: Record<NodeType, NodeMeta> = {
     outputs: () => [NEXT],
     preview: (s) => `${cut(String(s.title ?? '')) || 'Untitled form'}\n${((s.fields as Any[]) ?? []).length} field(s)`,
     waitsFor: () => 'FORM',
-    produces: (s) => ((s.fields as Any[]) ?? []).filter((f) => f?.key).map((f) => `form.${f.key}`).concat(['form.submittedAt']),
+    produces: (s) =>
+      ((s.fields as Any[]) ?? [])
+        .filter((f) => f?.key)
+        .map((f) => `form.${f.key}`)
+        .concat(['form.submittedAt']),
   },
   condition: {
     type: 'condition',
@@ -152,7 +166,13 @@ export const CATALOG: Record<NodeType, NodeMeta> = {
     label: 'Update contact',
     description: 'Sets or clears attributes, adds or removes labels, names the contact if blank.',
     icon: UserEditIcon,
-    defaultSettings: () => ({ setAttributes: {}, clearAttributes: [], addLabels: [], removeLabels: [], nameIfBlank: '' }),
+    defaultSettings: () => ({
+      setAttributes: {},
+      clearAttributes: [],
+      addLabels: [],
+      removeLabels: [],
+      nameIfBlank: '',
+    }),
     outputs: () => [NEXT],
     preview: (s) => {
       const n =

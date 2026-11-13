@@ -6,15 +6,20 @@ import {
   MiniMap,
   ReactFlow,
   ReactFlowProvider,
-  applyEdgeChanges,
-  applyNodeChanges,
   useReactFlow,
 } from '@xyflow/react';
 import type { Connection, Edge, EdgeChange, EdgeTypes, Node, NodeChange, NodeTypes } from '@xyflow/react';
 import '@xyflow/react/dist/style.css';
 import type { Problem, SavedFlow } from '@app/api/chatbots';
-import type { CanvasEdge, CanvasNode, NodeData, StepState } from '@app/Chatbots/flowModel';
-import { canConnect, addEdge as connect, fromCanvas, toCanvas } from '@app/Chatbots/flowModel';
+import type { NodeType } from '@app/api/chatbots';
+import type { NodeData, StepState } from '@app/Chatbots/flowModel';
+import {
+  applyEdgeChangesToFlow,
+  applyNodeChangesToFlow,
+  canConnect,
+  addEdge as connect,
+  toCanvas,
+} from '@app/Chatbots/flowModel';
 import { FlowEdge } from '@app/Chatbots/editor/FlowEdge';
 import { FlowNodeCard } from '@app/Chatbots/editor/FlowNodeCard';
 
@@ -28,13 +33,31 @@ export interface FlowCanvasProps {
   problems: Problem[];
   runByNode?: Record<string, StepState>;
   selectedId: string | null;
-  onFlowChange(next: SavedFlow): void;
+  /** Takes the next flow or an updater, so two change sets in one tick (React Flow's Delete) both land. */
+  onFlowChange(next: SavedFlow | ((current: SavedFlow) => SavedFlow)): void;
   onSelect(id: string | null): void;
   /** A connection dropped on empty canvas: add a node there, connected from the handle. */
-  onAddAt?(position: { x: number; y: number }, connectFrom: { source: string; sourceHandle: string | null } | null): void;
+  onAddAt?(
+    position: { x: number; y: number },
+    connectFrom: { source: string; sourceHandle: string | null } | null,
+  ): void;
+  /** A palette entry dropped on the canvas: add a node of that type there. */
+  onDropType?(type: NodeType, position: { x: number; y: number }): void;
 }
 
-const Inner: React.FunctionComponent<FlowCanvasProps> = ({ flow, readOnly, problems, runByNode, selectedId, onFlowChange, onSelect, onAddAt }) => {
+export const DRAG_TYPE = 'application/x-chatbot-node';
+
+const Inner: React.FunctionComponent<FlowCanvasProps> = ({
+  flow,
+  readOnly,
+  problems,
+  runByNode,
+  selectedId,
+  onFlowChange,
+  onSelect,
+  onAddAt,
+  onDropType,
+}) => {
   const rf = useReactFlow();
   const canvas = React.useMemo(() => toCanvas(flow, problems), [flow, problems]);
   const nodes: Node<NodeData>[] = React.useMemo(
@@ -47,21 +70,30 @@ const Inner: React.FunctionComponent<FlowCanvasProps> = ({ flow, readOnly, probl
     [canvas.nodes, selectedId, runByNode],
   );
   const edges: Edge[] = React.useMemo(
-    () => canvas.edges.map((e) => ({ ...(e as unknown as Edge), data: { readOnly, onRemove: (id: string) => onFlowChange({ ...flow, edges: flow.edges.filter((x) => x.id !== id) }) } })),
+    () =>
+      canvas.edges.map((e) => ({
+        ...(e as unknown as Edge),
+        data: {
+          readOnly,
+          onRemove: (id: string) => onFlowChange({ ...flow, edges: flow.edges.filter((x) => x.id !== id) }),
+        },
+      })),
     [canvas.edges, readOnly, flow, onFlowChange],
   );
 
+  // React Flow reports a Delete as edge removals and then node removals in the same tick: both go through updaters
+  // on the saved flow, so neither overwrites the other.
   const onNodesChange = (changes: NodeChange<Node<NodeData>>[]) => {
-    const next = applyNodeChanges(changes as NodeChange<Node>[], nodes as Node[]);
-    const moved = changes.some((c) => c.type === 'position' || c.type === 'remove');
-    if (moved && !readOnly) onFlowChange(fromCanvas(next as unknown as CanvasNode[], canvas.edges, flow.viewport));
+    if (readOnly) return;
+    const settled = changes.filter((c) => c.type === 'remove' || (c.type === 'position' && !c.dragging && c.position));
+    if (settled.length > 0)
+      onFlowChange((current) =>
+        applyNodeChangesToFlow(current, settled as unknown as Parameters<typeof applyNodeChangesToFlow>[1]),
+      );
   };
   const onEdgesChange = (changes: EdgeChange<Edge>[]) => {
     if (readOnly) return;
-    if (changes.some((c) => c.type === 'remove')) {
-      const next = applyEdgeChanges(changes, edges);
-      onFlowChange(fromCanvas(canvas.nodes, next as unknown as CanvasEdge[], flow.viewport));
-    }
+    if (changes.some((c) => c.type === 'remove')) onFlowChange((current) => applyEdgeChangesToFlow(current, changes));
   };
   const onConnect = (c: Connection) => {
     if (readOnly || !c.source || !c.target) return;
@@ -77,11 +109,32 @@ const Inner: React.FunctionComponent<FlowCanvasProps> = ({ flow, readOnly, probl
       onNodesChange={onNodesChange}
       onEdgesChange={onEdgesChange}
       onConnect={onConnect}
-      isValidConnection={(c) => !!c.source && !!c.target && canConnect(flow, c.source, c.sourceHandle ?? null, c.target)}
+      isValidConnection={(c) =>
+        !!c.source && !!c.target && canConnect(flow, c.source, c.sourceHandle ?? null, c.target)
+      }
       onConnectEnd={(event, state) => {
-        if (readOnly || !onAddAt || state.isValid || !state.fromNode) return;
-        const point = 'clientX' in event ? { x: event.clientX, y: event.clientY } : { x: event.changedTouches[0].clientX, y: event.changedTouches[0].clientY };
-        onAddAt(rf.screenToFlowPosition(point), { source: state.fromNode.id, sourceHandle: state.fromHandle?.id ?? null });
+        // only a drop on empty canvas adds a node; a drop on a node that refused the connection adds nothing
+        if (readOnly || !onAddAt || state.isValid || !state.fromNode || state.toNode) return;
+        const point =
+          'clientX' in event
+            ? { x: event.clientX, y: event.clientY }
+            : { x: event.changedTouches[0].clientX, y: event.changedTouches[0].clientY };
+        onAddAt(rf.screenToFlowPosition(point), {
+          source: state.fromNode.id,
+          sourceHandle: state.fromHandle?.id ?? null,
+        });
+      }}
+      onDragOver={(e) => {
+        if (readOnly || !onDropType) return;
+        e.preventDefault();
+        e.dataTransfer.dropEffect = 'move';
+      }}
+      onDrop={(e) => {
+        if (readOnly || !onDropType) return;
+        const type = e.dataTransfer.getData(DRAG_TYPE) as NodeType;
+        if (!type) return;
+        e.preventDefault();
+        onDropType(type, rf.screenToFlowPosition({ x: e.clientX, y: e.clientY }));
       }}
       onNodeClick={(_e, n) => onSelect(n.id)}
       onPaneClick={() => onSelect(null)}

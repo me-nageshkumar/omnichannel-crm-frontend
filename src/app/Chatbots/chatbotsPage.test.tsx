@@ -33,7 +33,10 @@ describe('chatbots list', () => {
   });
 
   it('showsTheEmptyState', async () => {
-    mockFetch({ ...meAs(WORKSPACE_MANAGER), ...chatbotRoutes({ [`GET ${CHATBOTS_BASE}`]: { status: 200, body: [] } }) });
+    mockFetch({
+      ...meAs(WORKSPACE_MANAGER),
+      ...chatbotRoutes({ [`GET ${CHATBOTS_BASE}`]: { status: 200, body: [] } }),
+    });
     renderApp('/chatbots');
     expect(await screen.findByText(EMPTY_TEXT)).toBeVisible();
   });
@@ -41,7 +44,9 @@ describe('chatbots list', () => {
   it('newChatbotCreatesAndOpensEditor', async () => {
     const fetch = mockFetch({
       ...meAs(WORKSPACE_MANAGER),
-      ...chatbotRoutes({ [`POST ${CHATBOTS_BASE}`]: { status: 201, body: { ...LEAD_QUALIFIER, id: 'c9', name: 'Price bot 2' } } }),
+      ...chatbotRoutes({
+        [`POST ${CHATBOTS_BASE}`]: { status: 201, body: { ...LEAD_QUALIFIER, id: 'c9', name: 'Price bot 2' } },
+      }),
     });
     const { user } = renderApp('/chatbots', <LocationProbe />);
     await user.click(await screen.findByRole('button', { name: 'New chatbot' }));
@@ -52,9 +57,14 @@ describe('chatbots list', () => {
   });
 
   it('deleteAsksThenDeletes', async () => {
-    const fetch = mockFetch({ ...meAs(WORKSPACE_MANAGER), ...chatbotRoutes({ [`DELETE ${CHATBOTS_BASE}/c1`]: { status: 204 } }) });
+    const fetch = mockFetch({
+      ...meAs(WORKSPACE_MANAGER),
+      ...chatbotRoutes({ [`DELETE ${CHATBOTS_BASE}/c1`]: { status: 204 } }),
+    });
     const { user } = renderApp('/chatbots');
-    await user.click(within(await rowFor('Lead qualifier')).getByRole('button', { name: 'Actions for Lead qualifier' }));
+    await user.click(
+      within(await rowFor('Lead qualifier')).getByRole('button', { name: 'Actions for Lead qualifier' }),
+    );
     await user.click(await screen.findByRole('menuitem', { name: 'Delete' }));
     expect(await screen.findByText(/Delete “Lead qualifier”/)).toBeVisible();
     await user.click(screen.getByRole('button', { name: 'Delete' }));

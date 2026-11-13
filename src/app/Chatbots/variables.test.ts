@@ -10,7 +10,11 @@ describe('variables', () => {
     const nodeGroups = groups.slice(5);
     expect(nodeGroups.map((g) => g.label)).toEqual(['AskBudget', 'Welcome']);
     expect(nodeGroups[0].paths.map((p) => p.path)).toEqual(['AskBudget.answer']);
-    expect(nodeGroups[1].paths.map((p) => p.path)).toEqual(['Welcome.reply.id', 'Welcome.reply.title', 'Welcome.reply.text']);
+    expect(nodeGroups[1].paths.map((p) => p.path)).toEqual([
+      'Welcome.reply.id',
+      'Welcome.reply.title',
+      'Welcome.reply.text',
+    ]);
     expect(groups.some((g) => g.paths.some((p) => p.path === 'High.reply.id'))).toBe(false);
   });
 
@@ -28,7 +32,9 @@ describe('variables', () => {
     const event = groups.find((g) => g.label === 'Event')!;
     expect(event.paths.map((p) => p.path)).toContain('event.message.text');
     expect(event.paths.map((p) => p.path)).not.toContain('event.deal.title');
-    const lane = variableSchema(LEAD_QUALIFIER.flow, null, OPTIONS, 'DEAL_LANE_CHANGED').find((g) => g.label === 'Event')!;
+    const lane = variableSchema(LEAD_QUALIFIER.flow, null, OPTIONS, 'DEAL_LANE_CHANGED').find(
+      (g) => g.label === 'Event',
+    )!;
     expect(lane.paths.map((p) => p.path)).toContain('event.toLane.name');
   });
 

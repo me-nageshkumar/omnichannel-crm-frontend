@@ -48,7 +48,13 @@ export function variableSchema(
     }),
   );
   if (kinds.indexOf('DEAL_LANE_CHANGED') >= 0) {
-    ['event.deal.title', 'event.deal.amount', 'event.toLane.name', 'event.fromLane.name', 'event.pipeline.name'].forEach((p) => {
+    [
+      'event.deal.title',
+      'event.deal.amount',
+      'event.toLane.name',
+      'event.fromLane.name',
+      'event.pipeline.name',
+    ].forEach((p) => {
       if (!seen[p]) {
         seen[p] = true;
         eventPaths.push({ path: p });
@@ -96,7 +102,7 @@ export function variableSchema(
 /** The nodes that can reach `nodeId`, keyed by id. */
 function ancestors(flow: SavedFlow, nodeId: string): Record<string, true> {
   const incoming: Record<string, string[]> = {};
-  flow.edges.forEach((e) => ((incoming[e.target] = incoming[e.target] || []).push(e.source)));
+  flow.edges.forEach((e) => (incoming[e.target] = incoming[e.target] || []).push(e.source));
   const seen: Record<string, true> = {};
   const queue = [nodeId];
   while (queue.length) {

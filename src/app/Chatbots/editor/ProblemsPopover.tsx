@@ -4,7 +4,10 @@ import { ExclamationCircleIcon, ExclamationTriangleIcon } from '@patternfly/reac
 import type { Problem } from '@app/api/chatbots';
 
 /** "n problems" with the list; a click on one selects its node (spec §8.1). */
-export const ProblemsPopover: React.FunctionComponent<{ problems: Problem[]; onPick(nodeId: string | null): void }> = ({ problems, onPick }) => {
+export const ProblemsPopover: React.FunctionComponent<{ problems: Problem[]; onPick(nodeId: string | null): void }> = ({
+  problems,
+  onPick,
+}) => {
   if (problems.length === 0) return null;
   const errors = problems.filter((p) => p.severity === 'ERROR').length;
   const label = `${problems.length} problem${problems.length === 1 ? '' : 's'}`;
@@ -17,7 +20,11 @@ export const ProblemsPopover: React.FunctionComponent<{ problems: Problem[]; onP
           {problems.map((p, i) => (
             <li key={i}>
               <Button variant="link" isInline onClick={() => onPick(p.nodeId)}>
-                {p.severity === 'ERROR' ? <ExclamationCircleIcon color="var(--pf-t--global--icon--color--status--danger--default)" /> : <ExclamationTriangleIcon color="var(--pf-t--global--icon--color--status--warning--default)" />}{' '}
+                {p.severity === 'ERROR' ? (
+                  <ExclamationCircleIcon color="var(--pf-t--global--icon--color--status--danger--default)" />
+                ) : (
+                  <ExclamationTriangleIcon color="var(--pf-t--global--icon--color--status--warning--default)" />
+                )}{' '}
                 {p.nodeName ? `${p.nodeName}: ` : 'Flow: '}
                 {p.message}
               </Button>

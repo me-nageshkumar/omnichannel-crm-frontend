@@ -105,7 +105,8 @@ export type AutomationOptions = {
       active: boolean;
       lanes: { id: string; name: string; type: 'OPEN' | 'WON' | 'LOST' }[];
     }[];
-  };  chatbots: { id: string; name: string; status: 'DRAFT' | 'PUBLISHED' }[];
+  };
+  chatbots: { id: string; name: string; status: 'DRAFT' | 'PUBLISHED' }[];
 };
 
 export type EventData = {

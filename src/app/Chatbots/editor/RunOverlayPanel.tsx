@@ -71,7 +71,7 @@ export const RunOverlayPanel: React.FunctionComponent<{
     flow.nodes.some((n) => n.id === s.nodeId) ? (s.nodeName ?? s.nodeId) : `${s.nodeName ?? s.nodeId} (removed)`;
   const who = run.contact?.name ?? (run.contact?.phone ? `+${run.contact.phone}` : 'the contact');
   return (
-    <section className="omni-drawer omni-run" role="dialog" aria-label="Run">
+    <section className="omni-drawer omni-run nokey" role="dialog" aria-label="Run">
       <div className="omni-drawer__head">
         <Title headingLevel="h2" size="lg">
           {run.test ? 'Test run' : 'Run'} with {who}

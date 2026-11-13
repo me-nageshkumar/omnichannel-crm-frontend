@@ -13,7 +13,9 @@ describe('nodeCatalog', () => {
     const s = LEAD_QUALIFIER.flow.nodes[0].data.settings;
     expect(CATALOG.send_message.outputs(s).map((o) => o.id)).toEqual(['reply:yes', 'reply:no', 'other']);
     expect(CATALOG.send_message.outputs(s).map((o) => o.label)).toEqual(['Yes', 'No', 'Other reply']);
-    expect(CATALOG.send_message.outputs({ message: { type: 'text', text: { body: 'x' } } }).map((o) => o.id)).toEqual(['next']);
+    expect(CATALOG.send_message.outputs({ message: { type: 'text', text: { body: 'x' } } }).map((o) => o.id)).toEqual([
+      'next',
+    ]);
     expect(CATALOG.send_message.waitsFor(s)).toBe('WHATSAPP_REPLY');
     expect(CATALOG.send_message.waitsFor({ message: { type: 'text', text: { body: 'x' } } })).toBeNull();
   });
@@ -25,7 +27,18 @@ describe('nodeCatalog', () => {
         interactive: {
           type: 'list',
           body: { text: 'Pick' },
-          action: { button: 'Sizes', sections: [{ title: 'S', rows: [{ id: 's', title: 'Small' }, { id: 'l', title: 'Large' }] }] },
+          action: {
+            button: 'Sizes',
+            sections: [
+              {
+                title: 'S',
+                rows: [
+                  { id: 's', title: 'Small' },
+                  { id: 'l', title: 'Large' },
+                ],
+              },
+            ],
+          },
         },
       },
     };
@@ -33,14 +46,23 @@ describe('nodeCatalog', () => {
     const cta = {
       message: {
         type: 'interactive',
-        interactive: { type: 'cta_url', body: { text: 'See' }, action: { name: 'cta_url', parameters: { display_text: 'Open', url: 'https://x' } } },
+        interactive: {
+          type: 'cta_url',
+          body: { text: 'See' },
+          action: { name: 'cta_url', parameters: { display_text: 'Open', url: 'https://x' } },
+        },
       },
     };
     expect(CATALOG.send_message.outputs(cta).map((o) => o.id)).toEqual(['next']);
   });
 
   it('conditionOutputsPerCasePlusOtherwise', () => {
-    const s = { cases: [{ id: 'c1', label: 'High', conditions: null }, { id: 'c2', label: 'Low', conditions: null }] };
+    const s = {
+      cases: [
+        { id: 'c1', label: 'High', conditions: null },
+        { id: 'c2', label: 'Low', conditions: null },
+      ],
+    };
     expect(CATALOG.condition.outputs(s).map((o) => o.id)).toEqual(['case:c1', 'case:c2', 'otherwise']);
     expect(CATALOG.condition.outputs(s)[0].label).toBe('High');
   });
@@ -60,7 +82,11 @@ describe('nodeCatalog', () => {
     expect(CATALOG.ask_form.produces(s)).toEqual(['form.city', 'form.budget', 'form.submittedAt']);
     expect(CATALOG.ask_question.produces({})).toEqual(['answer']);
     expect(CATALOG.http_request.produces({})).toEqual(['response.status', 'response.body', 'response.headers']);
-    expect(CATALOG.send_message.produces(LEAD_QUALIFIER.flow.nodes[0].data.settings)).toEqual(['reply.id', 'reply.title', 'reply.text']);
+    expect(CATALOG.send_message.produces(LEAD_QUALIFIER.flow.nodes[0].data.settings)).toEqual([
+      'reply.id',
+      'reply.title',
+      'reply.text',
+    ]);
     expect(CATALOG.send_message.produces({ message: { type: 'text' } })).toEqual([]);
   });
 
@@ -74,7 +100,15 @@ describe('nodeCatalog', () => {
   });
 
   it('defaultSettingsAreSendable', () => {
-    expect(CATALOG.ask_question.defaultSettings()).toEqual({ text: '', answerType: 'TEXT', saveAs: '', attributeId: null, retries: 2, retryMessage: '', giveUpMessage: '' });
+    expect(CATALOG.ask_question.defaultSettings()).toEqual({
+      text: '',
+      answerType: 'TEXT',
+      saveAs: '',
+      attributeId: null,
+      retries: 2,
+      retryMessage: '',
+      giveUpMessage: '',
+    });
     expect(CATALOG.wait.defaultSettings()).toEqual({ amount: 1, unit: 'HOURS' });
     expect(CATALOG.ask_form.defaultSettings().linkMessage).toContain('{{form.url}}');
   });
