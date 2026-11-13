@@ -7,7 +7,11 @@ import { CATALOG } from '@app/Chatbots/nodeCatalog';
 import { EditorContext } from '@app/Chatbots/editor/EditorContext';
 
 /** One node on the canvas (spec §8.1): icon, name, a two-line preview, outputs as handles, problems, run state. */
-export const FlowNodeCard: React.FunctionComponent<{ id: string; data: NodeData; selected?: boolean }> = ({ id, data, selected }) => {
+export const FlowNodeCard: React.FunctionComponent<{ id: string; data: NodeData; selected?: boolean }> = ({
+  id,
+  data,
+  selected,
+}) => {
   const actions = React.useContext(EditorContext);
   const meta = CATALOG[data.type];
   const Icon = meta.icon;
@@ -56,6 +60,15 @@ export const FlowNodeCard: React.FunctionComponent<{ id: string; data: NodeData;
             Entry
           </Label>
         )}
+        {data.run && (
+          <Label
+            isCompact
+            color={data.run === 'failed' ? 'red' : data.run === 'done' ? 'green' : 'blue'}
+            className="omni-node__run"
+          >
+            {data.run === 'failed' ? 'Failed' : data.run === 'done' ? 'Done' : 'Waiting'}
+          </Label>
+        )}
         {errors > 0 && (
           <Label isCompact color="red" title={data.problems.map((p) => p.message).join('\n')}>
             {errors}
@@ -73,7 +86,13 @@ export const FlowNodeCard: React.FunctionComponent<{ id: string; data: NodeData;
             onSelect={() => setMenu(false)}
             popperProps={{ position: 'right' }}
             toggle={(ref) => (
-              <MenuToggle ref={ref} variant="plain" aria-label={`Actions for ${data.name}`} isExpanded={menu} onClick={() => setMenu((o) => !o)}>
+              <MenuToggle
+                ref={ref}
+                variant="plain"
+                aria-label={`Actions for ${data.name}`}
+                isExpanded={menu}
+                onClick={() => setMenu((o) => !o)}
+              >
                 <EllipsisVIcon />
               </MenuToggle>
             )}

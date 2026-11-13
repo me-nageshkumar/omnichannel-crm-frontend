@@ -328,6 +328,24 @@ body,
   color: var(--pf-t--global--text--color--subtle);
   font-size: var(--pf-t--global--font--size--sm);
 }
+.omni-versions {
+  list-style: none;
+  margin: var(--pf-t--global--spacer--sm) 0 0;
+  padding: 0;
+}
+.omni-versions__item {
+  display: flex;
+  justify-content: space-between;
+  align-items: flex-start;
+  gap: 8px;
+  padding: 6px 0;
+  border-bottom: 1px solid var(--pf-t--global--border--color--default);
+}
+.omni-versions__actions {
+  display: flex;
+  gap: var(--pf-t--global--spacer--sm);
+  white-space: nowrap;
+}
 .omni-var-leaf strong {
   font-weight: 600;
 }

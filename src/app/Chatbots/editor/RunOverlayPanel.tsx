@@ -1,4 +1,5 @@
 import * as React from 'react';
+import { Link } from 'react-router-dom';
 import { Button, ExpandableSection, Label, Title, TreeView } from '@patternfly/react-core';
 import type { TreeViewDataItem } from '@patternfly/react-core';
 import {
@@ -59,9 +60,11 @@ export function variableTree(value: unknown, path: string[] = []): TreeViewDataI
 export const RunOverlayPanel: React.FunctionComponent<{
   run: Run;
   flow: SavedFlow;
+  /** When given, a "Show on canvas" link to the editor with this run (needs a router). */
+  canvasHref?: string;
   onStop(): void;
   onClose(): void;
-}> = ({ run, flow, onStop, onClose }) => {
+}> = ({ run, flow, canvasHref, onStop, onClose }) => {
   const [varsOpen, setVarsOpen] = React.useState(false);
   const activeRun = run.status === 'RUNNING' || run.status === 'WAITING';
   const nodeName = (s: RunStep) =>
@@ -91,6 +94,7 @@ export const RunOverlayPanel: React.FunctionComponent<{
         </p>
       )}
       {run.endReason && <p className="pf-v6-u-color-200">{run.endReason}</p>}
+      {canvasHref && <Link to={canvasHref}>Show on canvas</Link>}
       <ol className="omni-run__steps" aria-label="Steps">
         {run.steps.map((s) => (
           <li key={s.index} className={`omni-run__step omni-run__step--${s.outcome.toLowerCase()}`}>

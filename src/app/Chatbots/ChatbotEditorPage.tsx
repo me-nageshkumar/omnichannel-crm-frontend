@@ -1,7 +1,7 @@
 import * as React from 'react';
-import { useParams } from 'react-router-dom';
+import { useParams, useSearchParams } from 'react-router-dom';
 import { Alert, Drawer, DrawerContent, DrawerContentBody, DrawerPanelContent, Spinner } from '@patternfly/react-core';
-import type { Chatbot, ChatbotOptions, NodeType, Run } from '@app/api/chatbots';
+import type { Chatbot, ChatbotOptions, NodeType, Run, SavedFlow } from '@app/api/chatbots';
 import { getChatbot, getChatbotOptions, stopRun } from '@app/api/chatbots';
 import { ConfirmModal } from '@app/admin/ConfirmModal';
 import { useLoad } from '@app/admin/useLoad';
@@ -15,7 +15,9 @@ import { FlowCanvas } from '@app/Chatbots/editor/FlowCanvas';
 import { NodeDrawer } from '@app/Chatbots/editor/NodeDrawer';
 import { NodePalette } from '@app/Chatbots/editor/NodePalette';
 import { RunOverlayPanel } from '@app/Chatbots/editor/RunOverlayPanel';
+import { SettingsModal } from '@app/Chatbots/editor/SettingsModal';
 import { TestDialog } from '@app/Chatbots/editor/TestDialog';
+import { VersionsDrawer } from '@app/Chatbots/editor/VersionsDrawer';
 import { runByNode, useRunPolling } from '@app/Chatbots/editor/useRunPolling';
 import { useEditorState } from '@app/Chatbots/editor/useEditorState';
 import { useUnsavedGuard } from '@app/Chatbots/editor/useUnsavedGuard';
@@ -23,10 +25,13 @@ import '@app/Chatbots/nodes';
 
 export const PUBLISHED_TEXT = 'Published chatbots cannot be edited. Move the chatbot to draft to change it.';
 
-const Editor: React.FunctionComponent<{ initial: Chatbot; options: ChatbotOptions | null }> = ({
-  initial,
-  options,
-}) => {
+export const PREVIEW_TEXT = 'Previewing an older version. Exit the preview to edit.';
+
+const Editor: React.FunctionComponent<{
+  initial: Chatbot;
+  options: ChatbotOptions | null;
+  initialRunId: string | null;
+}> = ({ initial, options, initialRunId }) => {
   const canManage = useAccess().hasInWorkspace('chatbot:manage');
   const { token, workspace } = useSession();
   const state = useEditorState(initial);
@@ -45,11 +50,14 @@ const Editor: React.FunctionComponent<{ initial: Chatbot; options: ChatbotOption
     saving,
     error,
   } = state;
-  const readOnly = !canManage || chatbot.status === 'PUBLISHED';
+  const [preview, setPreview] = React.useState<SavedFlow | null>(null);
+  const [versions, setVersions] = React.useState(false);
+  const [settingsOpen, setSettingsOpen] = React.useState(false);
+  const readOnly = !canManage || chatbot.status === 'PUBLISHED' || preview !== null;
   const guard = useUnsavedGuard(dirty && !readOnly);
   const [palette, setPalette] = React.useState(false);
   const [testing, setTesting] = React.useState(false);
-  const [runId, setRunId] = React.useState<string | null>(null);
+  const [runId, setRunId] = React.useState<string | null>(initialRunId);
   const polling = useRunPolling(chatbot.id, runId);
   const run: Run | null = polling.run;
   const [runError, setRunError] = React.useState<string | null>(null);
@@ -126,7 +134,23 @@ const Editor: React.FunctionComponent<{ initial: Chatbot; options: ChatbotOption
   );
 
   const selected = selectedId ? (flow.nodes.find((n) => n.id === selectedId) ?? null) : null;
-  const panel = run ? (
+  const panel = versions ? (
+    <DrawerPanelContent widths={{ default: 'width_100', lg: 'width_33' }}>
+      <VersionsDrawer
+        chatbot={chatbot}
+        readOnly={!canManage || chatbot.status === 'PUBLISHED'}
+        onPreview={setPreview}
+        onRestored={(result) => {
+          state.applySaved(result);
+          setVersions(false);
+        }}
+        onClose={() => {
+          setPreview(null);
+          setVersions(false);
+        }}
+      />
+    </DrawerPanelContent>
+  ) : run ? (
     <DrawerPanelContent widths={{ default: 'width_100', lg: 'width_33' }}>
       <RunOverlayPanel run={run} flow={flow} onStop={() => void stopTheRun()} onClose={() => setRunId(null)} />
     </DrawerPanelContent>
@@ -173,13 +197,18 @@ const Editor: React.FunctionComponent<{ initial: Chatbot; options: ChatbotOption
           }}
           onTest={() => setTesting(true)}
           onRuns={() => guard.leave(`/chatbots/${chatbot.id}/runs`)}
-          onVersions={() => undefined}
-          onSettings={() => undefined}
+          onVersions={() => {
+            select(null);
+            setPalette(false);
+            setVersions(true);
+          }}
+          onSettings={() => setSettingsOpen(true)}
           onPickProblem={(nodeId) => {
             if (nodeId) select(nodeId);
           }}
         />
         {chatbot.status === 'PUBLISHED' && <Alert variant="info" isInline title={PUBLISHED_TEXT} />}
+        {preview && <Alert variant="info" isInline title={PREVIEW_TEXT} />}
         {(runError || polling.error) && <Alert variant="danger" isInline title={runError ?? polling.error} />}
         {error && (
           <Alert
@@ -200,7 +229,7 @@ const Editor: React.FunctionComponent<{ initial: Chatbot; options: ChatbotOption
           <DrawerContent panelContent={panel}>
             <DrawerContentBody>
               <FlowCanvas
-                flow={flow}
+                flow={preview ?? flow}
                 readOnly={readOnly}
                 problems={problems}
                 runByNode={runByNode(run)}
@@ -218,6 +247,17 @@ const Editor: React.FunctionComponent<{ initial: Chatbot; options: ChatbotOption
             </DrawerContentBody>
           </DrawerContent>
         </Drawer>
+        {settingsOpen && (
+          <SettingsModal
+            settings={chatbot.settings}
+            readOnly={!canManage || chatbot.status === 'PUBLISHED'}
+            onSave={(next) => {
+              state.updateSettings(next);
+              setSettingsOpen(false);
+            }}
+            onClose={() => setSettingsOpen(false)}
+          />
+        )}
         {testing && (
           <TestDialog
             chatbot={chatbot}
@@ -250,6 +290,7 @@ const Editor: React.FunctionComponent<{ initial: Chatbot; options: ChatbotOption
 /** The chatbot editor (spec §8.1); its canvas library lives in this lazy chunk. */
 export const ChatbotEditorPage: React.FunctionComponent = () => {
   const { id } = useParams<{ id: string }>();
+  const [search] = useSearchParams();
   const { workspace } = useSession();
   const ws = workspace?.id ?? '';
   const chatbot = useLoad((tk) => getChatbot(tk, ws, id as string), [ws, id]);
@@ -257,6 +298,11 @@ export const ChatbotEditorPage: React.FunctionComponent = () => {
   if (chatbot.error) return <Alert variant="danger" isInline title={chatbot.error} />;
   if (!chatbot.data) return <Spinner aria-label="Loading chatbot" />;
   return (
-    <Editor key={`${chatbot.data.id}-${chatbot.data.status}`} initial={chatbot.data} options={options.data ?? null} />
+    <Editor
+      key={`${chatbot.data.id}-${chatbot.data.status}`}
+      initial={chatbot.data}
+      options={options.data ?? null}
+      initialRunId={search.get('run')}
+    />
   );
 };

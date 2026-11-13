@@ -1,10 +1,16 @@
 import * as React from 'react';
-import type { Chatbot, Problem, SavedFlow } from '@app/api/chatbots';
+import type { Chatbot, ChatbotSettings, Problem, SaveResult, SavedFlow } from '@app/api/chatbots';
 import { publishChatbot, saveChatbot, unpublishChatbot } from '@app/api/chatbots';
 import { ApiError } from '@app/api/client';
 import { messageFor } from '@app/api/messages';
 import { useSession } from '@app/session/SessionContext';
-import { clientProblems, problemsByNode, pruneEdges, publishErrorsToProblems, signature } from '@app/Chatbots/flowModel';
+import {
+  clientProblems,
+  problemsByNode,
+  pruneEdges,
+  publishErrorsToProblems,
+  signature,
+} from '@app/Chatbots/flowModel';
 
 export const STALE_TEXT = 'This chatbot was saved by someone else. Reload the page to continue.';
 
@@ -25,6 +31,10 @@ export interface EditorState {
   saving: boolean;
   error: string | null;
   clearError(): void;
+  /** Changes the run settings; they travel with the flow on the next save. */
+  updateSettings(next: ChatbotSettings): void;
+  /** Takes a restored version (or any server save) as the new saved state. */
+  applySaved(result: SaveResult): void;
 }
 
 /** The editor's source of truth: the saved flow, its dirtiness, the server's problems, the selected node. */
@@ -39,14 +49,22 @@ export function useEditorState(initial: Chatbot): EditorState {
   const [selectedId, setSelectedId] = React.useState<string | null>(null);
   const [saving, setSaving] = React.useState(false);
   const [error, setError] = React.useState<string | null>(null);
+  const [settingsDirty, setSettingsDirty] = React.useState(false);
 
   const setFlow = React.useCallback((next: SavedFlow | ((current: SavedFlow) => SavedFlow)) => {
     setFlowState((current) => (typeof next === 'function' ? next(current) : next));
   }, []);
 
-  const dirty = signature(flow) !== savedSignature;
+  const dirty = settingsDirty || signature(flow) !== savedSignature;
   const problems = React.useMemo(
-    () => (dirty ? clientProblems(flow, chatbot.id) : serverProblems.concat(clientProblems(flow, chatbot.id).filter((p) => !serverProblems.some((s) => s.nodeId === p.nodeId && s.field === p.field)))),
+    () =>
+      dirty
+        ? clientProblems(flow, chatbot.id)
+        : serverProblems.concat(
+            clientProblems(flow, chatbot.id).filter(
+              (p) => !serverProblems.some((s) => s.nodeId === p.nodeId && s.field === p.field),
+            ),
+          ),
     [dirty, flow, serverProblems, chatbot.id],
   );
   const buckets = React.useMemo(() => problemsByNode(problems, flow), [problems, flow]);
@@ -56,10 +74,15 @@ export function useEditorState(initial: Chatbot): EditorState {
     setError(null);
     try {
       const pruned = pruneEdges(flow);
-      const result = await saveChatbot(t, ws, chatbot.id, { flow: pruned, settings: chatbot.settings, version: chatbot.version });
+      const result = await saveChatbot(t, ws, chatbot.id, {
+        flow: pruned,
+        settings: chatbot.settings,
+        version: chatbot.version,
+      });
       setChatbot(result.chatbot);
       setFlowState(pruned);
       setSavedSignature(signature(pruned));
+      setSettingsDirty(false);
       setServerProblems(result.problems);
       return result.chatbot;
     } catch (e) {
@@ -123,5 +146,17 @@ export function useEditorState(initial: Chatbot): EditorState {
     saving,
     error,
     clearError: () => setError(null),
+    updateSettings: (next) => {
+      setChatbot((c) => ({ ...c, settings: next }));
+      setSettingsDirty(true);
+    },
+    applySaved: (result) => {
+      setChatbot(result.chatbot);
+      setFlowState(result.chatbot.flow);
+      setSavedSignature(signature(result.chatbot.flow));
+      setSettingsDirty(false);
+      setServerProblems(result.problems);
+      setSelectedId(null);
+    },
   };
 }
