@@ -112,7 +112,9 @@ export const MessageBubble: React.FunctionComponent<MessageBubbleProps> = ({ mes
         ? (message.sentBy?.name ?? 'Campaign')
         : message.source === 'AUTOMATION'
           ? (message.sentBy?.name ?? 'Automation')
-          : 'WhatsApp Web';
+          : message.source === 'CHATBOT'
+            ? (message.sentBy?.name ?? 'Chatbot')
+            : 'WhatsApp Web';
   return (
     <div style={{ display: 'flex', justifyContent: side === 'right' ? 'flex-end' : 'flex-start' }}>
       <div

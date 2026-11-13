@@ -1,7 +1,7 @@
 import * as React from 'react';
 import { MemoryRouter } from 'react-router-dom';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
-import { act, render, screen } from '@testing-library/react';
+import { act, render, screen, waitFor } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import type { HistoryImportView } from '@app/api/historyImports';
 import type { ChatView } from '@app/api/inbox';
@@ -9,7 +9,7 @@ import { ChatHeader } from '@app/Inbox/ChatHeader';
 import { SessionProvider, useSession } from '@app/session/SessionContext';
 import { ThemeProvider } from '@app/theme/ThemeContext';
 import { callsTo, mockFetch } from '../../test/fetchMock';
-import { BRAND_VIEWER, WORKSPACE_MANAGER, meAs, storeSession } from '../../test/session';
+import { BRAND_A, BRAND_VIEWER, WORKSPACE_MANAGER, meAs, storeSession } from '../../test/session';
 
 const POST = 'POST /api/workspaces/w1/inbox/chats/c1/history-imports';
 const GET = 'GET /api/workspaces/w1/inbox/history-imports/imp1';
@@ -294,5 +294,54 @@ describe("chat header: the person's other chats", () => {
   it('otherChatLinksToIt', async () => {
     setup(WORKSPACE_MANAGER, {}, { ...CHAT, otherChats: [{ id: 'c 2', remoteId: '1234@lid' }] });
     expect(await screen.findByRole('link', { name: 'hidden number' })).toHaveAttribute('href', '/inbox/chats/c%202');
+  });
+});
+
+describe('chat header: chatbot', () => {
+  beforeEach(() => {
+    localStorage.clear();
+    storeSession();
+    vi.useFakeTimers({ shouldAdvanceTime: true });
+  });
+  afterEach(() => {
+    vi.useRealTimers();
+    vi.unstubAllGlobals();
+  });
+
+  const RUNNING: ChatView = {
+    ...CHAT,
+    chatbot: {
+      runId: 'r1',
+      chatbotId: 'c1',
+      name: 'Lead qualifier',
+      nodeName: 'AskBudget',
+      waitingFor: 'WhatsApp reply',
+    },
+  };
+  const STOP_BOT = 'POST /api/workspaces/w1/inbox/chats/c1/chatbot/stop';
+  const GET_CHAT = 'GET /api/workspaces/w1/inbox/chats/c1';
+
+  it('showsRunningChatbotAndStops', async () => {
+    const { fetch, ui } = setup(
+      WORKSPACE_MANAGER,
+      {
+        [ACTIVE]: { status: 204 },
+        [STOP_BOT]: { status: 204 },
+        [GET_CHAT]: { status: 200, body: { ...CHAT, chatbot: null } },
+      },
+      RUNNING,
+    );
+    const chip = await screen.findByText(/Chatbot: Lead qualifier/);
+    expect(chip).toHaveTextContent('waiting at AskBudget for WhatsApp reply');
+    await ui.click(screen.getByRole('button', { name: 'Stop chatbot' }));
+    await waitFor(() => expect(callsTo(fetch, STOP_BOT)).toBe(1));
+    await waitFor(() => expect(callsTo(fetch, GET_CHAT)).toBe(1));
+  });
+
+  it('viewerSeesTheChipWithoutStop', async () => {
+    const viewer = { ...BRAND_VIEWER, workspaces: [{ ...BRAND_A, authorities: ['inbox:view'] }] };
+    setup(viewer, { [ACTIVE]: { status: 204 } }, RUNNING);
+    expect(await screen.findByText(/Chatbot: Lead qualifier/)).toBeTruthy();
+    expect(screen.queryByRole('button', { name: 'Stop chatbot' })).toBeNull();
   });
 });

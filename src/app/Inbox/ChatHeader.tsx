@@ -1,8 +1,9 @@
 import * as React from 'react';
 import { Link } from 'react-router-dom';
 import { Alert, Button, Label } from '@patternfly/react-core';
+import { RobotIcon } from '@patternfly/react-icons';
 import { getActiveChatImport, isActive } from '@app/api/historyImports';
-import { ChatView, claimChat, closeChat, getChat, reopenChat } from '@app/api/inbox';
+import { ChatView, claimChat, closeChat, getChat, reopenChat, stopChatbot } from '@app/api/inbox';
 import { PhoneNumber, shown } from '@app/api/phoneNumbers';
 import { messageFor } from '@app/api/messages';
 import { AssignMenu } from '@app/Inbox/AssignMenu';
@@ -115,6 +116,21 @@ export const ChatHeader: React.FunctionComponent<{
       setControlling(false);
     }
   };
+  const stopBot = async () => {
+    setBusy(true);
+    try {
+      await stopChatbot(token as string, ws, chat.id);
+      changed(await getChat(token as string, ws, chat.id));
+    } catch (e) {
+      failed(e);
+    } finally {
+      setBusy(false);
+    }
+  };
+  const bot = chat.chatbot;
+  const botText = bot
+    ? `Chatbot: ${bot.name}${bot.nodeName ? ` · ${bot.waitingFor ? 'waiting at' : 'at'} ${bot.nodeName}${bot.waitingFor ? ` for ${bot.waitingFor}` : ''}` : ''}`
+    : '';
   const toggleStatus = async () => {
     setBusy(true);
     try {
@@ -153,6 +169,11 @@ export const ChatHeader: React.FunctionComponent<{
         <Label isCompact color={chat.assignedUser || chat.assignedTeam ? 'blue' : 'grey'}>
           {assignmentText(chat)}
         </Label>
+        {bot && (
+          <Label isCompact color="blue" icon={<RobotIcon />}>
+            {botText}
+          </Label>
+        )}
         <span style={{ marginInlineStart: 'auto', display: 'flex', gap: GAP }}>
           {canSend && !chat.assignedUser && !closed && (
             <Button variant="primary" onClick={() => void claim()} isDisabled={busy}>
@@ -168,6 +189,11 @@ export const ChatHeader: React.FunctionComponent<{
             </Button>
           )}
           {manager && <AssignMenu chat={chat} onChange={changed} onError={failed} />}
+          {bot && canSend && (
+            <Button variant="secondary" isDanger onClick={() => void stopBot()} isDisabled={busy}>
+              Stop chatbot
+            </Button>
+          )}
           {access.hasInWorkspace('inbox:send') && (
             <Button variant="secondary" onClick={() => void toggleStatus()} isDisabled={busy}>
               {closed ? 'Reopen' : 'Close'}
