@@ -263,7 +263,7 @@ const TestRunner: React.FunctionComponent<{ rule: Rule; options: AutomationOptio
                 <FlexItem>
                   <Spinner size="md" aria-label="Waiting for the event" />
                 </FlexItem>
-                <FlexItem>{waitingText(test, options)}</FlexItem>
+                <FlexItem>{waitingText(test)}</FlexItem>
               </Flex>
               <HelperText>
                 <HelperTextItem>{WAITING_NOTE}</HelperTextItem>

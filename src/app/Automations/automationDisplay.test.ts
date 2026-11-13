@@ -24,17 +24,17 @@ describe('automationDisplay', () => {
         { id: 'n2', number: '2', label: 'Sales line' },
       ],
     };
-    expect(waitingText(t, OPTIONS)).toBe("Send a message from Asha's phone to Main line or Sales line.");
+    expect(waitingText(t)).toBe("Send a message from Asha's phone to Main line or Sales line.");
   });
 
   it('waitingTextForTypedNumber', () => {
     const t = { ...WAITING_TEST, target: { contactId: null, name: null, phone: '919811100009' } };
-    expect(waitingText(t, OPTIONS)).toContain("+919811100009's phone");
+    expect(waitingText(t)).toContain("+919811100009's phone");
   });
 
   it('waitingTextForLaneEvent', () => {
     const t = { ...WAITING_TEST, event: 'DEAL_LANE_CHANGED' as const };
-    expect(waitingText(t, OPTIONS)).toBe("Move one of Asha Rao's deals to another lane.");
+    expect(waitingText(t)).toBe("Move one of Asha Rao's deals to another lane.");
   });
 
   it('endedTextPerReason', () => {
