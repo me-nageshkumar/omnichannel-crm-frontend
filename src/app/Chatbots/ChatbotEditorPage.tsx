@@ -31,7 +31,9 @@ const Editor: React.FunctionComponent<{
   initial: Chatbot;
   options: ChatbotOptions | null;
   initialRunId: string | null;
-}> = ({ initial, options, initialRunId }) => {
+  /** Where the run's panel offers to go back to (the rule test that started it). */
+  backHref: string | null;
+}> = ({ initial, options, initialRunId, backHref }) => {
   const canManage = useAccess().hasInWorkspace('chatbot:manage');
   const { token, workspace } = useSession();
   const state = useEditorState(initial);
@@ -138,7 +140,13 @@ const Editor: React.FunctionComponent<{
     </DrawerPanelContent>
   ) : run ? (
     <DrawerPanelContent className="nokey" widths={{ default: 'width_100', lg: 'width_33' }}>
-      <RunOverlayPanel run={run} flow={flow} onStop={() => void stopTheRun()} onClose={() => setRunId(null)} />
+      <RunOverlayPanel
+        run={run}
+        flow={flow}
+        backHref={backHref ?? undefined}
+        onStop={() => void stopTheRun()}
+        onClose={() => setRunId(null)}
+      />
     </DrawerPanelContent>
   ) : palette || pendingAdd ? (
     <DrawerPanelContent className="nokey" widths={{ default: 'width_100', lg: 'width_33' }}>
@@ -275,6 +283,10 @@ const Editor: React.FunctionComponent<{
   );
 };
 
+/** A `back` parameter is followed only inside this app: an absolute path that is not protocol-relative. */
+export const sameAppPath = (p: string | null): string | null =>
+  p && p.startsWith('/') && !p.startsWith('//') ? p : null;
+
 /** The chatbot editor (spec §8.1); its canvas library lives in this lazy chunk. */
 export const ChatbotEditorPage: React.FunctionComponent = () => {
   const { id } = useParams<{ id: string }>();
@@ -291,6 +303,7 @@ export const ChatbotEditorPage: React.FunctionComponent = () => {
       initial={chatbot.data}
       options={options.data ?? null}
       initialRunId={search.get('run')}
+      backHref={sameAppPath(search.get('back'))}
     />
   );
 };

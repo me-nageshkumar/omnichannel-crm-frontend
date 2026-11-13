@@ -148,6 +148,9 @@ export type StepView = {
   outcome: 'DONE' | 'SKIPPED' | 'FAILED' | 'RETRYING' | 'INTERRUPTED' | null;
   reason: string | null;
   at: string | null;
+  /** A Start chatbot step: the chatbot and the run it started, so the run can be opened. */
+  chatbotId?: string | null;
+  chatbotRunId?: string | null;
 };
 
 export type Preflight = {

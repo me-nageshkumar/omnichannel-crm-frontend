@@ -38,6 +38,23 @@ describe('chatbot runs', () => {
     expect(urls(f).some((u) => u.indexOf(`${RUNS}?status=FAILED`) >= 0)).toBe(true);
   });
 
+  it('backLinkToTheRuleTest', async () => {
+    mockFetch({ ...meAs(WORKSPACE_MANAGER), ...chatbotRoutes() });
+    renderApp('/chatbots/c1?run=r1&back=%2Fautomations%2Fr1%2Ftest');
+    const panel = await screen.findByRole('dialog', { name: 'Run' });
+    expect(within(panel).getByRole('link', { name: 'Back to rule test' })).toHaveAttribute(
+      'href',
+      '/automations/r1/test',
+    );
+  });
+
+  it('backLinkIgnoresForeignTargets', async () => {
+    mockFetch({ ...meAs(WORKSPACE_MANAGER), ...chatbotRoutes() });
+    renderApp('/chatbots/c1?run=r1&back=https%3A%2F%2Fevil.example%2Fx');
+    const panel = await screen.findByRole('dialog', { name: 'Run' });
+    expect(within(panel).queryByRole('link', { name: 'Back to rule test' })).toBeNull();
+  });
+
   it('openRunShowsSteps', async () => {
     const { user } = open({ [`GET ${RUNS}`]: { status: 200, body: { items: [RUN_DONE], total: 1 } } });
     await user.click(await screen.findByRole('button', { name: 'Veenu' }));
