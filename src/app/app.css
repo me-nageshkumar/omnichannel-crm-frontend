@@ -307,6 +307,30 @@ body,
   border-radius: 8px;
   padding: var(--pf-t--global--spacer--sm);
 }
+.omni-run__steps {
+  list-style: none;
+  margin: var(--pf-t--global--spacer--sm) 0;
+  padding: 0;
+}
+.omni-run__step {
+  display: grid;
+  grid-template-columns: 20px 1fr auto;
+  column-gap: 8px;
+  padding: 4px 0;
+  border-bottom: 1px solid var(--pf-t--global--border--color--default);
+  align-items: baseline;
+}
+.omni-run__name {
+  font-weight: 600;
+}
+.omni-run__summary {
+  grid-column: 2 / 4;
+  color: var(--pf-t--global--text--color--subtle);
+  font-size: var(--pf-t--global--font--size--sm);
+}
+.omni-var-leaf strong {
+  font-weight: 600;
+}
 .omni-message-preview iframe {
   width: 100%;
   height: 420px;

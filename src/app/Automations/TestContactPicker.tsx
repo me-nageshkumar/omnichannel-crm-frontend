@@ -35,24 +35,20 @@ export function contactLine(c: TestContact): string {
  * Who the test listens to: an existing contact found by search, or (message rules only) a number that has never
  * written in. {@code preflight} is shown above Start test, which stays disabled while {@code canStart} is false.
  */
-export const TestContactPicker: React.FunctionComponent<{
-  event: EventKind;
-  canStart: boolean;
-  busy: boolean;
-  preflight?: React.ReactNode;
-  onStart(body: TestStartRequest): void;
-}> = ({ event, canStart, busy, preflight, onStart }) => {
+/**
+ * A debounced contact search with one radio per match. {@code onPick} fires with the chosen contact, or null when
+ * the query changes (a contact picked from old results no longer counts).
+ */
+export const ContactSearchField: React.FunctionComponent<{ onPick(contact: TestContact | null): void }> = ({
+  onPick,
+}) => {
   const { token, workspace } = useSession();
   const ws = workspace?.id ?? '';
-  const messages = event === 'MESSAGE_RECEIVED';
-  const [typed, setTyped] = React.useState(false);
   const [q, setQ] = React.useState('');
   const [found, setFound] = React.useState<TestContact[] | null>(null);
   const [searching, setSearching] = React.useState(false);
   const [searchError, setSearchError] = React.useState<string | null>(null);
   const [contactId, setContactId] = React.useState<string | null>(null);
-  const [phone, setPhone] = React.useState('');
-  const [treatAsNew, setTreatAsNew] = React.useState(false);
   const latest = React.useRef(0);
 
   const text = q.trim();
@@ -85,27 +81,18 @@ export const TestContactPicker: React.FunctionComponent<{
     };
   }, [text, token, ws]);
 
-  const byNumber = messages && typed;
-  const digits = normaliseNumber(phone.trim());
-  const phoneValid = NUMBER_PATTERN.test(digits);
-  // only a contact the current results show counts as picked
-  const picked = found && !searching && found.some((c) => c.contactId === contactId) ? contactId : null;
-  const chosen = byNumber ? phoneValid : picked !== null;
-
   /** A new query drops the contact picked from the old results. */
   const search = (v: string) => {
     setQ(v);
     setContactId(null);
+    onPick(null);
+  };
+  const pick = (c: TestContact) => {
+    setContactId(c.contactId);
+    onPick(c);
   };
 
-  const start = () =>
-    onStart({
-      contactId: byNumber ? null : picked,
-      phone: byNumber ? digits : null,
-      treatAsNew: messages && treatAsNew,
-    });
-
-  const searchBox = (
+  return (
     <>
       <SearchInput
         aria-label="Search contacts"
@@ -129,11 +116,40 @@ export const TestContactPicker: React.FunctionComponent<{
             name="test-contact"
             label={contactLine(c)}
             isChecked={contactId === c.contactId}
-            onChange={() => setContactId(c.contactId)}
+            onChange={() => pick(c)}
           />
         ))}
     </>
   );
+};
+
+export const TestContactPicker: React.FunctionComponent<{
+  event: EventKind;
+  canStart: boolean;
+  busy: boolean;
+  preflight?: React.ReactNode;
+  onStart(body: TestStartRequest): void;
+}> = ({ event, canStart, busy, preflight, onStart }) => {
+  const messages = event === 'MESSAGE_RECEIVED';
+  const [typed, setTyped] = React.useState(false);
+  const [contact, setContact] = React.useState<TestContact | null>(null);
+  const [phone, setPhone] = React.useState('');
+  const [treatAsNew, setTreatAsNew] = React.useState(false);
+
+  const byNumber = messages && typed;
+  const digits = normaliseNumber(phone.trim());
+  const phoneValid = NUMBER_PATTERN.test(digits);
+  const picked = contact?.contactId ?? null;
+  const chosen = byNumber ? phoneValid : picked !== null;
+
+  const start = () =>
+    onStart({
+      contactId: byNumber ? null : picked,
+      phone: byNumber ? digits : null,
+      treatAsNew: messages && treatAsNew,
+    });
+
+  const searchBox = <ContactSearchField onPick={setContact} />;
 
   return (
     <Form onSubmit={(e) => e.preventDefault()} style={{ maxWidth: '48rem' }}>
@@ -152,7 +168,10 @@ export const TestContactPicker: React.FunctionComponent<{
             name="test-contact-kind"
             label="A number that has never messaged you"
             isChecked={typed}
-            onChange={() => setTyped(true)}
+            onChange={() => {
+              setTyped(true);
+              setContact(null);
+            }}
             body={
               typed && (
                 <FormGroup label="Phone number, country code first" fieldId="test-contact-phone">

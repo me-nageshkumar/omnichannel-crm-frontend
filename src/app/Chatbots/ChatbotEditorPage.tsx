@@ -1,8 +1,8 @@
 import * as React from 'react';
 import { useParams } from 'react-router-dom';
 import { Alert, Drawer, DrawerContent, DrawerContentBody, DrawerPanelContent, Spinner } from '@patternfly/react-core';
-import type { Chatbot, ChatbotOptions, NodeType } from '@app/api/chatbots';
-import { getChatbot, getChatbotOptions } from '@app/api/chatbots';
+import type { Chatbot, ChatbotOptions, NodeType, Run } from '@app/api/chatbots';
+import { getChatbot, getChatbotOptions, stopRun } from '@app/api/chatbots';
 import { ConfirmModal } from '@app/admin/ConfirmModal';
 import { useLoad } from '@app/admin/useLoad';
 import { useSession } from '@app/session/SessionContext';
@@ -14,6 +14,9 @@ import { EditorHeader } from '@app/Chatbots/editor/EditorHeader';
 import { FlowCanvas } from '@app/Chatbots/editor/FlowCanvas';
 import { NodeDrawer } from '@app/Chatbots/editor/NodeDrawer';
 import { NodePalette } from '@app/Chatbots/editor/NodePalette';
+import { RunOverlayPanel } from '@app/Chatbots/editor/RunOverlayPanel';
+import { TestDialog } from '@app/Chatbots/editor/TestDialog';
+import { runByNode, useRunPolling } from '@app/Chatbots/editor/useRunPolling';
 import { useEditorState } from '@app/Chatbots/editor/useEditorState';
 import { useUnsavedGuard } from '@app/Chatbots/editor/useUnsavedGuard';
 import '@app/Chatbots/nodes';
@@ -25,6 +28,7 @@ const Editor: React.FunctionComponent<{ initial: Chatbot; options: ChatbotOption
   options,
 }) => {
   const canManage = useAccess().hasInWorkspace('chatbot:manage');
+  const { token, workspace } = useSession();
   const state = useEditorState(initial);
   const {
     chatbot,
@@ -44,6 +48,20 @@ const Editor: React.FunctionComponent<{ initial: Chatbot; options: ChatbotOption
   const readOnly = !canManage || chatbot.status === 'PUBLISHED';
   const guard = useUnsavedGuard(dirty && !readOnly);
   const [palette, setPalette] = React.useState(false);
+  const [testing, setTesting] = React.useState(false);
+  const [runId, setRunId] = React.useState<string | null>(null);
+  const polling = useRunPolling(chatbot.id, runId);
+  const run: Run | null = polling.run;
+  const [runError, setRunError] = React.useState<string | null>(null);
+  const stopTheRun = async () => {
+    if (!run || !token) return;
+    try {
+      await stopRun(token, workspace?.id ?? '', chatbot.id, run.id);
+      polling.refresh();
+    } catch (e) {
+      setRunError(e instanceof Error ? e.message : String(e));
+    }
+  };
   useDocumentTitle(`${chatbot.name} | Chatbots | Omnichannel CRM`);
 
   React.useEffect(() => {
@@ -108,30 +126,33 @@ const Editor: React.FunctionComponent<{ initial: Chatbot; options: ChatbotOption
   );
 
   const selected = selectedId ? (flow.nodes.find((n) => n.id === selectedId) ?? null) : null;
-  const panel =
-    palette || pendingAdd ? (
-      <DrawerPanelContent widths={{ default: 'width_100', lg: 'width_33' }}>
-        <NodePalette onPick={pendingAdd ? place(pendingAdd.connectFrom, pendingAdd.position) : place(null)} />
-      </DrawerPanelContent>
-    ) : selected ? (
-      <DrawerPanelContent widths={{ default: 'width_100', lg: 'width_50', '2xl': 'width_33' }}>
-        <NodeDrawer
-          node={selected}
-          flow={flow}
-          chatbotId={chatbot.id}
-          options={options}
-          problems={byNode[selected.id] ?? []}
-          readOnly={readOnly}
-          onChange={(settings) =>
-            setFlow((current) => ({
-              ...current,
-              nodes: current.nodes.map((n) => (n.id === selected.id ? { ...n, data: { ...n.data, settings } } : n)),
-            }))
-          }
-          onClose={() => select(null)}
-        />
-      </DrawerPanelContent>
-    ) : undefined;
+  const panel = run ? (
+    <DrawerPanelContent widths={{ default: 'width_100', lg: 'width_33' }}>
+      <RunOverlayPanel run={run} flow={flow} onStop={() => void stopTheRun()} onClose={() => setRunId(null)} />
+    </DrawerPanelContent>
+  ) : palette || pendingAdd ? (
+    <DrawerPanelContent widths={{ default: 'width_100', lg: 'width_33' }}>
+      <NodePalette onPick={pendingAdd ? place(pendingAdd.connectFrom, pendingAdd.position) : place(null)} />
+    </DrawerPanelContent>
+  ) : selected ? (
+    <DrawerPanelContent widths={{ default: 'width_100', lg: 'width_50', '2xl': 'width_33' }}>
+      <NodeDrawer
+        node={selected}
+        flow={flow}
+        chatbotId={chatbot.id}
+        options={options}
+        problems={byNode[selected.id] ?? []}
+        readOnly={readOnly}
+        onChange={(settings) =>
+          setFlow((current) => ({
+            ...current,
+            nodes: current.nodes.map((n) => (n.id === selected.id ? { ...n, data: { ...n.data, settings } } : n)),
+          }))
+        }
+        onClose={() => select(null)}
+      />
+    </DrawerPanelContent>
+  ) : undefined;
 
   return (
     <EditorContext.Provider value={actions}>
@@ -150,7 +171,7 @@ const Editor: React.FunctionComponent<{ initial: Chatbot; options: ChatbotOption
             setPendingAdd(null);
             setPalette((p) => !p);
           }}
-          onTest={() => undefined}
+          onTest={() => setTesting(true)}
           onRuns={() => guard.leave(`/chatbots/${chatbot.id}/runs`)}
           onVersions={() => undefined}
           onSettings={() => undefined}
@@ -159,6 +180,7 @@ const Editor: React.FunctionComponent<{ initial: Chatbot; options: ChatbotOption
           }}
         />
         {chatbot.status === 'PUBLISHED' && <Alert variant="info" isInline title={PUBLISHED_TEXT} />}
+        {(runError || polling.error) && <Alert variant="danger" isInline title={runError ?? polling.error} />}
         {error && (
           <Alert
             variant="danger"
@@ -181,6 +203,7 @@ const Editor: React.FunctionComponent<{ initial: Chatbot; options: ChatbotOption
                 flow={flow}
                 readOnly={readOnly}
                 problems={problems}
+                runByNode={runByNode(run)}
                 selectedId={selectedId}
                 onFlowChange={(next) => {
                   if (!readOnly) setFlow(next);
@@ -195,6 +218,19 @@ const Editor: React.FunctionComponent<{ initial: Chatbot; options: ChatbotOption
             </DrawerContentBody>
           </DrawerContent>
         </Drawer>
+        {testing && (
+          <TestDialog
+            chatbot={chatbot}
+            canStart={!problems.some((p) => p.severity === 'ERROR')}
+            dirty={dirty}
+            onStarted={(started) => {
+              setTesting(false);
+              select(null);
+              setRunId(started.id);
+            }}
+            onClose={() => setTesting(false)}
+          />
+        )}
         {guard.pending && (
           <ConfirmModal
             title="Leave without saving?"
