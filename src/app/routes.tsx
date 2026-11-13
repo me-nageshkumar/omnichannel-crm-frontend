@@ -32,6 +32,7 @@ import { AutomationsPage } from '@app/Automations/AutomationsPage';
 import { AutomationEditorPage } from '@app/Automations/AutomationEditorPage';
 import { AutomationRunsPage } from '@app/Automations/AutomationRunsPage';
 import { AutomationTestPage } from '@app/Automations/AutomationTestPage';
+import { ChatbotsPage } from '@app/Chatbots/ChatbotsPage';
 import { HistoryImportsPage } from '@app/HistoryImports/HistoryImportsPage';
 import { crmRoutes } from '@app/Crm/routes';
 import { useCrmReminderCount, useCrmStatus } from '@app/Crm/status/CrmStatusContext';
@@ -93,6 +94,7 @@ const NAV_SECTIONS: NavEntry[][] = [
       ],
     },
     { label: 'Automations', path: '/automations', requires: (a) => a.hasInWorkspace('automation:view') },
+    { label: 'Chatbots', path: '/chatbots', requires: (a) => a.hasInWorkspace('chatbot:view') },
   ],
   [
     {
@@ -286,6 +288,11 @@ const routes: IAppRoute[] = [
     element: <AutomationTestPage />,
     path: '/automations/:id/test',
     requires: (a) => a.hasInWorkspace('automation:manage'),
+  },
+  {
+    element: <ChatbotsPage />,
+    path: '/chatbots',
+    requires: (a) => a.hasInWorkspace('chatbot:view'),
   },
   {
     element: <TemplatesPage />,

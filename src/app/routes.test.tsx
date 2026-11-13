@@ -34,6 +34,7 @@ const BRAND_LINKS = [
   'Routing',
   'History imports',
   'Automations',
+  'Chatbots',
   'All contacts',
   'Saved filters',
   'Contact fields',
@@ -135,6 +136,17 @@ describe('authority-driven navigation', () => {
     cleanup();
     mockFetch(meAs(BRAND_VIEWER));
     renderApp('/automations');
+    expect(await screen.findByText('404 Page not found')).toBeVisible();
+  });
+
+  it('chatbotsNavNeedsView', async () => {
+    storeSession();
+    mockFetch({ ...meAs(WORKSPACE_MANAGER), 'GET /api/workspaces/w1/chatbots': { status: 200, body: [] } });
+    renderApp('/chatbots');
+    expect(await screen.findByRole('heading', { name: 'Chatbots' })).toBeVisible();
+    cleanup();
+    mockFetch(meAs(BRAND_VIEWER));
+    renderApp('/chatbots');
     expect(await screen.findByText('404 Page not found')).toBeVisible();
   });
 
