@@ -69,7 +69,7 @@ describe('chatbot editor', () => {
     const input = await screen.findByRole('textbox', { name: 'Node name' });
     await user.clear(input);
     await user.type(input, 'Budget{Enter}');
-    fireEvent.keyDown(window, { key: 's', ctrlKey: true });
+    fireEvent.keyDown(document.body, { key: 's', ctrlKey: true });
     await waitFor(() => expect(callsTo(f, `PUT ${CHATBOTS_BASE}/c1`)).toBe(1));
   });
 
