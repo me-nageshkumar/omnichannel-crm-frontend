@@ -15,7 +15,9 @@ function open(path: string, routes: Record<string, MockRoute> = {}) {
 }
 
 // cards are the named list items; the output lists inside them are unnamed
-const nodes = () => ({ items: () => within(screen.getByRole('list', { name: 'Nodes' })).getAllByRole('listitem', { name: /./ }) });
+const nodes = () => ({
+  items: () => within(screen.getByRole('list', { name: 'Nodes' })).getAllByRole('listitem', { name: /./ }),
+});
 const nodeItem = (name: string) => within(screen.getByRole('listitem', { name }));
 
 describe('chatbot editor', () => {
@@ -38,7 +40,15 @@ describe('chatbot editor', () => {
         status: 200,
         body: {
           chatbot: { ...LEAD_QUALIFIER, version: 4 },
-          problems: [{ nodeId: 'n2', nodeName: 'AskBudget', field: 'settings.text', message: 'is required', severity: 'WARNING' }],
+          problems: [
+            {
+              nodeId: 'n2',
+              nodeName: 'AskBudget',
+              field: 'settings.text',
+              message: 'is required',
+              severity: 'WARNING',
+            },
+          ],
         },
       },
     });
@@ -83,7 +93,8 @@ describe('chatbot editor', () => {
     await screen.findByRole('heading', { name: 'Lead qualifier' });
     await user.click(screen.getByRole('button', { name: 'Publish' }));
     expect(await screen.findByRole('dialog', { name: 'AskBudget' })).toBeVisible();
-    expect(within(screen.getByRole('dialog', { name: 'AskBudget' })).getByText('is required')).toBeVisible();
+    // once in the drawer's problem list, once under the Question field
+    expect(within(screen.getByRole('dialog', { name: 'AskBudget' })).getAllByText('is required')).toHaveLength(2);
     expect(screen.getByRole('button', { name: '1 problem' })).toBeVisible();
   });
 

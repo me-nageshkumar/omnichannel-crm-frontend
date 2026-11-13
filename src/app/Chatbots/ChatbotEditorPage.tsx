@@ -16,13 +16,31 @@ import { NodeDrawer } from '@app/Chatbots/editor/NodeDrawer';
 import { NodePalette } from '@app/Chatbots/editor/NodePalette';
 import { useEditorState } from '@app/Chatbots/editor/useEditorState';
 import { useUnsavedGuard } from '@app/Chatbots/editor/useUnsavedGuard';
+import '@app/Chatbots/nodes';
 
 export const PUBLISHED_TEXT = 'Published chatbots cannot be edited. Move the chatbot to draft to change it.';
 
-const Editor: React.FunctionComponent<{ initial: Chatbot; options: ChatbotOptions | null }> = ({ initial, options }) => {
+const Editor: React.FunctionComponent<{ initial: Chatbot; options: ChatbotOptions | null }> = ({
+  initial,
+  options,
+}) => {
   const canManage = useAccess().hasInWorkspace('chatbot:manage');
   const state = useEditorState(initial);
-  const { chatbot, flow, setFlow, dirty, problems, byNode, selectedId, select, save, publish, unpublish, saving, error } = state;
+  const {
+    chatbot,
+    flow,
+    setFlow,
+    dirty,
+    problems,
+    byNode,
+    selectedId,
+    select,
+    save,
+    publish,
+    unpublish,
+    saving,
+    error,
+  } = state;
   const readOnly = !canManage || chatbot.status === 'PUBLISHED';
   const guard = useUnsavedGuard(dirty && !readOnly);
   const [palette, setPalette] = React.useState(false);
@@ -39,19 +57,34 @@ const Editor: React.FunctionComponent<{ initial: Chatbot; options: ChatbotOption
     return () => window.removeEventListener('keydown', onKey);
   }, [readOnly, dirty, saving, save]);
 
-  const place = (connectFrom: { source: string; sourceHandle: string | null } | null, position?: { x: number; y: number }) => (type: NodeType) => {
-    setFlow((current) => {
-      const at = position ?? { x: 120 + 60 * current.nodes.length, y: 120 + 40 * current.nodes.length };
-      const added = addNode(current, type, at);
-      let next = added.flow;
-      if (connectFrom) {
-        next = { ...next, edges: next.edges.concat([{ id: `${connectFrom.source}-${connectFrom.sourceHandle ?? 'next'}-${added.id}`, source: connectFrom.source, sourceHandle: connectFrom.sourceHandle ?? 'next', target: added.id }]) };
-      }
-      return next;
-    });
-    setPalette(false);
-  };
-  const [pendingAdd, setPendingAdd] = React.useState<{ position: { x: number; y: number }; connectFrom: { source: string; sourceHandle: string | null } | null } | null>(null);
+  const place =
+    (connectFrom: { source: string; sourceHandle: string | null } | null, position?: { x: number; y: number }) =>
+    (type: NodeType) => {
+      setFlow((current) => {
+        const at = position ?? { x: 120 + 60 * current.nodes.length, y: 120 + 40 * current.nodes.length };
+        const added = addNode(current, type, at);
+        let next = added.flow;
+        if (connectFrom) {
+          next = {
+            ...next,
+            edges: next.edges.concat([
+              {
+                id: `${connectFrom.source}-${connectFrom.sourceHandle ?? 'next'}-${added.id}`,
+                source: connectFrom.source,
+                sourceHandle: connectFrom.sourceHandle ?? 'next',
+                target: added.id,
+              },
+            ]),
+          };
+        }
+        return next;
+      });
+      setPalette(false);
+    };
+  const [pendingAdd, setPendingAdd] = React.useState<{
+    position: { x: number; y: number };
+    connectFrom: { source: string; sourceHandle: string | null } | null;
+  } | null>(null);
 
   const actions = React.useMemo(
     () => ({
@@ -60,7 +93,8 @@ const Editor: React.FunctionComponent<{ initial: Chatbot; options: ChatbotOption
       select,
       rename: (id: string, name: string) => {
         if (!isValidName(name)) return 'Use 1 to 40 letters, digits or underscores';
-        if (flow.nodes.some((n) => n.id !== id && n.data.name.toLowerCase() === name.toLowerCase())) return 'Another node has this name';
+        if (flow.nodes.some((n) => n.id !== id && n.data.name.toLowerCase() === name.toLowerCase()))
+          return 'Another node has this name';
         setFlow((current) => renameNode(current, id, name));
         return null;
       },
@@ -73,25 +107,31 @@ const Editor: React.FunctionComponent<{ initial: Chatbot; options: ChatbotOption
     [readOnly, options, select, flow.nodes, setFlow, selectedId],
   );
 
-  const selected = selectedId ? flow.nodes.find((n) => n.id === selectedId) ?? null : null;
-  const panel = palette || pendingAdd ? (
-    <DrawerPanelContent widths={{ default: 'width_100', lg: 'width_33' }}>
-      <NodePalette onPick={pendingAdd ? place(pendingAdd.connectFrom, pendingAdd.position) : place(null)} />
-    </DrawerPanelContent>
-  ) : selected ? (
-    <DrawerPanelContent widths={{ default: 'width_100', lg: 'width_50', '2xl': 'width_33' }}>
-      <NodeDrawer
-        node={selected}
-        flow={flow}
-        chatbotId={chatbot.id}
-        options={options}
-        problems={byNode[selected.id] ?? []}
-        readOnly={readOnly}
-        onChange={(settings) => setFlow((current) => ({ ...current, nodes: current.nodes.map((n) => (n.id === selected.id ? { ...n, data: { ...n.data, settings } } : n)) }))}
-        onClose={() => select(null)}
-      />
-    </DrawerPanelContent>
-  ) : undefined;
+  const selected = selectedId ? (flow.nodes.find((n) => n.id === selectedId) ?? null) : null;
+  const panel =
+    palette || pendingAdd ? (
+      <DrawerPanelContent widths={{ default: 'width_100', lg: 'width_33' }}>
+        <NodePalette onPick={pendingAdd ? place(pendingAdd.connectFrom, pendingAdd.position) : place(null)} />
+      </DrawerPanelContent>
+    ) : selected ? (
+      <DrawerPanelContent widths={{ default: 'width_100', lg: 'width_50', '2xl': 'width_33' }}>
+        <NodeDrawer
+          node={selected}
+          flow={flow}
+          chatbotId={chatbot.id}
+          options={options}
+          problems={byNode[selected.id] ?? []}
+          readOnly={readOnly}
+          onChange={(settings) =>
+            setFlow((current) => ({
+              ...current,
+              nodes: current.nodes.map((n) => (n.id === selected.id ? { ...n, data: { ...n.data, settings } } : n)),
+            }))
+          }
+          onClose={() => select(null)}
+        />
+      </DrawerPanelContent>
+    ) : undefined;
 
   return (
     <EditorContext.Provider value={actions}>
@@ -119,7 +159,21 @@ const Editor: React.FunctionComponent<{ initial: Chatbot; options: ChatbotOption
           }}
         />
         {chatbot.status === 'PUBLISHED' && <Alert variant="info" isInline title={PUBLISHED_TEXT} />}
-        {error && <Alert variant="danger" isInline title={error} actionClose={<button type="button" className="pf-v6-c-button pf-m-plain" aria-label="Close" onClick={state.clearError} />} />}
+        {error && (
+          <Alert
+            variant="danger"
+            isInline
+            title={error}
+            actionClose={
+              <button
+                type="button"
+                className="pf-v6-c-button pf-m-plain"
+                aria-label="Close"
+                onClick={state.clearError}
+              />
+            }
+          />
+        )}
         <Drawer isExpanded={panel !== undefined} isInline position="right">
           <DrawerContent panelContent={panel}>
             <DrawerContentBody>
@@ -142,7 +196,13 @@ const Editor: React.FunctionComponent<{ initial: Chatbot; options: ChatbotOption
           </DrawerContent>
         </Drawer>
         {guard.pending && (
-          <ConfirmModal title="Leave without saving?" confirmLabel="Leave" variant="danger" onConfirm={guard.confirmLeave} onCancel={guard.stay}>
+          <ConfirmModal
+            title="Leave without saving?"
+            confirmLabel="Leave"
+            variant="danger"
+            onConfirm={guard.confirmLeave}
+            onCancel={guard.stay}
+          >
             Your changes to this chatbot are not saved.
           </ConfirmModal>
         )}
@@ -160,5 +220,7 @@ export const ChatbotEditorPage: React.FunctionComponent = () => {
   const options = useLoad((tk) => getChatbotOptions(tk, ws), [ws]);
   if (chatbot.error) return <Alert variant="danger" isInline title={chatbot.error} />;
   if (!chatbot.data) return <Spinner aria-label="Loading chatbot" />;
-  return <Editor key={`${chatbot.data.id}-${chatbot.data.status}`} initial={chatbot.data} options={options.data ?? null} />;
+  return (
+    <Editor key={`${chatbot.data.id}-${chatbot.data.status}`} initial={chatbot.data} options={options.data ?? null} />
+  );
 };
