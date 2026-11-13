@@ -22,9 +22,24 @@ vi.mock('@xyflow/react', () => {
     onNodeClick?(e: React.MouseEvent, node: AnyNode): void;
     onDrop?(e: React.DragEvent): void;
     onDragOver?(e: React.DragEvent): void;
+    onConnectEnd?(e: MouseEvent, state: Record<string, unknown>): void;
     children?: React.ReactNode;
-  }> = ({ nodes, edges, nodeTypes, onNodeClick, onDrop, onDragOver, children }) => (
+  }> = ({ nodes, edges, nodeTypes, onNodeClick, onDrop, onDragOver, onConnectEnd, children }) => (
     <div data-testid="react-flow" onDrop={onDrop} onDragOver={onDragOver}>
+      {/* a connection dragged from the last node's "next" output and dropped on empty canvas */}
+      <button
+        type="button"
+        hidden
+        data-testid="rf-drop-on-pane"
+        onClick={() =>
+          onConnectEnd?.(new MouseEvent('mouseup', { clientX: 400, clientY: 300 }), {
+            isValid: false,
+            fromNode: nodes[nodes.length - 1],
+            fromHandle: { id: 'next' },
+            toNode: null,
+          })
+        }
+      />
       <ul aria-label="Nodes">
         {nodes.map((n) => {
           const Type = nodeTypes?.[n.type ?? 'default'];

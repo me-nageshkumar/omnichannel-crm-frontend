@@ -91,6 +91,7 @@ const Editor: React.FunctionComponent<{
         return addNodeConnected(current, type, at, connectFrom).flow;
       });
       setPalette(false);
+      setPendingAdd(null);
     };
   const [pendingAdd, setPendingAdd] = React.useState<{
     position: { x: number; y: number };

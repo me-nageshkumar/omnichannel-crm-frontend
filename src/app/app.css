@@ -356,3 +356,30 @@ body,
   background: #fff;
   border-radius: 6px;
 }
+
+/* React Flow's own chrome follows the console theme */
+.omni-flow .react-flow__controls,
+.omni-flow .react-flow__minimap {
+  background: var(--pf-t--global--background--color--primary--default);
+  border: 1px solid var(--pf-t--global--border--color--default);
+  box-shadow: var(--pf-t--global--box-shadow--sm);
+}
+.omni-flow .react-flow__controls-button {
+  background: var(--pf-t--global--background--color--primary--default);
+  border-bottom: 1px solid var(--pf-t--global--border--color--default);
+  color: var(--pf-t--global--text--color--regular);
+  fill: var(--pf-t--global--text--color--regular);
+}
+.omni-flow .react-flow__controls-button:hover {
+  background: var(--pf-t--global--background--color--secondary--default);
+}
+.omni-flow .react-flow__controls-button svg {
+  fill: currentColor;
+}
+.omni-flow .react-flow__minimap-mask {
+  fill: var(--pf-t--global--background--color--secondary--default);
+  fill-opacity: 0.75;
+}
+.omni-flow .react-flow__minimap-node {
+  fill: var(--pf-t--global--border--color--default);
+}

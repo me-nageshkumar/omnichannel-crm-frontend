@@ -235,4 +235,16 @@ describe('chatbot editor', () => {
     expect(await screen.findByRole('dialog', { name: 'AskBudget' })).toHaveClass('nokey');
     expect(document.querySelector('.omni-flow-header')).toHaveClass('nokey');
   });
+
+  // seen in the manual check: after a connection drop opened the palette, picking a node left the palette open
+  it('dropOnPaneThenPickClosesPaletteAndConnects', async () => {
+    const { user } = open('/chatbots/c1');
+    await screen.findByRole('heading', { name: 'Lead qualifier' });
+    fireEvent.click(screen.getByTestId('rf-drop-on-pane'));
+    await user.click(await screen.findByRole('button', { name: /^Wait/ }));
+    expect(screen.queryByRole('list', { name: 'Node types' })).toBeNull();
+    expect(screen.getByRole('listitem', { name: /^Wait/ })).toBeVisible();
+    const edges = within(screen.getByRole('list', { name: 'Edges' })).getAllByRole('listitem');
+    expect(edges.some((e) => /^n3 next /.test(e.textContent ?? ''))).toBe(true);
+  });
 });
