@@ -11,6 +11,8 @@ export interface NodeData {
   problems: Problem[];
   entry: boolean;
   run?: StepState;
+  /** React Flow wants node data indexable. */
+  [extra: string]: unknown;
 }
 
 /** The React Flow node and edge shapes we use (a structural subset, so the model needs no canvas import). */

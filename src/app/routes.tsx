@@ -35,6 +35,7 @@ import { AutomationTestPage } from '@app/Automations/AutomationTestPage';
 import { ChatbotsPage } from '@app/Chatbots/ChatbotsPage';
 import { HistoryImportsPage } from '@app/HistoryImports/HistoryImportsPage';
 import { crmRoutes } from '@app/Crm/routes';
+import { chatbotRoutes } from '@app/Chatbots/routes';
 import { useCrmReminderCount, useCrmStatus } from '@app/Crm/status/CrmStatusContext';
 import { Access, useAccess } from '@app/session/useAccess';
 
@@ -336,6 +337,7 @@ const routes: IAppRoute[] = [
     requires: (a) => a.hasInWorkspace('campaign:view'),
   },
   ...crmRoutes,
+  ...chatbotRoutes,
 ];
 
 /** The routes the signed-in user may open. */

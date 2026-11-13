@@ -3,7 +3,7 @@ import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { screen, within } from '@testing-library/react';
 import { LocationProbe, renderApp } from '../../test/renderApp';
 import { callsTo, mockFetch, requestTo } from '../../test/fetchMock';
-import { CHATBOTS_BASE, LEAD_QUALIFIER, SUMMARIES, chatbotRoutes } from '../../test/chatbots';
+import { CHATBOTS_BASE, LEAD_QUALIFIER, chatbotRoutes } from '../../test/chatbots';
 import { BRAND_A, WORKSPACE_MANAGER, meAs, storeSession } from '../../test/session';
 import { EMPTY_TEXT } from '@app/Chatbots/ChatbotsPage';
 
