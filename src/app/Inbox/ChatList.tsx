@@ -15,6 +15,7 @@ import { NumberChip } from '@app/Inbox/NumberChip';
 import { ChatListFilters, SCOPE_TEXT, STATUS_TICK, allowedScopes, contactName } from '@app/Inbox/chatDisplay';
 import type { ChatList as ChatListState } from '@app/Inbox/useChatList';
 import { relative } from '@app/PhoneNumbers/PhoneNumberStatusLabel';
+import { RobotIcon } from '@patternfly/react-icons';
 import { useAccess } from '@app/session/useAccess';
 
 const GAP = 'var(--pf-t--global--spacer--sm)';
@@ -73,6 +74,16 @@ const Row: React.FunctionComponent<{
             <strong title={name} style={{ overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
               {name}
             </strong>
+            {chat.chatbot && (
+              <span
+                role="img"
+                aria-label={`Chatbot ${chat.chatbot.name} is running`}
+                title={`Chatbot ${chat.chatbot.name} is running`}
+                style={{ flex: '0 0 auto', color: 'var(--pf-t--global--icon--color--status--info--default)' }}
+              >
+                <RobotIcon />
+              </span>
+            )}
             <NumberChip number={number} />
             {chat.lastMessageAt && <small style={{ flex: '0 0 auto' }}>{relative(chat.lastMessageAt)}</small>}
           </span>

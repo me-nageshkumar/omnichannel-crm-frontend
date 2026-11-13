@@ -532,4 +532,23 @@ describe('chat list', () => {
       expect(callsTo(fetch, `GET ${LIST}`)).toBe(1);
     });
   });
+
+  it('robotIconForRunningChatbot', async () => {
+    const BOT = chat({
+      id: 'e',
+      contact: { id: 'c-e', name: 'Veenu', phone: '919799750743', numberHidden: false },
+      chatbot: {
+        runId: 'r1',
+        chatbotId: 'c1',
+        name: 'Lead qualifier',
+        nodeName: 'AskBudget',
+        waitingFor: 'WhatsApp reply',
+      },
+    });
+    mockFetch({ ...meAs(MANAGER), [`GET ${LIST}`]: page([BOT, ASHA]) });
+    renderList();
+    const items = await rows();
+    expect(within(items[0]).getByRole('img', { name: 'Chatbot Lead qualifier is running' })).toBeInTheDocument();
+    expect(within(items[1]).queryByRole('img', { name: /is running/ })).toBeNull();
+  });
 });

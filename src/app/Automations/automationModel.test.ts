@@ -29,7 +29,7 @@ const ALL_KINDS = MESSAGE_KINDS.map((k) => k.kind);
 describe('field catalogue', () => {
   it('fieldsFollowTheContract', () => {
     const message = FIELDS.MESSAGE_RECEIVED;
-    expect(message).toHaveLength(9);
+    expect(message).toHaveLength(10);
     for (const f of [...message, ...FIELDS.DEAL_LANE_CHANGED]) expect(f.description).not.toBe('');
     const by = (list: typeof message, field: string) => list.find((f) => f.field === field)!;
     expect(by(message, 'message.type').operators).toEqual(['is_one_of']);

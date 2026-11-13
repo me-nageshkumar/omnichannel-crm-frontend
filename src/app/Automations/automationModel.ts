@@ -74,6 +74,13 @@ export const FIELDS: Record<EventKind, AutomationField[]> = {
       operators: ['is'],
     },
     {
+      field: 'chat.chatbotRunning',
+      label: 'Chatbot is running',
+      description: 'Whether a chatbot was running on the chat when the message came in.',
+      type: 'boolean',
+      operators: ['is'],
+    },
+    {
       field: 'message.ad.headline',
       label: 'Ad headline',
       description: 'The headline of the ad the contact tapped.',
@@ -198,6 +205,11 @@ export const ACTIONS: { type: AutomationAction['type']; label: string; descripti
     label: 'Add to CRM',
     description: 'Creates a CRM contact and a deal for the person, if they are not in the CRM yet.',
   },
+  {
+    type: 'START_CHATBOT',
+    label: 'Start chatbot',
+    description: 'Starts a chatbot on the chat; skips or replaces one already running.',
+  },
 ];
 
 export const OPERATOR_LABELS: Record<string, string> = {
@@ -229,10 +241,14 @@ export const MESSAGE_KINDS: { kind: MessageKind; label: string }[] = [
   { kind: 'POLL', label: 'Poll' },
 ];
 
-export const BOOLEAN_CHOICES: Record<'chat.new' | 'contact.inCrm' | 'message.ad', [string, string]> = {
+export const BOOLEAN_CHOICES: Record<
+  'chat.new' | 'contact.inCrm' | 'message.ad' | 'chat.chatbotRunning',
+  [string, string]
+> = {
   'chat.new': ['Chat is new', 'Chat is existing'],
   'contact.inCrm': ['Contact is in the CRM', 'Contact is not in the CRM'],
   'message.ad': ['Message came from an ad', 'Message did not come from an ad'],
+  'chat.chatbotRunning': ['Running', 'Not running'],
 };
 
 const LANE_TYPES = [
@@ -397,6 +413,8 @@ export function actionSummary(a: AutomationAction, o: AutomationOptions): string
       const name = pipeline?.name ?? a.pipelineId;
       return `Add to CRM (${a.stageId ? `${name} › ${lane?.name ?? a.stageId}` : name})`;
     }
+    case 'START_CHATBOT':
+      return `Start “${o.chatbots.find((c) => c.id === a.chatbotId)?.name ?? a.chatbotId ?? ''}”`;
   }
 }
 

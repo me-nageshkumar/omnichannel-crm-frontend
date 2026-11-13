@@ -1,5 +1,6 @@
 import * as React from 'react';
 import { Link, useLocation, useNavigate } from 'react-router-dom';
+import { navGuardAllows } from '@app/navGuard';
 import {
   Divider,
   Dropdown,
@@ -139,7 +140,15 @@ const AppLayout: React.FunctionComponent<IAppLayout> = ({ children }) => {
   const current = currentNavPath(sections, pathname);
 
   const renderLink = (link: NavLinkEntry) => (
-    <NavItem key={link.path} isActive={link.path === current}>
+    // NavItem replaces the link's own onClick, so the guard hangs on the item: a screen with unsaved work asks
+    // first and navigates itself when allowed
+    <NavItem
+      key={link.path}
+      isActive={link.path === current}
+      onClick={(e) => {
+        if (!navGuardAllows(link.path)) e.preventDefault();
+      }}
+    >
       <Link to={link.path}>{link.label}</Link>
     </NavItem>
   );

@@ -25,7 +25,7 @@ export type ConditionGroup = Extract<ConditionNode, { rules: unknown }>;
 export type ConditionLeaf = Extract<ConditionNode, { field: string }>;
 
 export type AutomationAction = {
-  type: 'SEND_TEMPLATE' | 'ASSIGN_CHAT' | 'ADD_TO_CRM';
+  type: 'SEND_TEMPLATE' | 'ASSIGN_CHAT' | 'ADD_TO_CRM' | 'START_CHATBOT';
   // SEND_TEMPLATE
   templateId?: string | null;
   values?: Record<string, string>;
@@ -38,6 +38,9 @@ export type AutomationAction = {
   pipelineId?: string | null;
   stageId?: string | null;
   dealTitle?: string | null;
+  // START_CHATBOT
+  chatbotId?: string | null;
+  ifRunning?: 'SKIP' | 'REPLACE' | null;
 };
 
 export type TestStatus = 'WAITING' | 'CAPTURED' | 'ENDED';
@@ -103,6 +106,7 @@ export type AutomationOptions = {
       lanes: { id: string; name: string; type: 'OPEN' | 'WON' | 'LOST' }[];
     }[];
   };
+  chatbots: { id: string; name: string; status: 'DRAFT' | 'PUBLISHED' }[];
 };
 
 export type EventData = {
@@ -112,6 +116,8 @@ export type EventData = {
     status: 'OPEN' | 'CLOSED' | null;
     assignedUser: Ref | null;
     assignedTeam: Ref | null;
+    /** A chatbot run was active on the chat when the event was written. */
+    chatbotRunning?: boolean;
   } | null;
   message: {
     id: string;

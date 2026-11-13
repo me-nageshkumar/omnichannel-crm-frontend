@@ -44,6 +44,10 @@ export const OPTIONS: AutomationOptions = {
       },
     ],
   },
+  chatbots: [
+    { id: 'c1', name: 'Lead qualifier', status: 'PUBLISHED' },
+    { id: 'c3', name: 'Draft bot', status: 'DRAFT' },
+  ],
 };
 
 export const WELCOME_RULE: Rule = {

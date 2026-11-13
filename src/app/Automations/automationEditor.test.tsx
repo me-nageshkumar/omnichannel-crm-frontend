@@ -443,4 +443,32 @@ describe('automation rule editor', () => {
     expect(body.actions.map((a: { type: string }) => a.type)).toEqual(['ASSIGN_CHAT', 'SEND_TEMPLATE']);
     expect(body).toMatchObject({ version: 1, priority: 1, name: 'Welcome new chats' });
   });
+
+  it('startChatbotActionEdits', async () => {
+    const { f, user } = open('/automations/r1', { [`PUT ${RULES}/r1`]: { status: 200, body: WELCOME_RULE } });
+    await nameInput();
+    await addAction(user, 'Start chatbot');
+    const chatbotCard = card('4. Start chatbot');
+    const select = chatbotCard.getByLabelText('Chatbot') as HTMLSelectElement;
+    // published first, drafts marked
+    const labels = Array.from(select.options).map((o) => o.textContent);
+    expect(labels).toEqual(['Choose a chatbot', 'Lead qualifier', 'Draft bot (draft)']);
+    await user.selectOptions(select, 'c1');
+    await user.click(chatbotCard.getByRole('radio', { name: 'Replace the running chatbot' }));
+    await user.click(screen.getByRole('button', { name: 'Save draft' }));
+    await waitFor(() => expect(callsTo(f, `PUT ${RULES}/r1`)).toBe(1));
+    const body = requestTo(f, `PUT ${RULES}/r1`)?.body;
+    expect(body.actions[3]).toEqual({ type: 'START_CHATBOT', chatbotId: 'c1', ifRunning: 'REPLACE' });
+  });
+
+  it('chatbotRunningCondition', async () => {
+    const { user } = open('/automations/r1');
+    await nameInput();
+    await user.click(screen.getByRole('button', { name: 'Add condition' }));
+    const fields = screen.getAllByLabelText('Field');
+    await user.selectOptions(fields[fields.length - 1], 'Chatbot is running');
+    const values = screen.getAllByLabelText('Value') as HTMLSelectElement[];
+    const value = values[values.length - 1];
+    expect(Array.from(value.options).map((o) => o.textContent)).toEqual(['Running', 'Not running']);
+  });
 });

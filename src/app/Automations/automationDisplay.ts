@@ -78,7 +78,7 @@ export function actualLabel(field: string, actual: unknown, o: AutomationOptions
 }
 
 /** What the tester has to do for the test to move on. */
-export function waitingText(t: AutomationTest, _o: AutomationOptions): string {
+export function waitingText(t: AutomationTest): string {
   if (t.event === 'DEAL_LANE_CHANGED') return `Move one of ${t.target.name}'s deals to another lane.`;
   const who = t.target.name ?? '+' + t.target.phone;
   const numbers = t.numbers.map((n) => n.label ?? '+' + n.number).join(' or ');

@@ -20,6 +20,7 @@ import { ACTIONS, actionSummary } from '@app/Automations/automationModel';
 import { AddToCrmFields, addToCrmShows } from '@app/Automations/AddToCrmFields';
 import { AssignChatModal } from '@app/Automations/AssignChatModal';
 import { SendTemplateFields, sendTemplateShows } from '@app/Automations/SendTemplateFields';
+import { StartChatbotFields, startChatbotShows } from '@app/Automations/StartChatbotFields';
 
 const labelOf = (type: AutomationAction['type']) => ACTIONS.find((a) => a.type === type)?.label ?? type;
 
@@ -32,12 +33,15 @@ export function newAction(type: AutomationAction['type']): AutomationAction {
       return { type, mode: 'AGENT', userId: null, teamId: null, whenAway: null };
     case 'ADD_TO_CRM':
       return { type, pipelineId: null, stageId: null, dealTitle: null };
+    case 'START_CHATBOT':
+      return { type, chatbotId: null, ifRunning: 'SKIP' };
   }
 }
 
 const shownByFields = (type: AutomationAction['type'], key: string): boolean => {
   if (type === 'SEND_TEMPLATE') return sendTemplateShows(key);
   if (type === 'ADD_TO_CRM') return addToCrmShows(key);
+  if (type === 'START_CHATBOT') return startChatbotShows(key);
   return false;
 };
 
@@ -168,6 +172,7 @@ export const ActionList: React.FunctionComponent<{
               <Flex direction={{ default: 'column' }} spaceItems={{ default: 'spaceItemsMd' }}>
                 {a.type === 'SEND_TEMPLATE' && <SendTemplateFields {...fieldProps} />}
                 {a.type === 'ADD_TO_CRM' && <AddToCrmFields {...fieldProps} />}
+                {a.type === 'START_CHATBOT' && <StartChatbotFields {...fieldProps} />}
                 {a.type === 'ASSIGN_CHAT' && (
                   <AssignChatBody
                     action={a}

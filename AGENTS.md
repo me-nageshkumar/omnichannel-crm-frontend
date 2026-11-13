@@ -17,20 +17,20 @@ Official [PatternFly React seed](https://github.com/patternfly/patternfly-react-
 
 From the repository root, after `npm install`:
 
-| Command | Purpose |
-|--------|---------|
-| `npm run type-check` | TypeScript (`tsc --noEmit`) |
-| `npm run lint` | ESLint on `src/` |
-| `npm test` | Vitest unit tests |
-| `npm run test:coverage` | Vitest with coverage (requires devDependency `@vitest/coverage-v8`) |
-| `npm run ci-checks` | Same as type-check + lint + `test:coverage` (run this before merging when possible) |
+| Command                 | Purpose                                                                             |
+| ----------------------- | ----------------------------------------------------------------------------------- |
+| `npm run type-check`    | TypeScript (`tsc --noEmit`)                                                         |
+| `npm run lint`          | ESLint on `src/`                                                                    |
+| `npm test`              | Vitest unit tests                                                                   |
+| `npm run test:coverage` | Vitest with coverage (requires devDependency `@vitest/coverage-v8`)                 |
+| `npm run ci-checks`     | Same as type-check + lint + `test:coverage` (run this before merging when possible) |
 
 Local development:
 
-| Command | Purpose |
-|--------|---------|
-| `npm run start:dev` | Webpack dev server |
-| `npm run build` | Production build into `dist/` |
+| Command             | Purpose                       |
+| ------------------- | ----------------------------- |
+| `npm run start:dev` | Webpack dev server            |
+| `npm run build`     | Production build into `dist/` |
 
 ## Repository layout
 
@@ -40,6 +40,7 @@ Local development:
 - `src/app/Dashboard/`, `src/app/Profile/`, `src/app/Login/`, `src/app/NotFound/` — pages
 - `src/app/session/` — session store (`localStorage`) and session context
 - `src/app/api/` — `fetch` client and backend calls
+- `src/app/Chatbots/` — chatbot list, the React Flow editor (`editor/`, a lazy chunk; `nodes/` holds one settings form per node type) and the runs page. Tests stub `@xyflow/react` by importing `src/test/reactFlowStub.tsx` first.
 - `src/test/` — test setup and helpers (`renderApp`, `mockFetch`)
 - `webpack.dev.js` — dev server on 9000 proxying `/api` and `/ws` to `BACKEND_URL`
 

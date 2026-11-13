@@ -65,13 +65,34 @@ export interface Interactive {
   action: Action;
 }
 
+/** Meta's media object: an uploaded id, an optional caption (not for audio) and, for documents, a filename. */
+export interface MediaObject {
+  id: string;
+  caption?: string;
+  filename?: string;
+}
+
+export interface LocationObject {
+  latitude: number;
+  longitude: number;
+  name?: string;
+  address?: string;
+}
+
+export type CloudMessageType = 'text' | 'interactive' | 'image' | 'video' | 'audio' | 'document' | 'location';
+
 export interface CloudMessage {
   messaging_product: 'whatsapp-web' | 'whatsapp';
   recipient_type?: 'individual';
   to?: string;
-  type: 'text' | 'interactive';
+  type: CloudMessageType;
   text?: { preview_url?: boolean; body: string };
   interactive?: Interactive;
+  image?: MediaObject;
+  video?: MediaObject;
+  audio?: MediaObject;
+  document?: MediaObject;
+  location?: LocationObject;
 }
 
 export interface CloudSendResponse {

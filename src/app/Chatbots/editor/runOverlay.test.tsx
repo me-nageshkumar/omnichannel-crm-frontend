@@ -1,0 +1,117 @@
+import * as React from 'react';
+import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
+import { act, cleanup, render, screen, waitFor, within } from '@testing-library/react';
+import userEvent from '@testing-library/user-event';
+import type { Run } from '@app/api/chatbots';
+import { RunOverlayPanel } from '@app/Chatbots/editor/RunOverlayPanel';
+import { runByNode, useRunPolling } from '@app/Chatbots/editor/useRunPolling';
+import { SessionProvider } from '@app/session/SessionContext';
+import { CHATBOTS_BASE, LEAD_QUALIFIER, RUN_DONE, RUN_FORM_WAITING, RUN_WAITING } from '../../../test/chatbots';
+import { callsTo, mockFetch } from '../../../test/fetchMock';
+import type { MockRoute } from '../../../test/fetchMock';
+import { WORKSPACE_MANAGER, meAs, storeSession } from '../../../test/session';
+
+const RUN = `${CHATBOTS_BASE}/c1/runs/r1`;
+
+function inTurn(...runs: Run[]): MockRoute {
+  let n = 0;
+  return () => ({ status: 200, body: runs[Math.min(n++, runs.length - 1)] });
+}
+
+/** Polls like the editor does and shows the panel for what came back. */
+const Poller: React.FunctionComponent<{ onStop?: () => void }> = ({ onStop }) => {
+  const { run } = useRunPolling('c1', 'r1');
+  return run ? (
+    <RunOverlayPanel
+      run={run}
+      flow={LEAD_QUALIFIER.flow}
+      onStop={onStop ?? (() => undefined)}
+      onClose={() => undefined}
+    />
+  ) : (
+    <span>loading</span>
+  );
+};
+
+function openPolling(route: MockRoute, extra: Record<string, MockRoute> = {}) {
+  const f = mockFetch({ ...meAs(WORKSPACE_MANAGER), [`GET ${RUN}`]: route, ...extra });
+  render(
+    <SessionProvider>
+      <Poller />
+    </SessionProvider>,
+  );
+  return f;
+}
+
+function openPanel(run: Run, props: Partial<React.ComponentProps<typeof RunOverlayPanel>> = {}) {
+  cleanup();
+  const onStop = vi.fn();
+  render(<RunOverlayPanel run={run} flow={LEAD_QUALIFIER.flow} onStop={onStop} onClose={() => undefined} {...props} />);
+  return { onStop, user: userEvent.setup() };
+}
+
+describe('run overlay', () => {
+  beforeEach(() => storeSession());
+  afterEach(() => {
+    vi.useRealTimers();
+    vi.restoreAllMocks();
+  });
+
+  it('pollsEverySecondsWhileActive', async () => {
+    vi.useFakeTimers({ shouldAdvanceTime: true });
+    const f = openPolling(inTurn(RUN_WAITING, RUN_DONE));
+    expect(await screen.findByText('Waiting')).toBeVisible();
+    expect(callsTo(f, `GET ${RUN}`)).toBe(1);
+    await act(() => vi.advanceTimersByTimeAsync(2000));
+    expect(await screen.findByText('Completed')).toBeVisible();
+    expect(callsTo(f, `GET ${RUN}`)).toBe(2);
+    await act(() => vi.advanceTimersByTimeAsync(4000));
+    expect(callsTo(f, `GET ${RUN}`)).toBe(2);
+  });
+
+  it('showsStepsAndWaitingNode', () => {
+    openPanel(RUN_WAITING);
+    expect(screen.getByText(/waiting at AskBudget for a WhatsApp reply/)).toBeVisible();
+    const steps = within(screen.getByRole('list', { name: 'Steps' })).getAllByRole('listitem');
+    expect(steps).toHaveLength(2);
+    expect(steps[0]).toHaveTextContent('Welcome');
+    expect(steps[0]).toHaveTextContent('Reply “Yes”');
+    expect(screen.getByRole('button', { name: 'Stop' })).toBeEnabled();
+  });
+
+  it('formWaitAndFinishedRunHaveNoStop', () => {
+    openPanel(RUN_FORM_WAITING);
+    expect(screen.getByText(/for the form/)).toBeVisible();
+    const { onStop } = openPanel(RUN_DONE);
+    expect(screen.queryByRole('button', { name: 'Stop' })).toBeNull();
+    expect(screen.getByText('High: no edge from next')).toBeVisible();
+    void onStop;
+  });
+
+  it('overlayToleratesMissingNode', () => {
+    const run: Run = {
+      ...RUN_DONE,
+      steps: RUN_DONE.steps.concat([{ ...RUN_DONE.steps[2], index: 3, nodeId: 'gone', nodeName: 'OldNode' }]),
+    };
+    openPanel(run);
+    const steps = within(screen.getByRole('list', { name: 'Steps' })).getAllByRole('listitem');
+    expect(steps[3]).toHaveTextContent('OldNode (removed)');
+    expect(runByNode(run)).toEqual({ n1: 'done', n2: 'done', n3: 'done', gone: 'done' });
+    expect(runByNode(RUN_WAITING)).toEqual({ n1: 'done', n2: 'waiting' });
+  });
+
+  it('copyVariablePath', async () => {
+    const { user } = openPanel(RUN_DONE);
+    // user-event installs its own clipboard stub at setup; spy on that one
+    const writeText = vi.spyOn(navigator.clipboard, 'writeText').mockResolvedValue();
+    await user.click(screen.getByRole('button', { name: 'Variables' }));
+    await user.click(await screen.findByRole('button', { name: 'Copy {{AskBudget.answer}}' }));
+    expect(writeText).toHaveBeenCalledWith('{{AskBudget.answer}}');
+  });
+
+  it('stopCallsApi', async () => {
+    const { onStop, user } = openPanel(RUN_WAITING);
+    await user.click(screen.getByRole('button', { name: 'Stop' }));
+    await waitFor(() => expect(onStop).toHaveBeenCalled());
+  });
+});

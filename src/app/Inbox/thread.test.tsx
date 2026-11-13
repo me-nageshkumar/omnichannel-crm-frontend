@@ -611,6 +611,27 @@ describe('thread', () => {
     expect(within(bubble).queryByText('WhatsApp Web')).toBeNull();
   });
 
+  it('chatbotBubbleLabel', async () => {
+    mockFetch({
+      ...meAs(AGENT_IN_BRAND),
+      [`GET ${THREAD}`]: page([
+        message({
+          id: 'm1',
+          direction: 'OUT',
+          source: 'CHATBOT',
+          body: 'Hi, book a demo?',
+          sentBy: { id: null, name: 'Chatbot: Lead qualifier' },
+        }),
+        message({ id: 'm2', direction: 'OUT', source: 'CHATBOT', body: 'Your budget?', sentBy: null }),
+      ]),
+    });
+    renderThread();
+    const first = (await screen.findByText('Hi, book a demo?')).closest('[data-side]') as HTMLElement;
+    expect(within(first).getByText('Chatbot: Lead qualifier')).toBeInTheDocument();
+    const second = screen.getByText('Your budget?').closest('[data-side]') as HTMLElement;
+    expect(within(second).getByText('Chatbot')).toBeInTheDocument();
+  });
+
   it('reopenedByACampaignShowsTheCampaign', async () => {
     mockFetch({
       ...meAs(AGENT_IN_BRAND),
