@@ -383,3 +383,13 @@ body,
 .omni-flow .react-flow__minimap-node {
   fill: var(--pf-t--global--border--color--default);
 }
+
+/* the rules list's hover summary: one line per heading, condition or action */
+.omni-rule-words ul {
+  list-style: none;
+  margin: var(--pf-t--global--spacer--xs) 0 0;
+  padding: 0;
+}
+.omni-rule-words li + li {
+  margin-block-start: var(--pf-t--global--spacer--xs);
+}

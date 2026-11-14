@@ -1,6 +1,6 @@
 import * as React from 'react';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
-import { screen, within } from '@testing-library/react';
+import { screen, waitFor, within } from '@testing-library/react';
 import { LocationProbe, renderApp } from '../../test/renderApp';
 import { mockFetch, requestTo } from '../../test/fetchMock';
 import {
@@ -31,6 +31,13 @@ async function rowFor(name: string): Promise<HTMLElement> {
   return link.closest('tr') as HTMLElement;
 }
 
+/** The summary once it has faded in (the tooltip waits its entry delay before showing). */
+async function shownTip(): Promise<HTMLElement> {
+  const tip = await screen.findByRole('tooltip');
+  await waitFor(() => expect(tip).toBeVisible(), { timeout: 2000 });
+  return tip;
+}
+
 describe('rules list', () => {
   beforeEach(() => storeSession());
   afterEach(() => vi.unstubAllGlobals());
@@ -48,6 +55,62 @@ describe('rules list', () => {
     expect(cells).toContain('1');
     expect(screen.getByRole('tab', { name: 'Rules' })).toBeVisible();
     expect(screen.getByRole('tab', { name: 'Event history' })).toBeVisible();
+  });
+
+  it('hoverShowsTheRuleInWords', async () => {
+    mockFetch({ ...meAs(WORKSPACE_MANAGER), ...automationRoutes(listRoute()) });
+    const { user } = renderApp('/automations');
+    const link = await screen.findByRole('link', { name: 'Welcome' });
+    await user.hover(link);
+    const tip = await shownTip();
+    expect(within(tip).getByText('Welcome')).toBeVisible();
+    expect(within(tip).getByText('When a message comes in')).toBeVisible();
+    expect(within(tip).getByText('If all of these:')).toBeVisible();
+    expect(within(tip).getByText('Chat is new')).toBeVisible();
+    expect(within(tip).getByText('1. Send “Welcome”')).toBeVisible();
+    // read out with the link, never a modal dialog
+    expect(link).toHaveAttribute('aria-describedby', tip.id);
+    expect(screen.queryByRole('dialog')).toBeNull();
+  });
+
+  it('focusOpensTheSummary', async () => {
+    mockFetch({ ...meAs(WORKSPACE_MANAGER), ...automationRoutes(listRoute()) });
+    const { user } = renderApp('/automations');
+    await screen.findByRole('link', { name: 'Won deals thank-you' });
+    while (document.activeElement?.textContent !== 'Won deals thank-you') await user.tab();
+    const tip = await shownTip();
+    expect(within(tip).getByText('No conditions: every deal that moves to another lane runs this rule.')).toBeVisible();
+    expect(within(tip).getByText('Then: nothing yet')).toBeVisible();
+    await user.keyboard('{Escape}');
+    await waitFor(() => expect(screen.queryByRole('tooltip')).toBeNull());
+  });
+
+  it('optionsFailingStillShowsTheListAndRawValues', async () => {
+    const withNumber = {
+      ...SUMMARY,
+      conditions: { combinator: 'and' as const, not: false, rules: [{ field: 'number', operator: 'is', value: 'n1' }] },
+    };
+    mockFetch({
+      ...meAs(WORKSPACE_MANAGER),
+      ...automationRoutes(listRoute([withNumber])),
+      [`GET ${AUTOMATIONS_BASE}/options`]: { status: 500, body: { message: 'boom' } },
+    });
+    const { user } = renderApp('/automations');
+    await user.hover(await screen.findByRole('link', { name: 'Welcome' }));
+    expect(within(await shownTip()).getByText('Number is n1')).toBeVisible();
+  });
+
+  it('aMalformedRuleDoesNotBlankTheList', async () => {
+    const broken = {
+      ...SUMMARY,
+      conditions: { combinator: 'and', not: false, rules: [null] },
+      actions: [null],
+    } as unknown as typeof SUMMARY;
+    mockFetch({ ...meAs(WORKSPACE_MANAGER), ...automationRoutes(listRoute([broken, RULE_SUMMARIES[1]])) });
+    const { user } = renderApp('/automations');
+    expect(await screen.findByRole('link', { name: 'Won deals thank-you' })).toBeVisible();
+    await user.hover(screen.getByRole('link', { name: 'Welcome' }));
+    expect(within(await shownTip()).getByText('Unknown condition')).toBeVisible();
   });
 
   it('shows the empty state', async () => {
