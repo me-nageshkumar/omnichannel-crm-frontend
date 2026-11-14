@@ -113,6 +113,46 @@ describe('rules list', () => {
     expect(within(await shownTip()).getByText('Unknown condition')).toBeVisible();
   });
 
+  it('nestingIsAListInAList', async () => {
+    const nested = {
+      ...SUMMARY,
+      conditions: {
+        combinator: 'or' as const,
+        not: false,
+        rules: [
+          { field: 'chat.new', operator: 'is', value: true },
+          {
+            combinator: 'and' as const,
+            not: false,
+            rules: [
+              { field: 'chat.new', operator: 'is', value: false },
+              {
+                combinator: 'or' as const,
+                not: false,
+                rules: [
+                  { field: 'contact.inCrm', operator: 'is', value: true },
+                  { field: 'message.ad', operator: 'is', value: true },
+                ],
+              },
+            ],
+          },
+        ],
+      },
+    };
+    mockFetch({ ...meAs(WORKSPACE_MANAGER), ...automationRoutes(listRoute([nested])) });
+    const { user } = renderApp('/automations');
+    await user.hover(await screen.findByRole('link', { name: 'Welcome' }));
+    const tip = await shownTip();
+    const ifItem = within(tip).getByText('If any of these:').closest('li') as HTMLElement;
+    const allItem = within(ifItem).getByText('all of these:').closest('li') as HTMLElement;
+    // the group's own conditions sit in a list inside its item, one level per group
+    expect(
+      within(within(allItem).getByRole('list'))
+        .getAllByRole('listitem')
+        .map((li) => li.firstChild?.textContent),
+    ).toEqual(['Chat is existing', 'any of these: Contact is in the CRM; Message came from an ad']);
+  });
+
   it('shows the empty state', async () => {
     mockFetch({ ...meAs(WORKSPACE_MANAGER), ...automationRoutes(listRoute([])) });
     renderApp('/automations');

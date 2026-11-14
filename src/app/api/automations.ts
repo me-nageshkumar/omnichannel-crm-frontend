@@ -81,6 +81,8 @@ export type RuleSummary = {
   /** The stored conditions and actions, for the hover summary; null conditions when the rule has none. */
   conditions: ConditionNode | null;
   actions: AutomationAction[];
+  /** Each action named as {@link actionsSummary} names it (archived templates and unpicked drafts included). */
+  actionLabels: string[];
 };
 
 export type AutomationOptions = {

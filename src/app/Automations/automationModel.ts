@@ -427,7 +427,7 @@ const groupWords = (g: ConditionGroup): string => {
  * headings and bullets, then the numbered actions. Without options, ids are shown as they are.
  */
 export function describeRule(
-  r: { event: EventKind; conditions: ConditionNode | null; actions: AutomationAction[] },
+  r: { event: EventKind; conditions: ConditionNode | null; actions: AutomationAction[]; actionLabels?: string[] },
   options: AutomationOptions | null,
 ): RuleLine[] {
   const o = options ?? NO_OPTIONS;
@@ -447,6 +447,9 @@ export function describeRule(
       nodes.forEach((n) => {
         if (!n || !isGroup(n)) {
           lines.push({ text: leafText(n), depth });
+        } else if (!n.rules || n.rules.length === 0) {
+          // only stored data has one; the evaluator treats it as passing
+          lines.push({ text: `${groupWords(n)}: no conditions`, depth });
         } else if (n.rules.every((c) => !c || !isGroup(c))) {
           // "; " between conditions, since "is one of" already lists its values with ", "
           lines.push({ text: `${groupWords(n)}: ${n.rules.map(leafText).join('; ')}`, depth });
@@ -469,22 +472,23 @@ export function describeRule(
       }
       const running =
         a.type === 'START_CHATBOT' ? ` (if one is running: ${a.ifRunning === 'REPLACE' ? 'replace' : 'skip'})` : '';
-      lines.push({ text: `${i + 1}. ${actionSummary(a, o)}${running}`, depth: 1 });
+      const label = r.actionLabels?.[i] ?? actionSummary(a, o);
+      lines.push({ text: `${i + 1}. ${label}${running}`, depth: 1 });
     });
   }
   return lines;
 }
 
-/** The same words the server puts in a rule's actions summary. */
+/** The same words the server puts in a rule's actions summary; "?" for what is not picked yet, as there. */
 export function actionSummary(a: AutomationAction, o: AutomationOptions): string {
   switch (a.type) {
     case 'SEND_TEMPLATE':
-      return `Send “${o.templates.find((t) => t.id === a.templateId)?.name ?? a.templateId ?? ''}”`;
+      return `Send “${o.templates.find((t) => t.id === a.templateId)?.name ?? a.templateId ?? '?'}”`;
     case 'ASSIGN_CHAT': {
-      const team = o.teams.find((t) => t.id === a.teamId)?.name ?? a.teamId ?? '';
+      const team = o.teams.find((t) => t.id === a.teamId)?.name ?? a.teamId ?? '?';
       if (a.mode === 'TEAM_QUEUE') return `Queue in ${team}`;
       if (a.mode === 'TEAM_ROUND_ROBIN') return `Round robin in ${team}`;
-      return `Assign to ${o.agents.find((u) => u.id === a.userId)?.name ?? a.userId ?? ''}`;
+      return `Assign to ${o.agents.find((u) => u.id === a.userId)?.name ?? a.userId ?? '?'}`;
     }
     case 'ADD_TO_CRM': {
       if (!a.pipelineId) return 'Add to CRM (default pipeline)';
@@ -494,7 +498,7 @@ export function actionSummary(a: AutomationAction, o: AutomationOptions): string
       return `Add to CRM (${a.stageId ? `${name} › ${lane?.name ?? a.stageId}` : name})`;
     }
     case 'START_CHATBOT':
-      return `Start “${o.chatbots.find((c) => c.id === a.chatbotId)?.name ?? a.chatbotId ?? ''}”`;
+      return `Start “${o.chatbots.find((c) => c.id === a.chatbotId)?.name ?? a.chatbotId ?? '?'}”`;
   }
 }
 
