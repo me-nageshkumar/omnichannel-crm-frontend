@@ -34,7 +34,8 @@ const BRAND_LINKS = [
   'Routing',
   'History imports',
   'Automations',
-  'Chatbots',
+  'All chatbots',
+  'Settings',
   'All contacts',
   'Saved filters',
   'Contact fields',
@@ -77,6 +78,7 @@ describe('authority-driven navigation', () => {
     expect(await navFor(SUPER_ADMIN)).toEqual([
       'Customers',
       'All phone numbers',
+      'Chatbot defaults',
       'Platform users',
       'Roles',
       'Authorities',
@@ -137,6 +139,22 @@ describe('authority-driven navigation', () => {
     mockFetch(meAs(BRAND_VIEWER));
     renderApp('/automations');
     expect(await screen.findByText('404 Page not found')).toBeVisible();
+  });
+
+  it('chatbotsIsAGroupWithSettings', async () => {
+    await navFor(WORKSPACE_MANAGER, '/chatbots/settings');
+    const nav = within(sidebarNav());
+    expect(nav.getByRole('button', { name: 'Chatbots', hidden: true })).toHaveAttribute('aria-expanded', 'true');
+    expect(nav.getByRole('link', { name: 'Settings', hidden: true, current: 'page' })).toHaveAttribute(
+      'href',
+      '/chatbots/settings',
+    );
+  });
+
+  it('platformShowsChatbotDefaultsOnlyWithTheRight', async () => {
+    expect(await navFor(ACCOUNT_MANAGER)).not.toContain('Chatbot defaults');
+    cleanup();
+    expect(await navFor(SUPER_ADMIN)).toContain('Chatbot defaults');
   });
 
   it('chatbotsNavNeedsView', async () => {

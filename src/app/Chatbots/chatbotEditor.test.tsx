@@ -218,7 +218,7 @@ describe('chatbot editor', () => {
     // the sidebar is collapsed in jsdom: its links are in the DOM but hidden
     await user.click(
       within(screen.getByRole('navigation', { name: 'Global', hidden: true })).getByRole('link', {
-        name: 'Chatbots',
+        name: 'All chatbots',
         hidden: true,
       }),
     );
