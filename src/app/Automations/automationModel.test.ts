@@ -208,7 +208,7 @@ describe('describeRule', () => {
     expect(texts(lines)).toEqual([
       'When a message comes in',
       'If any of these:',
-      'all of these: Number is Main line, Message text is “Hi”',
+      'all of these: Number is Main line; Message text is “Hi”',
       'Number is Sales line',
       'Then:',
       '1. Start “Lead qualifier” (if one is running: skip)',
@@ -241,7 +241,7 @@ describe('describeRule', () => {
       { text: 'If all of these:', depth: 0 },
       { text: 'any of these:', depth: 1 },
       { text: 'Chat is new', depth: 2 },
-      { text: 'all of these: Message text is “a”, Message text is “b”', depth: 2 },
+      { text: 'all of these: Message text is “a”; Message text is “b”', depth: 2 },
     ]);
   });
 
@@ -273,5 +273,58 @@ describe('describeRule', () => {
   it('noActions', () => {
     const lines = describeRule({ event: 'MESSAGE_RECEIVED', conditions: null, actions: [] }, OPTIONS);
     expect(lines[lines.length - 1]).toEqual({ text: 'Then: nothing yet', depth: 0 });
+  });
+
+  // ---- review fixes ----
+
+  it('chatbotRunningReadsAsASentence', () => {
+    const lines = texts(
+      describeRule(
+        {
+          event: 'MESSAGE_RECEIVED',
+          conditions: group('and', [leaf('chat.chatbotRunning', 'is', true), leaf('chat.chatbotRunning', 'is', false)]),
+          actions: [],
+        },
+        OPTIONS,
+      ),
+    );
+    expect(lines).toContain('A chatbot is running');
+    expect(lines).toContain('No chatbot is running');
+  });
+
+  it('inlineGroupSeparatesConditionsFromListValues', () => {
+    const lines = texts(
+      describeRule(
+        {
+          event: 'MESSAGE_RECEIVED',
+          conditions: group('or', [
+            group('and', [
+              { field: 'message.type', operator: 'is_one_of', value: ['TEXT', 'PHOTO'] },
+              leaf('number', 'is', 'n1'),
+            ]),
+            leaf('number', 'is', 'n2'),
+          ]),
+          actions: [],
+        },
+        OPTIONS,
+      ),
+    );
+    expect(lines[2]).toMatch(/^all of these: Message type is one of .+, .+; Number is Main line$/);
+  });
+
+  it('nullNodesAndActionsDoNotBreakIt', () => {
+    const broken = {
+      event: 'MESSAGE_RECEIVED' as const,
+      conditions: {
+        combinator: 'and',
+        not: false,
+        rules: [null, leaf('chat.new', 'is', true)],
+      } as unknown as ConditionGroup,
+      actions: [null] as unknown as AutomationAction[],
+    };
+    const lines = texts(describeRule(broken, OPTIONS));
+    expect(lines).toContain('Unknown condition');
+    expect(lines).toContain('Chat is new');
+    expect(lines).toContain('1. Unknown action');
   });
 });

@@ -376,7 +376,11 @@ export function conditionText(leaf: ConditionLeaf, o: AutomationOptions): string
   const spec = fieldSpec(leaf.field);
   const label = spec?.label ?? leaf.field;
   if (spec?.type === 'boolean') {
-    const [yes, no] = BOOLEAN_CHOICES[leaf.field as keyof typeof BOOLEAN_CHOICES];
+    // the editor's select shows "Chatbot is running" beside "Running"; read alone, the condition needs a sentence
+    const [yes, no] =
+      leaf.field === 'chat.chatbotRunning'
+        ? ['A chatbot is running', 'No chatbot is running']
+        : BOOLEAN_CHOICES[leaf.field as keyof typeof BOOLEAN_CHOICES];
     return leaf.value === false ? no : yes;
   }
   const operator = OPERATOR_LABELS[leaf.operator] ?? leaf.operator;
@@ -430,19 +434,22 @@ export function describeRule(
   const event = EVENTS.find((e) => e.kind === r.event)?.label ?? r.event;
   const lines: RuleLine[] = [{ text: `When ${event.charAt(0).toLowerCase()}${event.slice(1)}`, depth: 0 }];
   const root = r.conditions;
-  if (!root || (isGroup(root) && root.rules.length === 0)) {
+  if (!root || (isGroup(root) && (!root.rules || root.rules.length === 0))) {
     lines.push({ text: `No conditions: every ${EVENT_PHRASE[r.event]} runs this rule.`, depth: 0 });
   } else if (!isGroup(root)) {
     lines.push({ text: 'If:', depth: 0 }, { text: conditionText(root, o), depth: 1 });
   } else {
     lines.push({ text: `If ${groupWords(root)}:`, depth: 0 });
-    const walk = (nodes: ConditionNode[], depth: number) => {
+    // stored data the editor never writes (a null node) reads as "Unknown condition" rather than breaking the list
+    const leafText = (n: ConditionNode | null): string =>
+      n ? conditionText(n as ConditionLeaf, o) : 'Unknown condition';
+    const walk = (nodes: (ConditionNode | null)[], depth: number) => {
       nodes.forEach((n) => {
-        if (!isGroup(n)) {
-          lines.push({ text: conditionText(n, o), depth });
-        } else if (n.rules.every((c) => !isGroup(c))) {
-          const parts = n.rules.map((c) => conditionText(c as ConditionLeaf, o));
-          lines.push({ text: `${groupWords(n)}: ${parts.join(', ')}`, depth });
+        if (!n || !isGroup(n)) {
+          lines.push({ text: leafText(n), depth });
+        } else if (n.rules.every((c) => !c || !isGroup(c))) {
+          // "; " between conditions, since "is one of" already lists its values with ", "
+          lines.push({ text: `${groupWords(n)}: ${n.rules.map(leafText).join('; ')}`, depth });
         } else {
           lines.push({ text: `${groupWords(n)}:`, depth });
           walk(n.rules, depth + 1);
@@ -456,6 +463,10 @@ export function describeRule(
   } else {
     lines.push({ text: 'Then:', depth: 0 });
     r.actions.forEach((a, i) => {
+      if (!a) {
+        lines.push({ text: `${i + 1}. Unknown action`, depth: 1 });
+        return;
+      }
       const running =
         a.type === 'START_CHATBOT' ? ` (if one is running: ${a.ifRunning === 'REPLACE' ? 'replace' : 'skip'})` : '';
       lines.push({ text: `${i + 1}. ${actionSummary(a, o)}${running}`, depth: 1 });

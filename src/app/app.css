@@ -385,11 +385,10 @@ body,
 }
 
 /* the rules list's hover summary: one line per heading, condition or action */
-.omni-rule-words {
+.omni-rule-words ul {
   list-style: none;
-  margin: 0;
+  margin: var(--pf-t--global--spacer--xs) 0 0;
   padding: 0;
-  font-size: var(--pf-t--global--font--size--sm);
 }
 .omni-rule-words li + li {
   margin-block-start: var(--pf-t--global--spacer--xs);
