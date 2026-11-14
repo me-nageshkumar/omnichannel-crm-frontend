@@ -46,6 +46,8 @@ export interface AutomationTestState {
   endOtherTest(): Promise<void>;
   check(): Promise<void>;
   run(index: number): Promise<void>;
+  /** Like {@link run}, resolving the test as the server answered it (null when refused). */
+  runAction(index: number): Promise<AutomationTest | null>;
   skip(index: number): Promise<void>;
   again(): Promise<void>;
   replay(): Promise<void>;
@@ -179,7 +181,10 @@ export function useAutomationTest(ruleId: string): AutomationTestState {
    * Runs one call that answers with the test and shows its answer; a failure goes to {@code refused} when it takes
    * it (returns true), otherwise to the error.
    */
-  const step = async (fn: () => Promise<AutomationTest>, refused?: (e: unknown) => boolean): Promise<boolean> => {
+  const stepTo = async (
+    fn: () => Promise<AutomationTest>,
+    refused?: (e: unknown) => boolean,
+  ): Promise<AutomationTest | null> => {
     setBusy(true);
     setError(null);
     generation.current += 1;
@@ -187,14 +192,16 @@ export function useAutomationTest(ruleId: string): AutomationTestState {
     try {
       const next = await fn();
       if (mounted.current && request === latestStep.current) setTest(next);
-      return true;
+      return next;
     } catch (e) {
       if (mounted.current && !refused?.(e)) setError(describe(e));
-      return false;
+      return null;
     } finally {
       if (mounted.current) setBusy(false);
     }
   };
+  const step = async (fn: () => Promise<AutomationTest>, refused?: (e: unknown) => boolean): Promise<boolean> =>
+    (await stepTo(fn, refused)) !== null;
 
   const start = async (body: TestStartRequest): Promise<void> => {
     setOtherTest(null);
@@ -258,10 +265,11 @@ export function useAutomationTest(ruleId: string): AutomationTestState {
    * A step on the open test; resolves true when the server took it. A test that moved on meanwhile (it ended, e.g.
    * idle) is fetched again, so the page shows why instead of the stale steps.
    */
-  const on = (fn: (id: string) => Promise<AutomationTest>): Promise<boolean> => {
-    if (!test) return Promise.resolve(false);
+  const on = async (fn: (id: string) => Promise<AutomationTest>): Promise<boolean> => (await onTo(fn)) !== null;
+  const onTo = (fn: (id: string) => Promise<AutomationTest>): Promise<AutomationTest | null> => {
+    if (!test) return Promise.resolve(null);
     const id = test.id;
-    return step(
+    return stepTo(
       () => fn(id),
       (e) => {
         if (!(e instanceof ApiError && e.code === 'AUTOMATION_TEST_STATE')) return false;
@@ -296,6 +304,7 @@ export function useAutomationTest(ruleId: string): AutomationTestState {
     endOtherTest,
     check: () => onVoid((id) => checkNextCondition(t, ws, id)),
     run: (index) => onVoid((id) => runTestAction(t, ws, id, index)),
+    runAction: (index) => onTo((id) => runTestAction(t, ws, id, index)),
     skip: (index) => onVoid((id) => skipTestAction(t, ws, id, index)),
     again: () => onVoid((id) => testAgain(t, ws, id)),
     replay: () => onVoid((id) => replayTest(t, ws, id)),

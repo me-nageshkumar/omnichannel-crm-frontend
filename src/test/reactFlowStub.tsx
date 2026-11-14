@@ -13,6 +13,7 @@ vi.mock('@xyflow/react', () => {
     data: Record<string, unknown>;
     position: { x: number; y: number };
     selected?: boolean;
+    measured?: { width: number; height: number };
   };
   type AnyEdge = { id: string; source: string; target: string; sourceHandle?: string | null };
   const ReactFlow: React.FunctionComponent<{
@@ -20,12 +21,22 @@ vi.mock('@xyflow/react', () => {
     edges: AnyEdge[];
     nodeTypes?: Record<string, React.ComponentType<{ id: string; data: Record<string, unknown>; selected?: boolean }>>;
     onNodeClick?(e: React.MouseEvent, node: AnyNode): void;
+    onNodesChange?(changes: unknown[]): void;
     onDrop?(e: React.DragEvent): void;
     onDragOver?(e: React.DragEvent): void;
     onConnectEnd?(e: MouseEvent, state: Record<string, unknown>): void;
     children?: React.ReactNode;
-  }> = ({ nodes, edges, nodeTypes, onNodeClick, onDrop, onDragOver, onConnectEnd, children }) => (
+  }> = ({ nodes, edges, nodeTypes, onNodeClick, onNodesChange, onDrop, onDragOver, onConnectEnd, children }) => (
     <div data-testid="react-flow" onDrop={onDrop} onDragOver={onDragOver}>
+      {/* React Flow's ResizeObserver reporting every card's size once (260×131) */}
+      <button
+        type="button"
+        hidden
+        data-testid="rf-measure"
+        onClick={() =>
+          onNodesChange?.(nodes.map((n) => ({ type: 'dimensions', id: n.id, dimensions: { width: 260, height: 131 } })))
+        }
+      />
       {/* a connection dragged from the last node's "next" output and dropped on empty canvas */}
       <button
         type="button"
@@ -48,6 +59,7 @@ vi.mock('@xyflow/react', () => {
               key={n.id}
               role="listitem"
               aria-label={String(n.data.name ?? n.id)}
+              data-measured={n.measured ? `${n.measured.width}x${n.measured.height}` : undefined}
               onClick={(e) => onNodeClick?.(e, n)}
             >
               {Type ? <Type id={n.id} data={n.data} selected={n.selected} /> : String(n.data.name)}

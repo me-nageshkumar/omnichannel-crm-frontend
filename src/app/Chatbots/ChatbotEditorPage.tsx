@@ -31,7 +31,9 @@ const Editor: React.FunctionComponent<{
   initial: Chatbot;
   options: ChatbotOptions | null;
   initialRunId: string | null;
-}> = ({ initial, options, initialRunId }) => {
+  /** Where the run's panel offers to go back to (the rule test that started it). */
+  backHref: string | null;
+}> = ({ initial, options, initialRunId, backHref }) => {
   const canManage = useAccess().hasInWorkspace('chatbot:manage');
   const { token, workspace } = useSession();
   const state = useEditorState(initial);
@@ -60,6 +62,8 @@ const Editor: React.FunctionComponent<{
   const [runId, setRunId] = React.useState<string | null>(initialRunId);
   const polling = useRunPolling(chatbot.id, runId);
   const run: Run | null = polling.run;
+  // one object per run snapshot, so the canvas rebuilds its nodes only when the run changes
+  const runNodes = React.useMemo(() => runByNode(run), [run]);
   const [runError, setRunError] = React.useState<string | null>(null);
   const stopTheRun = async () => {
     if (!run || !token) return;
@@ -138,7 +142,13 @@ const Editor: React.FunctionComponent<{
     </DrawerPanelContent>
   ) : run ? (
     <DrawerPanelContent className="nokey" widths={{ default: 'width_100', lg: 'width_33' }}>
-      <RunOverlayPanel run={run} flow={flow} onStop={() => void stopTheRun()} onClose={() => setRunId(null)} />
+      <RunOverlayPanel
+        run={run}
+        flow={flow}
+        backHref={backHref ?? undefined}
+        onStop={() => void stopTheRun()}
+        onClose={() => setRunId(null)}
+      />
     </DrawerPanelContent>
   ) : palette || pendingAdd ? (
     <DrawerPanelContent className="nokey" widths={{ default: 'width_100', lg: 'width_33' }}>
@@ -219,7 +229,7 @@ const Editor: React.FunctionComponent<{
                 flow={preview ?? flow}
                 readOnly={readOnly}
                 problems={problems}
-                runByNode={runByNode(run)}
+                runByNode={runNodes}
                 selectedId={selectedId}
                 onFlowChange={(next) => {
                   if (!readOnly) setFlow(next);
@@ -275,6 +285,13 @@ const Editor: React.FunctionComponent<{
   );
 };
 
+/**
+ * A `back` parameter is followed only to a rule test page: a whitelist, since browsers resolve shapes like `/\\evil`
+ * or `/<tab>/evil` cross-origin even though they start with a slash.
+ */
+export const ruleTestPath = (p: string | null): string | null =>
+  p && /^\/automations\/[A-Za-z0-9_-]+\/test$/.test(p) ? p : null;
+
 /** The chatbot editor (spec §8.1); its canvas library lives in this lazy chunk. */
 export const ChatbotEditorPage: React.FunctionComponent = () => {
   const { id } = useParams<{ id: string }>();
@@ -291,6 +308,7 @@ export const ChatbotEditorPage: React.FunctionComponent = () => {
       initial={chatbot.data}
       options={options.data ?? null}
       initialRunId={search.get('run')}
+      backHref={ruleTestPath(search.get('back'))}
     />
   );
 };

@@ -286,7 +286,17 @@ const TestRunner: React.FunctionComponent<{ rule: Rule; options: AutomationOptio
                 steps={test.actions}
                 nextAction={test.nextAction}
                 busy={h.busy}
-                onRun={(i) => void h.run(i)}
+                onRun={(i) =>
+                  void h.runAction(i).then((fresh) => {
+                    // a chatbot that started takes the tester to its live view (chatbot-in-rule-test spec §4.2)
+                    const s = fresh?.actions[i];
+                    if (s?.chatbotId && s.chatbotRunId) {
+                      navigate(
+                        `/chatbots/${encodeURIComponent(s.chatbotId)}?run=${encodeURIComponent(s.chatbotRunId)}&back=${encodeURIComponent(`/automations/${rule.id}/test`)}`,
+                      );
+                    }
+                  })
+                }
                 onSkip={(i) => void h.skip(i)}
               />
             </Section>

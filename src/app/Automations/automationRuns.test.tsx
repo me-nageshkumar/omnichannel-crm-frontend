@@ -33,6 +33,32 @@ describe('automation runs', () => {
     ]);
   });
 
+  it('runLogLinksTheChatbotRun', async () => {
+    const withBot = {
+      ...RUN,
+      steps: [
+        {
+          index: 0,
+          type: 'START_CHATBOT' as const,
+          summary: 'Start chatbot',
+          outcome: 'DONE' as const,
+          reason: 'Started “Lead qualifier”: waiting at AskName',
+          at: '2026-11-03T10:06:00Z',
+          chatbotId: 'c1',
+          chatbotRunId: 'r1',
+        },
+        RUN.steps[0],
+      ],
+    };
+    mockFetch({ ...meAs(WORKSPACE_MANAGER), ...routes([withBot]) });
+    const { user } = renderApp('/automations/r1/runs');
+    const row = within((await screen.findByText('Message from Asha')).closest('tr') as HTMLElement);
+    await user.click(row.getByRole('button', { name: /details/i }));
+    const links = await screen.findAllByRole('link', { name: 'Open run' });
+    expect(links).toHaveLength(1);
+    expect(links[0]).toHaveAttribute('href', '/chatbots/c1?run=r1');
+  });
+
   it('testRunsAreLabelled', async () => {
     mockFetch({ ...meAs(WORKSPACE_MANAGER), ...routes([{ ...RUN, test: true, status: 'TESTING' }]) });
     renderApp('/automations/r1/runs');

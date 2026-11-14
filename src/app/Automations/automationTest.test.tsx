@@ -1,3 +1,4 @@
+import '../../test/reactFlowStub';
 import * as React from 'react';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { act, screen, waitFor, within } from '@testing-library/react';
@@ -15,6 +16,7 @@ import {
   automationRoutes,
 } from '../../test/automations';
 import { BRAND_A, WORKSPACE_MANAGER, meAs, storeSession } from '../../test/session';
+import { chatbotRoutes } from '../../test/chatbots';
 
 const RULE = `${AUTOMATIONS_BASE}/rules/r1`;
 const TESTS = `${RULE}/tests`;
@@ -297,6 +299,43 @@ describe('automation test page', () => {
     await waitFor(() => expect(callsTo(f, `POST ${X1}/actions/1/skip`)).toBe(1));
     expect(await screen.findByText('Skipped · Skipped in the test')).toBeVisible();
     expect(actionRow(3).getByRole('button', { name: 'Run' })).toBeVisible();
+  });
+
+  it('runningAStartChatbotStepOpensTheChatbot', async () => {
+    const startStep: StepView = {
+      index: 0,
+      type: 'START_CHATBOT',
+      summary: 'Start Lead qualifier',
+      outcome: null,
+      reason: null,
+      at: null,
+    };
+    const withBot: AutomationTest = { ...CAPTURED, actions: [startStep], nextAction: 0 };
+    const afterRun: AutomationTest = {
+      ...withBot,
+      actions: [
+        {
+          ...startStep,
+          outcome: 'DONE',
+          reason: 'Started “Lead qualifier”',
+          at: '2026-11-13T10:06:00Z',
+          chatbotId: 'c1',
+          chatbotRunId: 'r1',
+        },
+      ],
+      nextAction: null,
+    };
+    const { f, user } = open({
+      ...chatbotRoutes(),
+      [`GET ${ACTIVE}`]: ok(withBot),
+      [`POST ${X1}/actions/0/run`]: ok(afterRun),
+    });
+    await user.click(await screen.findByRole('button', { name: 'Run' }));
+    await waitFor(() => expect(callsTo(f, `POST ${X1}/actions/0/run`)).toBe(1));
+    await waitFor(() => expect(screen.getByRole('status', { name: 'Location' })).toHaveTextContent('/chatbots/c1'));
+    const back = await screen.findByRole('link', { name: 'Back to rule test' });
+    expect(back).toHaveAttribute('href', '/automations/r1/test');
+    expect(await screen.findByRole('dialog', { name: 'Run' })).toBeVisible();
   });
 
   it('notMatchingStillOffersActions', async () => {
