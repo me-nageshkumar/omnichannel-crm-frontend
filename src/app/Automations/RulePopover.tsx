@@ -1,25 +1,51 @@
 import * as React from 'react';
 import { Tooltip } from '@patternfly/react-core';
 import type { AutomationOptions, RuleSummary } from '@app/api/automations';
+import type { RuleLine } from '@app/Automations/automationModel';
 import { describeRule } from '@app/Automations/automationModel';
 
 const NUMBERED = /^\d+\. /;
 
-/** The lines, built only when the summary is shown, so a rule the describer cannot read never blanks the list. */
+type LineNode = { text: string; children: LineNode[] };
+
+/** The flat lines as a tree: a line belongs to the nearest earlier line that is shallower, so order is kept. */
+export function nestLines(lines: RuleLine[]): LineNode[] {
+  const roots: LineNode[] = [];
+  const last: LineNode[] = [];
+  lines.forEach((l) => {
+    const node: LineNode = { text: l.text, children: [] };
+    let parent: LineNode | undefined;
+    for (let d = l.depth - 1; d >= 0 && !parent; d--) parent = last[d];
+    (parent ? parent.children : roots).push(node);
+    last[l.depth] = node;
+    last.length = l.depth + 1;
+  });
+  return roots;
+}
+
+const Lines: React.FunctionComponent<{ nodes: LineNode[]; nested: boolean }> = ({ nodes, nested }) => (
+  <ul className={nested ? 'omni-rule-words__nested' : undefined}>
+    {nodes.map((n, i) => (
+      <li key={i} className={NUMBERED.test(n.text) ? 'omni-rule-words__step' : undefined}>
+        <span>{n.text}</span>
+        {n.children.length > 0 && <Lines nodes={n.children} nested />}
+      </li>
+    ))}
+  </ul>
+);
+
+/**
+ * The lines, built only when the summary is shown, so a rule the describer cannot read never blanks the list; a
+ * group's conditions are a list inside its item. The tooltip reaches screen readers as a flat description, so the
+ * nesting is for the eye and for anyone reading the markup, not for assistive technology.
+ */
 const RuleWords: React.FunctionComponent<{ rule: RuleSummary; options: AutomationOptions | null }> = ({
   rule,
   options,
 }) => (
   <div className="omni-rule-words">
     <strong>{rule.name}</strong>
-    <ul>
-      {describeRule(rule, options).map((l, i) => (
-        <li key={i} style={{ paddingInlineStart: `${l.depth * 1.25}rem` }}>
-          {l.depth > 0 && !NUMBERED.test(l.text) ? <span aria-hidden="true">• </span> : null}
-          {l.text}
-        </li>
-      ))}
-    </ul>
+    <Lines nodes={nestLines(describeRule(rule, options))} nested={false} />
   </div>
 );
 

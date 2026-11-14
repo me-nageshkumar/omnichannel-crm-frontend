@@ -390,6 +390,13 @@ body,
   margin: var(--pf-t--global--spacer--xs) 0 0;
   padding: 0;
 }
+.omni-rule-words ul.omni-rule-words__nested {
+  list-style: disc;
+  padding-inline-start: 1.25rem;
+}
+.omni-rule-words li.omni-rule-words__step {
+  list-style: none;
+}
 .omni-rule-words li + li {
   margin-block-start: var(--pf-t--global--spacer--xs);
 }

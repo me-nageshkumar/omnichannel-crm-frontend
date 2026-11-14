@@ -327,4 +327,60 @@ describe('describeRule', () => {
     expect(lines).toContain('Chat is new');
     expect(lines).toContain('1. Unknown action');
   });
+
+  // ---- deferred minors ----
+
+  it('serverActionLabelsWin', () => {
+    const lines = texts(
+      describeRule(
+        {
+          event: 'MESSAGE_RECEIVED',
+          conditions: null,
+          actions: [{ type: 'SEND_TEMPLATE', templateId: 'gone', values: {} }, start],
+          actionLabels: ['Send “Old offer”', 'Start “Lead qualifier”'],
+        },
+        OPTIONS,
+      ),
+    );
+    expect(lines).toContain('1. Send “Old offer”');
+    expect(lines).toContain('2. Start “Lead qualifier” (if one is running: skip)');
+  });
+
+  it('unpickedDraftActionsShowAQuestionMark', () => {
+    const lines = texts(
+      describeRule(
+        {
+          event: 'MESSAGE_RECEIVED',
+          conditions: null,
+          actions: [
+            { type: 'SEND_TEMPLATE', templateId: null, values: {} },
+            { type: 'ASSIGN_CHAT', mode: 'AGENT', userId: null },
+            { type: 'ASSIGN_CHAT', mode: 'TEAM_QUEUE', teamId: null },
+            { type: 'START_CHATBOT', chatbotId: null },
+          ],
+        },
+        OPTIONS,
+      ),
+    );
+    expect(lines.slice(-4)).toEqual([
+      '1. Send “?”',
+      '2. Assign to ?',
+      '3. Queue in ?',
+      '4. Start “?” (if one is running: skip)',
+    ]);
+  });
+
+  it('emptyNestedGroupSaysSo', () => {
+    const lines = texts(
+      describeRule(
+        {
+          event: 'MESSAGE_RECEIVED',
+          conditions: group('or', [group('and', []), leaf('chat.new', 'is', true)]),
+          actions: [],
+        },
+        OPTIONS,
+      ),
+    );
+    expect(lines).toContain('all of these: no conditions');
+  });
 });
