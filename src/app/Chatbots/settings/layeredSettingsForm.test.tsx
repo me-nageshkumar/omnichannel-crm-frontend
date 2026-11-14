@@ -134,4 +134,15 @@ describe('LayeredSettingsForm', () => {
     await user.type(after, '120');
     expect(screen.getByText('The reminder comes at or after the end, so it will never be sent.')).toBeVisible();
   });
+
+  // review fix: clearing a typed value puts the field back to inherited, and it looks inherited again
+  it('clearedFieldShowsTheInheritedValueAgain', async () => {
+    const { user, latest } = show(EMPTY_LAYER);
+    const end = screen.getByRole('spinbutton', { name: 'End after minutes' });
+    await user.type(end, '45');
+    await user.clear(end);
+    expect(latest().endAfterMinutes).toBeNull();
+    expect(end).toHaveAttribute('placeholder', '120 — brand setting');
+    expect(screen.queryByRole('button', { name: 'Reset End after minutes' })).toBeNull();
+  });
 });

@@ -64,15 +64,20 @@ export const LayeredSettingsForm: React.FunctionComponent<Props> = ({
     if (v === null || v === undefined) return '';
     return v === '' ? 'No message' : cut(String(v));
   };
+  // a set field whose box was cleared saves as inherited, so it reads as inherited too
+  const inheriting = (f: SettingField) => {
+    const d = value[f];
+    return d.kind === 'inherit' || (d.kind === 'set' && d.text.trim() === '');
+  };
   const placeholder = (f: SettingField) =>
-    layered && value[f].kind === 'inherit' ? `${shown(f)} — ${SOURCE_TEXT[source(f)]}` : undefined;
+    layered && inheriting(f) ? `${shown(f)} — ${SOURCE_TEXT[source(f)]}` : undefined;
   const text = (f: SettingField) => {
     const d = value[f];
     return d.kind === 'set' ? d.text : '';
   };
 
   const reset = (f: SettingField, label: string) =>
-    layered && !readOnly && value[f].kind !== 'inherit' ? (
+    layered && !readOnly && !inheriting(f) ? (
       <Button variant="link" isInline aria-label={`Reset ${label}`} onClick={() => set(f, { kind: 'inherit' })}>
         Reset
       </Button>
@@ -120,7 +125,7 @@ export const LayeredSettingsForm: React.FunctionComponent<Props> = ({
   );
 
   const switchField = (f: SettingField, id: string, ariaLabel: string, label: string) => {
-    const inheritedNote = layered && value[f].kind === 'inherit' ? FROM_TEXT[source(f)] : undefined;
+    const inheritedNote = layered && inheriting(f) ? FROM_TEXT[source(f)] : undefined;
     return (
       <>
         <Switch
