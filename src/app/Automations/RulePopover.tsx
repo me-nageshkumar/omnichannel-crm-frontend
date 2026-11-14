@@ -8,13 +8,14 @@ const NUMBERED = /^\d+\. /;
 
 type LineNode = { text: string; children: LineNode[] };
 
-/** The flat lines as a tree: a line belongs to the last line one level shallower. */
+/** The flat lines as a tree: a line belongs to the nearest earlier line that is shallower, so order is kept. */
 export function nestLines(lines: RuleLine[]): LineNode[] {
   const roots: LineNode[] = [];
   const last: LineNode[] = [];
   lines.forEach((l) => {
     const node: LineNode = { text: l.text, children: [] };
-    const parent = l.depth > 0 ? last[l.depth - 1] : undefined;
+    let parent: LineNode | undefined;
+    for (let d = l.depth - 1; d >= 0 && !parent; d--) parent = last[d];
     (parent ? parent.children : roots).push(node);
     last[l.depth] = node;
     last.length = l.depth + 1;
@@ -35,7 +36,8 @@ const Lines: React.FunctionComponent<{ nodes: LineNode[]; nested: boolean }> = (
 
 /**
  * The lines, built only when the summary is shown, so a rule the describer cannot read never blanks the list; a
- * group's conditions are a list inside its item, so screen readers hear the nesting.
+ * group's conditions are a list inside its item. The tooltip reaches screen readers as a flat description, so the
+ * nesting is for the eye and for anyone reading the markup, not for assistive technology.
  */
 const RuleWords: React.FunctionComponent<{ rule: RuleSummary; options: AutomationOptions | null }> = ({
   rule,
