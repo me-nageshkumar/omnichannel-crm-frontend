@@ -62,6 +62,8 @@ const Editor: React.FunctionComponent<{
   const [runId, setRunId] = React.useState<string | null>(initialRunId);
   const polling = useRunPolling(chatbot.id, runId);
   const run: Run | null = polling.run;
+  // one object per run snapshot, so the canvas rebuilds its nodes only when the run changes
+  const runNodes = React.useMemo(() => runByNode(run), [run]);
   const [runError, setRunError] = React.useState<string | null>(null);
   const stopTheRun = async () => {
     if (!run || !token) return;
@@ -227,7 +229,7 @@ const Editor: React.FunctionComponent<{
                 flow={preview ?? flow}
                 readOnly={readOnly}
                 problems={problems}
-                runByNode={runByNode(run)}
+                runByNode={runNodes}
                 selectedId={selectedId}
                 onFlowChange={(next) => {
                   if (!readOnly) setFlow(next);

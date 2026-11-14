@@ -60,14 +60,18 @@ const Inner: React.FunctionComponent<FlowCanvasProps> = ({
 }) => {
   const rf = useReactFlow();
   const canvas = React.useMemo(() => toCanvas(flow, problems), [flow, problems]);
+  // React Flow hides a card until it knows its size and forgets the size whenever the node object is replaced
+  // (a run arriving, a selection, a poll); with controlled nodes the sizes it reports must be handed back
+  const [measured, setMeasured] = React.useState<Record<string, { width: number; height: number }>>({});
   const nodes: Node<NodeData>[] = React.useMemo(
     () =>
       canvas.nodes.map((n) => ({
         ...(n as unknown as Node<NodeData>),
+        ...(measured[n.id] ? { measured: measured[n.id] } : {}),
         selected: n.id === selectedId,
         data: { ...n.data, run: runByNode?.[n.id] },
       })),
-    [canvas.nodes, selectedId, runByNode],
+    [canvas.nodes, selectedId, runByNode, measured],
   );
   const edges: Edge[] = React.useMemo(
     () =>
@@ -84,6 +88,20 @@ const Inner: React.FunctionComponent<FlowCanvasProps> = ({
   // React Flow reports a Delete as edge removals and then node removals in the same tick: both go through updaters
   // on the saved flow, so neither overwrites the other.
   const onNodesChange = (changes: NodeChange<Node<NodeData>>[]) => {
+    const sizes = changes.filter((c) => c.type === 'dimensions' && c.dimensions);
+    if (sizes.length > 0) {
+      setMeasured((prev) => {
+        let next = prev;
+        sizes.forEach((c) => {
+          if (c.type !== 'dimensions' || !c.dimensions) return;
+          const cur = prev[c.id];
+          if (cur && cur.width === c.dimensions.width && cur.height === c.dimensions.height) return;
+          if (next === prev) next = { ...prev };
+          next[c.id] = { width: c.dimensions.width, height: c.dimensions.height };
+        });
+        return next;
+      });
+    }
     if (readOnly) return;
     const settled = changes.filter((c) => c.type === 'remove' || (c.type === 'position' && !c.dragging && c.position));
     if (settled.length > 0)

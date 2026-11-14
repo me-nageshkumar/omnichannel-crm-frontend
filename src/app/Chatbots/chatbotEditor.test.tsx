@@ -34,6 +34,22 @@ describe('chatbot editor', () => {
     expect(nodeItem('Welcome').getByText('Other reply')).toBeVisible();
   });
 
+  it('keepsMeasuredSizesWhenTheNodesAreRebuilt', async () => {
+    // React Flow hides a card until it knows its size, and forgets the size whenever the node object is replaced
+    // unless the size is handed back: the run arriving after mount, a selection or a poll all rebuild the nodes
+    const { f } = open('/chatbots/c1?run=r1');
+    expect(await screen.findByRole('dialog', { name: 'Run' })).toBeVisible();
+    const polls = callsTo(f, `GET ${CHATBOTS_BASE}/c1/runs/r1`);
+    fireEvent.click(screen.getByTestId('rf-measure'));
+    // the next poll of the active run rebuilds the nodes
+    await waitFor(() => expect(callsTo(f, `GET ${CHATBOTS_BASE}/c1/runs/r1`)).toBeGreaterThan(polls), {
+      timeout: 4000,
+    });
+    await waitFor(() => {
+      for (const li of nodes().items()) expect(li).toHaveAttribute('data-measured', '260x131');
+    });
+  });
+
   it('saveSendsPrunedFlowAndShowsProblems', async () => {
     const { f, user } = open('/chatbots/c1', {
       [`PUT ${CHATBOTS_BASE}/c1`]: {
