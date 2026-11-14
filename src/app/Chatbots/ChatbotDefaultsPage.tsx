@@ -10,7 +10,6 @@ import { useSession } from '@app/session/SessionContext';
 export const ChatbotDefaultsPage: React.FunctionComponent = () => {
   const { token } = useSession();
   const loaded = useLoad((tk) => getPlatformChatbotSettings(tk), []);
-  const [version, setVersion] = React.useState<number | null | undefined>(undefined);
   const data = loaded.data;
   return (
     <PageShell title="Chatbot defaults">
@@ -21,19 +20,15 @@ export const ChatbotDefaultsPage: React.FunctionComponent = () => {
         <LayerEditor
           key={String(data.version)}
           loaded={data.settings}
+          version={data.version}
           inherited={null}
           sources={{}}
           readOnly={false}
           errorPrefix="settings"
-          reload={() => {
-            setVersion(undefined);
-            loaded.reload();
-          }}
-          save={async (settings) => {
-            const v = version === undefined ? data.version : version;
-            const reply = await savePlatformChatbotSettings(token as string, { settings, version: v });
-            setVersion(reply.version);
-            return reply.settings;
+          reload={loaded.reload}
+          save={async (settings, version) => {
+            const reply = await savePlatformChatbotSettings(token as string, { settings, version });
+            return { layer: reply.settings, version: reply.version };
           }}
         />
       )}

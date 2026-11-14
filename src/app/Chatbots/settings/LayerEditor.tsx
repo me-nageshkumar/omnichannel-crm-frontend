@@ -17,17 +17,21 @@ const same = (a: SettingsLayer, b: SettingsLayer) => FIELDS.every((f) => a[f] ==
  */
 export const LayerEditor: React.FunctionComponent<{
   loaded: SettingsLayer;
+  /** The stored version the layer was read at; `null` when nothing is stored yet. */
+  version: number | null;
   inherited: SettingsLayer | null;
   sources: Partial<Record<SettingField, InheritedSource>>;
   readOnly: boolean;
   errorPrefix: string;
-  save(layer: SettingsLayer): Promise<SettingsLayer>;
+  save(layer: SettingsLayer, version: number | null): Promise<{ layer: SettingsLayer; version: number | null }>;
   reload(): void;
-}> = ({ loaded, inherited, sources, readOnly, errorPrefix, save, reload }) => {
+}> = ({ loaded, version: loadedVersion, inherited, sources, readOnly, errorPrefix, save, reload }) => {
   const action = useAction(FIELDS.map((f) => `${errorPrefix}.${f}`));
   const [draft, setDraft] = React.useState<LayerDraft>(() => toDraft(loaded));
   const [base, setBase] = React.useState<SettingsLayer>(loaded);
   const [saved, setSaved] = React.useState(false);
+  // kept here, not in the page: the editor remounts per brand and per load, so a version never crosses brands
+  const [version, setVersion] = React.useState<number | null>(loadedVersion);
 
   const problems = layerProblems(draft, inherited === null);
   const serverErrors: Partial<Record<SettingField, string>> = {};
@@ -41,12 +45,13 @@ export const LayerEditor: React.FunctionComponent<{
   const submit = async () => {
     setSaved(false);
     const reply = await action.run(
-      () => save(current),
+      () => save(current, version),
       (e) => (e instanceof ApiError && e.status === 409 ? CONFLICT_MESSAGE : messageFor(e)),
     );
     if (reply) {
-      setDraft(toDraft(reply));
-      setBase(reply);
+      setDraft(toDraft(reply.layer));
+      setBase(reply.layer);
+      setVersion(reply.version);
       setSaved(true);
     }
   };

@@ -3,7 +3,7 @@ import { screen } from '@testing-library/react';
 import type { CurrentUser } from '@app/api/users';
 import { renderApp } from '../../test/renderApp';
 import { mockFetch, requestTo } from '../../test/fetchMock';
-import { BRAND_A, WORKSPACE_MANAGER, meAs, storeSession } from '../../test/session';
+import { BRAND_A, CUSTOMER_ADMIN, WORKSPACE_MANAGER, meAs, storeSession } from '../../test/session';
 import { LEAD_QUALIFIER } from '../../test/chatbots';
 import { EMPTY_LAYER } from '@app/Chatbots/settings/settingsLayers';
 
@@ -95,5 +95,31 @@ describe('brand chatbot settings page', () => {
     expect(await screen.findByRole('spinbutton', { name: 'End after minutes' })).toBeVisible();
     expect(screen.getByRole('heading', { name: 'Chatbot settings' })).toBeVisible();
     expect(requestTo(fetch, 'GET /api/workspaces/w1/chatbots/settings')).toBeDefined();
+  });
+
+  // review fix: the version saved in one brand must not travel to the next brand
+  it('switchingBrandDoesNotCarryTheSavedVersion', async () => {
+    const B = '/api/workspaces/w2/chatbots/settings';
+    const fetch = mockFetch({
+      ...meAs(CUSTOMER_ADMIN),
+      [`GET ${PATH}`]: brand(EMPTY_LAYER, null),
+      [`PUT ${PATH}`]: brand({ ...EMPTY_LAYER, endAfterMinutes: 60 }, 0),
+      [`GET ${B}`]: brand(EMPTY_LAYER, null),
+      [`PUT ${B}`]: brand({ ...EMPTY_LAYER, endAfterMinutes: 70 }, 0),
+    });
+    const { user } = renderApp('/chatbots/settings');
+    await user.type(await screen.findByRole('spinbutton', { name: 'End after minutes' }), '60');
+    await user.click(screen.getByRole('button', { name: 'Save' }));
+    expect(await screen.findByText('Settings saved')).toBeVisible();
+
+    await user.click(screen.getByRole('button', { name: 'Brand: Brand A' }));
+    await user.click(screen.getByRole('menuitem', { name: 'Brand B' }));
+    await screen.findByRole('button', { name: 'Brand: Brand B' });
+    const end = await screen.findByRole('spinbutton', { name: 'End after minutes' });
+    await vi.waitFor(() => expect(requestTo(fetch, `GET ${B}`)).toBeDefined());
+    await user.type(end, '70');
+    await user.click(screen.getByRole('button', { name: 'Save' }));
+    await vi.waitFor(() => expect(requestTo(fetch, `PUT ${B}`)).toBeDefined());
+    expect(requestTo(fetch, `PUT ${B}`)?.body).toEqual({ own: { ...EMPTY_LAYER, endAfterMinutes: 70 }, version: null });
   });
 });

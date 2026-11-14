@@ -14,7 +14,6 @@ export const ChatbotSettingsPage: React.FunctionComponent = () => {
   const ws = workspace?.id ?? '';
   const canManage = useAccess().hasInWorkspace('chatbot:manage');
   const loaded = useLoad((tk) => getBrandChatbotSettings(tk, ws), [ws]);
-  const [version, setVersion] = React.useState<number | null | undefined>(undefined);
   const data = loaded.data;
   return (
     <PageShell
@@ -34,19 +33,15 @@ export const ChatbotSettingsPage: React.FunctionComponent = () => {
         <LayerEditor
           key={`${ws}:${data.version}`}
           loaded={data.own}
+          version={data.version}
           inherited={data.inherited}
           sources={{}}
           readOnly={!canManage}
           errorPrefix="own"
-          reload={() => {
-            setVersion(undefined);
-            loaded.reload();
-          }}
-          save={async (own) => {
-            const v = version === undefined ? data.version : version;
-            const reply = await saveBrandChatbotSettings(token as string, ws, { own, version: v });
-            setVersion(reply.version);
-            return reply.own;
+          reload={loaded.reload}
+          save={async (own, version) => {
+            const reply = await saveBrandChatbotSettings(token as string, ws, { own, version });
+            return { layer: reply.own, version: reply.version };
           }}
         />
       )}
