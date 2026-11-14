@@ -395,6 +395,75 @@ export function conditionText(leaf: ConditionLeaf, o: AutomationOptions): string
   return `${label} ${operator} ${value}`.trim();
 }
 
+/** How the editor's empty state names an event: "No conditions: every <phrase> runs this rule." */
+export const EVENT_PHRASE: Record<EventKind, string> = {
+  MESSAGE_RECEIVED: 'message that comes in',
+  DEAL_LANE_CHANGED: 'deal that moves to another lane',
+};
+
+/** One line of a rule in words; {@code depth} is its indent (0 = heading). */
+export type RuleLine = { text: string; depth: number };
+
+const NO_OPTIONS: AutomationOptions = {
+  numbers: [],
+  agents: [],
+  teams: [],
+  templates: [],
+  crm: { enabled: false, defaultPipelineId: null, pipelines: [] },
+  chatbots: [],
+};
+
+const groupWords = (g: ConditionGroup): string => {
+  if (g.not) return g.combinator === 'or' ? 'none of these' : 'not all of these';
+  return g.combinator === 'or' ? 'any of these' : 'all of these';
+};
+
+/**
+ * A rule in words, with the editor's own wording (rule-hover-summary spec): the event, the condition tree as
+ * headings and bullets, then the numbered actions. Without options, ids are shown as they are.
+ */
+export function describeRule(
+  r: { event: EventKind; conditions: ConditionNode | null; actions: AutomationAction[] },
+  options: AutomationOptions | null,
+): RuleLine[] {
+  const o = options ?? NO_OPTIONS;
+  const event = EVENTS.find((e) => e.kind === r.event)?.label ?? r.event;
+  const lines: RuleLine[] = [{ text: `When ${event.charAt(0).toLowerCase()}${event.slice(1)}`, depth: 0 }];
+  const root = r.conditions;
+  if (!root || (isGroup(root) && root.rules.length === 0)) {
+    lines.push({ text: `No conditions: every ${EVENT_PHRASE[r.event]} runs this rule.`, depth: 0 });
+  } else if (!isGroup(root)) {
+    lines.push({ text: 'If:', depth: 0 }, { text: conditionText(root, o), depth: 1 });
+  } else {
+    lines.push({ text: `If ${groupWords(root)}:`, depth: 0 });
+    const walk = (nodes: ConditionNode[], depth: number) => {
+      nodes.forEach((n) => {
+        if (!isGroup(n)) {
+          lines.push({ text: conditionText(n, o), depth });
+        } else if (n.rules.every((c) => !isGroup(c))) {
+          const parts = n.rules.map((c) => conditionText(c as ConditionLeaf, o));
+          lines.push({ text: `${groupWords(n)}: ${parts.join(', ')}`, depth });
+        } else {
+          lines.push({ text: `${groupWords(n)}:`, depth });
+          walk(n.rules, depth + 1);
+        }
+      });
+    };
+    walk(root.rules, 1);
+  }
+  if (r.actions.length === 0) {
+    lines.push({ text: 'Then: nothing yet', depth: 0 });
+  } else {
+    lines.push({ text: 'Then:', depth: 0 });
+    r.actions.forEach((a, i) => {
+      const running =
+        a.type === 'START_CHATBOT' ? ` (if one is running: ${a.ifRunning === 'REPLACE' ? 'replace' : 'skip'})` : '';
+      lines.push({ text: `${i + 1}. ${actionSummary(a, o)}${running}`, depth: 1 });
+    });
+  }
+  return lines;
+}
+
 /** The same words the server puts in a rule's actions summary. */
 export function actionSummary(a: AutomationAction, o: AutomationOptions): string {
   switch (a.type) {

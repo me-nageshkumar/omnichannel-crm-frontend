@@ -1,6 +1,6 @@
 import * as React from 'react';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
-import { screen, within } from '@testing-library/react';
+import { screen, waitFor, within } from '@testing-library/react';
 import { LocationProbe, renderApp } from '../../test/renderApp';
 import { mockFetch, requestTo } from '../../test/fetchMock';
 import {
@@ -48,6 +48,29 @@ describe('rules list', () => {
     expect(cells).toContain('1');
     expect(screen.getByRole('tab', { name: 'Rules' })).toBeVisible();
     expect(screen.getByRole('tab', { name: 'Event history' })).toBeVisible();
+  });
+
+  it('hoverShowsTheRuleInWords', async () => {
+    mockFetch({ ...meAs(WORKSPACE_MANAGER), ...automationRoutes(listRoute()) });
+    const { user } = renderApp('/automations');
+    await user.hover(await screen.findByRole('link', { name: 'Welcome' }));
+    const pop = await screen.findByRole('dialog', { name: 'Welcome' });
+    expect(within(pop).getByText('When a message comes in')).toBeVisible();
+    expect(within(pop).getByText('If all of these:')).toBeVisible();
+    expect(within(pop).getByText('Chat is new')).toBeVisible();
+    expect(within(pop).getByText('1. Send “Welcome”')).toBeVisible();
+  });
+
+  it('focusOpensThePopover', async () => {
+    mockFetch({ ...meAs(WORKSPACE_MANAGER), ...automationRoutes(listRoute()) });
+    const { user } = renderApp('/automations');
+    const link = await screen.findByRole('link', { name: 'Won deals thank-you' });
+    link.focus();
+    const pop = await screen.findByRole('dialog', { name: 'Won deals thank-you' });
+    expect(within(pop).getByText('No conditions: every deal that moves to another lane runs this rule.')).toBeVisible();
+    expect(within(pop).getByText('Then: nothing yet')).toBeVisible();
+    await user.keyboard('{Escape}');
+    await waitFor(() => expect(screen.queryByRole('dialog', { name: 'Won deals thank-you' })).toBeNull());
   });
 
   it('shows the empty state', async () => {

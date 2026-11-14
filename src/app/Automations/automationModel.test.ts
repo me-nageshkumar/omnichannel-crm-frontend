@@ -1,6 +1,7 @@
 import { describe, expect, it } from 'vitest';
 import type { AutomationAction, AutomationOptions, ConditionGroup } from '@app/api/automations';
 import { OPTIONS } from '../../test/automations';
+import { describeRule } from '@app/Automations/automationModel';
 import {
   FIELDS,
   MAX_CONDITIONS,
@@ -179,5 +180,98 @@ describe('agentBlindNumbers', () => {
     const o: AutomationOptions = { ...OPTIONS, numbers: [...OPTIONS.numbers, n3] };
     expect(agentBlindNumbers('u1', o)).toEqual([n3]);
     expect(agentBlindNumbers('u2', o)).toEqual([]);
+  });
+});
+
+describe('describeRule', () => {
+  const leaf = (field: string, operator: string, value: string | boolean) => ({ field, operator, value });
+  const group = (combinator: 'and' | 'or', rules: ConditionGroup['rules'], not = false): ConditionGroup => ({
+    combinator,
+    not,
+    rules,
+  });
+  const start: AutomationAction = { type: 'START_CHATBOT', chatbotId: 'c1', ifRunning: 'SKIP' };
+  const texts = (lines: { text: string }[]) => lines.map((l) => l.text);
+
+  it('readsTheExampleRule', () => {
+    const lines = describeRule(
+      {
+        event: 'MESSAGE_RECEIVED',
+        conditions: group('or', [
+          group('and', [leaf('number', 'is', 'n1'), leaf('message.text', 'is', 'Hi')]),
+          leaf('number', 'is', 'n2'),
+        ]),
+        actions: [start],
+      },
+      OPTIONS,
+    );
+    expect(texts(lines)).toEqual([
+      'When a message comes in',
+      'If any of these:',
+      'all of these: Number is Main line, Message text is “Hi”',
+      'Number is Sales line',
+      'Then:',
+      '1. Start “Lead qualifier” (if one is running: skip)',
+    ]);
+    expect(lines.map((l) => l.depth)).toEqual([0, 0, 1, 1, 0, 1]);
+  });
+
+  it('noConditions', () => {
+    const none = describeRule({ event: 'MESSAGE_RECEIVED', conditions: null, actions: [start] }, OPTIONS);
+    expect(none[1].text).toBe('No conditions: every message that comes in runs this rule.');
+    const empty = describeRule({ event: 'DEAL_LANE_CHANGED', conditions: group('and', []), actions: [] }, OPTIONS);
+    expect(empty[1].text).toBe('No conditions: every deal that moves to another lane runs this rule.');
+  });
+
+  it('nestedGroupsBecomeBullets', () => {
+    const lines = describeRule(
+      {
+        event: 'MESSAGE_RECEIVED',
+        conditions: group('and', [
+          group('or', [
+            leaf('chat.new', 'is', true),
+            group('and', [leaf('message.text', 'is', 'a'), leaf('message.text', 'is', 'b')]),
+          ]),
+        ]),
+        actions: [],
+      },
+      OPTIONS,
+    );
+    expect(lines.slice(1, 5)).toEqual([
+      { text: 'If all of these:', depth: 0 },
+      { text: 'any of these:', depth: 1 },
+      { text: 'Chat is new', depth: 2 },
+      { text: 'all of these: Message text is “a”, Message text is “b”', depth: 2 },
+    ]);
+  });
+
+  it('negatedGroups', () => {
+    const none = describeRule(
+      { event: 'MESSAGE_RECEIVED', conditions: group('or', [leaf('chat.new', 'is', true)], true), actions: [] },
+      OPTIONS,
+    );
+    expect(none[1].text).toBe('If none of these:');
+    const notAll = describeRule(
+      { event: 'MESSAGE_RECEIVED', conditions: group('and', [leaf('chat.new', 'is', true)], true), actions: [] },
+      OPTIONS,
+    );
+    expect(notAll[1].text).toBe('If not all of these:');
+  });
+
+  it('missingChoiceShowsRawValue', () => {
+    const rule = {
+      event: 'MESSAGE_RECEIVED' as const,
+      conditions: group('and', [leaf('number', 'is', 'n9')]),
+      actions: [start],
+    };
+    expect(texts(describeRule(rule, OPTIONS))).toContain('Number is n9');
+    const raw = texts(describeRule({ ...rule, conditions: group('and', [leaf('number', 'is', 'n1')]) }, null));
+    expect(raw).toContain('Number is n1');
+    expect(raw).toContain('1. Start “c1” (if one is running: skip)');
+  });
+
+  it('noActions', () => {
+    const lines = describeRule({ event: 'MESSAGE_RECEIVED', conditions: null, actions: [] }, OPTIONS);
+    expect(lines[lines.length - 1]).toEqual({ text: 'Then: nothing yet', depth: 0 });
   });
 });

@@ -23,6 +23,8 @@ import { relative } from '@app/PhoneNumbers/PhoneNumberStatusLabel';
 import { useSession } from '@app/session/SessionContext';
 import { useAccess } from '@app/session/useAccess';
 import { eventLabel, statusColor, statusLabel } from '@app/Automations/automationDisplay';
+import { RulePopover } from '@app/Automations/RulePopover';
+import { useAutomationOptions } from '@app/Automations/useAutomationOptions';
 
 export const EMPTY_TEXT =
   'No rules yet. A rule sends a template, assigns the chat or adds the person to the CRM when a message comes in or a deal moves.';
@@ -72,6 +74,8 @@ export const RulesTab: React.FunctionComponent = () => {
   const ws = workspace?.id ?? '';
   const canManage = useAccess().hasInWorkspace('automation:manage');
   const list = useLoad((tk) => listRules(tk, ws), [ws]);
+  // names in the hover summary; the popover shows raw ids until the options arrive
+  const options = useAutomationOptions();
   const { token } = useSession();
   const change = useAction();
   const confirm = useAction();
@@ -152,7 +156,9 @@ export const RulesTab: React.FunctionComponent = () => {
           {list.data.map((r) => (
             <Tr key={r.id}>
               <Td dataLabel="Name">
-                <Link to={`/automations/${r.id}`}>{r.name}</Link>
+                <RulePopover rule={r} options={options.data ?? null}>
+                  <Link to={`/automations/${r.id}`}>{r.name}</Link>
+                </RulePopover>
                 <div className="pf-v6-u-font-size-sm pf-v6-u-color-200">{r.actionsSummary}</div>
               </Td>
               <Td dataLabel="When">{eventLabel(r.event)}</Td>

@@ -99,6 +99,8 @@ export const RULE_SUMMARIES: RuleSummary[] = [
     runs7d: 0,
     failures7d: 0,
     creationTime: '2026-11-01T09:00:00Z',
+    conditions: { combinator: 'and', not: false, rules: [{ field: 'chat.new', operator: 'is', value: true }] },
+    actions: [{ type: 'SEND_TEMPLATE', templateId: 'tp1', values: {} }],
   },
   {
     id: 'r2',
@@ -111,6 +113,8 @@ export const RULE_SUMMARIES: RuleSummary[] = [
     runs7d: 5,
     failures7d: 1,
     creationTime: '2026-11-01T09:30:00Z',
+    conditions: null,
+    actions: [],
   },
 ];
 

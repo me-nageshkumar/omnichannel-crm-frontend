@@ -11,6 +11,7 @@ import {
 import { PlusCircleIcon } from '@patternfly/react-icons';
 import type { AutomationOptions, ConditionGroup, EventKind } from '@app/api/automations';
 import {
+  EVENT_PHRASE,
   MAX_CONDITIONS,
   MAX_DEPTH,
   type Path,
@@ -35,10 +36,6 @@ const COMBINATORS: Array<['and' | 'or', string]> = [
   ['and', 'All of these'],
   ['or', 'Any of these'],
 ];
-const EVENT_PHRASE: Record<EventKind, string> = {
-  MESSAGE_RECEIVED: 'message that comes in',
-  DEAL_LANE_CHANGED: 'deal that moves to another lane',
-};
 
 const groupName = (path: Path) => (path.length === 0 ? 'Conditions' : `Group ${path.map((i) => i + 1).join('.')}`);
 const leafName = (path: Path) => `Condition ${path.map((i) => i + 1).join('.')}`;

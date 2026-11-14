@@ -78,6 +78,9 @@ export type RuleSummary = {
   runs7d: number;
   failures7d: number;
   creationTime: string;
+  /** The stored conditions and actions, for the hover summary; null conditions when the rule has none. */
+  conditions: ConditionNode | null;
+  actions: AutomationAction[];
 };
 
 export type AutomationOptions = {
