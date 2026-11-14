@@ -1,5 +1,5 @@
 import * as React from 'react';
-import type { Chatbot, ChatbotSettings, Problem, SaveResult, SavedFlow } from '@app/api/chatbots';
+import type { Chatbot, SettingsLayer, Problem, SaveResult, SavedFlow } from '@app/api/chatbots';
 import { publishChatbot, saveChatbot, unpublishChatbot } from '@app/api/chatbots';
 import { ApiError } from '@app/api/client';
 import { messageFor } from '@app/api/messages';
@@ -39,7 +39,7 @@ export interface EditorState {
   error: string | null;
   clearError(): void;
   /** Changes the run settings; they travel with the flow on the next save. */
-  updateSettings(next: ChatbotSettings): void;
+  updateSettings(next: SettingsLayer): void;
   /** Renames the draft; the name travels with the next save. Answers an error text, or null when accepted. */
   rename(name: string): string | null;
   /** Takes a restored version (or any server save) as the new saved state. */
