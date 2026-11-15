@@ -4,8 +4,8 @@ import { LEAD_QUALIFIER, OPTIONS } from '../../test/chatbots';
 
 describe('nodeCatalog', () => {
   it('paletteListsEveryTypeOnce', () => {
-    expect(PALETTE).toHaveLength(12);
-    expect(new Set(PALETTE).size).toBe(12);
+    expect(PALETTE).toHaveLength(13);
+    expect(new Set(PALETTE).size).toBe(13);
     PALETTE.forEach((t) => expect(CATALOG[t].label).toBeTruthy());
   });
 
@@ -111,5 +111,72 @@ describe('nodeCatalog', () => {
     });
     expect(CATALOG.wait.defaultSettings()).toEqual({ amount: 1, unit: 'HOURS' });
     expect(CATALOG.ask_form.defaultSettings().linkMessage).toContain('{{form.url}}');
+  });
+
+  it('aiOutputsPerMode', () => {
+    const ids = (s: Record<string, unknown>) => CATALOG.ai.outputs(s).map((o) => o.id);
+    expect(ids({ mode: 'SINGLE', outcomes: [] })).toEqual(['next', 'failure']);
+    const ab = [
+      { id: 'a', label: 'Booked', description: '' },
+      { id: 'b', label: '', description: '' },
+    ];
+    expect(ids({ mode: 'SINGLE', outcomes: ab })).toEqual(['outcome:a', 'outcome:b', 'failure']);
+    expect(
+      ids({
+        mode: 'CONVERSATION',
+        outcomes: [ab[0]],
+        exitWords: ['stop'],
+        exitCondition: {
+          combinator: 'and',
+          not: false,
+          rules: [{ field: '{{S.json.done}}', operator: 'is', value: 'true' }],
+        },
+      }),
+    ).toEqual(['outcome:a', 'exitWord', 'exitCondition', 'maxTurns', 'failure']);
+    expect(ids({ mode: 'CONVERSATION', outcomes: [], exitWords: [], exitCondition: null })).toEqual([
+      'maxTurns',
+      'failure',
+    ]);
+    expect(CATALOG.ai.outputs({ mode: 'SINGLE', outcomes: ab }).map((o) => o.label)).toEqual([
+      'Booked',
+      'b',
+      'Failure',
+    ]);
+  });
+
+  it('aiProducesPerSettings', () => {
+    expect(CATALOG.ai.produces({ mode: 'SINGLE', collect: [], replyFormat: { type: 'TEXT' } })).toEqual([
+      'reply',
+      'outcome',
+      'turns',
+      'usage.inputTokens',
+      'usage.outputTokens',
+      'conversationId',
+      'errorCode',
+    ]);
+    expect(
+      CATALOG.ai.produces({
+        mode: 'CONVERSATION',
+        collect: [{ key: 'size', description: '', type: 'TEXT' }],
+        replyFormat: { type: 'JSON', schema: {}, messageField: 'message' },
+      }),
+    ).toEqual([
+      'reply',
+      'outcome',
+      'turns',
+      'usage.inputTokens',
+      'usage.outputTokens',
+      'conversationId',
+      'errorCode',
+      'fields.size',
+      'json',
+    ]);
+  });
+
+  it('aiWaitsForPerMode', () => {
+    expect(CATALOG.ai.waitsFor({ mode: 'CONVERSATION' })).toBe('WHATSAPP_REPLY');
+    expect(CATALOG.ai.waitsFor({ mode: 'SINGLE' })).toBe('AI_RESPONSE');
+    expect(CATALOG.ai.preview({ mode: 'SINGLE', profileId: 'p1' }, OPTIONS)).toBe('Sales assistant · One call');
+    expect(CATALOG.ai.preview({ mode: 'CONVERSATION', profileId: '' }, OPTIONS)).toBe('No profile yet · Conversation');
   });
 });

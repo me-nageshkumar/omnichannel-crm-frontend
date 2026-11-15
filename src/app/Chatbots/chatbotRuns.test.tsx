@@ -1,11 +1,11 @@
 import '../../test/reactFlowStub';
 import * as React from 'react';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
-import { cleanup, screen, within } from '@testing-library/react';
+import { cleanup, screen, waitFor, within } from '@testing-library/react';
 import type { MockRoute } from '../../test/fetchMock';
 import { mockFetch } from '../../test/fetchMock';
 import { LocationProbe, renderApp } from '../../test/renderApp';
-import { CHATBOTS_BASE, RUN_DONE, RUN_WAITING, chatbotRoutes } from '../../test/chatbots';
+import { CHATBOTS_BASE, RUN_AI_THINKING, RUN_DONE, RUN_WAITING, chatbotRoutes } from '../../test/chatbots';
 import { WORKSPACE_MANAGER, meAs, storeSession } from '../../test/session';
 
 const RUNS = `${CHATBOTS_BASE}/c1/runs`;
@@ -36,6 +36,12 @@ describe('chatbot runs', () => {
     expect(rows[1]).toHaveTextContent('High');
     await user.selectOptions(screen.getByRole('combobox', { name: 'Status' }), 'FAILED');
     expect(urls(f).some((u) => u.indexOf(`${RUNS}?status=FAILED`) >= 0)).toBe(true);
+  });
+
+  it('runWaitingOnTheAiSaysSo', async () => {
+    open({ [`GET ${RUNS}`]: { status: 200, body: { items: [RUN_AI_THINKING], total: 1 } } });
+    const grid = await screen.findByRole('grid', { name: 'Runs' });
+    await waitFor(() => expect(within(grid).getAllByRole('row')[1]).toHaveTextContent('The AI is thinking…'));
   });
 
   it('backLinkToTheRuleTest', async () => {

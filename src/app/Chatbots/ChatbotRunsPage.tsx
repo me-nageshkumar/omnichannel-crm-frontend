@@ -23,7 +23,7 @@ import { getChatbot, getRun, listRuns, stopRun } from '@app/api/chatbots';
 import { PageShell } from '@app/admin/PageShell';
 import { useLoad } from '@app/admin/useLoad';
 import { HistoryPager } from '@app/Automations/HistoryPager';
-import { RUN_STATUSES, runStatusColor, runStatusLabel, waitingLabel } from '@app/Chatbots/chatbotDisplay';
+import { AI_THINKING, RUN_STATUSES, runStatusColor, runStatusLabel, waitingLabel } from '@app/Chatbots/chatbotDisplay';
 import { RunOverlayPanel } from '@app/Chatbots/editor/RunOverlayPanel';
 import { shortTime } from '@app/Crm/segments/segmentModel';
 import { useSession } from '@app/session/SessionContext';
@@ -103,7 +103,10 @@ export const ChatbotRunsPage: React.FunctionComponent = () => {
                     {runStatusLabel(r.status)}
                   </Label>
                   {r.status === 'WAITING' && r.waiting && (
-                    <span className="pf-v6-u-ml-xs"> {waitingLabel(r.waiting)}</span>
+                    <span className="pf-v6-u-ml-xs">
+                      {' '}
+                      {r.waiting.kind === 'AI_RESPONSE' ? AI_THINKING : waitingLabel(r.waiting)}
+                    </span>
                   )}
                   {r.test && (
                     <Label isCompact className="pf-v6-u-ml-sm">

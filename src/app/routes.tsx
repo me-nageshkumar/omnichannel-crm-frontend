@@ -36,6 +36,7 @@ import { ChatbotsPage } from '@app/Chatbots/ChatbotsPage';
 import { HistoryImportsPage } from '@app/HistoryImports/HistoryImportsPage';
 import { crmRoutes } from '@app/Crm/routes';
 import { chatbotRoutes } from '@app/Chatbots/routes';
+import { aiRoutes } from '@app/AI/routes';
 import { useCrmReminderCount, useCrmStatus } from '@app/Crm/status/CrmStatusContext';
 import { Access, useAccess } from '@app/session/useAccess';
 
@@ -122,6 +123,7 @@ const NAV_SECTIONS: NavEntry[][] = [
     },
     { label: 'Templates', path: '/templates' },
     { label: 'Phone numbers', path: '/phone-numbers' },
+    { label: 'AI', path: '/ai' },
     {
       label: 'Users and teams',
       links: [
@@ -345,6 +347,7 @@ const routes: IAppRoute[] = [
   },
   ...crmRoutes,
   ...chatbotRoutes,
+  ...aiRoutes,
 ];
 
 /** The routes the signed-in user may open. */

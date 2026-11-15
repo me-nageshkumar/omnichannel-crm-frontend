@@ -45,6 +45,8 @@ export const BRAND_CODES = [
   'automation:manage',
   'chatbot:view',
   'chatbot:manage',
+  'ai:view',
+  'ai:manage',
   'crm:view',
   'crm:view-all',
   'crm:edit',

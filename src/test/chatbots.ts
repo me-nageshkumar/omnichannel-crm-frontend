@@ -143,6 +143,10 @@ export const OPTIONS: ChatbotOptions = {
     { id: 'c1', name: 'Lead qualifier', status: 'DRAFT' },
     { id: 'c2', name: 'Price bot', status: 'PUBLISHED' },
   ],
+  aiProfiles: [
+    { id: 'p1', name: 'Sales assistant', provider: 'openai' },
+    { id: 'p2', name: 'Classifier', provider: 'scripted' },
+  ],
 };
 
 export const VERSIONS: VersionView[] = [
@@ -278,3 +282,37 @@ export function chatbotRoutes(overrides: Record<string, MockRoute> = {}): Record
     ...overrides,
   };
 }
+
+/** A run talking with the AI: waiting on the AI's answer to turn 2 at the "Sales" AI node. */
+export const RUN_AI_THINKING: Run = {
+  ...RUN_WAITING,
+  id: 'r3',
+  currentNodeId: 'n9',
+  currentNodeName: 'Sales',
+  waiting: { kind: 'AI_RESPONSE', key: 'call2', since: '2026-11-13T10:01:00Z', expiresAt: null, prompt: null },
+  steps: [
+    {
+      index: 0,
+      nodeId: 'n9',
+      nodeName: 'Sales',
+      type: 'ai',
+      startedAt: '2026-11-13T10:00:00Z',
+      finishedAt: null,
+      outcome: 'WAITING',
+      output: null,
+      summary: 'Turn 2 · call2',
+      error: null,
+      result: null,
+      waitedFor: null,
+    },
+  ],
+  variables: {
+    Sales: {
+      conversationId: 'cv1',
+      turns: 2,
+      lastCallId: 'call2',
+      lastReply: 'We have red shirts in M and L. Which size would you like?',
+      usage: { inputTokens: 120, outputTokens: 45 },
+    },
+  },
+};

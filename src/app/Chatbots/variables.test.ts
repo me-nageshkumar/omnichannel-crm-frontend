@@ -50,4 +50,30 @@ describe('variables', () => {
     expect(insertAt('Hi {{con', 3, 8, 'contact.name')).toEqual({ text: 'Hi {{contact.name}}', caret: 19 });
     expect(insertAt('Hello', 5, 5, 'AskBudget.answer')).toEqual({ text: 'Hello{{AskBudget.answer}}', caret: 25 });
   });
+
+  it('aiNodeVariablesFlowDownstream', () => {
+    const flow = {
+      nodes: [
+        {
+          id: 'a1',
+          type: 'ai' as const,
+          position: { x: 0, y: 0 },
+          data: {
+            name: 'Sales',
+            settings: { mode: 'CONVERSATION', collect: [{ key: 'size', description: '', type: 'TEXT' }] },
+          },
+        },
+        {
+          id: 't1',
+          type: 'send_message' as const,
+          position: { x: 300, y: 0 },
+          data: { name: 'Thanks', settings: { message: { type: 'text', text: { body: '' } } } },
+        },
+      ],
+      edges: [{ id: 'e1', source: 'a1', sourceHandle: 'outcome:x', target: 't1' }],
+    };
+    const paths = variableSchema(flow, 't1', OPTIONS, 'any').flatMap((g) => g.paths.map((p) => p.path));
+    expect(paths).toContain('Sales.fields.size');
+    expect(paths).toContain('Sales.reply');
+  });
 });
