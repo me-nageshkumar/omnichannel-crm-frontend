@@ -7,6 +7,7 @@ import { useLoad } from '@app/admin/useLoad';
 import { useSession } from '@app/session/SessionContext';
 import { useAccess } from '@app/session/useAccess';
 import { ConnectionsTab } from '@app/AI/ConnectionsTab';
+import { ProfilesTab } from '@app/AI/ProfilesTab';
 
 /** Brand setup → AI (spec 2026-11-15 §5.10): provider connections and AI profiles. */
 export const AiPage: React.FunctionComponent = () => {
@@ -30,6 +31,9 @@ export const AiPage: React.FunctionComponent = () => {
         >
           <Tab eventKey="connections" title={<TabTitleText>Connections</TabTitleText>}>
             <ConnectionsTab providers={providers.data} canManage={canManage} />
+          </Tab>
+          <Tab eventKey="profiles" title={<TabTitleText>Profiles</TabTitleText>}>
+            <ProfilesTab providers={providers.data} canManage={canManage} />
           </Tab>
         </Tabs>
       )}
