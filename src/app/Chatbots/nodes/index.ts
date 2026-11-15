@@ -1,4 +1,5 @@
 import { FIELDS } from '@app/Chatbots/editor/NodeDrawer';
+import { AiFields } from '@app/Chatbots/nodes/AiFields';
 import { AskFormFields } from '@app/Chatbots/nodes/AskFormFields';
 import { AskQuestionFields } from '@app/Chatbots/nodes/AskQuestionFields';
 import { ConditionFields } from '@app/Chatbots/nodes/ConditionFields';
@@ -27,5 +28,6 @@ FIELDS.add_to_crm = AddToCrmFields;
 FIELDS.http_request = HttpRequestFields;
 FIELDS.wait = WaitFields;
 FIELDS.jump = JumpFields;
+FIELDS.ai = AiFields;
 
 export {};

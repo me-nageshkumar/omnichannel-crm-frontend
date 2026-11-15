@@ -19,7 +19,8 @@ export type NodeType =
   | 'add_to_crm'
   | 'http_request'
   | 'wait'
-  | 'jump';
+  | 'jump'
+  | 'ai';
 
 export type ChatbotStatus = 'DRAFT' | 'PUBLISHED';
 

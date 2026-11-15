@@ -100,7 +100,8 @@ export function variableSchema(
 }
 
 /** The nodes that can reach `nodeId`, keyed by id. */
-function ancestors(flow: SavedFlow, nodeId: string): Record<string, true> {
+/** Every node with a path into {@code nodeId}. */
+export function ancestors(flow: SavedFlow, nodeId: string): Record<string, true> {
   const incoming: Record<string, string[]> = {};
   flow.edges.forEach((e) => (incoming[e.target] = incoming[e.target] || []).push(e.source));
   const seen: Record<string, true> = {};

@@ -10,10 +10,12 @@ import {
   ListIcon,
   PaperPlaneIcon,
   QuestionCircleIcon,
+  RobotIcon,
   UserEditIcon,
   UsersIcon,
 } from '@patternfly/react-icons';
 import type { ChatbotOptions, NodeType, TaskKind } from '@app/api/chatbots';
+import { aiOutputs, aiProduces } from '@app/Chatbots/nodes/aiOutputs';
 
 export interface NodeOutput {
   id: string;
@@ -240,6 +242,29 @@ export const CATALOG: Record<NodeType, NodeMeta> = {
     waitsFor: () => null,
     produces: () => ['response.status', 'response.body', 'response.headers'],
   },
+  ai: {
+    type: 'ai',
+    label: 'AI',
+    description: 'Asks an AI model once, or lets it talk with the customer until an outcome.',
+    icon: RobotIcon,
+    defaultSettings: () => ({
+      mode: 'CONVERSATION',
+      profileId: '',
+      overrides: {},
+      outcomes: [],
+      collect: [],
+      exitWords: [],
+      maxTurns: 20,
+      replyFormat: { type: 'TEXT' },
+    }),
+    outputs: (s) => aiOutputs(s),
+    preview: (s, options) => {
+      const profile = options?.aiProfiles?.find((p) => p.id === s.profileId)?.name ?? 'No profile yet';
+      return `${profile} · ${s.mode === 'SINGLE' ? 'One call' : 'Conversation'}`;
+    },
+    waitsFor: (s) => (s.mode === 'SINGLE' ? 'AI_RESPONSE' : 'WHATSAPP_REPLY'),
+    produces: (s) => aiProduces(s),
+  },
   wait: {
     type: 'wait',
     label: 'Wait',
@@ -276,6 +301,7 @@ export const PALETTE: NodeType[] = [
   'assign_chat',
   'add_to_crm',
   'http_request',
+  'ai',
   'wait',
   'jump',
 ];
