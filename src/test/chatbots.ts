@@ -143,6 +143,10 @@ export const OPTIONS: ChatbotOptions = {
     { id: 'c1', name: 'Lead qualifier', status: 'DRAFT' },
     { id: 'c2', name: 'Price bot', status: 'PUBLISHED' },
   ],
+  aiProfiles: [
+    { id: 'p1', name: 'Sales assistant', provider: 'openai' },
+    { id: 'p2', name: 'Classifier', provider: 'scripted' },
+  ],
 };
 
 export const VERSIONS: VersionView[] = [

@@ -284,4 +284,5 @@ export const WAIT_LABELS: Record<TaskKind, string> = {
   WHATSAPP_REPLY: 'Waits for a WhatsApp reply',
   FORM: 'Waits for the form',
   TIMER: 'Waits',
+  AI_RESPONSE: 'Waits for the AI',
 };

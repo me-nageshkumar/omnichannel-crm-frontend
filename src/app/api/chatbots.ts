@@ -1,6 +1,7 @@
 import { apiFetch, apiFetchFile } from '@app/api/client';
 import type { CloudMessage } from '@app/api/cloudMessages';
 import type { AutomationOptions } from '@app/api/automations';
+import type { AiProfileRef } from '@app/api/ai';
 
 export type { CloudMessage };
 
@@ -135,7 +136,7 @@ export interface VersionView {
 }
 
 export type RunStatus = 'RUNNING' | 'WAITING' | 'COMPLETED' | 'ENDED' | 'STOPPED' | 'HANDED_OVER' | 'JUMPED' | 'FAILED';
-export type TaskKind = 'WHATSAPP_REPLY' | 'FORM' | 'TIMER';
+export type TaskKind = 'WHATSAPP_REPLY' | 'FORM' | 'TIMER' | 'AI_RESPONSE';
 
 export interface Waiting {
   kind: TaskKind;
@@ -210,6 +211,8 @@ export type ChatbotOptions = Omit<AutomationOptions, 'chatbots'> & {
   attributes: AttributeOption[];
   labels: { id: string; name: string }[];
   chatbots: ChatbotRef[];
+  /** The brand's AI profiles, names only (the AI node's picker). */
+  aiProfiles: AiProfileRef[];
 };
 
 export interface TestStartRequest {
