@@ -10,6 +10,8 @@ function open(props: Partial<React.ComponentProps<typeof SettingsModal>> = {}) {
   render(
     <SettingsModal
       settings={LEAD_QUALIFIER.settings}
+      inherited={LEAD_QUALIFIER.inheritedSettings}
+      sources={LEAD_QUALIFIER.inheritedSources}
       readOnly={false}
       onSave={onSave}
       onClose={() => undefined}
@@ -22,38 +24,43 @@ function open(props: Partial<React.ComponentProps<typeof SettingsModal>> = {}) {
 describe('SettingsModal', () => {
   afterEach(() => vi.restoreAllMocks());
 
+  it('opensWithInheritedValues', () => {
+    open();
+    expect(screen.getByRole('spinbutton', { name: 'End after minutes' })).toHaveAttribute(
+      'placeholder',
+      '120 — brand setting',
+    );
+    expect(screen.getByRole('textbox', { name: 'Retry message' })).toHaveAttribute(
+      'placeholder',
+      "Sorry, I didn't get that. Please choose… — platform default",
+    );
+  });
+
+  it('savesOnlyWhatWasSet', async () => {
+    const { onSave, user } = open();
+    await user.type(screen.getByRole('spinbutton', { name: 'End after minutes' }), '30');
+    await user.click(screen.getByRole('button', { name: 'Save' }));
+    expect(onSave).toHaveBeenCalledWith({ ...LEAD_QUALIFIER.settings, endAfterMinutes: 30 });
+  });
+
+  it('resetReturnsAFieldToTheBrand', async () => {
+    const { onSave, user } = open({ settings: { ...LEAD_QUALIFIER.settings, endAfterMinutes: 30 } });
+    await user.click(screen.getByRole('button', { name: 'Reset End after minutes' }));
+    await user.click(screen.getByRole('button', { name: 'Save' }));
+    expect(onSave).toHaveBeenCalledWith(LEAD_QUALIFIER.settings);
+  });
+
   it('rangesValidated', async () => {
     const { user } = open();
-    const end = screen.getByRole('spinbutton', { name: 'End after minutes' });
-    await user.clear(end);
-    await user.type(end, '3');
-    expect(screen.getByText('Between 5 and 2880 minutes')).toBeVisible();
+    await user.type(screen.getByRole('spinbutton', { name: 'End after minutes' }), '3');
+    expect(screen.getByText('must be 5 to 2880 minutes')).toBeVisible();
     expect(screen.getByRole('button', { name: 'Save' })).toBeDisabled();
-  });
-
-  it('reminderNeedsMinutesAndMessage', async () => {
-    const { user } = open();
-    await user.click(screen.getByRole('switch', { name: 'Send a reminder' }));
-    expect(screen.getByText('Between 1 and 1440 minutes')).toBeVisible();
-    expect(screen.getByRole('button', { name: 'Save' })).toBeDisabled();
-    await user.type(screen.getByRole('spinbutton', { name: 'Remind after minutes' }), '30');
-    await user.type(screen.getByRole('textbox', { name: 'Reminder message' }), 'Still there?');
-    expect(screen.getByRole('button', { name: 'Save' })).toBeEnabled();
-  });
-
-  it('savesSettings', async () => {
-    const { onSave, user } = open();
-    const end = screen.getByRole('spinbutton', { name: 'End after minutes' });
-    await user.clear(end);
-    await user.type(end, '90');
-    await user.click(screen.getByRole('switch', { name: 'Stop when an agent replies' }));
-    await user.click(screen.getByRole('button', { name: 'Save' }));
-    expect(onSave).toHaveBeenCalledWith({ ...LEAD_QUALIFIER.settings, endAfterMinutes: 90, stopOnAgentReply: false });
   });
 
   it('readOnlyDisablesEverything', () => {
     open({ readOnly: true });
     expect(screen.getByRole('spinbutton', { name: 'End after minutes' })).toBeDisabled();
     expect(screen.queryByRole('button', { name: 'Save' })).toBeNull();
+    expect(screen.queryByRole('button', { name: 'Cancel' })).toBeNull();
   });
 });

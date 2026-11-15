@@ -10,6 +10,7 @@ const PLATFORM_CODES = [
   'whatsapp:bridge',
   'phone-number:view-all',
   'phone-number:manage-all',
+  'chatbot-defaults:manage',
 ];
 export const BRAND_CODES = [
   'workspace:settings',

@@ -248,6 +248,8 @@ const Editor: React.FunctionComponent<{
         {settingsOpen && (
           <SettingsModal
             settings={chatbot.settings}
+            inherited={chatbot.inheritedSettings}
+            sources={chatbot.inheritedSources}
             readOnly={!canManage || chatbot.status === 'PUBLISHED'}
             onSave={(next) => {
               state.updateSettings(next);

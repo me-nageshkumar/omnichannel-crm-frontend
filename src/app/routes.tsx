@@ -95,7 +95,13 @@ const NAV_SECTIONS: NavEntry[][] = [
       ],
     },
     { label: 'Automations', path: '/automations', requires: (a) => a.hasInWorkspace('automation:view') },
-    { label: 'Chatbots', path: '/chatbots', requires: (a) => a.hasInWorkspace('chatbot:view') },
+    {
+      label: 'Chatbots',
+      links: [
+        { label: 'All chatbots', path: '/chatbots', requires: (a) => a.hasInWorkspace('chatbot:view') },
+        { label: 'Settings', path: '/chatbots/settings', requires: (a) => a.hasInWorkspace('chatbot:view') },
+      ],
+    },
   ],
   [
     {
@@ -131,6 +137,7 @@ const NAV_SECTIONS: NavEntry[][] = [
       links: [
         { label: 'Customers', path: '/customers' },
         { label: 'All phone numbers', path: '/platform/phone-numbers' },
+        { label: 'Chatbot defaults', path: '/platform/chatbot-settings' },
       ],
     },
     {

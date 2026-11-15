@@ -42,15 +42,37 @@ export interface SavedFlow {
   viewport?: { x: number; y: number; zoom: number };
 }
 
-export interface ChatbotSettings {
+/**
+ * One layer of chatbot settings (platform defaults, a brand's, or a chatbot's own). `null` is inherited from the layer
+ * above; `''` in `endMessage` or `giveUpMessage` means "send no message".
+ */
+export interface SettingsLayer {
+  reminderOn: boolean | null;
   reminderAfterMinutes: number | null;
   reminderMessage: string | null;
-  endAfterMinutes: number;
+  endAfterMinutes: number | null;
   endMessage: string | null;
-  invalidReplyRetries: number;
-  retryMessage: string;
+  invalidReplyRetries: number | null;
+  retryMessage: string | null;
   giveUpMessage: string | null;
-  stopOnAgentReply: boolean;
+  stopOnAgentReply: boolean | null;
+}
+
+export type SettingField = keyof SettingsLayer;
+export type SettingSource = 'CHATBOT' | 'BRAND' | 'PLATFORM';
+export type InheritedSource = Exclude<SettingSource, 'CHATBOT'>;
+
+export interface PlatformChatbotSettings {
+  settings: SettingsLayer;
+  version: number | null;
+  lastUpdateTime: string | null;
+  updatedBy: string | null;
+}
+
+export interface BrandChatbotSettings {
+  own: SettingsLayer;
+  inherited: SettingsLayer;
+  version: number | null;
 }
 
 export interface Chatbot {
@@ -59,7 +81,11 @@ export interface Chatbot {
   description: string | null;
   status: ChatbotStatus;
   flow: SavedFlow;
-  settings: ChatbotSettings;
+  /** The chatbot's own layer. */
+  settings: SettingsLayer;
+  /** The brand-or-platform value of every field, as if the chatbot set nothing. */
+  inheritedSettings: SettingsLayer;
+  inheritedSources: Record<SettingField, InheritedSource>;
   versionNumber: number;
   version: number;
   createdBy: Ref | null;
@@ -93,7 +119,7 @@ export interface SaveRequest {
   name?: string;
   description?: string | null;
   flow: SavedFlow;
-  settings?: ChatbotSettings;
+  settings?: SettingsLayer;
   version: number;
 }
 
@@ -274,3 +300,23 @@ export async function previewChatbotMessage(
   const res = await apiFetchFile(`${one(ws, id)}/preview`, { token, body: message, json: true });
   return res.text();
 }
+
+export const getPlatformChatbotSettings = (token: string) =>
+  apiFetch<PlatformChatbotSettings>('/api/platform/chatbot-settings', { token });
+
+export const savePlatformChatbotSettings = (token: string, body: { settings: SettingsLayer; version: number | null }) =>
+  apiFetch<PlatformChatbotSettings>('/api/platform/chatbot-settings', { method: 'PUT', token, body });
+
+export const getBrandChatbotSettings = (token: string, ws: string) =>
+  apiFetch<BrandChatbotSettings>(`${base(ws)}/settings`, { token });
+
+export const saveBrandChatbotSettings = (
+  token: string,
+  ws: string,
+  body: { own: SettingsLayer; version: number | null },
+) =>
+  apiFetch<BrandChatbotSettings>(`${base(ws)}/settings`, {
+    method: 'PUT',
+    token,
+    body,
+  });
