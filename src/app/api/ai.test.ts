@@ -16,6 +16,7 @@ import {
   saveAiProfile,
   verifyAiConnection,
 } from '@app/api/ai';
+import type { AiProfileSave } from '@app/api/ai';
 import { ApiError } from '@app/api/client';
 import { AI_BASE, CONNECTION, PROFILE, PROVIDERS, aiRoutes } from '../../test/ai';
 import { mockFetch, requestTo } from '../../test/fetchMock';
@@ -79,10 +80,26 @@ describe('ai api', () => {
   });
 });
 
-function saveOf() {
-  const { id: _id, provider: _p, updatedAt: _u, mcpServers, ...rest } = PROFILE;
+function saveOf(): AiProfileSave {
   return {
-    ...rest,
-    mcpServers: mcpServers.map(({ secretHint: _h, secretSetAt: _s, ...m }) => m),
+    name: PROFILE.name,
+    connectionId: PROFILE.connectionId,
+    model: PROFILE.model,
+    instructions: PROFILE.instructions,
+    reasoningEffort: PROFILE.reasoningEffort,
+    maxOutputTokens: PROFILE.maxOutputTokens,
+    temperature: PROFILE.temperature,
+    webSearch: PROFILE.webSearch,
+    vectorStoreIds: PROFILE.vectorStoreIds,
+    mcpServers: PROFILE.mcpServers.map((m) => ({
+      id: m.id,
+      label: m.label,
+      url: m.url,
+      connectBy: m.connectBy,
+      auth: m.auth,
+      headerName: m.headerName,
+      allowedTools: m.allowedTools,
+    })),
+    version: PROFILE.version,
   };
 }

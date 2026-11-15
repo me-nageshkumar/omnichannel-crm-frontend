@@ -58,8 +58,22 @@ const Hint: React.FunctionComponent<{ children: React.ReactNode }> = ({ children
   </FormHelperText>
 );
 
-/** The AI node's form (spec 2026-11-15 §5.9–§5.10). Fields a provider cannot use are hidden. */
-export const AiFields: React.FunctionComponent<NodeFieldsProps> = (p) => {
+/**
+ * The AI node's form (spec 2026-11-15 §5.9–§5.10). The drawer stays mounted when another node is picked, so the form
+ * is keyed on the node: its local text (exit words, schema) and id-slugging state never carry over.
+ */
+export const AiFields: React.FunctionComponent<NodeFieldsProps> = (p) => <AiNodeForm key={p.node.id} {...p} />;
+
+const tryParse = (text: string): unknown => {
+  try {
+    return text.trim() === '' ? null : JSON.parse(text);
+  } catch {
+    return null;
+  }
+};
+
+/** Fields a provider cannot use are hidden, unless they still hold a value the server would check. */
+const AiNodeForm: React.FunctionComponent<NodeFieldsProps> = (p) => {
   const vars = useVariables(p);
   const s = p.settings as Any;
   const set = (patch: Any) => p.onChange({ ...s, ...patch });
@@ -106,6 +120,7 @@ export const AiFields: React.FunctionComponent<NodeFieldsProps> = (p) => {
 
   const overrides = (s.overrides ?? {}) as Any;
   const setOverride = (key: string, value: unknown) => set({ overrides: { ...overrides, [key]: value } });
+  const present = (key: string) => overrides[key] !== null && overrides[key] !== undefined && overrides[key] !== '';
   const inherited = (key: string): string => {
     const v = (profile.data as Any | null | undefined)?.[key];
     if (v === null || v === undefined || v === '') return 'Profile default';
@@ -152,7 +167,11 @@ export const AiFields: React.FunctionComponent<NodeFieldsProps> = (p) => {
             text="One call"
             isSelected={!conversation}
             isDisabled={p.isDisabled}
-            onChange={() => set({ mode: 'SINGLE' })}
+            onChange={() => {
+              // The exit words and condition belong to a conversation; the server would still check them.
+              setWordsText('');
+              set({ mode: 'SINGLE', exitWords: [], exitCondition: null });
+            }}
           />
           <ToggleGroupItem
             text="Conversation"
@@ -343,7 +362,13 @@ export const AiFields: React.FunctionComponent<NodeFieldsProps> = (p) => {
           onChange={(_e, v) =>
             set({
               replyFormat:
-                v === 'JSON' ? { type: 'JSON', schema: format.schema ?? null, messageField: null } : { type: 'TEXT' },
+                v === 'JSON'
+                  ? {
+                      type: 'JSON',
+                      schema: tryParse(schemaText) ?? format.schema ?? null,
+                      messageField: format.messageField ?? null,
+                    }
+                  : { type: 'TEXT' },
             })
           }
         >
@@ -490,7 +515,7 @@ export const AiFields: React.FunctionComponent<NodeFieldsProps> = (p) => {
           {reset('instructions', 'Reset instructions')}
           <ErrorLine message={err('overrides.instructions')} />
         </FormGroup>
-        {shows('reasoningEffort') && (
+        {(shows('reasoningEffort') || present('reasoningEffort')) && (
           <FormGroup label="Reasoning effort override" fieldId={id('effort')}>
             <FormSelect
               id={id('effort')}
@@ -520,7 +545,7 @@ export const AiFields: React.FunctionComponent<NodeFieldsProps> = (p) => {
           {reset('maxOutputTokens', 'Reset max output tokens')}
           <ErrorLine message={err('overrides.maxOutputTokens')} />
         </FormGroup>
-        {shows('temperature') && (
+        {(shows('temperature') || present('temperature')) && (
           <FormGroup label="Temperature override" fieldId={id('temperature')}>
             <TextInput
               id={id('temperature')}

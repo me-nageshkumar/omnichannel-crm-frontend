@@ -14,6 +14,7 @@ import {
 import type { AiCapabilities, McpAuth, McpConnectBy, McpServer, McpToolInfo } from '@app/api/ai';
 import { SecretField } from '@app/AI/SecretField';
 import { FieldError } from '@app/AI/ConnectionModal';
+import { aiMessage } from '@app/AI/aiMessages';
 
 /** One MCP server row as the form edits it: the stored view plus the secret being typed. */
 export interface McpRow {
@@ -103,7 +104,7 @@ export const McpServersFields: React.FunctionComponent<{
       const list = await loadTools(r.id);
       setTools((t) => ({ ...t, [r.key]: list }));
     } catch (e) {
-      setToolError((t) => ({ ...t, [r.key]: e instanceof Error ? e.message : 'The tools could not be loaded.' }));
+      setToolError((t) => ({ ...t, [r.key]: aiMessage(e) }));
     }
   };
 
@@ -210,6 +211,15 @@ export const McpServersFields: React.FunctionComponent<{
             {toolError[r.key] && <Alert variant="danger" isInline isPlain title={toolError[r.key]} />}
             {listed && (
               <div role="group" aria-label={`Server ${n} allowed tools`}>
+                {/* An empty list allows every tool (the server's rule), so "All tools" says so explicitly. */}
+                <Checkbox
+                  id={`mcp-${r.key}-all-tools`}
+                  label="All tools"
+                  description="Choose tools below to allow only those."
+                  isChecked={toolsOf(r).length === 0}
+                  isDisabled={isDisabled}
+                  onChange={(_ev, on) => set(i, { toolsText: on ? '' : listed.map((t) => t.name).join(', ') })}
+                />
                 {listed.map((t) => (
                   <Checkbox
                     key={t.name}
@@ -224,6 +234,24 @@ export const McpServersFields: React.FunctionComponent<{
                     }}
                   />
                 ))}
+                {toolsOf(r)
+                  .filter((name) => !listed.some((t) => t.name === name))
+                  .map((name) => (
+                    <Checkbox
+                      key={`kept-${name}`}
+                      id={`mcp-${r.key}-kept-${name}`}
+                      label={`${name} (not on the server)`}
+                      isChecked
+                      isDisabled={isDisabled}
+                      onChange={() =>
+                        set(i, {
+                          toolsText: toolsOf(r)
+                            .filter((x) => x !== name)
+                            .join(', '),
+                        })
+                      }
+                    />
+                  ))}
               </div>
             )}
             {!listed && (

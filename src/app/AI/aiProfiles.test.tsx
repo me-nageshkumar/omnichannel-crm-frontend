@@ -247,4 +247,56 @@ describe('AI page — profiles', () => {
       ),
     ).toBeVisible();
   });
+
+  it('allToolsIsShownAndKeptNamesStay', async () => {
+    const user = userEvent.setup();
+    const open = { ...PROFILE, mcpServers: [{ ...PROFILE.mcpServers[0], allowedTools: [] }] };
+    const fetch = await openProfiles({
+      [`GET ${AI_BASE}/profiles`]: { status: 200, body: [open] },
+      [`GET ${AI_BASE}/profiles/p1`]: { status: 200, body: open },
+      [`POST ${AI_BASE}/profiles/p1/mcp/s1/tools`]: { status: 200, body: [{ name: 'book', description: null }] },
+      [`PUT ${AI_BASE}/profiles/p1`]: { status: 200, body: open },
+    });
+    const dialog = await editSales(user);
+    await user.click(within(dialog).getByRole('button', { name: 'Load tools for server 1' }));
+    const tools = await within(dialog).findByRole('group', { name: 'Server 1 allowed tools' });
+    expect(within(tools).getByRole('checkbox', { name: 'All tools' })).toBeChecked();
+    await user.click(within(tools).getByRole('checkbox', { name: 'book' }));
+    expect(within(tools).getByRole('checkbox', { name: 'All tools' })).not.toBeChecked();
+    await user.click(within(tools).getByRole('checkbox', { name: 'book' }));
+    expect(within(tools).getByRole('checkbox', { name: 'All tools' })).toBeChecked();
+    await user.click(within(dialog).getByRole('button', { name: 'Save' }));
+    await waitFor(() =>
+      expect(requestTo(fetch, `PUT ${AI_BASE}/profiles/p1`)?.body).toMatchObject({
+        mcpServers: [{ allowedTools: [] }],
+      }),
+    );
+  });
+
+  it('keptToolNamesNotOnTheServerAreListed', async () => {
+    const user = userEvent.setup();
+    await openProfiles({
+      [`POST ${AI_BASE}/profiles/p1/mcp/s1/tools`]: { status: 200, body: [{ name: 'cancel', description: null }] },
+    });
+    const dialog = await editSales(user);
+    await user.click(within(dialog).getByRole('button', { name: 'Load tools for server 1' }));
+    const tools = await within(dialog).findByRole('group', { name: 'Server 1 allowed tools' });
+    const kept = within(tools).getByRole('checkbox', { name: 'book (not on the server)' });
+    expect(kept).toBeChecked();
+    await user.click(kept);
+    expect(within(tools).queryByRole('checkbox', { name: 'book (not on the server)' })).toBeNull();
+  });
+
+  it('failedLoadToolsShowsTheServerMessage', async () => {
+    const user = userEvent.setup();
+    await openProfiles({
+      [`POST ${AI_BASE}/profiles/p1/mcp/s1/tools`]: {
+        status: 502,
+        body: { code: 'mcp_error', message: 'The MCP server did not answer in time' },
+      },
+    });
+    const dialog = await editSales(user);
+    await user.click(within(dialog).getByRole('button', { name: 'Load tools for server 1' }));
+    expect(await within(dialog).findByText('The MCP server did not answer in time')).toBeVisible();
+  });
 });

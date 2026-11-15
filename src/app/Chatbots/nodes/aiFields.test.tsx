@@ -87,6 +87,37 @@ async function open(
   return { onChange, fetch, user: userEvent.setup() };
 }
 
+/** Two AI nodes in one drawer, as the editor shows them: picking another node keeps the same drawer mounted. */
+const SwitchHarness: React.FunctionComponent<{
+  a: SavedNode;
+  b: SavedNode;
+  onChange(id: string, s: Record<string, unknown>): void;
+}> = ({ a, b, onChange }) => {
+  const [nodes, setNodes] = React.useState<SavedNode[]>([a, b]);
+  const [selected, setSelected] = React.useState(a.id);
+  const node = nodes.find((n) => n.id === selected) as SavedNode;
+  return (
+    <MemoryRouter>
+      <SessionProvider>
+        <button onClick={() => setSelected(b.id)}>Select B</button>
+        <NodeDrawer
+          node={node}
+          flow={{ nodes, edges: [] }}
+          chatbotId="c1"
+          options={OPTIONS}
+          problems={[]}
+          readOnly={false}
+          onChange={(settings) => {
+            onChange(node.id, settings);
+            setNodes((all) => all.map((n) => (n.id === node.id ? { ...n, data: { ...n.data, settings } } : n)));
+          }}
+          onClose={() => undefined}
+        />
+      </SessionProvider>
+    </MemoryRouter>
+  );
+};
+
 const last = (fn: ReturnType<typeof vi.fn>) => fn.mock.calls[fn.mock.calls.length - 1][0] as Record<string, unknown>;
 
 describe('AI node fields', () => {
@@ -268,5 +299,96 @@ describe('AI node fields', () => {
   it('userMessageHintNamesTheTriggerVariable', async () => {
     await open(aiNode({ mode: 'CONVERSATION' }));
     expect(screen.getByText(/\{\{event\.message\.text\}\}/)).toBeVisible();
+  });
+
+  it('anotherAiNodeGetsItsOwnFormState', async () => {
+    cleanup();
+    mockFetch({
+      ...meAs(WORKSPACE_MANAGER),
+      [`GET ${AI_BASE}/providers`]: { status: 200, body: PROVIDERS },
+      [`GET ${AI_BASE}/profiles/p1`]: { status: 200, body: PROFILE },
+    });
+    const a = aiNode(
+      {
+        mode: 'CONVERSATION',
+        exitWords: ['stop'],
+        replyFormat: {
+          type: 'JSON',
+          schema: { type: 'object', properties: { a: { type: 'string' } } },
+          messageField: 'a',
+        },
+      },
+      'A',
+      'First',
+    );
+    const b = aiNode(
+      {
+        mode: 'CONVERSATION',
+        exitWords: ['bye'],
+        outcomes: [{ id: 'paid', label: 'Paid', description: '' }],
+        replyFormat: {
+          type: 'JSON',
+          schema: { type: 'object', properties: { b: { type: 'string' } } },
+          messageField: 'b',
+        },
+      },
+      'B',
+      'Second',
+    );
+    const onChange = vi.fn();
+    render(<SwitchHarness a={a} b={b} onChange={onChange} />);
+    const user = userEvent.setup();
+    await screen.findByLabelText('AI profile');
+    await user.click(screen.getByRole('button', { name: 'Add outcome' }));
+    await user.click(screen.getByRole('button', { name: 'Select B' }));
+    expect(screen.getByLabelText('Exit words')).toHaveValue('bye');
+    expect((screen.getByLabelText(/^JSON schema/) as HTMLTextAreaElement).value).toContain('"b"');
+    await user.type(screen.getByLabelText('Outcome 1 label'), ' now');
+    const lastB = onChange.mock.calls.filter((c) => c[0] === 'B').pop()?.[1] as Record<string, unknown>;
+    expect(lastB.outcomes).toEqual([{ id: 'paid', label: 'Paid now', description: '' }]);
+  });
+
+  it('jsonTextJsonKeepsTheSchema', async () => {
+    const schema = { type: 'object', properties: { message: { type: 'string' } } };
+    const { onChange, user } = await open(aiNode({ replyFormat: { type: 'JSON', schema, messageField: 'message' } }));
+    await user.selectOptions(screen.getByLabelText('Reply format'), 'TEXT');
+    await user.selectOptions(screen.getByLabelText('Reply format'), 'JSON');
+    expect(last(onChange).replyFormat).toMatchObject({ type: 'JSON', schema });
+  });
+
+  it('hiddenOverrideWithAValueStaysEditable', async () => {
+    const { onChange, user } = await open(aiNode({ profileId: 'p2', overrides: { temperature: 0.7 } }), {
+      problems: [
+        {
+          nodeId: 'ai1',
+          nodeName: 'Sales',
+          field: 'settings.overrides.temperature',
+          message: 'This provider does not take a temperature',
+          severity: 'ERROR',
+        },
+      ],
+    });
+    await user.click(screen.getByRole('button', { name: 'Advanced' }));
+    expect(await screen.findByLabelText('Temperature override')).toBeVisible();
+    expect(screen.getAllByText('This provider does not take a temperature').length).toBeGreaterThan(0);
+    await user.click(screen.getByRole('button', { name: 'Reset temperature' }));
+    expect((last(onChange).overrides as Record<string, unknown>).temperature ?? null).toBeNull();
+    await waitFor(() => expect(screen.queryByLabelText('Temperature override')).toBeNull());
+  });
+
+  it('oneCallDropsTheConversationEnding', async () => {
+    const { onChange, user } = await open(
+      aiNode({
+        mode: 'CONVERSATION',
+        exitWords: ['stop'],
+        exitCondition: {
+          combinator: 'and',
+          not: false,
+          rules: [{ field: '{{Sales.json.', operator: 'is', value: '' }],
+        },
+      }),
+    );
+    await user.click(screen.getByRole('button', { name: 'One call' }));
+    expect(last(onChange)).toMatchObject({ mode: 'SINGLE', exitCondition: null, exitWords: [] });
   });
 });
