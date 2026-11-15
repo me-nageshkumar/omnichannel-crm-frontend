@@ -10,7 +10,7 @@ import {
   TimesIcon,
 } from '@patternfly/react-icons';
 import type { Run, RunStep, SavedFlow } from '@app/api/chatbots';
-import { runStatusColor, runStatusLabel, waitingLabel } from '@app/Chatbots/chatbotDisplay';
+import { AI_THINKING, aiStepDetail, runStatusColor, runStatusLabel, waitingLabel } from '@app/Chatbots/chatbotDisplay';
 
 const time = (iso: string | null) => (iso ? new Date(iso).toLocaleTimeString() : '');
 
@@ -90,7 +90,8 @@ export const RunOverlayPanel: React.FunctionComponent<{
           <TimesIcon />
         </Button>
       </div>
-      {run.status === 'WAITING' && run.waiting && (
+      {run.status === 'WAITING' && run.waiting?.kind === 'AI_RESPONSE' && <p>{AI_THINKING}</p>}
+      {run.status === 'WAITING' && run.waiting && run.waiting.kind !== 'AI_RESPONSE' && (
         <p>
           waiting at {run.currentNodeName ?? run.currentNodeId} {waitingLabel(run.waiting)}
         </p>
@@ -104,6 +105,11 @@ export const RunOverlayPanel: React.FunctionComponent<{
             <span className="omni-run__icon">{OUTCOME_ICON[s.outcome]}</span>
             <span className="omni-run__name">{nodeName(s)}</span>
             <span className="omni-run__summary">{s.error ?? s.summary ?? ''}</span>
+            {aiStepDetail(s.type, s.nodeName ? run.variables[s.nodeName] : null) && (
+              <span className="omni-run__detail pf-v6-u-color-200">
+                {aiStepDetail(s.type, s.nodeName ? run.variables[s.nodeName] : null)}
+              </span>
+            )}
             <time className="pf-v6-u-color-200">{time(s.finishedAt ?? s.startedAt)}</time>
           </li>
         ))}

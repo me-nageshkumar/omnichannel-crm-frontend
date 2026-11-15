@@ -6,7 +6,14 @@ import type { Run } from '@app/api/chatbots';
 import { RunOverlayPanel } from '@app/Chatbots/editor/RunOverlayPanel';
 import { runByNode, useRunPolling } from '@app/Chatbots/editor/useRunPolling';
 import { SessionProvider } from '@app/session/SessionContext';
-import { CHATBOTS_BASE, LEAD_QUALIFIER, RUN_DONE, RUN_FORM_WAITING, RUN_WAITING } from '../../../test/chatbots';
+import {
+  CHATBOTS_BASE,
+  LEAD_QUALIFIER,
+  RUN_AI_THINKING,
+  RUN_DONE,
+  RUN_FORM_WAITING,
+  RUN_WAITING,
+} from '../../../test/chatbots';
 import { callsTo, mockFetch } from '../../../test/fetchMock';
 import type { MockRoute } from '../../../test/fetchMock';
 import { WORKSPACE_MANAGER, meAs, storeSession } from '../../../test/session';
@@ -77,6 +84,31 @@ describe('run overlay', () => {
     expect(steps[0]).toHaveTextContent('Welcome');
     expect(steps[0]).toHaveTextContent('Reply “Yes”');
     expect(screen.getByRole('button', { name: 'Stop' })).toBeEnabled();
+  });
+
+  it('aiStepShowsTurnReplyOutcomeTokens', () => {
+    openPanel(RUN_AI_THINKING);
+    const step = within(screen.getByRole('list', { name: 'Steps' })).getAllByRole('listitem')[0];
+    expect(step).toHaveTextContent('Turn 2');
+    expect(step).toHaveTextContent('We have red shirts in M and L. Which size would you like?');
+    expect(step).toHaveTextContent('120 in / 45 out tokens');
+    const long = 'x'.repeat(300);
+    openPanel({
+      ...RUN_AI_THINKING,
+      status: 'COMPLETED',
+      waiting: null,
+      variables: { Sales: { turns: 3, reply: long, outcome: 'booked', usage: { inputTokens: 1, outputTokens: 2 } } },
+    });
+    const done = within(screen.getByRole('list', { name: 'Steps' })).getAllByRole('listitem')[0];
+    expect(done).toHaveTextContent('Outcome: booked');
+    expect(done).toHaveTextContent(`${'x'.repeat(200)}…`);
+    expect(done).not.toHaveTextContent('x'.repeat(201));
+  });
+
+  it('waitingOnAiShowsThinking', () => {
+    openPanel(RUN_AI_THINKING);
+    expect(screen.getByText('The AI is thinking…')).toBeVisible();
+    expect(screen.queryByText(/waiting at Sales/)).toBeNull();
   });
 
   it('formWaitAndFinishedRunHaveNoStop', () => {
