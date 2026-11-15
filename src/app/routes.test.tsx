@@ -44,6 +44,7 @@ const BRAND_LINKS = [
   'Settings',
   'Templates',
   'Phone numbers',
+  'AI',
   'Users',
   'Teams',
 ];
@@ -62,6 +63,20 @@ describe('authority-driven navigation', () => {
 
   it('workspace manager sees users and teams', async () => {
     expect(await navFor(WORKSPACE_MANAGER)).toEqual(BRAND_LINKS);
+  });
+
+  it('aiLinkNeedsAiView', async () => {
+    const chatbotsOnly: CurrentUser = {
+      ...WORKSPACE_MANAGER,
+      workspaces: WORKSPACE_MANAGER.workspaces.map((w) => ({ ...w, authorities: ['chatbot:view'] })),
+    };
+    expect(await navFor(chatbotsOnly)).not.toContain('AI');
+    cleanup();
+    const aiOnly: CurrentUser = {
+      ...WORKSPACE_MANAGER,
+      workspaces: WORKSPACE_MANAGER.workspaces.map((w) => ({ ...w, authorities: ['ai:view'] })),
+    };
+    expect(await navFor(aiOnly)).toContain('AI');
   });
 
   it('viewerAndAgentSeeCampaigns', async () => {
