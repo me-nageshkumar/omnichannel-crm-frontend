@@ -265,7 +265,7 @@ export const RUN_DONE: Run = {
     },
   ],
   variables: { ...RUN_WAITING.variables, AskBudget: { answer: 7000 } },
-  endReason: 'High: no edge from next',
+  endReason: 'Finished after High',
   finishedAt: '2026-11-13T10:01:01Z',
 };
 
@@ -300,7 +300,7 @@ export const RUN_AI_THINKING: Run = {
       finishedAt: null,
       outcome: 'WAITING',
       output: null,
-      summary: 'Turn 2 · call2',
+      summary: 'Turn 2: waiting for the AI',
       error: null,
       result: null,
       waitedFor: null,

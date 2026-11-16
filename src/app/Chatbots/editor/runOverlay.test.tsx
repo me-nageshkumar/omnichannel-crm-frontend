@@ -91,7 +91,9 @@ describe('run overlay', () => {
   it('aiStepShowsTurnReplyOutcomeTokens', () => {
     openPanel(RUN_AI_THINKING);
     const step = within(screen.getByRole('list', { name: 'Steps' })).getAllByRole('listitem')[0];
-    expect(step).toHaveTextContent('Turn 2');
+    expect(step).toHaveTextContent('Turn 2: waiting for the AI');
+    // the summary says which turn; the detail line does not repeat it
+    expect(step.querySelector('.omni-run__detail')).not.toHaveTextContent('Turn');
     expect(step).toHaveTextContent('We have red shirts in M and L. Which size would you like?');
     expect(step).toHaveTextContent('120 in / 45 out tokens');
     const long = 'x'.repeat(300);
@@ -132,7 +134,7 @@ describe('run overlay', () => {
     expect(screen.getByText(/for the form/)).toBeVisible();
     const { onStop } = openPanel(RUN_DONE);
     expect(screen.queryByRole('button', { name: 'Stop' })).toBeNull();
-    expect(screen.getByText('High: no edge from next')).toBeVisible();
+    expect(screen.getByText('Finished after High')).toBeVisible();
     void onStop;
   });
 
