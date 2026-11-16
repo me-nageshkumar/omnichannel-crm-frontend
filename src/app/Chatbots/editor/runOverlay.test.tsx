@@ -116,6 +116,9 @@ describe('run overlay', () => {
     expect(step.lastElementChild).toBe(detail);
     const css = readFileSync(resolve(__dirname, '../../app.css'), 'utf8');
     expect(css).toMatch(/\.omni-run__detail\s*\{[^}]*grid-column:\s*2\s*\/\s*4/);
+    // the time is pinned to the first row's last column, or auto-placement drops it into the 20px icon column
+    expect(css).toMatch(/\.omni-run__time\s*\{[^}]*grid-column:\s*3;[^}]*grid-row:\s*1/);
+    expect(step.querySelector('time')).toHaveClass('omni-run__time');
   });
 
   it('waitingOnAiShowsThinking', () => {

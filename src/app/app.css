@@ -328,6 +328,11 @@ body,
   color: var(--pf-t--global--text--color--subtle);
   font-size: var(--pf-t--global--font--size--sm);
 }
+.omni-run__time {
+  /* pinned: auto-placed, it wrapped into the 20px icon column under the full-width summary */
+  grid-column: 3;
+  grid-row: 1;
+}
 .omni-run__detail {
   /* the AI step's turn, reply and tokens: its own full-width row under the summary */
   grid-column: 2 / 4;
