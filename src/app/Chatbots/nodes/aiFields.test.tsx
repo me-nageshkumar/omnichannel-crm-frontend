@@ -408,4 +408,14 @@ describe('AI node fields', () => {
     });
     expect(screen.getByLabelText('User message')).toHaveAttribute('aria-invalid', 'true');
   });
+
+  it('closingMessageSettingIsOnUnlessTurnedOff', async () => {
+    const { onChange, user } = await open(aiNode({ mode: 'CONVERSATION' }));
+    const box = screen.getByLabelText("Send the AI's closing message when it chooses an outcome");
+    expect(box).toBeChecked();
+    await user.click(box);
+    expect(last(onChange)).toMatchObject({ sendClosingMessage: false });
+    await open(aiNode({ mode: 'SINGLE' }));
+    expect(screen.queryByLabelText("Send the AI's closing message when it chooses an outcome")).toBeNull();
+  });
 });

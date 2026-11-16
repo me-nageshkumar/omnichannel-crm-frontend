@@ -290,6 +290,16 @@ const AiNodeForm: React.FunctionComponent<NodeFieldsProps> = (p) => {
           </div>
         ))}
         <ErrorLine message={err('outcomes')} />
+        {conversation && (
+          <Checkbox
+            id={id('closing')}
+            label="Send the AI's closing message when it chooses an outcome"
+            description={`Turn off when the next node sends its own message; the AI's line stays in {{${p.node.data.name}.reply}}.`}
+            isChecked={s.sendClosingMessage !== false}
+            isDisabled={p.isDisabled}
+            onChange={(_e, v) => set({ sendClosingMessage: v })}
+          />
+        )}
         <Button
           variant="link"
           isInline
