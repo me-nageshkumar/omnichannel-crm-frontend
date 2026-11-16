@@ -32,9 +32,10 @@ export const NodeDrawer: React.FunctionComponent<{
   const meta = CATALOG[node.type];
   const Icon = meta.icon;
   const Fields = FIELDS[node.type];
+  // Only errors mark a field; warnings are listed in the alert above, in its warning colour.
   const errors: Record<string, string> = {};
   problems.forEach((p) => {
-    if (!errors[p.field]) errors[p.field] = p.message;
+    if (p.severity === 'ERROR' && !errors[p.field]) errors[p.field] = p.message;
   });
   return (
     <section className="omni-drawer nokey" role="dialog" aria-label={node.data.name}>
