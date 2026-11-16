@@ -105,12 +105,12 @@ export const RunOverlayPanel: React.FunctionComponent<{
             <span className="omni-run__icon">{OUTCOME_ICON[s.outcome]}</span>
             <span className="omni-run__name">{nodeName(s)}</span>
             <span className="omni-run__summary">{s.error ?? s.summary ?? ''}</span>
+            <time className="pf-v6-u-color-200">{time(s.finishedAt ?? s.startedAt)}</time>
             {aiStepDetail(s.type, s.nodeName ? run.variables[s.nodeName] : null) && (
               <span className="omni-run__detail pf-v6-u-color-200">
                 {aiStepDetail(s.type, s.nodeName ? run.variables[s.nodeName] : null)}
               </span>
             )}
-            <time className="pf-v6-u-color-200">{time(s.finishedAt ?? s.startedAt)}</time>
           </li>
         ))}
       </ol>

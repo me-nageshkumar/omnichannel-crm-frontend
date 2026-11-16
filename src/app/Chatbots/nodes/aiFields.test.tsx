@@ -391,4 +391,21 @@ describe('AI node fields', () => {
     await user.click(screen.getByRole('button', { name: 'One call' }));
     expect(last(onChange)).toMatchObject({ mode: 'SINGLE', exitCondition: null, exitWords: [] });
   });
+
+  it('warningsAreNotFieldErrors', async () => {
+    const warning = 'Without a user message or an initial message, the conversation waits';
+    await open(aiNode({ mode: 'CONVERSATION' }), {
+      problems: [
+        { nodeId: 'ai1', nodeName: 'Sales', field: 'settings.userMessage', message: warning, severity: 'WARNING' },
+      ],
+    });
+    expect(screen.getByLabelText('User message')).not.toHaveAttribute('aria-invalid', 'true');
+    expect(screen.getAllByText(warning)).toHaveLength(1);
+    await open(aiNode({ mode: 'CONVERSATION' }), {
+      problems: [
+        { nodeId: 'ai1', nodeName: 'Sales', field: 'settings.userMessage', message: 'is required', severity: 'ERROR' },
+      ],
+    });
+    expect(screen.getByLabelText('User message')).toHaveAttribute('aria-invalid', 'true');
+  });
 });

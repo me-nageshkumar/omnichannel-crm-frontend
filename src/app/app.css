@@ -328,6 +328,11 @@ body,
   color: var(--pf-t--global--text--color--subtle);
   font-size: var(--pf-t--global--font--size--sm);
 }
+.omni-run__detail {
+  /* the AI step's turn, reply and tokens: its own full-width row under the summary */
+  grid-column: 2 / 4;
+  font-size: var(--pf-t--global--font--size--sm);
+}
 .omni-versions {
   list-style: none;
   margin: var(--pf-t--global--spacer--sm) 0 0;

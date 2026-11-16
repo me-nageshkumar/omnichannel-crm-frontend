@@ -1,4 +1,6 @@
 import * as React from 'react';
+import { readFileSync } from 'node:fs';
+import { resolve } from 'node:path';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { act, cleanup, render, screen, waitFor, within } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
@@ -103,6 +105,17 @@ describe('run overlay', () => {
     expect(done).toHaveTextContent('Outcome: booked');
     expect(done).toHaveTextContent(`${'x'.repeat(200)}…`);
     expect(done).not.toHaveTextContent('x'.repeat(201));
+  });
+
+  it('aiStepDetailSpansTheStepRow', () => {
+    openPanel(RUN_AI_THINKING);
+    const step = within(screen.getByRole('list', { name: 'Steps' })).getAllByRole('listitem')[0];
+    const detail = step.querySelector('.omni-run__detail') as HTMLElement;
+    expect(detail).not.toBeNull();
+    // after the time, so the grid's first row keeps icon, name and time together
+    expect(step.lastElementChild).toBe(detail);
+    const css = readFileSync(resolve(__dirname, '../../app.css'), 'utf8');
+    expect(css).toMatch(/\.omni-run__detail\s*\{[^}]*grid-column:\s*2\s*\/\s*4/);
   });
 
   it('waitingOnAiShowsThinking', () => {
