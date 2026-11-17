@@ -16,6 +16,7 @@ const PLATFORM_CODES = [
   'billing-settings:manage',
   'subscription:view',
   'subscription:manage',
+  'refund:manage',
 ];
 export const BRAND_CODES = [
   'workspace:settings',
@@ -124,7 +125,7 @@ export const CUSTOMER_ADMIN: CurrentUser = {
   customer: { id: 'c1', name: 'Acme' },
   subscription: NO_PLAN,
   role: { id: 'r-ca', name: 'CUSTOMER_ADMIN' },
-  authorities: ['workspace:create', 'workspace:enable', 'company-user:manage', 'billing:view'],
+  authorities: ['workspace:create', 'workspace:enable', 'company-user:manage', 'billing:view', 'billing:request'],
   workspaces: [BRAND_A, BRAND_B],
 };
 
