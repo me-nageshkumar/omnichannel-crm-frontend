@@ -9,7 +9,8 @@ export const OPENAI_CAPS: AiCapabilities = {
   vectorStores: true,
   functionTools: true,
   structuredOutput: true,
-  reasoningEfforts: ['minimal', 'low', 'medium', 'high'],
+  // the server's list for OpenAI
+  reasoningEfforts: ['none', 'minimal', 'low', 'medium', 'high', 'xhigh', 'max'],
   temperature: true,
   webSearch: true,
 };

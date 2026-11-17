@@ -47,7 +47,8 @@ export const ConnectionModal: React.FunctionComponent<{
     const v = (settings[f.key] ?? '').trim();
     if (v !== '') sent[f.key] = v;
   }
-  const missing = declared.some((f) => f.required && !(f.key in sent));
+  const missingLabels = declared.filter((f) => f.required && !(f.key in sent)).map((f) => f.label);
+  const missing = missingLabels.length > 0;
 
   const save = async () => {
     setBusy(true);
@@ -134,6 +135,7 @@ export const ConnectionModal: React.FunctionComponent<{
             </FormGroup>
           ))}
         </Form>
+        {missing && <Content component="small">Fill in {missingLabels.join(', ')} to save.</Content>}
       </ModalBody>
       <ModalFooter>
         <Button onClick={save} isDisabled={busy || name.trim() === '' || missing} isLoading={busy}>
