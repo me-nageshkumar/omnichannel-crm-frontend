@@ -3,7 +3,7 @@ import { screen, waitFor, within } from '@testing-library/react';
 import { renderApp } from '../../../test/renderApp';
 import { mockFetch, requestTo } from '../../../test/fetchMock';
 import { ACCOUNT_MANAGER, meAs, storeSession } from '../../../test/session';
-import { NO_SUBSCRIPTION, billingRoutes, plan, subscription } from '../../../test/billing';
+import { NO_SUBSCRIPTION, billingRoutes, subscription } from '../../../test/billing';
 import { rowWith, urlsOf } from '../../../test/admin';
 
 const ACME = {

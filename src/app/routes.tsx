@@ -135,6 +135,7 @@ const NAV_SECTIONS: NavEntry[][] = [
   ],
   [
     { label: 'Brands', path: '/brands' },
+    { label: 'Plan & billing', path: '/billing' },
     {
       label: 'Platform',
       links: [
