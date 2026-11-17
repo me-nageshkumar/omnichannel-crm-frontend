@@ -98,7 +98,7 @@ describe('the billing requests queue', () => {
       }),
     );
     expect(await within(dialog).findByText('Activated')).toBeVisible();
-    expect(within(dialog).getByRole('link', { name: 'INV/2026-27/000001' })).toHaveAttribute(
+    expect(within(dialog).getByRole('link', { name: 'INV/26-27/000001' })).toHaveAttribute(
       'href',
       '/platform/invoices/i1',
     );

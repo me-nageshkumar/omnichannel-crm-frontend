@@ -25,7 +25,7 @@ describe('an invoice and a credit note', () => {
       'GET /api/billing/invoices/i1': { status: 200, body: invoice() },
     });
     renderApp('/platform/invoices/i1');
-    const doc = await screen.findByRole('region', { name: 'Tax invoice INV/2026-27/000001' });
+    const doc = await screen.findByRole('region', { name: 'Tax invoice INV/26-27/000001' });
     expect(within(doc).getByText('1 Dec 2026')).toBeVisible();
     const from = within(doc).getByRole('group', { name: 'From' });
     expect(within(from).getByText('Omni Cloud Pvt Ltd')).toBeVisible();
@@ -62,7 +62,7 @@ describe('an invoice and a credit note', () => {
       },
     });
     renderApp('/platform/invoices/i1');
-    const doc = await screen.findByRole('region', { name: 'Tax invoice INV/2026-27/000001' });
+    const doc = await screen.findByRole('region', { name: 'Tax invoice INV/26-27/000001' });
     const row = (label: string) => within(doc).getByText(label).closest('tr') as HTMLElement;
     expect(within(row('IGST 18%')).getByText('₹162')).toBeVisible();
     expect(within(doc).queryByText(/CGST/)).toBeNull();
@@ -77,15 +77,15 @@ describe('an invoice and a credit note', () => {
       'GET /api/billing/credit-notes/n1': { status: 200, body: creditNote() },
     });
     renderApp('/platform/credit-notes/n1');
-    const doc = await screen.findByRole('region', { name: 'Credit note CN/2026-27/000001' });
+    const doc = await screen.findByRole('region', { name: 'Credit note CN/26-27/000001' });
     expect(within(doc).getByText('16 Dec 2026')).toBeVisible();
     // the number in the sentence is a link, so the sentence is read as a whole
     expect(
       within(doc).getByText(
-        (_text, el) => el?.tagName === 'P' && el.textContent === 'Against invoice INV/2026-27/000001 of 1 Dec 2026',
+        (_text, el) => el?.tagName === 'P' && el.textContent === 'Against invoice INV/26-27/000001 of 1 Dec 2026',
       ),
     ).toBeVisible();
-    expect(within(doc).getByRole('link', { name: 'INV/2026-27/000001' })).toHaveAttribute(
+    expect(within(doc).getByRole('link', { name: 'INV/26-27/000001' })).toHaveAttribute(
       'href',
       '/platform/invoices/i1',
     );
@@ -105,7 +105,7 @@ describe('an invoice and a credit note', () => {
     const { user } = renderApp('/platform/invoices/i1');
     await user.click(await screen.findByRole('button', { name: 'Download PDF' }));
     await waitFor(() => expect(saveBlob).toHaveBeenCalledTimes(1));
-    expect(vi.mocked(saveBlob).mock.calls[0][1]).toBe('INV-2026-27-000001.pdf');
+    expect(vi.mocked(saveBlob).mock.calls[0][1]).toBe('INV-26-27-000001.pdf');
     expect(requestTo(fetch, PDF)?.headers.get('Authorization')).toBe('Bearer stored-token');
   });
 

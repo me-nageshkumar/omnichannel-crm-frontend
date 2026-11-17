@@ -64,8 +64,8 @@ describe("a customer's orders and documents", () => {
     expect(within(await rowWith('ORD-000001')).getByText('Activated')).toBeVisible();
 
     await user.click(within(billing).getByRole('tab', { name: 'Invoices' }));
-    const inv = await rowWith('INV/2026-27/000001');
-    expect(within(inv).getByRole('link', { name: 'INV/2026-27/000001' })).toHaveAttribute(
+    const inv = await rowWith('INV/26-27/000001');
+    expect(within(inv).getByRole('link', { name: 'INV/26-27/000001' })).toHaveAttribute(
       'href',
       '/platform/invoices/i1',
     );
@@ -76,12 +76,12 @@ describe("a customer's orders and documents", () => {
     expect(within(inv).getByText('₹464.52')).toBeVisible();
 
     await user.click(within(billing).getByRole('tab', { name: 'Credit notes' }));
-    const note = await rowWith('CN/2026-27/000001');
-    expect(within(note).getByRole('link', { name: 'CN/2026-27/000001' })).toHaveAttribute(
+    const note = await rowWith('CN/26-27/000001');
+    expect(within(note).getByRole('link', { name: 'CN/26-27/000001' })).toHaveAttribute(
       'href',
       '/platform/credit-notes/n1',
     );
-    expect(within(note).getByText('INV/2026-27/000001')).toBeVisible();
+    expect(within(note).getByText('INV/26-27/000001')).toBeVisible();
     expect(within(note).getByText('₹548.13')).toBeVisible();
 
     await user.click(within(billing).getByRole('tab', { name: 'Refunds' }));
@@ -99,7 +99,7 @@ describe("a customer's orders and documents", () => {
         'GET /api/billing/orders/o2': { status: 200, body: order({ id: 'o2', number: 'ORD-000002' }) },
         'POST /api/billing/orders/o2/pay': {
           status: 200,
-          body: paidOrder({ id: 'o2', number: 'ORD-000002', invoiceNumber: 'INV/2026-27/000002', invoiceId: 'i2' }),
+          body: paidOrder({ id: 'o2', number: 'ORD-000002', invoiceNumber: 'INV/26-27/000002', invoiceId: 'i2' }),
         },
       }),
     );

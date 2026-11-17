@@ -219,7 +219,7 @@ const SettingsForm: React.FunctionComponent<{ loaded: BillingSettings }> = ({ lo
       </FormSection>
       <FormSection title="Invoices">
         {text('gstRatePercent', 'GST rate %', 'Applies to orders raised from now on', true, 'number')}
-        {text('invoicePrefix', 'Invoice prefix', 'Numbers read INV/2026-27/000001', true)}
+        {text('invoicePrefix', 'Invoice prefix', 'Numbers read INV/26-27/000001', true)}
         {text('creditNotePrefix', 'Credit note prefix', undefined, true)}
         {text('quoteValidDays', 'Quote valid days', 'How long a request waits for its payment', true, 'number')}
         {text(

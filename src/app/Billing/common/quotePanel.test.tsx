@@ -36,8 +36,8 @@ describe('the quote panel', () => {
     render(<QuotePanel quote={upgradeQuote()} pending={false} error={null} zone="Asia/Kolkata" />);
     const panel = screen.getByRole('region', { name: 'Price' });
     expect(within(row(panel, 'Total')).getByText('₹1,770')).toBeVisible();
-    expect(within(row(panel, 'Credit for unused time on INV/2026-27/000001')).getByText('₹548.13')).toBeVisible();
-    expect(within(row(panel, 'Credit for unused time on INV/2026-27/000002')).getByText('₹182.71')).toBeVisible();
+    expect(within(row(panel, 'Credit for unused time on INV/26-27/000001')).getByText('₹548.13')).toBeVisible();
+    expect(within(row(panel, 'Credit for unused time on INV/26-27/000002')).getByText('₹182.71')).toBeVisible();
     expect(within(row(panel, 'Account credit used')).getByText('₹730.84')).toBeVisible();
     expect(within(row(panel, 'Amount payable')).getByText('₹1,039.16')).toBeVisible();
     expect(within(panel).getByText('Term: 16 Dec 2026 – 15 Jan 2027')).toBeVisible();

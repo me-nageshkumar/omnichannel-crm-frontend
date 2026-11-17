@@ -270,8 +270,8 @@ export function upgradeQuote(over: Partial<Quote> = {}): Quote {
       {
         creditNoteId: 'n1',
         invoiceId: 'i1',
-        invoiceNumber: 'INV/2026-27/000001',
-        description: 'Unused value on invoice INV/2026-27/000001',
+        invoiceNumber: 'INV/26-27/000001',
+        description: 'Unused value on invoice INV/26-27/000001',
         taxable: 464.52,
         tax: { ratePercent: 18, cgst: 41.81, sgst: 41.8, igst: 0, interState: false },
         total: 548.13,
@@ -279,8 +279,8 @@ export function upgradeQuote(over: Partial<Quote> = {}): Quote {
       {
         creditNoteId: 'n2',
         invoiceId: 'i2',
-        invoiceNumber: 'INV/2026-27/000002',
-        description: 'Unused value on invoice INV/2026-27/000002',
+        invoiceNumber: 'INV/26-27/000002',
+        description: 'Unused value on invoice INV/26-27/000002',
         taxable: 154.84,
         tax: { ratePercent: 18, cgst: 13.94, sgst: 13.93, igst: 0, interState: false },
         total: 182.71,
@@ -340,7 +340,7 @@ export function paidOrder(over: Partial<Order> = {}): Order {
       recordedAt: '2026-12-01T05:00:00Z',
     },
     invoiceId: 'i1',
-    invoiceNumber: 'INV/2026-27/000001',
+    invoiceNumber: 'INV/26-27/000001',
     ...over,
   });
 }
@@ -349,7 +349,7 @@ export function paidOrder(over: Partial<Order> = {}): Order {
 export function invoice(over: Partial<Invoice> = {}): Invoice {
   return {
     id: 'i1',
-    number: 'INV/2026-27/000001',
+    number: 'INV/26-27/000001',
     issuedAt: '2026-12-01T05:00:00Z',
     orderId: 'o1',
     orderNumber: 'ORD-000001',
@@ -373,15 +373,15 @@ export function invoice(over: Partial<Invoice> = {}): Invoice {
 export function creditNote(over: Partial<CreditNote> = {}): CreditNote {
   return {
     id: 'n1',
-    number: 'CN/2026-27/000001',
+    number: 'CN/26-27/000001',
     issuedAt: '2026-12-16T05:00:00Z',
     orderId: 'o4',
     invoiceId: 'i1',
-    invoiceNumber: 'INV/2026-27/000001',
+    invoiceNumber: 'INV/26-27/000001',
     invoiceDate: '2026-12-01T05:00:00Z',
     supplier: SUPPLIER,
     customer: ACME_PARTY,
-    lines: [{ description: 'Unused value on invoice INV/2026-27/000001', amount: 464.52 }],
+    lines: [{ description: 'Unused value on invoice INV/26-27/000001', amount: 464.52 }],
     taxable: 464.52,
     tax: { ratePercent: 18, cgst: 41.81, sgst: 41.8, igst: 0, interState: false },
     total: 548.13,

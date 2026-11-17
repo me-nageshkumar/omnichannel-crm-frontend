@@ -67,7 +67,7 @@ describe('credit actions on a subscription', () => {
     const dialog = await more(user, 'Cancel add-on: Automations');
     const panel = await within(dialog).findByRole('region', { name: 'Price' });
     expect(await within(panel).findByText('Credit to the account', {}, { timeout: 3000 })).toBeVisible();
-    expect(within(panel).getByText('Credit for unused time on INV/2026-27/000002')).toBeVisible();
+    expect(within(panel).getByText('Credit for unused time on INV/26-27/000002')).toBeVisible();
     expect(requestTo(fetch, `POST ${BASE}/cancellations/quote`)?.body).toEqual({ addOnId: 'a1' });
 
     await user.type(within(dialog).getByLabelText(/^Credit a different taxable amount/), '203.23');

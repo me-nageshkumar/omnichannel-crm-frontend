@@ -123,7 +123,7 @@ describe('billing api', () => {
   });
 
   it('names a PDF after its document and serves it from the right side', () => {
-    expect(pdfFileName('INV/2026-27/000001')).toBe('INV-2026-27-000001.pdf');
+    expect(pdfFileName('INV/26-27/000001')).toBe('INV-26-27-000001.pdf');
     expect(invoicePdfPath('i1', false)).toBe('/api/billing/invoices/i1/pdf');
     expect(invoicePdfPath('i1', true)).toBe('/api/my/billing/invoices/i1/pdf');
     expect(creditNotePdfPath('n1', true)).toBe('/api/my/billing/credit-notes/n1/pdf');
