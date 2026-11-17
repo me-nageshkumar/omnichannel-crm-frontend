@@ -39,6 +39,7 @@ import { useAction } from '@app/admin/useAction';
 import { upsert, useLoad } from '@app/admin/useLoad';
 import { CrmSwitchModal, useCrmSwitches } from '@app/Crm/platform/CrmSwitchModal';
 import { useSession } from '@app/session/SessionContext';
+import { BillingProfileCard } from '@app/Billing/platform/BillingProfileCard';
 import { SubscriptionCard } from '@app/Billing/platform/SubscriptionCard';
 import { useAccess } from '@app/session/useAccess';
 
@@ -169,6 +170,11 @@ export const CustomerDetailPage: React.FunctionComponent = () => {
         {canSeePlan && (
           <StackItem>
             <SubscriptionCard customerId={customer.id} />
+          </StackItem>
+        )}
+        {canSeePlan && (
+          <StackItem>
+            <BillingProfileCard customerId={customer.id} />
           </StackItem>
         )}
         <StackItem>
