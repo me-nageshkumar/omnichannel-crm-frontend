@@ -46,7 +46,7 @@ export interface AiConnection {
   version: number | null;
 }
 
-/** `apiKey` sets or replaces the key; leave it out to keep the stored one. `settings` replace the stored ones. */
+/** `apiKey` sets or replaces the key; leave it out to keep the stored one. `settings` are always sent: `{}` clears the stored ones. */
 export interface AiConnectionSave {
   name: string;
   provider: string;
