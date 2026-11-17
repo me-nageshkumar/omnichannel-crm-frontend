@@ -4,7 +4,7 @@ import userEvent from '@testing-library/user-event';
 import { renderApp } from '../../test/renderApp';
 import { callsTo, mockFetch, requestTo } from '../../test/fetchMock';
 import { WORKSPACE_MANAGER, meAs, storeSession } from '../../test/session';
-import { AI_BASE, CONNECTION, PROFILE, SCRIPTED_CONNECTION, aiRoutes } from '../../test/ai';
+import { AI_BASE, CONNECTION, PROFILE, PROVIDERS, SCRIPTED_CONNECTION, aiRoutes } from '../../test/ai';
 
 type User = ReturnType<typeof userEvent.setup>;
 
@@ -70,6 +70,54 @@ describe('AI page — profiles', () => {
       within(within(dialog).getByLabelText('Server 1 connect by')).getByRole('option', { name: 'Provider' }),
     ).toBeDisabled();
     expect(within(dialog).getByText('Scripted cannot connect to MCP servers itself.')).toBeVisible();
+  });
+
+  it('effortOptionsComeFromTheProvider', async () => {
+    const user = userEvent.setup();
+    const providers = [
+      { ...PROVIDERS[0], capabilities: { ...PROVIDERS[0].capabilities, reasoningEfforts: ['fast', 'deep'] } },
+      PROVIDERS[1],
+    ];
+    const fetch = await openProfiles({
+      [`GET ${AI_BASE}/providers`]: { status: 200, body: providers },
+      [`PUT ${AI_BASE}/profiles/p1`]: { status: 200, body: PROFILE },
+    });
+    const dialog = await editSales(user);
+    const effort = within(dialog).getByLabelText('Reasoning effort');
+    expect(
+      within(effort)
+        .getAllByRole('option')
+        .map((o) => (o as HTMLOptionElement).value),
+    ).toEqual(['', 'fast', 'deep']);
+    await user.selectOptions(effort, 'deep');
+    await user.click(within(dialog).getByRole('button', { name: 'Save' }));
+    await waitFor(() => expect(requestTo(fetch, `PUT ${AI_BASE}/profiles/p1`)).toBeDefined());
+    expect(requestTo(fetch, `PUT ${AI_BASE}/profiles/p1`)?.body).toMatchObject({ reasoningEffort: 'deep' });
+  });
+
+  it('noEffortSelectWhenTheProviderListsNone', async () => {
+    const user = userEvent.setup();
+    const fetch = await openProfiles({
+      [`GET ${AI_BASE}/profiles`]: { status: 200, body: [{ ...PROFILE, reasoningEffort: 'low' }] },
+      [`PUT ${AI_BASE}/profiles/p1`]: { status: 200, body: PROFILE },
+    });
+    const dialog = await editSales(user);
+    expect(within(dialog).getByLabelText('Reasoning effort')).toHaveValue('low');
+    await user.selectOptions(within(dialog).getByLabelText(/^Connection/), 'k2');
+    expect(within(dialog).queryByLabelText('Reasoning effort')).toBeNull();
+    // the hidden value is not sent to a provider that takes none
+    await user.click(within(dialog).getByRole('button', { name: 'Save' }));
+    await waitFor(() => expect(requestTo(fetch, `PUT ${AI_BASE}/profiles/p1`)).toBeDefined());
+    expect(requestTo(fetch, `PUT ${AI_BASE}/profiles/p1`)?.body).toMatchObject({ reasoningEffort: null });
+  });
+
+  it('storedEffortOutsideTheListStaysVisible', async () => {
+    const user = userEvent.setup();
+    await openProfiles({
+      [`GET ${AI_BASE}/profiles`]: { status: 200, body: [{ ...PROFILE, reasoningEffort: 'turbo' }] },
+    });
+    const dialog = await editSales(user);
+    expect(within(dialog).getByLabelText('Reasoning effort')).toHaveValue('turbo');
   });
 
   it('modelListedWithFreeText', async () => {

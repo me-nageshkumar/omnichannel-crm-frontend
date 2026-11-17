@@ -40,8 +40,8 @@ describe('ai api', () => {
     expect(await listAiProviders('tok', 'w1')).toEqual(PROVIDERS);
     expect(await listAiConnections('tok', 'w1')).toEqual([CONNECTION]);
     expect((await getAiConnection('tok', 'w1', 'k1')).keyHint).toBe('sk-…a91F');
-    await createAiConnection('tok', 'w1', { name: 'Main', provider: 'openai', apiKey: 'sk-new' });
-    await saveAiConnection('tok', 'w1', 'k1', { name: 'Main', provider: 'openai', version: 0 });
+    await createAiConnection('tok', 'w1', { name: 'Main', provider: 'openai', apiKey: 'sk-new', settings: {} });
+    await saveAiConnection('tok', 'w1', 'k1', { name: 'Main', provider: 'openai', settings: {}, version: 0 });
     await deleteAiConnection('tok', 'w1', 'k1');
     await verifyAiConnection('tok', 'w1', 'k1');
     expect(await listAiModels('tok', 'w1', 'k1')).toEqual([{ id: 'gpt-5' }, { id: 'gpt-5-mini' }]);
@@ -57,14 +57,24 @@ describe('ai api', () => {
       name: 'Main',
       provider: 'openai',
       apiKey: 'sk-new',
+      settings: {},
     });
     expect(requestTo(fetch, `GET ${AI_BASE}/providers`)?.headers.get('Authorization')).toBe('Bearer tok');
   });
 
   it('saveWithoutAKeyOmitsIt', async () => {
     const fetch = mockFetch({ [`PUT ${AI_BASE}/connections/k1`]: { status: 200, body: CONNECTION } });
-    await saveAiConnection('tok', 'w1', 'k1', { name: 'Renamed', provider: 'openai', apiKey: undefined, version: 0 });
-    expect(requestTo(fetch, `PUT ${AI_BASE}/connections/k1`)?.body).not.toHaveProperty('apiKey');
+    await saveAiConnection('tok', 'w1', 'k1', {
+      name: 'Renamed',
+      provider: 'openai',
+      apiKey: undefined,
+      settings: {},
+      version: 0,
+    });
+    const body = requestTo(fetch, `PUT ${AI_BASE}/connections/k1`)?.body;
+    expect(body).not.toHaveProperty('apiKey');
+    // an empty settings object is still sent: it is how a cleared field is saved
+    expect(body).toHaveProperty('settings', {});
   });
 
   it('profileInUseIsAnApiErrorWithItsCode', async () => {

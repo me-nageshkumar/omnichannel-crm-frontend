@@ -15,8 +15,10 @@ export function profileProblems(save: AiProfileSave, caps: AiCapabilities | null
   });
   if (save.vectorStoreIds.length > 0 && !caps.vectorStores) out.vectorStoreIds = 'This provider has no vector stores';
   if (save.temperature != null && !caps.temperature) out.temperature = 'This provider does not take a temperature';
-  if (save.reasoningEffort != null && save.reasoningEffort !== '' && !caps.reasoningEffort) {
-    out.reasoningEffort = 'This provider does not take a reasoning effort';
+  if (save.reasoningEffort != null && save.reasoningEffort !== '') {
+    const efforts = caps.reasoningEfforts ?? [];
+    if (efforts.length === 0) out.reasoningEffort = 'This provider does not take a reasoning effort';
+    else if (!efforts.includes(save.reasoningEffort)) out.reasoningEffort = `must be one of ${efforts.join(', ')}`;
   }
   if (save.webSearch && !caps.webSearch) out.webSearch = 'This provider has no web search';
   return out;

@@ -34,18 +34,27 @@ export const ConnectionModal: React.FunctionComponent<{
   const [provider, setProvider] = React.useState(connection?.provider ?? providers[0]?.id ?? '');
   const [name, setName] = React.useState(connection?.name ?? '');
   const [apiKey, setApiKey] = React.useState('');
+  const [settings, setSettings] = React.useState<Record<string, string>>(connection?.settings ?? {});
   const [busy, setBusy] = React.useState(false);
   const [error, setError] = React.useState<string | null>(null);
   const [fields, setFields] = React.useState<Record<string, string>>({});
   // A new provider needs a new key: the stored one belongs to the old provider.
   const keyHint = connection && provider === connection.provider ? connection.keyHint : null;
+  // The plain settings the selected provider declares; values typed for another provider are kept but not sent.
+  const declared = providers.find((p) => p.id === provider)?.connectionFields ?? [];
+  const sent: Record<string, string> = {};
+  for (const f of declared) {
+    const v = (settings[f.key] ?? '').trim();
+    if (v !== '') sent[f.key] = v;
+  }
+  const missing = declared.some((f) => f.required && !(f.key in sent));
 
   const save = async () => {
     setBusy(true);
     setError(null);
     setFields({});
     try {
-      const body = { name: name.trim(), provider, apiKey: apiKey === '' ? undefined : apiKey };
+      const body = { name: name.trim(), provider, apiKey: apiKey === '' ? undefined : apiKey, settings: sent };
       const saved = connection
         ? await saveAiConnection(token as string, ws, connection.id, { ...body, version: connection.version })
         : await createAiConnection(token as string, ws, body);
@@ -104,10 +113,30 @@ export const ConnectionModal: React.FunctionComponent<{
             isRequired
             error={fields.apiKey}
           />
+          {declared.map((f) => (
+            <FormGroup key={f.key} label={f.label} fieldId={`ai-connection-setting-${f.key}`} isRequired={f.required}>
+              <TextInput
+                id={`ai-connection-setting-${f.key}`}
+                type="text"
+                isRequired={f.required}
+                value={settings[f.key] ?? ''}
+                validated={fields[`settings.${f.key}`] ? 'error' : 'default'}
+                onChange={(_e, v) => setSettings((cur) => ({ ...cur, [f.key]: v }))}
+              />
+              {f.help && (
+                <FormHelperText>
+                  <HelperText>
+                    <HelperTextItem>{f.help}</HelperTextItem>
+                  </HelperText>
+                </FormHelperText>
+              )}
+              <FieldError error={fields[`settings.${f.key}`]} />
+            </FormGroup>
+          ))}
         </Form>
       </ModalBody>
       <ModalFooter>
-        <Button onClick={save} isDisabled={busy || name.trim() === ''} isLoading={busy}>
+        <Button onClick={save} isDisabled={busy || name.trim() === '' || missing} isLoading={busy}>
           Save
         </Button>
         <Button variant="link" onClick={onClose}>

@@ -56,6 +56,12 @@ describe('profileProblems', () => {
     });
   });
 
+  it('reasoningEffortMustBeOneTheProviderLists', () => {
+    expect(profileProblems({ ...BASE, reasoningEffort: 'turbo' }, OPENAI_CAPS)).toEqual({
+      reasoningEffort: 'must be one of minimal, low, medium, high',
+    });
+  });
+
   it('reasoningEffortNeedsTheCapability', () => {
     expect(profileProblems({ ...BASE, reasoningEffort: 'high' }, SCRIPTED_CAPS)).toEqual({
       reasoningEffort: 'This provider does not take a reasoning effort',

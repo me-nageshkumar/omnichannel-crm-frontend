@@ -65,12 +65,20 @@ async function open(
     flow,
     problems = [],
     profile = PROFILE,
-  }: { user?: CurrentUser; options?: ChatbotOptions; flow?: SavedFlow; problems?: Problem[]; profile?: unknown } = {},
+    providers = PROVIDERS,
+  }: {
+    user?: CurrentUser;
+    options?: ChatbotOptions;
+    flow?: SavedFlow;
+    problems?: Problem[];
+    profile?: unknown;
+    providers?: unknown;
+  } = {},
 ) {
   cleanup();
   const fetch = mockFetch({
     ...meAs(user),
-    [`GET ${AI_BASE}/providers`]: { status: 200, body: PROVIDERS },
+    [`GET ${AI_BASE}/providers`]: { status: 200, body: providers },
     [`GET ${AI_BASE}/profiles/p1`]: { status: 200, body: profile },
   });
   const onChange = vi.fn();
@@ -214,6 +222,35 @@ describe('AI node fields', () => {
     await open(aiNode({ profileId: 'p1' }));
     await userEvent.setup().click(screen.getByRole('button', { name: 'Advanced' }));
     expect(await screen.findByLabelText('Temperature override')).toBeVisible();
+  });
+
+  it('effortOverrideOptionsComeFromTheProvider', async () => {
+    const providers = [
+      { ...PROVIDERS[0], capabilities: { ...PROVIDERS[0].capabilities, reasoningEfforts: ['fast', 'deep'] } },
+      PROVIDERS[1],
+    ];
+    const { onChange, user } = await open(aiNode(), { providers });
+    await user.click(screen.getByRole('button', { name: 'Advanced' }));
+    const effort = await screen.findByLabelText('Reasoning effort override');
+    await waitFor(() =>
+      expect(
+        within(effort)
+          .getAllByRole('option')
+          .map((o) => (o as HTMLOptionElement).value),
+      ).toEqual(['', 'fast', 'deep']),
+    );
+    await user.selectOptions(effort, 'deep');
+    expect(last(onChange)).toMatchObject({ overrides: { reasoningEffort: 'deep' } });
+  });
+
+  it('storedEffortOverrideStaysVisibleWhenTheProviderListsNone', async () => {
+    const { onChange, user } = await open(aiNode({ profileId: 'p2', overrides: { reasoningEffort: 'low' } }));
+    await user.click(screen.getByRole('button', { name: 'Advanced' }));
+    const effort = await screen.findByLabelText('Reasoning effort override');
+    expect(effort).toHaveValue('low');
+    await user.selectOptions(effort, '');
+    expect((last(onChange).overrides as Record<string, unknown>).reasoningEffort ?? null).toBeNull();
+    await waitFor(() => expect(screen.queryByLabelText('Reasoning effort override')).toBeNull());
   });
 
   it('jsonSchemaInvalidShowsError', async () => {
