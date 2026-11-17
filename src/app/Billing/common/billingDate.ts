@@ -44,3 +44,10 @@ export function localDateIn(iso: string, zone: string): string {
   const d = new Date(iso);
   return Number.isNaN(d.getTime()) ? '' : todayIn(zone, d);
 }
+
+/** An ISO local date moved by whole days: "2026-12-31" plus 1 is "2027-01-01". Empty for something that is no date. */
+export function shiftDay(isoDate: string, days: number): string {
+  const d = new Date(`${isoDate}T00:00:00Z`);
+  if (Number.isNaN(d.getTime())) return '';
+  return new Date(d.getTime() + days * DAY_MS).toISOString().slice(0, 10);
+}

@@ -10,9 +10,13 @@ import {
   DescriptionListDescription,
   DescriptionListGroup,
   DescriptionListTerm,
+  Dropdown,
+  DropdownItem,
+  DropdownList,
   Flex,
   FlexItem,
   Label,
+  MenuToggle,
   Spinner,
 } from '@patternfly/react-core';
 import {
@@ -30,10 +34,18 @@ import { IncludedGroups } from '@app/Billing/common/IncludedGroups';
 import { LimitsTable } from '@app/Billing/common/LimitsTable';
 import { stateText, termText } from '@app/Billing/common/planDates';
 import { StateLabel } from '@app/Billing/common/StateLabel';
+import { AdjustDialog } from '@app/Billing/platform/AdjustDialog';
 import { BillingHistoryModal } from '@app/Billing/platform/BillingHistoryModal';
+import { CancelDialog } from '@app/Billing/platform/CancelDialog';
 import { OrderDialog, type StaffOrderKind } from '@app/Billing/platform/OrderDialog';
+import { RefundDialog } from '@app/Billing/platform/RefundDialog';
 
-type Dialog = 'history' | StaffOrderKind;
+type Dialog =
+  | { kind: 'history' }
+  | { kind: 'order'; order: StaffOrderKind }
+  | { kind: 'cancel'; addOn: { id: string; label: string } | null }
+  | { kind: 'adjust'; mode: 'termEnd' | 'credit' }
+  | { kind: 'refund' };
 
 /** A customer's plan on its page, for platform staff: what it is on, until when, and what it uses. */
 export const SubscriptionCard: React.FunctionComponent<{
@@ -43,12 +55,24 @@ export const SubscriptionCard: React.FunctionComponent<{
   onChanged?(): void;
 }> = ({ customerId, reloadKey = 0, onChanged }) => {
   const canManage = useAccess().has('subscription:manage');
+  const canRefund = useAccess().has('refund:manage');
+  const [moreOpen, setMoreOpen] = React.useState(false);
   const subscription = useLoad((t) => getCustomerSubscription(t, customerId), [customerId, reloadKey], {
     keepOnError: true,
   });
   const [dialog, setDialog] = React.useState<Dialog | null>(null);
   const [raised, setRaised] = React.useState<Order | null>(null);
   const s: Subscription | undefined = subscription.data;
+  /** Something changed the customer's billing: close the dialog and let the page load it again. */
+  const done = () => {
+    setDialog(null);
+    if (onChanged) onChanged();
+    else subscription.reload();
+  };
+  const addOnLabel = (a: Subscription['addOns'][number]) =>
+    a.kind === 'GROUP'
+      ? (s?.groups.filter((g) => g.code === a.groupCode)[0]?.name ?? a.groupCode ?? '')
+      : `${a.quantity} extra ${s?.limits.filter((l) => l.key === a.limitKey)[0]?.label ?? a.limitKey}`;
   // what can be asked for depends on where the plan stands; the server has the last word
   const ended = !!s && (s.state === 'EXPIRED' || s.cancelled);
   const actions: { kind: StaffOrderKind; label: string }[] =
@@ -61,6 +85,27 @@ export const SubscriptionCard: React.FunctionComponent<{
           ...(s.plan && s.state === 'ACTIVE' ? [{ kind: 'ADDON' as const, label: 'Add add-on' }] : []),
         ];
 
+  // what moves money needs the right to refund; moving a date needs only the right to manage subscriptions
+  const running = !!s && !!s.plan && !ended;
+  const more: { label: string; dialog: Dialog }[] = !s
+    ? []
+    : [
+        ...(canManage && running
+          ? [{ label: 'Extend term', dialog: { kind: 'adjust' as const, mode: 'termEnd' as const } }]
+          : []),
+        ...(canRefund && running
+          ? s.addOns.map((a) => ({
+              label: `Cancel add-on: ${addOnLabel(a)}`,
+              dialog: { kind: 'cancel' as const, addOn: { id: a.id, label: addOnLabel(a) } },
+            }))
+          : []),
+        ...(canRefund && running ? [{ label: 'Cancel plan', dialog: { kind: 'cancel' as const, addOn: null } }] : []),
+        ...(canRefund && s.plan
+          ? [{ label: 'Post account credit', dialog: { kind: 'adjust' as const, mode: 'credit' as const } }]
+          : []),
+        ...(canRefund && s.creditBalance > 0 ? [{ label: 'Record refund', dialog: { kind: 'refund' as const } }] : []),
+      ];
+
   return (
     <Card component="section" aria-label="Subscription">
       <CardHeader
@@ -69,13 +114,41 @@ export const SubscriptionCard: React.FunctionComponent<{
             <Flex gap={{ default: 'gapSm' }}>
               {actions.map((a) => (
                 <FlexItem key={a.kind}>
-                  <Button variant="secondary" onClick={() => setDialog(a.kind)}>
+                  <Button variant="secondary" onClick={() => setDialog({ kind: 'order', order: a.kind })}>
                     {a.label}
                   </Button>
                 </FlexItem>
               ))}
+              {more.length > 0 && (
+                <FlexItem>
+                  <Dropdown
+                    isOpen={moreOpen}
+                    onOpenChange={setMoreOpen}
+                    popperProps={{ position: 'right' }}
+                    toggle={(ref) => (
+                      <MenuToggle ref={ref} isExpanded={moreOpen} onClick={() => setMoreOpen((o) => !o)}>
+                        More
+                      </MenuToggle>
+                    )}
+                  >
+                    <DropdownList>
+                      {more.map((m) => (
+                        <DropdownItem
+                          key={m.label}
+                          onClick={() => {
+                            setMoreOpen(false);
+                            setDialog(m.dialog);
+                          }}
+                        >
+                          {m.label}
+                        </DropdownItem>
+                      ))}
+                    </DropdownList>
+                  </Dropdown>
+                </FlexItem>
+              )}
               <FlexItem>
-                <Button variant="link" onClick={() => setDialog('history')}>
+                <Button variant="link" onClick={() => setDialog({ kind: 'history' })}>
                   History
                 </Button>
               </FlexItem>
@@ -147,21 +220,45 @@ export const SubscriptionCard: React.FunctionComponent<{
           </>
         )}
       </CardBody>
-      {dialog && dialog !== 'history' && s && (
+      {dialog?.kind === 'order' && s && (
         <OrderDialog
           customerId={customerId}
           subscription={s}
-          kind={dialog}
+          kind={dialog.order}
           onRaised={(order) => {
             setRaised(order);
-            setDialog(null);
-            if (onChanged) onChanged();
-            else subscription.reload();
+            done();
           }}
           onCancel={() => setDialog(null)}
         />
       )}
-      {dialog === 'history' && (
+      {dialog?.kind === 'cancel' && s && (
+        <CancelDialog
+          customerId={customerId}
+          zone={s.zone}
+          addOn={dialog.addOn}
+          onDone={done}
+          onCancel={() => setDialog(null)}
+        />
+      )}
+      {dialog?.kind === 'adjust' && s && (
+        <AdjustDialog
+          customerId={customerId}
+          subscription={s}
+          mode={dialog.mode}
+          onDone={done}
+          onCancel={() => setDialog(null)}
+        />
+      )}
+      {dialog?.kind === 'refund' && s && (
+        <RefundDialog
+          customerId={customerId}
+          creditBalance={s.creditBalance}
+          onDone={done}
+          onCancel={() => setDialog(null)}
+        />
+      )}
+      {dialog?.kind === 'history' && (
         <BillingHistoryModal
           title="Subscription history"
           load={(t) => customerSubscriptionEvents(t, customerId)}

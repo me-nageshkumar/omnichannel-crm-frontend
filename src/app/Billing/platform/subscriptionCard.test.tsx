@@ -95,7 +95,7 @@ describe("a customer's subscription", () => {
     const first = renderApp('/customers/c1');
     let card = await screen.findByRole('region', { name: 'Subscription' });
     await within(card).findByText('Gold');
-    expect(names(card)).toEqual(['Change plan', 'Renew', 'Add add-on', 'History']);
+    expect(names(card)).toEqual(['Change plan', 'Renew', 'Add add-on', 'More', 'History']);
     first.unmount();
 
     vi.unstubAllGlobals();
