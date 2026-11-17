@@ -51,3 +51,22 @@ export function shiftDay(isoDate: string, days: number): string {
   if (Number.isNaN(d.getTime())) return '';
   return new Date(d.getTime() + days * DAY_MS).toISOString().slice(0, 10);
 }
+
+/** A moment as "8 Dec 2026, 10:30 am" in the billing zone: for something that lapses at a time, not at a day's end. */
+export function billingDateTime(iso: string, zone: string): string {
+  const d = new Date(iso);
+  if (Number.isNaN(d.getTime())) return iso;
+  const options: Intl.DateTimeFormatOptions = {
+    day: 'numeric',
+    month: 'short',
+    year: 'numeric',
+    hour: 'numeric',
+    minute: '2-digit',
+    hour12: true,
+  };
+  try {
+    return new Intl.DateTimeFormat('en-GB', { ...options, timeZone: zone }).format(d);
+  } catch {
+    return new Intl.DateTimeFormat('en-GB', { ...options, timeZone: 'UTC' }).format(d);
+  }
+}

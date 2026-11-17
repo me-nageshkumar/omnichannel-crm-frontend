@@ -367,6 +367,7 @@ export function invoice(over: Partial<Invoice> = {}): Invoice {
     amountPaid: 1062,
     payment: paidOrder().payment,
     credited: 0,
+    hasPdf: true,
     ...over,
   };
 }
@@ -389,6 +390,7 @@ export function creditNote(over: Partial<CreditNote> = {}): CreditNote {
     total: 548.13,
     totalInWords: 'Rupees Five Hundred Forty-Eight and Thirteen Paise Only',
     reason: 'Unused time on upgrade',
+    hasPdf: true,
     ...over,
   };
 }

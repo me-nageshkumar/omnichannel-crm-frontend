@@ -12,8 +12,10 @@ const STATUS: Record<Refund['status'], string> = {
 };
 
 /** Account credit paid back to the customer, newest first. */
-export const RefundsTable: React.FunctionComponent<{ refunds: Refund[] }> = ({ refunds }) =>
-  refunds.length === 0 ? (
+export const RefundsTable: React.FunctionComponent<{ refunds: Refund[] }> = ({ refunds }) => {
+  // a customer is not told which member of staff recorded it
+  const named = refunds.some((r) => !!r.recordedByName);
+  return refunds.length === 0 ? (
     <p>No refunds yet.</p>
   ) : (
     <Table aria-label="Refunds" variant="compact">
@@ -24,7 +26,7 @@ export const RefundsTable: React.FunctionComponent<{ refunds: Refund[] }> = ({ r
           <Th>Paid by</Th>
           <Th>Reference</Th>
           <Th>Paid on</Th>
-          <Th>Recorded by</Th>
+          {named && <Th>Recorded by</Th>}
           <Th>Status</Th>
         </Tr>
       </Thead>
@@ -36,10 +38,11 @@ export const RefundsTable: React.FunctionComponent<{ refunds: Refund[] }> = ({ r
             <Td dataLabel="Paid by">{METHOD_LABEL[r.method]}</Td>
             <Td dataLabel="Reference">{r.reference}</Td>
             <Td dataLabel="Paid on">{billingDate(r.paidOn, 'UTC')}</Td>
-            <Td dataLabel="Recorded by">{r.recordedByName}</Td>
+            {named && <Td dataLabel="Recorded by">{r.recordedByName}</Td>}
             <Td dataLabel="Status">{STATUS[r.status]}</Td>
           </Tr>
         ))}
       </Tbody>
     </Table>
   );
+};

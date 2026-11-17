@@ -70,9 +70,9 @@ describe("a customer's orders and documents", () => {
       '/platform/invoices/i1',
     );
     expect(within(inv).getByText('1 Dec 2026')).toBeVisible();
-    expect(within(inv).getByText('₹900')).toBeVisible();
-    expect(within(inv).getByText('CGST ₹81 + SGST ₹81')).toBeVisible();
-    expect(within(inv).getByText('₹1,062')).toBeVisible();
+    expect(within(inv).getByText('₹900.00')).toBeVisible();
+    expect(within(inv).getByText('CGST ₹81.00 + SGST ₹81.00')).toBeVisible();
+    expect(within(inv).getByText('₹1,062.00')).toBeVisible();
     expect(within(inv).getByText('₹464.52')).toBeVisible();
 
     await user.click(within(billing).getByRole('tab', { name: 'Credit notes' }));

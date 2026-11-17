@@ -204,4 +204,19 @@ describe('credit actions on a subscription', () => {
     const items = (await screen.findAllByRole('menuitem')).map((i) => i.textContent);
     expect(items).toEqual(['Extend term']);
   });
+
+  it('does not offer a credit posting to someone the server would refuse', async () => {
+    // may refund, may not manage subscriptions: the server wants both for a posting
+    const refunder = {
+      ...SUPER_ADMIN,
+      authorities: SUPER_ADMIN.authorities.filter((a) => a !== 'subscription:manage'),
+    };
+    mockFetch(routes({}, refunder));
+    const { user } = renderApp('/customers/c1');
+    const card = await screen.findByRole('region', { name: 'Subscription' });
+    await user.click(await within(card).findByRole('button', { name: 'More' }));
+    const items = (await screen.findAllByRole('menuitem')).map((i) => i.textContent);
+    expect(items).not.toContain('Post account credit');
+    expect(items).toContain('Record refund');
+  });
 });

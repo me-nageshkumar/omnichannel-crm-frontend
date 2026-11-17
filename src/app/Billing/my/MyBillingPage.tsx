@@ -161,6 +161,15 @@ export const MyBillingPage: React.FunctionComponent = () => {
                       </DescriptionListGroup>
                     )}
                   </DescriptionList>
+                  {s.cancelled && (
+                    <Alert
+                      variant="warning"
+                      isInline
+                      isPlain
+                      className="pf-v6-u-mt-md"
+                      title="Your plan was cancelled. Ask your account manager for a new plan."
+                    />
+                  )}
                   {canRequest && o && (
                     <Flex
                       gap={{ default: 'gapSm' }}
@@ -172,6 +181,7 @@ export const MyBillingPage: React.FunctionComponent = () => {
                           <Button
                             variant="primary"
                             isDisabled={!o.renewal.allowed}
+                            aria-describedby={o.renewal.allowed ? undefined : 'renewal-reason'}
                             onClick={() => setDialog({ kind: 'RENEWAL' })}
                           >
                             Renew
@@ -188,7 +198,7 @@ export const MyBillingPage: React.FunctionComponent = () => {
                       {!s.cancelled && !s.next && !o.renewal.allowed && o.renewal.reason && (
                         <FlexItem>
                           <HelperText>
-                            <HelperTextItem>{o.renewal.reason}</HelperTextItem>
+                            <HelperTextItem id="renewal-reason">{o.renewal.reason}</HelperTextItem>
                           </HelperText>
                         </FlexItem>
                       )}

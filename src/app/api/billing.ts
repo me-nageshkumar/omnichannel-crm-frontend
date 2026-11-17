@@ -240,7 +240,8 @@ export interface Payment {
   reference: string | null;
   receivedOn: string | null;
   note: string | null;
-  recordedByName: string;
+  /** Null in what a customer is sent. */
+  recordedByName: string | null;
   recordedAt: string;
 }
 
@@ -250,7 +251,8 @@ export interface Order extends Quote {
   customerId: string;
   customerName: string;
   status: OrderStatus;
-  raisedBy: string;
+  /** Null in what a customer is sent. */
+  raisedBy: string | null;
   raisedByName: string;
   raisedByStaff: boolean;
   raisedAt: string;
@@ -321,6 +323,7 @@ export interface Invoice {
   payment: Payment | null;
   /** The taxable value credit notes have given back on this invoice. */
   credited: number;
+  hasPdf: boolean;
 }
 
 export interface CreditNote {
@@ -339,6 +342,7 @@ export interface CreditNote {
   total: number;
   totalInWords: string;
   reason: string | null;
+  hasPdf: boolean;
 }
 
 export interface Refund {
@@ -349,7 +353,8 @@ export interface Refund {
   reference: string;
   paidOn: string;
   note: string | null;
-  recordedByName: string;
+  /** Null in what a customer is sent. */
+  recordedByName: string | null;
   recordedAt: string;
   status: 'RECORDING' | 'RECORDED' | 'FAILED';
 }
@@ -520,6 +525,10 @@ export const putBillingProfile = (token: string, customerId: string, body: Billi
   apiFetch<BillingProfile>(`${customerOf(customerId)}/billing-profile`, { method: 'PUT', token, body });
 
 /** What the request would cost now. Nothing is stored. */
+/** What the customer may be sold now, on the terms its term was sold under. */
+export const getCustomerOptions = (token: string, customerId: string) =>
+  apiFetch<BillingOptions>(`${customerOf(customerId)}/options`, { token });
+
 export const quoteFor = (token: string, customerId: string, body: QuoteRequest) =>
   apiFetch<Quote>(`${customerOf(customerId)}/quotes`, { method: 'POST', token, body });
 

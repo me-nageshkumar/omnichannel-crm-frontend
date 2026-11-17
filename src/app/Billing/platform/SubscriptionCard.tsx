@@ -30,6 +30,7 @@ import { useLoad } from '@app/admin/useLoad';
 import { formatMoney } from '@app/Crm/common/money';
 import { useAccess } from '@app/session/useAccess';
 import { billingDate } from '@app/Billing/common/billingDate';
+import { inr } from '@app/Billing/common/money';
 import { IncludedGroups } from '@app/Billing/common/IncludedGroups';
 import { LimitsTable } from '@app/Billing/common/LimitsTable';
 import { stateText, termText } from '@app/Billing/common/planDates';
@@ -100,7 +101,7 @@ export const SubscriptionCard: React.FunctionComponent<{
             }))
           : []),
         ...(canRefund && running ? [{ label: 'Cancel plan', dialog: { kind: 'cancel' as const, addOn: null } }] : []),
-        ...(canRefund && s.plan
+        ...(canRefund && canManage && s.plan
           ? [{ label: 'Post account credit', dialog: { kind: 'adjust' as const, mode: 'credit' as const } }]
           : []),
         ...(canRefund && s.creditBalance > 0 ? [{ label: 'Record refund', dialog: { kind: 'refund' as const } }] : []),
@@ -132,9 +133,9 @@ export const SubscriptionCard: React.FunctionComponent<{
                     )}
                   >
                     <DropdownList>
-                      {more.map((m) => (
+                      {more.map((m, i) => (
                         <DropdownItem
-                          key={m.label}
+                          key={`${i}:${m.label}`}
                           onClick={() => {
                             setMoreOpen(false);
                             setDialog(m.dialog);
@@ -164,7 +165,7 @@ export const SubscriptionCard: React.FunctionComponent<{
           <Alert
             variant="success"
             isInline
-            title={`Order ${raised.number} was raised. It takes effect when its payment is recorded.`}
+            title={`Order ${raised.number} was raised for ${inr(raised.payable)}. It takes effect when its payment is recorded.`}
           />
         )}
         {!s && !subscription.error && <Spinner aria-label="Loading subscription" />}
@@ -203,7 +204,7 @@ export const SubscriptionCard: React.FunctionComponent<{
                 <DescriptionListGroup>
                   <DescriptionListTerm>Renewed</DescriptionListTerm>
                   <DescriptionListDescription>
-                    {s.next.planName}, from {billingDate(s.next.termStart, s.zone)} to{' '}
+                    {s.next.planName ?? 'The plan'}, from {billingDate(s.next.termStart, s.zone)} to{' '}
                     {billingDate(s.next.termEnd, s.zone, 1)}
                   </DescriptionListDescription>
                 </DescriptionListGroup>

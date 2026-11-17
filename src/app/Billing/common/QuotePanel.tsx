@@ -1,11 +1,11 @@
 import * as React from 'react';
 import { Alert, Content, Spinner } from '@patternfly/react-core';
 import { Table, Tbody, Td, Tr } from '@patternfly/react-table';
-import type { Quote, Tax } from '@app/api/billing';
-import { formatMoney } from '@app/Crm/common/money';
-import { billingDate } from '@app/Billing/common/billingDate';
+import type { OrderStatus, Quote, Tax } from '@app/api/billing';
+import { billingDate, billingDateTime } from '@app/Billing/common/billingDate';
+import { inr } from '@app/Billing/common/money';
 
-const money = (amount: number) => formatMoney(amount, 'INR');
+const money = inr;
 
 /** "9%" from a rate: the label of half of GST, never an amount. */
 const percent = (rate: number) => `${rate}%`;
@@ -39,7 +39,7 @@ const Row: React.FunctionComponent<{ label: React.ReactNode; strong?: boolean; c
  */
 export const QuotePanel: React.FunctionComponent<{
   /** A quote, or an order (which also says what an adjustment did). */
-  quote: (Quote & { creditPosting?: number | null; newTermEnd?: string | null }) | null;
+  quote: (Quote & { creditPosting?: number | null; newTermEnd?: string | null; status?: OrderStatus }) | null;
   pending: boolean;
   error: string | null;
   /** The billing zone, for the term's dates. */
@@ -65,7 +65,8 @@ export const QuotePanel: React.FunctionComponent<{
                 <Row key={i} label={line.description}>
                   {line.listAmount !== line.amount && (
                     <>
-                      <s>{money(line.listAmount)}</s>{' '}
+                      <span className="pf-v6-screen-reader">List price</span> <s>{money(line.listAmount)}</s>{' '}
+                      <span className="pf-v6-screen-reader">now</span>
                     </>
                   )}
                   <span>{money(line.amount)}</span>
@@ -130,8 +131,8 @@ export const QuotePanel: React.FunctionComponent<{
               Term: {billingDate(quote.termStart, zone)} – {billingDate(quote.termEnd, zone, 1)}
             </Content>
           )}
-          {charges && quote.validUntil && (
-            <Content component="small">Valid until {billingDate(quote.validUntil, zone)}</Content>
+          {charges && quote.validUntil && (quote.status === undefined || quote.status === 'REQUESTED') && (
+            <Content component="small">Valid until {billingDateTime(quote.validUntil, zone)}</Content>
           )}
         </>
       )}

@@ -3,11 +3,11 @@ import { Link } from 'react-router-dom';
 import { Button, Card, CardBody, CardTitle, Content, List, ListItem } from '@patternfly/react-core';
 import { Table, Tbody, Td, Th, Thead, Tr } from '@patternfly/react-table';
 import { type Order, cancelMyOrder } from '@app/api/billing';
-import { formatMoney } from '@app/Crm/common/money';
 import { ConfirmModal } from '@app/admin/ConfirmModal';
 import { useAction } from '@app/admin/useAction';
 import { useSession } from '@app/session/SessionContext';
-import { billingDate } from '@app/Billing/common/billingDate';
+import { billingDate, billingDateTime } from '@app/Billing/common/billingDate';
+import { inr } from '@app/Billing/common/money';
 import { KIND_LABEL, STATUS_LABEL } from '@app/Billing/common/orderText';
 
 /** What a row says became of a request that is no longer open. */
@@ -53,17 +53,25 @@ export const MyRequests: React.FunctionComponent<{
                   <strong>{o.number}</strong> · {KIND_LABEL[o.kind]}
                   {o.lines.length > 0 ? ` · ${o.lines[0].description}` : ''}
                 </div>
-                <div>
-                  Amount payable {formatMoney(o.payable, 'INR')}
-                  {o.validUntil ? `, valid until ${billingDate(o.validUntil, zone)}` : ''}
-                </div>
-                {paymentInstructions && (
+                {o.payable > 0 ? (
+                  <div>
+                    Amount payable {inr(o.payable)}
+                    {o.validUntil ? `, valid until ${billingDateTime(o.validUntil, zone)}` : ''}
+                  </div>
+                ) : (
+                  <div>Nothing to pay. Your account manager approves it.</div>
+                )}
+                {o.payable > 0 && paymentInstructions && (
                   <>
                     <Content component="small">How to pay</Content>
                     <div style={{ whiteSpace: 'pre-line' }}>{paymentInstructions}</div>
                   </>
                 )}
-                <Content component="small">It takes effect when your payment is recorded.</Content>
+                <Content component="small">
+                  {o.payable > 0
+                    ? 'It takes effect when your payment is recorded.'
+                    : 'It takes effect when it is approved.'}
+                </Content>
                 {canRequest && !o.raisedByStaff && (
                   <div>
                     <Button

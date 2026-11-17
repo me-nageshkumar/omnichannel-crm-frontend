@@ -37,11 +37,11 @@ describe('an invoice and a credit note', () => {
     expect(within(to).getByText('Not registered for GST')).toBeVisible();
 
     const row = (label: string) => within(doc).getByText(label).closest('tr') as HTMLElement;
-    expect(within(row('Gold, monthly (1 Dec 2026 – 31 Dec 2026)')).getByText('₹900')).toBeVisible();
-    expect(within(row('Taxable value')).getByText('₹900')).toBeVisible();
-    expect(within(row('CGST 9%')).getByText('₹81')).toBeVisible();
-    expect(within(row('SGST 9%')).getByText('₹81')).toBeVisible();
-    expect(within(row('Total')).getByText('₹1,062')).toBeVisible();
+    expect(within(row('Gold, monthly (1 Dec 2026 – 31 Dec 2026)')).getByText('₹900.00')).toBeVisible();
+    expect(within(row('Taxable value')).getByText('₹900.00')).toBeVisible();
+    expect(within(row('CGST 9%')).getByText('₹81.00')).toBeVisible();
+    expect(within(row('SGST 9%')).getByText('₹81.00')).toBeVisible();
+    expect(within(row('Total')).getByText('₹1,062.00')).toBeVisible();
     expect(within(doc).getByText('Rupees One Thousand Sixty-Two Only')).toBeVisible();
     expect(within(doc).getByText('HSN/SAC 998314')).toBeVisible();
     expect(within(doc).getByText(/Paid by UPI, reference UTR-778899/)).toBeVisible();
@@ -64,10 +64,10 @@ describe('an invoice and a credit note', () => {
     renderApp('/platform/invoices/i1');
     const doc = await screen.findByRole('region', { name: 'Tax invoice INV/26-27/000001' });
     const row = (label: string) => within(doc).getByText(label).closest('tr') as HTMLElement;
-    expect(within(row('IGST 18%')).getByText('₹162')).toBeVisible();
+    expect(within(row('IGST 18%')).getByText('₹162.00')).toBeVisible();
     expect(within(doc).queryByText(/CGST/)).toBeNull();
-    expect(within(row('Account credit used')).getByText('₹500')).toBeVisible();
-    expect(within(row('Amount paid')).getByText('₹562')).toBeVisible();
+    expect(within(row('Account credit used')).getByText('₹500.00')).toBeVisible();
+    expect(within(row('Amount paid')).getByText('₹562.00')).toBeVisible();
   });
 
   it('names the invoice a credit note is against', async () => {

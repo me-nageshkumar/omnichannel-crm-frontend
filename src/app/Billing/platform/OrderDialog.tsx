@@ -24,6 +24,7 @@ import {
   type QuoteRequest,
   type Subscription,
   type SubscriptionAddOnInput,
+  getCustomerOptions,
   listGroups,
   listLimitKeys,
   listPlans,
@@ -35,6 +36,7 @@ import { messageFor } from '@app/api/messages';
 import { formatMoney } from '@app/Crm/common/money';
 import { useAction } from '@app/admin/useAction';
 import { useLoad } from '@app/admin/useLoad';
+import { useAccess } from '@app/session/useAccess';
 import { useSession } from '@app/session/SessionContext';
 import { todayIn } from '@app/Billing/common/billingDate';
 import { QuotePanel } from '@app/Billing/common/QuotePanel';
@@ -62,14 +64,17 @@ const raiseProblem = (e: unknown) =>
     : messageFor(e);
 
 /** Where to go when billing is not set up: the settings for the supplier, this page for the customer's profile. */
-const SetUpHint: React.FunctionComponent<{ problem: unknown }> = ({ problem }) => {
+const SetUpHint: React.FunctionComponent<{ problem: unknown; canSettings: boolean }> = ({ problem, canSettings }) => {
   if (!(problem instanceof ApiError) || problem.code !== 'BILLING_NOT_SET_UP') return null;
-  return (problem.extra?.missing ?? '').indexOf('supplier') >= 0 ? (
+  if ((problem.extra?.missing ?? '').indexOf('supplier') < 0) {
+    return <p>Fill in the billing profile on this page, then come back.</p>;
+  }
+  return canSettings ? (
     <p>
       <Link to="/platform/billing-settings">Open billing settings</Link> and fill in the supplier details.
     </p>
   ) : (
-    <p>Fill in the billing profile on this page, then come back.</p>
+    <p>Ask someone who manages the billing settings to fill in the supplier details.</p>
   );
 };
 
@@ -88,6 +93,12 @@ export const OrderDialog: React.FunctionComponent<{
   const plans = useLoad((t) => listPlans(t));
   const groups = useLoad(listGroups);
   const limitKeys = useLoad(listLimitKeys);
+  // an add-on is sold on the terms the customer's term was sold under: the server lists them
+  const offers = useLoad(
+    (t) => (kind === 'ADDON' ? getCustomerOptions(t, customerId) : Promise.resolve(null)),
+    [customerId, kind],
+  );
+  const canSettings = useAccess().has('billing-settings:manage');
   const [planCode, setPlanCode] = React.useState('');
   const [startDate, setStartDate] = React.useState(() => todayIn(subscription.zone));
   const [groupAddOns, setGroupAddOns] = React.useState<string[]>(() =>
@@ -121,12 +132,17 @@ export const OrderDialog: React.FunctionComponent<{
   const offering: Plan | undefined = (plans.data ?? []).find(
     (p) => p.code === (kind === 'ADDON' ? subscription.plan?.code : planCode),
   );
-  const has = (code: string) => subscription.groups.some((g) => g.code === code);
 
   const local: Record<string, string> = {};
   const typed = discount.trim();
   const percent = typed === '' ? undefined : Number(typed);
-  if (percent !== undefined && Number.isNaN(percent)) local.extraDiscountPercent = 'Enter a number';
+  if (percent !== undefined && (Number.isNaN(percent) || percent < 0 || percent > 100)) {
+    local.extraDiscountPercent = 'Enter a percentage from 0 to 100';
+  }
+  const wholeAbove0 = (text: string) => /^[0-9]+$/.test(text.trim()) && Number(text) > 0;
+  if (kind === 'ADDON' && choice.indexOf('LIMIT:') === 0 && quantity.trim() !== '' && !wholeAbove0(quantity)) {
+    local.quantity = 'Enter a whole number above 0';
+  }
   const discounted = percent !== undefined && percent > 0;
   if (discounted && reason.trim() === '') local.extraDiscountReason = 'Say why the discount is given';
 
@@ -147,7 +163,7 @@ export const OrderDialog: React.FunctionComponent<{
     body = { kind, keepAddOnIds: subscription.addOns.filter((a) => keep.indexOf(a.id) >= 0).map((a) => a.id) };
   } else if (choice.indexOf('GROUP:') === 0) {
     body = { kind, addOn: { kind: 'GROUP', groupCode: choice.slice(6) } };
-  } else if (choice.indexOf('LIMIT:') === 0 && Number(quantity) > 0) {
+  } else if (choice.indexOf('LIMIT:') === 0 && wholeAbove0(quantity)) {
     body = { kind, addOn: { kind: 'LIMIT', limitKey: choice.slice(6), quantity: Number(quantity) } };
   }
   if (body && discounted) body = { ...body, extraDiscountPercent: percent, extraDiscountReason: reason.trim() };
@@ -187,7 +203,9 @@ export const OrderDialog: React.FunctionComponent<{
       </FormHelperText>
     ) : null;
 
-  const limitOffer = (offering?.limitAddOns ?? []).find((a) => `LIMIT:${a.key}` === choice);
+  const limitOffer = (offers.data?.addOns ?? []).filter(
+    (a) => a.kind === 'LIMIT' && `LIMIT:${a.limitKey}` === choice,
+  )[0];
   const heldLabel = (a: Subscription['addOns'][number]) =>
     a.kind === 'GROUP' ? nameOf(a.groupCode as string) : `${a.quantity} extra ${labelOf(a.limitKey as string)}`;
 
@@ -286,22 +304,21 @@ export const OrderDialog: React.FunctionComponent<{
                 }}
               >
                 <FormSelectOption value="" label="Choose an add-on" isPlaceholder />
-                {(offering?.addOns ?? [])
-                  .filter((a) => !has(a.groupCode))
-                  .map((a) => (
+                {(offers.data?.addOns ?? []).map((a) =>
+                  a.kind === 'GROUP' ? (
                     <FormSelectOption
-                      key={a.groupCode}
+                      key={`g:${a.groupCode}`}
                       value={`GROUP:${a.groupCode}`}
-                      label={`${nameOf(a.groupCode)} · ${formatMoney(a.price, 'INR')} for a full term`}
+                      label={`${a.name} · ${formatMoney(a.unitPrice, 'INR')} for a full term`}
                     />
-                  ))}
-                {(offering?.limitAddOns ?? []).map((a) => (
-                  <FormSelectOption
-                    key={a.key}
-                    value={`LIMIT:${a.key}`}
-                    label={`Extra ${labelOf(a.key).toLowerCase()} · ${formatMoney(a.unitPrice, 'INR')} per ${a.unit} for a full term`}
-                  />
-                ))}
+                  ) : (
+                    <FormSelectOption
+                      key={`l:${a.limitKey}`}
+                      value={`LIMIT:${a.limitKey}`}
+                      label={`${a.name} · ${formatMoney(a.unitPrice, 'INR')} per ${a.unit} for a full term`}
+                    />
+                  ),
+                )}
               </FormSelect>
               {problem('addOn', 'Charged for the days left in the term')}
             </FormGroup>
@@ -311,7 +328,9 @@ export const OrderDialog: React.FunctionComponent<{
               <TextInput id="order-quantity" type="number" value={quantity} onChange={(_e, v) => setQuantity(v)} />
               <FormHelperText>
                 <HelperText>
-                  <HelperTextItem>Sold in steps of {limitOffer.unit}</HelperTextItem>
+                  <HelperTextItem variant={local.quantity ? 'error' : 'default'}>
+                    {local.quantity ?? `Sold in steps of ${limitOffer.unit}`}
+                  </HelperTextItem>
                 </HelperText>
               </FormHelperText>
             </FormGroup>
@@ -327,7 +346,7 @@ export const OrderDialog: React.FunctionComponent<{
             </FormGroup>
           )}
           <QuotePanel quote={priced.quote} pending={priced.pending} error={quoteError} zone={subscription.zone} />
-          <SetUpHint problem={priced.problem} />
+          <SetUpHint problem={priced.problem} canSettings={canSettings} />
         </Form>
       </ModalBody>
       <ModalFooter>

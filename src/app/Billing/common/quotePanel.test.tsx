@@ -11,23 +11,24 @@ describe('the quote panel', () => {
     render(<QuotePanel quote={quote()} pending={false} error={null} zone="Asia/Kolkata" />);
     const panel = screen.getByRole('region', { name: 'Price' });
     const line = row(panel, 'Gold, monthly (1 Dec 2026 – 31 Dec 2026)');
-    expect(within(line).getByText('₹1,000').tagName).toBe('S');
-    expect(within(line).getByText('₹900')).toBeVisible();
-    expect(within(row(panel, 'Taxable value')).getByText('₹900')).toBeVisible();
-    expect(within(row(panel, 'CGST 9%')).getByText('₹81')).toBeVisible();
-    expect(within(row(panel, 'SGST 9%')).getByText('₹81')).toBeVisible();
-    expect(within(row(panel, 'Total')).getByText('₹1,062')).toBeVisible();
-    expect(within(row(panel, 'Amount payable')).getByText('₹1,062')).toBeVisible();
+    expect(within(line).getByText('₹1,000.00').tagName).toBe('S');
+    expect(within(line).getByText('₹900.00')).toBeVisible();
+    expect(within(row(panel, 'Taxable value')).getByText('₹900.00')).toBeVisible();
+    expect(within(row(panel, 'CGST 9%')).getByText('₹81.00')).toBeVisible();
+    expect(within(row(panel, 'SGST 9%')).getByText('₹81.00')).toBeVisible();
+    expect(within(row(panel, 'Total')).getByText('₹1,062.00')).toBeVisible();
+    expect(within(row(panel, 'Amount payable')).getByText('₹1,062.00')).toBeVisible();
     expect(within(panel).queryByText(/IGST/)).toBeNull();
     expect(within(panel).queryByText(/Account credit set against/)).toBeNull();
     expect(within(panel).getByText('Term: 1 Dec 2026 – 31 Dec 2026')).toBeVisible();
-    expect(within(panel).getByText('Valid until 8 Dec 2026')).toBeVisible();
+    expect(within(panel).getByText('Valid until 8 Dec 2026, 10:30 am')).toBeVisible();
+    expect(within(line).getByText('List price')).toBeInTheDocument();
   });
 
   it('shows IGST for a customer in another state', () => {
     render(<QuotePanel quote={interStateQuote()} pending={false} error={null} zone="Asia/Kolkata" />);
     const panel = screen.getByRole('region', { name: 'Price' });
-    expect(within(row(panel, 'IGST 18%')).getByText('₹162')).toBeVisible();
+    expect(within(row(panel, 'IGST 18%')).getByText('₹162.00')).toBeVisible();
     expect(within(panel).queryByText(/CGST/)).toBeNull();
     expect(within(panel).queryByText(/SGST/)).toBeNull();
   });
@@ -35,7 +36,7 @@ describe('the quote panel', () => {
   it('shows the credit an upgrade gives and what is left to pay', () => {
     render(<QuotePanel quote={upgradeQuote()} pending={false} error={null} zone="Asia/Kolkata" />);
     const panel = screen.getByRole('region', { name: 'Price' });
-    expect(within(row(panel, 'Total')).getByText('₹1,770')).toBeVisible();
+    expect(within(row(panel, 'Total')).getByText('₹1,770.00')).toBeVisible();
     expect(within(row(panel, 'Credit for unused time on INV/26-27/000001')).getByText('₹548.13')).toBeVisible();
     expect(within(row(panel, 'Credit for unused time on INV/26-27/000002')).getByText('₹182.71')).toBeVisible();
     expect(within(panel).getByText('Credit notes this issues, added to the account credit')).toBeVisible();
@@ -71,7 +72,7 @@ describe('the quote panel', () => {
     };
     const { rerender } = render(<QuotePanel quote={adjusted} pending={false} error={null} zone="Asia/Kolkata" />);
     const panel = screen.getByRole('region', { name: 'Price' });
-    expect(within(row(panel, 'Account credit posted')).getByText('₹500')).toBeVisible();
+    expect(within(row(panel, 'Account credit posted')).getByText('₹500.00')).toBeVisible();
     expect(within(panel).queryByText('Credit to the account')).toBeNull();
     rerender(
       <QuotePanel

@@ -3,12 +3,12 @@ import { Link } from 'react-router-dom';
 import { Card, CardBody, Content, Flex, FlexItem, Grid, GridItem, Title } from '@patternfly/react-core';
 import { Table, Tbody, Td, Th, Thead, Tr } from '@patternfly/react-table';
 import type { CreditNote, Invoice, Party } from '@app/api/billing';
-import { formatMoney } from '@app/Crm/common/money';
 import { billingDate } from '@app/Billing/common/billingDate';
+import { inr } from '@app/Billing/common/money';
 import { METHOD_LABEL } from '@app/Billing/common/orderText';
 import { taxRows } from '@app/Billing/common/QuotePanel';
 
-const money = (amount: number) => formatMoney(amount, 'INR');
+const money = inr;
 
 const PartyBlock: React.FunctionComponent<{ label: string; party: Party }> = ({ label, party }) => (
   <div role="group" aria-label={label}>

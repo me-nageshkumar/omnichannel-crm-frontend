@@ -153,7 +153,21 @@ describe('the billing requests queue', () => {
       routes({
         'GET /api/billing/orders': { status: 200, body: { items: [free], total: 1, page: 0 } },
         'GET /api/billing/orders/o1': { status: 200, body: free },
-        [PAY]: { status: 200, body: { ...free, status: 'ACTIVATED' } },
+        [PAY]: {
+          status: 200,
+          body: {
+            ...free,
+            status: 'ACTIVATED',
+            payment: {
+              method: 'NONE',
+              reference: null,
+              receivedOn: null,
+              note: null,
+              recordedByName: 'Asha Manager',
+              recordedAt: '2026-12-16T05:00:00Z',
+            },
+          },
+        },
       }),
     );
     const { user } = renderApp('/platform/billing-requests');
@@ -161,6 +175,10 @@ describe('the billing requests queue', () => {
     expect(within(dialog).queryByRole('button', { name: 'Record payment' })).toBeNull();
     await user.click(within(dialog).getByRole('button', { name: 'Approve' }));
     await waitFor(() => expect(requestTo(fetch, PAY)?.body).toEqual({ method: 'NONE' }));
+    // who approved an order with nothing to pay is on record
+    expect(await within(dialog).findByText(/Nothing to pay; approved by Asha Manager/)).toBeVisible();
+    // a closed order no longer says until when it was valid
+    expect(within(dialog).queryByText(/Valid until/)).toBeNull();
   });
 
   it('rejects with a reason and cancels a request', async () => {
@@ -175,11 +193,11 @@ describe('the billing requests queue', () => {
     const first = renderApp('/platform/billing-requests');
     let dialog = await openOrder(first.user);
     await first.user.click(within(dialog).getByRole('button', { name: 'Reject' }));
-    await first.user.click(within(dialog).getByRole('button', { name: 'Reject request' }));
-    expect(await within(dialog).findByText('Say why the request is rejected')).toBeVisible();
+    await first.user.click(within(dialog).getByRole('button', { name: 'Reject order' }));
+    expect(await within(dialog).findByText('Say why the order is rejected')).toBeVisible();
     expect(requestTo(fetch, 'POST /api/billing/orders/o1/reject')).toBeUndefined();
     await first.user.type(within(dialog).getByLabelText(/^Reason/), 'Wrong plan');
-    await first.user.click(within(dialog).getByRole('button', { name: 'Reject request' }));
+    await first.user.click(within(dialog).getByRole('button', { name: 'Reject order' }));
     await waitFor(() =>
       expect(requestTo(fetch, 'POST /api/billing/orders/o1/reject')?.body).toEqual({ reason: 'Wrong plan' }),
     );
@@ -191,7 +209,7 @@ describe('the billing requests queue', () => {
     );
     const second = renderApp('/platform/billing-requests');
     dialog = await openOrder(second.user);
-    await second.user.click(within(dialog).getByRole('button', { name: 'Cancel request' }));
+    await second.user.click(within(dialog).getByRole('button', { name: 'Cancel order' }));
     await second.user.click(within(dialog).getByRole('button', { name: 'Yes, cancel it' }));
     await waitFor(() => expect(urlsOf(again, 'POST /api/billing/orders/o1/cancel')).toHaveLength(1));
   });
@@ -223,6 +241,6 @@ describe('the billing requests queue', () => {
     expect(within(dialog).getByText('Amount payable')).toBeVisible();
     expect(within(dialog).queryByRole('button', { name: 'Record payment' })).toBeNull();
     expect(within(dialog).queryByRole('button', { name: 'Reject' })).toBeNull();
-    expect(within(dialog).queryByRole('button', { name: 'Cancel request' })).toBeNull();
+    expect(within(dialog).queryByRole('button', { name: 'Cancel order' })).toBeNull();
   });
 });

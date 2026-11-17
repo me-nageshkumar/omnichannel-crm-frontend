@@ -5,6 +5,7 @@ import { type MockRoute, mockFetch, requestTo } from '../../../test/fetchMock';
 import { ACCOUNT_MANAGER, meAs, storeSession } from '../../../test/session';
 import {
   NO_SUBSCRIPTION,
+  OPTIONS,
   PROFILE,
   billingRoutes,
   order,
@@ -51,6 +52,7 @@ function routes(current = NO_SUBSCRIPTION, over: Record<string, MockRoute> = {})
     'GET /api/customers/c1/users': { status: 200, body: [] },
     'GET /api/billing/customers/c1/subscription': { status: 200, body: current },
     'GET /api/billing/customers/c1/billing-profile': { status: 200, body: PROFILE },
+    'GET /api/billing/customers/c1/options': { status: 200, body: OPTIONS },
     [QUOTES]: { status: 200, body: quote() },
     [ORDERS]: { status: 201, body: order() },
     ...over,
@@ -99,7 +101,7 @@ describe('raising an order for a customer', () => {
     await waitFor(() => expect(requestTo(fetch, ORDERS)?.body).toEqual(expected));
     await waitFor(() => expect(screen.queryByRole('dialog')).toBeNull());
     const card = screen.getByRole('region', { name: 'Subscription' });
-    expect(await within(card).findByText(/Order ORD-000001 was raised/)).toBeVisible();
+    expect(await within(card).findByText(/Order ORD-000001 was raised for ₹1,062.00/)).toBeVisible();
   });
 
   it('never shows or raises the price of a request that is no longer on screen', async () => {
@@ -153,6 +155,21 @@ describe('raising an order for a customer', () => {
         addOns: [],
       }),
     );
+  });
+
+  it('does not quietly ignore a negative discount or a quantity that is no whole number', async () => {
+    const fetch = mockFetch(
+      routes(subscription({ addOns: [], groups: [{ code: 'crm', name: 'CRM', source: 'PLAN' }] })),
+    );
+    const { user } = renderApp('/customers/c1');
+    const dialog = await open(user, 'Add add-on');
+    await user.selectOptions(await within(dialog).findByLabelText(/^Add-on/), 'LIMIT:USERS');
+    await user.type(within(dialog).getByLabelText(/^How many more/), '2.5');
+    expect(await within(dialog).findByText('Enter a whole number above 0')).toBeVisible();
+    await user.type(within(dialog).getByLabelText(/^Extra discount/), '-5');
+    expect(await within(dialog).findByText('Enter a percentage from 0 to 100')).toBeVisible();
+    await new Promise((r) => setTimeout(r, 400));
+    expect(requestTo(fetch, QUOTES)).toBeUndefined();
   });
 
   it('wants a reason for an extra discount', async () => {

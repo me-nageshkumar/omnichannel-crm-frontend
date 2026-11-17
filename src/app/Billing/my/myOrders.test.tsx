@@ -154,7 +154,7 @@ describe('what a customer can ask for', () => {
     const { user } = renderApp('/billing');
     const requests = await screen.findByRole('region', { name: 'Requests' });
     const mine = (await within(requests).findByText('ORD-000001')).closest('li') as HTMLElement;
-    expect(within(mine).getByText(/Amount payable ₹1,062, valid until 8 Dec 2026/)).toBeVisible();
+    expect(within(mine).getByText(/Amount payable ₹1,062.00, valid until 8 Dec 2026, 10:30 am/)).toBeVisible();
     expect(within(mine).getByText('How to pay')).toBeVisible();
     expect(within(mine).getByText('UPI omni@bank')).toBeVisible();
     const theirs = within(requests).getByText('ORD-000002').closest('li') as HTMLElement;
@@ -303,6 +303,30 @@ describe('what a customer can ask for', () => {
     expect(screen.getByText('This request is no longer open.')).toBeVisible();
     // behind the dialog, so hidden from assistive technology but still there
     expect(screen.getByRole('region', { name: 'Your plan', hidden: true })).toBeInTheDocument();
+  });
+
+  it('does not ask for payment where there is nothing to pay, and says what a cancelled plan means', async () => {
+    mockFetch(
+      routes({
+        'GET /api/my/billing/subscription': {
+          status: 200,
+          body: subscription({ state: 'EXPIRED', readOnly: true, cancelled: true }),
+        },
+        'GET /api/my/billing/orders': { status: 200, body: [{ ...MINE, payable: 0 }] },
+        'GET /api/my/billing/refunds': { status: 200, body: [refund({ recordedByName: null as unknown as string })] },
+      }),
+    );
+    const { user } = renderApp('/billing');
+    const requests = await screen.findByRole('region', { name: 'Requests' });
+    const mine = (await within(requests).findByText('ORD-000001')).closest('li') as HTMLElement;
+    expect(within(mine).getByText(/Nothing to pay/)).toBeVisible();
+    expect(within(mine).queryByText('How to pay')).toBeNull();
+    const plan = screen.getByRole('region', { name: 'Your plan' });
+    expect(within(plan).getByText(/Your plan was cancelled/)).toBeVisible();
+    const documents = screen.getByRole('region', { name: 'Invoices and credit' });
+    await user.click(within(documents).getByRole('tab', { name: 'Refunds' }));
+    expect(await within(documents).findByText('RF-000001')).toBeVisible();
+    expect(within(documents).queryByText('Recorded by')).toBeNull();
   });
 
   it('says what is missing when a request cannot be priced yet', async () => {

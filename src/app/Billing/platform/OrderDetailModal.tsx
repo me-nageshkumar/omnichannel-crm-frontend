@@ -97,6 +97,7 @@ export const OrderDetailModal: React.FunctionComponent<{
       return;
     }
     setReasonMissing(false);
+    if (action.busy) return;
     void run(() => rejectOrder(token as string, orderId, reason.trim()));
   };
 
@@ -135,10 +136,16 @@ export const OrderDetailModal: React.FunctionComponent<{
                   {o.raisedByStaff ? '' : ' (the customer)'}, {new Date(o.raisedAt).toLocaleString()}
                 </DescriptionListDescription>
               </DescriptionListGroup>
-              {(o.reason || o.extraDiscountReason) && (
+              {o.reason && (
                 <DescriptionListGroup>
-                  <DescriptionListTerm>{o.reason ? 'Reason' : 'Discount given because'}</DescriptionListTerm>
-                  <DescriptionListDescription>{o.reason ?? o.extraDiscountReason}</DescriptionListDescription>
+                  <DescriptionListTerm>Reason</DescriptionListTerm>
+                  <DescriptionListDescription>{o.reason}</DescriptionListDescription>
+                </DescriptionListGroup>
+              )}
+              {o.extraDiscountReason && (
+                <DescriptionListGroup>
+                  <DescriptionListTerm>Discount given because</DescriptionListTerm>
+                  <DescriptionListDescription>{o.extraDiscountReason}</DescriptionListDescription>
                 </DescriptionListGroup>
               )}
               {o.rejectedReason && (
@@ -155,6 +162,14 @@ export const OrderDetailModal: React.FunctionComponent<{
                     {o.payment.receivedOn ? `, received ${billingDate(o.payment.receivedOn, 'UTC')}` : ''}, recorded by{' '}
                     {o.payment.recordedByName}
                     {o.payment.note ? ` (${o.payment.note})` : ''}
+                  </DescriptionListDescription>
+                </DescriptionListGroup>
+              )}
+              {o.payment && o.payment.method === 'NONE' && o.lines.length > 0 && (
+                <DescriptionListGroup>
+                  <DescriptionListTerm>Payment</DescriptionListTerm>
+                  <DescriptionListDescription>
+                    Nothing to pay; approved by {o.payment.recordedByName}
                   </DescriptionListDescription>
                 </DescriptionListGroup>
               )}
@@ -203,7 +218,7 @@ export const OrderDetailModal: React.FunctionComponent<{
                     <FormHelperText>
                       <HelperText>
                         <HelperTextItem variant="error">
-                          {reasonMissing ? 'Say why the request is rejected' : action.fieldErrors.reason}
+                          {reasonMissing ? 'Say why the order is rejected' : action.fieldErrors.reason}
                         </HelperTextItem>
                       </HelperText>
                     </FormHelperText>
@@ -212,7 +227,7 @@ export const OrderDetailModal: React.FunctionComponent<{
               </Form>
             )}
             {mode === 'cancel' && open && (
-              <Alert variant="warning" isInline isPlain title="Cancel this request? It cannot be brought back." />
+              <Alert variant="warning" isInline isPlain title="Cancel this order? It cannot be brought back." />
             )}
           </>
         )}
@@ -239,12 +254,12 @@ export const OrderDetailModal: React.FunctionComponent<{
         )}
         {canManage && open && mode === 'view' && (
           <Button variant="link" isDanger onClick={() => setMode('cancel')}>
-            Cancel request
+            Cancel order
           </Button>
         )}
         {mode === 'reject' && open && (
           <Button variant="danger" isDisabled={action.busy} onClick={onReject}>
-            Reject request
+            Reject order
           </Button>
         )}
         {mode === 'cancel' && open && (

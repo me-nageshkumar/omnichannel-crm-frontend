@@ -2,10 +2,10 @@ import * as React from 'react';
 import { Link } from 'react-router-dom';
 import { Table, Tbody, Td, Th, Thead, Tr } from '@patternfly/react-table';
 import type { CreditNote, Invoice, Tax } from '@app/api/billing';
-import { formatMoney } from '@app/Crm/common/money';
 import { billingDate } from '@app/Billing/common/billingDate';
+import { inr } from '@app/Billing/common/money';
 
-const money = (amount: number) => formatMoney(amount, 'INR');
+const money = inr;
 
 /** The tax of a document in one cell, as its parts: the console does not add them up. */
 const taxText = (tax: Tax) =>
