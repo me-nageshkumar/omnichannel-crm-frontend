@@ -3,7 +3,7 @@ import { FormSelect, FormSelectOption } from '@patternfly/react-core';
 import type { IndianState } from '@app/api/billing';
 
 /** "29 · Karnataka": a state as GST knows it, by its code. */
-export const stateText = (code: string | null, states: IndianState[]): string => {
+export const stateLabel = (code: string | null, states: IndianState[]): string => {
   if (!code) return '';
   const state = states.find((s) => s.code === code);
   return state ? `${state.code} · ${state.name}` : code;

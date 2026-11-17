@@ -608,3 +608,5 @@ export const getMyProfile = (token: string) => apiFetch<BillingProfile>(`${MY}/p
 
 export const putMyProfile = (token: string, body: BillingProfileInput) =>
   apiFetch<BillingProfile>(`${MY}/profile`, { method: 'PUT', token, body });
+
+export const listMyStates = (token: string) => apiFetch<IndianState[]>(`${MY}/states`, { token });

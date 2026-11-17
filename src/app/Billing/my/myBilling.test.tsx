@@ -3,7 +3,7 @@ import { screen, within } from '@testing-library/react';
 import { renderApp } from '../../../test/renderApp';
 import { mockFetch } from '../../../test/fetchMock';
 import { CUSTOMER_ADMIN, WORKSPACE_MANAGER, meAs, storeSession } from '../../../test/session';
-import { NO_SUBSCRIPTION, subscription, summaryIn } from '../../../test/billing';
+import { NO_SUBSCRIPTION, myBillingRoutes, subscription, summaryIn } from '../../../test/billing';
 
 const crmOff = { 'GET /api/workspaces/w1/crm/status': { status: 402, body: { code: 'CRM_NOT_ENABLED' } } };
 
@@ -20,6 +20,7 @@ describe('plan and billing, for the customer', () => {
     mockFetch({
       ...meAs({ ...CUSTOMER_ADMIN, subscription: summaryIn('ACTIVE') }),
       ...crmOff,
+      ...myBillingRoutes(),
       'GET /api/my/billing/subscription': { status: 200, body: over },
     });
     renderApp('/billing');
@@ -42,6 +43,7 @@ describe('plan and billing, for the customer', () => {
     mockFetch({
       ...meAs({ ...CUSTOMER_ADMIN, subscription: summaryIn('GRACE') }),
       ...crmOff,
+      ...myBillingRoutes(),
       'GET /api/my/billing/subscription': { status: 200, body: subscription({ state: 'GRACE' }) },
     });
     renderApp('/billing');
@@ -53,11 +55,12 @@ describe('plan and billing, for the customer', () => {
     mockFetch({
       ...meAs(CUSTOMER_ADMIN),
       ...crmOff,
+      ...myBillingRoutes(),
       'GET /api/my/billing/subscription': { status: 200, body: NO_SUBSCRIPTION },
     });
     renderApp('/billing');
     expect(await screen.findByText('No plan yet')).toBeVisible();
-    expect(screen.getByText('Your account manager assigns the plan.')).toBeVisible();
+    expect(screen.getByText('Your account manager sets up your first plan.')).toBeVisible();
   });
 
   it('is only for those who may see billing', async () => {

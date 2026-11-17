@@ -450,3 +450,18 @@ export function billingRoutes(over: Record<string, MockRoute> = {}): Record<stri
     ...over,
   };
 }
+
+/** Routes for every GET of the customer's own Plan & billing page, each replaceable. */
+export function myBillingRoutes(over: Record<string, MockRoute> = {}): Record<string, MockRoute> {
+  return {
+    'GET /api/my/billing/subscription': { status: 200, body: subscription() },
+    'GET /api/my/billing/options': { status: 200, body: OPTIONS },
+    'GET /api/my/billing/orders': { status: 200, body: [] },
+    'GET /api/my/billing/invoices': { status: 200, body: [] },
+    'GET /api/my/billing/credit-notes': { status: 200, body: [] },
+    'GET /api/my/billing/refunds': { status: 200, body: [] },
+    'GET /api/my/billing/profile': { status: 200, body: PROFILE },
+    'GET /api/my/billing/states': { status: 200, body: STATES },
+    ...over,
+  };
+}

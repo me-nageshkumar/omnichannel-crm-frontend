@@ -1,6 +1,7 @@
 import * as React from 'react';
 import type { IAppRoute } from '@app/routes';
 import { MyBillingPage } from '@app/Billing/my/MyBillingPage';
+import { MyCreditNotePage, MyInvoicePage } from '@app/Billing/my/MyDocumentPages';
 import { BillingSettingsPage } from '@app/Billing/platform/BillingSettingsPage';
 import { CreditNotePage, InvoicePage } from '@app/Billing/platform/InvoicePage';
 import { PlanEditorPage } from '@app/Billing/platform/PlanEditorPage';
@@ -11,6 +12,8 @@ const seesPlans: IAppRoute['requires'] = (a) => a.has('plan:manage') || a.has('s
 
 export const billingRoutes: IAppRoute[] = [
   { path: '/billing', requires: (a) => a.has('billing:view'), element: <MyBillingPage /> },
+  { path: '/billing/invoices/:id', requires: (a) => a.has('billing:view'), element: <MyInvoicePage /> },
+  { path: '/billing/credit-notes/:id', requires: (a) => a.has('billing:view'), element: <MyCreditNotePage /> },
   { path: '/platform/plans', requires: seesPlans, element: <PlansPage /> },
   { path: '/platform/plans/new', requires: (a) => a.has('plan:manage'), element: <PlanEditorPage /> },
   { path: '/platform/plans/:code', requires: seesPlans, element: <PlanEditorPage /> },

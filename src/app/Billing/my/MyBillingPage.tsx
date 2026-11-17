@@ -1,6 +1,7 @@
 import * as React from 'react';
 import {
   Alert,
+  Button,
   Card,
   CardBody,
   CardTitle,
@@ -12,13 +13,31 @@ import {
   EmptyStateBody,
   Flex,
   FlexItem,
+  HelperText,
+  HelperTextItem,
+  Label,
   Spinner,
   Stack,
   StackItem,
 } from '@patternfly/react-core';
-import { PERIOD_LABEL, type Subscription, getMySubscription } from '@app/api/billing';
+import {
+  type Order,
+  PERIOD_LABEL,
+  type Subscription,
+  getMyOptions,
+  getMySubscription,
+  listMyOrders,
+} from '@app/api/billing';
+import { formatMoney } from '@app/Crm/common/money';
+import { useAccess } from '@app/session/useAccess';
+import { billingDate } from '@app/Billing/common/billingDate';
+import { MyDocuments } from '@app/Billing/my/MyDocuments';
+import { type AddOnOffer, MyOrderDialog, type MyOrderKind } from '@app/Billing/my/MyOrderDialog';
+import { MyProfileCard } from '@app/Billing/my/MyProfileCard';
+import { MyRequests } from '@app/Billing/my/MyRequests';
 import { PageShell } from '@app/admin/PageShell';
 import { useLoad } from '@app/admin/useLoad';
+import { Table, Tbody, Td, Tr } from '@patternfly/react-table';
 import { IncludedGroups } from '@app/Billing/common/IncludedGroups';
 import { LimitsTable } from '@app/Billing/common/LimitsTable';
 import { stateText, termText } from '@app/Billing/common/planDates';
@@ -33,69 +52,224 @@ function daysLeft(s: Subscription, now: number): string {
   return days <= 0 ? '' : `${days} ${days === 1 ? 'day' : 'days'} left`;
 }
 
-/** A customer's own plan: what it is on, until when, what it includes and how much of each limit is used. */
+/**
+ * A customer's own plan and billing: what it is on and until when, what it can ask for (a renewal, a higher plan,
+ * add-ons), its requests and how to pay them, its invoices and credit, and its billing details.
+ */
 export const MyBillingPage: React.FunctionComponent = () => {
-  const subscription = useLoad(getMySubscription);
+  const canRequest = useAccess().has('billing:request');
+  const [tick, setTick] = React.useState(0);
+  const subscription = useLoad(getMySubscription, [tick], { keepOnError: true });
+  const options = useLoad(getMyOptions, [tick], { keepOnError: true });
+  const orders = useLoad(listMyOrders, [tick], { keepOnError: true });
+  const [dialog, setDialog] = React.useState<{ kind: MyOrderKind; offer?: AddOnOffer } | null>(null);
+  const [sent, setSent] = React.useState<Order | null>(null);
   const s = subscription.data;
+  const o = options.data;
+  const changed = () => setTick((n) => n + 1);
+  const waiting = (orders.data ?? []).some((x) => x.status === 'REQUESTED');
+  // once the plan has run out, renewing is what is left; the rest comes back with the plan
+  const running = !!s && s.state !== 'EXPIRED' && !s.cancelled;
+  const zone = s?.zone ?? 'Asia/Kolkata';
+  const offerPrice = (a: AddOnOffer) =>
+    a.kind === 'GROUP'
+      ? `${formatMoney(a.unitPrice, 'INR')} for a full term`
+      : `${formatMoney(a.unitPrice, 'INR')} per ${a.unit} for a full term`;
+
   return (
     <PageShell title="Plan & billing">
       {subscription.error && <Alert variant="danger" isInline title={subscription.error} />}
       {!s && !subscription.error && <Spinner aria-label="Loading plan" />}
-      {s && !s.plan && (
-        <EmptyState titleText="No plan yet" headingLevel="h2">
-          <EmptyStateBody>Your account manager assigns the plan.</EmptyStateBody>
-        </EmptyState>
-      )}
-      {s && s.plan && (
+      {s && (
         <Stack hasGutter>
-          <StackItem>
-            <Card component="section" aria-label="Your plan">
-              <CardTitle>Your plan</CardTitle>
-              <CardBody>
-                <DescriptionList isHorizontal isCompact>
-                  <DescriptionListGroup>
-                    <DescriptionListTerm>Plan</DescriptionListTerm>
-                    <DescriptionListDescription>
-                      <Flex gap={{ default: 'gapSm' }} alignItems={{ default: 'alignItemsCenter' }}>
-                        <FlexItem>{s.plan.name}</FlexItem>
-                        <FlexItem>{PERIOD_LABEL[s.plan.period]}</FlexItem>
+          {sent && (
+            <StackItem>
+              <Alert
+                variant="success"
+                isInline
+                title={`Request ${sent.number} was sent. It takes effect when your payment is recorded.`}
+              />
+            </StackItem>
+          )}
+          {!s.plan && (
+            <StackItem>
+              <EmptyState titleText="No plan yet" headingLevel="h2">
+                <EmptyStateBody>Your account manager sets up your first plan.</EmptyStateBody>
+              </EmptyState>
+            </StackItem>
+          )}
+          {s.plan && (
+            <StackItem>
+              <Card component="section" aria-label="Your plan">
+                <CardTitle>Your plan</CardTitle>
+                <CardBody>
+                  <DescriptionList isHorizontal isCompact>
+                    <DescriptionListGroup>
+                      <DescriptionListTerm>Plan</DescriptionListTerm>
+                      <DescriptionListDescription>
+                        <Flex gap={{ default: 'gapSm' }} alignItems={{ default: 'alignItemsCenter' }}>
+                          <FlexItem>{s.plan.name}</FlexItem>
+                          <FlexItem>{PERIOD_LABEL[s.plan.period]}</FlexItem>
+                          <FlexItem>
+                            <StateLabel state={s.state} />
+                          </FlexItem>
+                          {s.cancelled && (
+                            <FlexItem>
+                              <Label color="red" isCompact>
+                                Cancelled
+                              </Label>
+                            </FlexItem>
+                          )}
+                        </Flex>
+                      </DescriptionListDescription>
+                    </DescriptionListGroup>
+                    <DescriptionListGroup>
+                      <DescriptionListTerm>Term</DescriptionListTerm>
+                      <DescriptionListDescription>
+                        {termText(s)}
+                        {daysLeft(s, Date.now()) && <div>{daysLeft(s, Date.now())}</div>}
+                        {stateText(s) && <div>{stateText(s)}</div>}
+                      </DescriptionListDescription>
+                    </DescriptionListGroup>
+                    {s.next && (
+                      <DescriptionListGroup>
+                        <DescriptionListTerm>Renewed</DescriptionListTerm>
+                        <DescriptionListDescription>
+                          {s.next.planName}, from {billingDate(s.next.termStart, s.zone)} to{' '}
+                          {billingDate(s.next.termEnd, s.zone, 1)}
+                        </DescriptionListDescription>
+                      </DescriptionListGroup>
+                    )}
+                    {s.creditBalance > 0 && (
+                      <DescriptionListGroup>
+                        <DescriptionListTerm>Account credit</DescriptionListTerm>
+                        <DescriptionListDescription>
+                          {formatMoney(s.creditBalance, 'INR')}
+                          <div>
+                            <small>It is set against your next request.</small>
+                          </div>
+                        </DescriptionListDescription>
+                      </DescriptionListGroup>
+                    )}
+                  </DescriptionList>
+                  {canRequest && o && (
+                    <Flex
+                      gap={{ default: 'gapSm' }}
+                      alignItems={{ default: 'alignItemsCenter' }}
+                      className="pf-v6-u-mt-md"
+                    >
+                      {!s.cancelled && !s.next && (
                         <FlexItem>
-                          <StateLabel state={s.state} />
+                          <Button
+                            variant="primary"
+                            isDisabled={!o.renewal.allowed}
+                            onClick={() => setDialog({ kind: 'RENEWAL' })}
+                          >
+                            Renew
+                          </Button>
                         </FlexItem>
-                      </Flex>
-                    </DescriptionListDescription>
-                  </DescriptionListGroup>
-                  <DescriptionListGroup>
-                    <DescriptionListTerm>Term</DescriptionListTerm>
-                    <DescriptionListDescription>
-                      {termText(s)}
-                      {daysLeft(s, Date.now()) && <div>{daysLeft(s, Date.now())}</div>}
-                      {stateText(s) && <div>{stateText(s)}</div>}
-                    </DescriptionListDescription>
-                  </DescriptionListGroup>
-                </DescriptionList>
-              </CardBody>
-            </Card>
+                      )}
+                      {running && o.upgrades.length > 0 && (
+                        <FlexItem>
+                          <Button variant="secondary" onClick={() => setDialog({ kind: 'UPGRADE' })}>
+                            Upgrade
+                          </Button>
+                        </FlexItem>
+                      )}
+                      {!s.cancelled && !s.next && !o.renewal.allowed && o.renewal.reason && (
+                        <FlexItem>
+                          <HelperText>
+                            <HelperTextItem>{o.renewal.reason}</HelperTextItem>
+                          </HelperText>
+                        </FlexItem>
+                      )}
+                    </Flex>
+                  )}
+                </CardBody>
+              </Card>
+            </StackItem>
+          )}
+          {running && o && o.addOns.length > 0 && (
+            <StackItem>
+              <Card component="section" aria-label="Add-ons you can buy">
+                <CardTitle>Add-ons you can buy</CardTitle>
+                <CardBody>
+                  <Table variant="compact" borders={false} aria-label="Add-ons you can buy">
+                    <Tbody>
+                      {o.addOns.map((a) => (
+                        <Tr key={`${a.kind}:${a.groupCode ?? a.limitKey}`}>
+                          <Td>{a.name}</Td>
+                          <Td>{offerPrice(a)}</Td>
+                          <Td modifier="fitContent">
+                            {canRequest && (
+                              <Button variant="secondary" onClick={() => setDialog({ kind: 'ADDON', offer: a })}>
+                                Buy
+                              </Button>
+                            )}
+                          </Td>
+                        </Tr>
+                      ))}
+                    </Tbody>
+                  </Table>
+                </CardBody>
+              </Card>
+            </StackItem>
+          )}
+          <StackItem>
+            {orders.error && <Alert variant="danger" isInline title={orders.error} />}
+            {orders.data && (
+              <MyRequests
+                orders={orders.data}
+                zone={zone}
+                paymentInstructions={o?.paymentInstructions ?? null}
+                canRequest={canRequest}
+                onChanged={changed}
+              />
+            )}
           </StackItem>
           <StackItem>
-            <Card>
-              <CardTitle>What is included</CardTitle>
-              <CardBody>
-                <DescriptionList isHorizontal isCompact>
-                  <IncludedGroups groups={s.groups} />
-                </DescriptionList>
-              </CardBody>
-            </Card>
+            <MyDocuments zone={zone} reloadKey={tick} />
           </StackItem>
           <StackItem>
-            <Card>
-              <CardTitle>Limits and usage</CardTitle>
-              <CardBody>
-                <LimitsTable limits={s.limits} />
-              </CardBody>
-            </Card>
+            <MyProfileCard canEdit={canRequest} locked={waiting} />
           </StackItem>
+          {s.plan && (
+            <StackItem>
+              <Card>
+                <CardTitle>What is included</CardTitle>
+                <CardBody>
+                  <DescriptionList isHorizontal isCompact>
+                    <IncludedGroups groups={s.groups} />
+                  </DescriptionList>
+                </CardBody>
+              </Card>
+            </StackItem>
+          )}
+          {s.plan && (
+            <StackItem>
+              <Card>
+                <CardTitle>Limits and usage</CardTitle>
+                <CardBody>
+                  <LimitsTable limits={s.limits} />
+                </CardBody>
+              </Card>
+            </StackItem>
+          )}
         </Stack>
+      )}
+      {dialog && s && o && (
+        <MyOrderDialog
+          kind={dialog.kind}
+          subscription={s}
+          options={o}
+          offer={dialog.offer}
+          onRaised={(order) => {
+            setSent(order);
+            setDialog(null);
+            changed();
+          }}
+          onCancel={() => setDialog(null)}
+        />
       )}
     </PageShell>
   );
