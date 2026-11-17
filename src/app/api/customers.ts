@@ -1,4 +1,5 @@
 import { apiFetch } from '@app/api/client';
+import type { SubscriptionState } from '@app/api/billing';
 import type { Disabled } from '@app/api/enablement';
 import type { Workspace } from '@app/api/workspaces';
 import type { TemporaryPassword, UserSummary, WithTemporaryPassword } from '@app/api/users';
@@ -11,6 +12,9 @@ export interface Customer {
   active: boolean;
   disabled: Disabled | null;
   creationTime: string;
+  /** Null for a customer without a plan. */
+  planName: string | null;
+  subscriptionState: SubscriptionState;
 }
 
 export interface CustomerPage {
@@ -38,6 +42,8 @@ export interface CustomerQuery {
   /** Undefined lists both. */
   active?: boolean;
   page: number;
+  /** Only customers that have no plan. */
+  noPlan?: boolean;
 }
 
 export function listCustomers(token: string, query: CustomerQuery): Promise<CustomerPage> {
@@ -45,6 +51,7 @@ export function listCustomers(token: string, query: CustomerQuery): Promise<Cust
   if (query.q.trim()) params.set('q', query.q.trim());
   if (query.active !== undefined) params.set('active', String(query.active));
   params.set('page', String(query.page));
+  if (query.noPlan) params.set('noPlan', 'true');
   return apiFetch<CustomerPage>(`/api/customers?${params.toString()}`, { token });
 }
 

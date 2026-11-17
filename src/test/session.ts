@@ -1,3 +1,4 @@
+import type { SubscriptionSummary } from '@app/api/billing';
 import type { CurrentUser, WorkspaceAccess } from '@app/api/users';
 import { SESSION_KEY } from '@app/session/sessionStore';
 import type { MockRoute } from './fetchMock';
@@ -11,6 +12,10 @@ const PLATFORM_CODES = [
   'phone-number:view-all',
   'phone-number:manage-all',
   'chatbot-defaults:manage',
+  'plan:manage',
+  'billing-settings:manage',
+  'subscription:view',
+  'subscription:manage',
 ];
 export const BRAND_CODES = [
   'workspace:settings',
@@ -67,6 +72,17 @@ const base = {
   workspaces: [] as WorkspaceAccess[],
   mustChangePassword: false,
   availability: { status: 'AVAILABLE' as const, at: null },
+  subscription: null as SubscriptionSummary | null,
+};
+
+/** A customer without a plan, as the server reports it. */
+export const NO_PLAN: SubscriptionSummary = {
+  state: 'NONE',
+  planName: null,
+  termEnd: null,
+  graceEnd: null,
+  readOnly: false,
+  zone: 'Asia/Kolkata',
 };
 
 export const SUPER_ADMIN: CurrentUser = {
@@ -92,6 +108,8 @@ export const ACCOUNT_MANAGER: CurrentUser = {
     'phone-number:view-all',
     'phone-number:manage-all',
     'crm:enable',
+    'subscription:view',
+    'subscription:manage',
   ],
 };
 
@@ -104,8 +122,9 @@ export const CUSTOMER_ADMIN: CurrentUser = {
   name: 'Ravi Owner',
   username: 'ravi',
   customer: { id: 'c1', name: 'Acme' },
+  subscription: NO_PLAN,
   role: { id: 'r-ca', name: 'CUSTOMER_ADMIN' },
-  authorities: ['workspace:create', 'workspace:enable', 'company-user:manage'],
+  authorities: ['workspace:create', 'workspace:enable', 'company-user:manage', 'billing:view'],
   workspaces: [BRAND_A, BRAND_B],
 };
 
@@ -115,6 +134,7 @@ export const WORKSPACE_MANAGER: CurrentUser = {
   name: 'Meera Manager',
   username: 'meera',
   customer: { id: 'c1', name: 'Acme' },
+  subscription: NO_PLAN,
   workspaces: [{ ...BRAND_A, role: { id: 'r-wm', name: 'WORKSPACE_MANAGER' } }],
 };
 
@@ -125,6 +145,7 @@ export const BRAND_VIEWER: CurrentUser = {
   name: 'Tara Viewer',
   username: 'tara',
   customer: { id: 'c1', name: 'Acme' },
+  subscription: NO_PLAN,
   workspaces: [
     {
       ...BRAND_A,
@@ -157,6 +178,7 @@ export const AGENT_IN_BRAND: CurrentUser = {
   name: 'Ishaan Agent',
   username: 'ishaan',
   customer: { id: 'c1', name: 'Acme' },
+  subscription: NO_PLAN,
   workspaces: [
     {
       ...BRAND_A,
@@ -182,6 +204,7 @@ export const AGENT_NO_BRANDS: CurrentUser = {
   name: 'Arun Agent',
   username: 'arun',
   customer: { id: 'c1', name: 'Acme' },
+  subscription: NO_PLAN,
 };
 
 export const inMs = (ms: number) => new Date(Date.now() + ms).toISOString();

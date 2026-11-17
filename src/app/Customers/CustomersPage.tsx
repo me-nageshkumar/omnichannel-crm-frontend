@@ -19,6 +19,7 @@ import { EnabledLabel } from '@app/admin/EnabledLabel';
 import { TemporaryPasswordModal } from '@app/admin/TemporaryPasswordModal';
 import { useLoad } from '@app/admin/useLoad';
 import { useAccess } from '@app/session/useAccess';
+import { StateLabel } from '@app/Billing/common/StateLabel';
 import { CreateCustomerModal } from '@app/Customers/CreateCustomerModal';
 
 type Filter = 'enabled' | 'disabled' | 'all';
@@ -33,6 +34,7 @@ export const CustomersPage: React.FunctionComponent = () => {
   const [q, setQ] = React.useState('');
   const [filter, setFilter] = React.useState<Filter>('all');
   const [page, setPage] = React.useState(0);
+  const [noPlan, setNoPlan] = React.useState(false);
   const [creating, setCreating] = React.useState(false);
   const [created, setCreated] = React.useState<{ id: string; username: string; password: string } | null>(null);
 
@@ -45,8 +47,8 @@ export const CustomersPage: React.FunctionComponent = () => {
   }, [search]);
 
   const customers = useLoad(
-    (token) => listCustomers(token, { q, active: ACTIVE_PARAM[filter], page }),
-    [q, filter, page],
+    (token) => listCustomers(token, { q, active: ACTIVE_PARAM[filter], page, noPlan }),
+    [q, filter, page, noPlan],
   );
 
   const pagination = (
@@ -97,6 +99,18 @@ export const CustomersPage: React.FunctionComponent = () => {
               ))}
             </ToggleGroup>
           </ToolbarItem>
+          <ToolbarItem>
+            <ToggleGroup aria-label="Plan filter">
+              <ToggleGroupItem
+                text="Without a plan"
+                isSelected={noPlan}
+                onChange={() => {
+                  setNoPlan((on) => !on);
+                  setPage(0);
+                }}
+              />
+            </ToggleGroup>
+          </ToolbarItem>
           <ToolbarItem variant="pagination">{pagination}</ToolbarItem>
         </ToolbarContent>
       </Toolbar>
@@ -109,6 +123,8 @@ export const CustomersPage: React.FunctionComponent = () => {
             <Tr>
               <Th>Name</Th>
               <Th>Status</Th>
+              <Th>Plan</Th>
+              <Th>Plan state</Th>
               <Th>Created</Th>
             </Tr>
           </Thead>
@@ -120,6 +136,10 @@ export const CustomersPage: React.FunctionComponent = () => {
                 </Td>
                 <Td dataLabel="Status">
                   <EnabledLabel disabled={c.disabled} active={c.active} />
+                </Td>
+                <Td dataLabel="Plan">{c.planName ?? '–'}</Td>
+                <Td dataLabel="Plan state">
+                  <StateLabel state={c.subscriptionState ?? 'NONE'} />
                 </Td>
                 <Td dataLabel="Created">{new Date(c.creationTime).toLocaleDateString()}</Td>
               </Tr>

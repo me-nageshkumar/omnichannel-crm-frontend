@@ -1,4 +1,5 @@
 import * as React from 'react';
+import { SubscriptionBanner } from '@app/Billing/common/SubscriptionBanner';
 import { Link, useLocation, useNavigate } from 'react-router-dom';
 import { navGuardAllows } from '@app/navGuard';
 import {
@@ -203,6 +204,7 @@ const AppLayout: React.FunctionComponent<IAppLayout> = ({ children }) => {
       isManagedSidebar
       sidebar={Sidebar}
       skipToContent={PageSkipToContent}
+      banner={<SubscriptionBanner />}
     >
       {children}
     </Page>

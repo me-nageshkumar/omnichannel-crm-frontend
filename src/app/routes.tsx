@@ -37,6 +37,7 @@ import { HistoryImportsPage } from '@app/HistoryImports/HistoryImportsPage';
 import { crmRoutes } from '@app/Crm/routes';
 import { chatbotRoutes } from '@app/Chatbots/routes';
 import { aiRoutes } from '@app/AI/routes';
+import { billingRoutes } from '@app/Billing/routes';
 import { useCrmReminderCount, useCrmStatus } from '@app/Crm/status/CrmStatusContext';
 import { Access, useAccess } from '@app/session/useAccess';
 
@@ -134,12 +135,15 @@ const NAV_SECTIONS: NavEntry[][] = [
   ],
   [
     { label: 'Brands', path: '/brands' },
+    { label: 'Plan & billing', path: '/billing' },
     {
       label: 'Platform',
       links: [
         { label: 'Customers', path: '/customers' },
         { label: 'All phone numbers', path: '/platform/phone-numbers' },
         { label: 'Chatbot defaults', path: '/platform/chatbot-settings' },
+        { label: 'Plans', path: '/platform/plans' },
+        { label: 'Billing settings', path: '/platform/billing-settings' },
       ],
     },
     {
@@ -348,6 +352,7 @@ const routes: IAppRoute[] = [
   ...crmRoutes,
   ...chatbotRoutes,
   ...aiRoutes,
+  ...billingRoutes,
 ];
 
 /** The routes the signed-in user may open. */

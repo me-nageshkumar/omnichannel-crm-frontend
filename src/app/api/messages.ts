@@ -1,6 +1,7 @@
 import type { CampaignAction, SenderAction } from '@app/api/campaigns';
 import { ApiError } from '@app/api/client';
 import { shown } from '@app/api/phoneNumbers';
+import { planMessage } from '@app/Billing/common/planMessage';
 
 export const MESSAGES = {
   sessionExpired: 'Your session has expired. Please log in again.',
@@ -46,6 +47,8 @@ const BY_CODE: Record<string, string> = {
 /** The user-facing sentence for an error from the API layer. */
 export function messageFor(error: unknown): string {
   if (!(error instanceof ApiError) || !error.code) return MESSAGES.generic;
+  const fromPlan = planMessage(error);
+  if (fromPlan) return fromPlan;
   const code = error.code.toLowerCase();
   if (code === 'too_many_attempts') {
     const minutes = Math.max(1, Math.ceil((error.retryAfterSeconds ?? 60) / 60));

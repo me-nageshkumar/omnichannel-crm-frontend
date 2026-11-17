@@ -58,7 +58,7 @@ describe('authority-driven navigation', () => {
   });
 
   it('customer admin sees brands, users and teams', async () => {
-    expect(await navFor(CUSTOMER_ADMIN)).toEqual([...BRAND_LINKS, 'Brands']);
+    expect(await navFor(CUSTOMER_ADMIN)).toEqual([...BRAND_LINKS, 'Brands', 'Plan & billing']);
   });
 
   it('workspace manager sees users and teams', async () => {
@@ -86,7 +86,7 @@ describe('authority-driven navigation', () => {
   });
 
   it('account manager sees customers only', async () => {
-    expect(await navFor(ACCOUNT_MANAGER)).toEqual(['Customers', 'All phone numbers']);
+    expect(await navFor(ACCOUNT_MANAGER)).toEqual(['Customers', 'All phone numbers', 'Plans']);
   });
 
   it('super admin sees platform users, roles and customers', async () => {
@@ -94,6 +94,8 @@ describe('authority-driven navigation', () => {
       'Customers',
       'All phone numbers',
       'Chatbot defaults',
+      'Plans',
+      'Billing settings',
       'Platform users',
       'Roles',
       'Authorities',

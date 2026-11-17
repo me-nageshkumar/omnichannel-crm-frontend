@@ -1,5 +1,6 @@
 import type { Disabled } from '@app/api/enablement';
 import { apiFetch } from '@app/api/client';
+import type { SubscriptionSummary } from '@app/api/billing';
 
 /** "WORKSPACE_MANAGER" → "Workspace manager". */
 export const roleLabel = (name: string): string => {
@@ -45,6 +46,8 @@ export interface CurrentUser {
   workspaces: WorkspaceAccess[];
   mustChangePassword: boolean;
   availability: { status: Availability; at: string | null };
+  /** Where the user's customer stands with its plan; null for platform users. */
+  subscription: SubscriptionSummary | null;
 }
 
 /** The role to show for {@code user}: their own role, else their role in {@code workspace}. */

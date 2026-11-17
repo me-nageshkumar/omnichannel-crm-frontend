@@ -39,6 +39,7 @@ import { useAction } from '@app/admin/useAction';
 import { upsert, useLoad } from '@app/admin/useLoad';
 import { CrmSwitchModal, useCrmSwitches } from '@app/Crm/platform/CrmSwitchModal';
 import { useSession } from '@app/session/SessionContext';
+import { SubscriptionCard } from '@app/Billing/platform/SubscriptionCard';
 import { useAccess } from '@app/session/useAccess';
 
 type Dialog =
@@ -63,6 +64,7 @@ export const CustomerDetailPage: React.FunctionComponent = () => {
   const { token } = useSession();
   const canManage = useAccess().has('customer:manage');
   const canCrm = useAccess().has('crm:enable');
+  const canSeePlan = useAccess().has('subscription:view');
   const detail = useLoad((t) => getCustomer(t, id), [id]);
   const users = useLoad((t) => listCustomerUsers(t, id), [id]);
   const [dialog, setDialog] = React.useState<Dialog | null>(null);
@@ -162,6 +164,11 @@ export const CustomerDetailPage: React.FunctionComponent = () => {
         {!canManage && (
           <StackItem>
             <EnabledLabel disabled={customer.disabled} active={customer.active} />
+          </StackItem>
+        )}
+        {canSeePlan && (
+          <StackItem>
+            <SubscriptionCard customerId={customer.id} />
           </StackItem>
         )}
         <StackItem>

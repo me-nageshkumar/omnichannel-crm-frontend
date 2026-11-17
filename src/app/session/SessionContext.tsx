@@ -1,10 +1,13 @@
 import * as React from 'react';
-import { ApiError, setUnauthorizedHandler } from '@app/api/client';
+import { ApiError, setPaymentRequiredHandler, setUnauthorizedHandler } from '@app/api/client';
 import { logout } from '@app/api/auth';
 import { MESSAGES, messageFor } from '@app/api/messages';
 import { CurrentUser, WorkspaceAccess, getCurrentUser } from '@app/api/users';
 import { SESSION_KEY, clearSession, hasStoredValue, readSession, writeSession } from '@app/session/sessionStore';
 import { readWorkspaceId, writeWorkspaceId } from '@app/session/workspaceStore';
+
+/** How long after one plan check the next refusal may trigger another. */
+const PLAN_CHECK_GAP_MS = 5000;
 
 export type SessionStatus = 'loading' | 'signedOut' | 'signedIn';
 
@@ -158,6 +161,20 @@ export const SessionProvider: React.FunctionComponent<{ children: React.ReactNod
     const user = await getCurrentUser(state.token);
     setState((s) => ({ ...s, user }));
   }, [state.token]);
+
+  // A 402 means the customer's plan refused something: what this session knows about the plan may be stale, so ask
+  // again (at most once in a while, however many requests are refused together) and let the banner and the pages follow.
+  const lastPlanCheck = React.useRef(0);
+  React.useEffect(() => {
+    if (!signedIn) return undefined;
+    setPaymentRequiredHandler(() => {
+      const now = Date.now();
+      if (now - lastPlanCheck.current < PLAN_CHECK_GAP_MS) return;
+      lastPlanCheck.current = now;
+      refreshUser().catch(() => undefined);
+    });
+    return () => setPaymentRequiredHandler(null);
+  }, [signedIn, refreshUser]);
 
   // A stored brand the user no longer has, or that is disabled, falls back to their first enabled one.
   const workspaces = (state.user?.workspaces ?? []).filter((w) => !w.disabled);

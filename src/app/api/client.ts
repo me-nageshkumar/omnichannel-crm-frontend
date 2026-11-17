@@ -44,6 +44,13 @@ export function setUnauthorizedHandler(fn: (() => void) | null): void {
   onUnauthorized = fn;
 }
 
+let onPaymentRequired: (() => void) | null = null;
+
+/** Called on any 402: the customer's plan refused something, so what the session knows about it may be stale. */
+export function setPaymentRequiredHandler(fn: (() => void) | null): void {
+  onPaymentRequired = fn;
+}
+
 /** Tells the app the session is no longer valid, for callers that see the 401 themselves (the event stream). */
 export function signalUnauthorized(): void {
   onUnauthorized?.();
@@ -74,6 +81,7 @@ function failure(res: Response, path: string, text: string): ApiError {
     data = undefined;
   }
   if (res.status === 401 && !path.startsWith('/api/auth/')) onUnauthorized?.();
+  if (res.status === 402) onPaymentRequired?.();
   const code = (data?.error ?? data?.code) as string | undefined;
   const retry = typeof data?.retryAfterSeconds === 'number' ? data.retryAfterSeconds : undefined;
   const field = typeof data?.field === 'string' ? data.field : undefined;
