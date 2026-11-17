@@ -11,8 +11,6 @@ import {
   ToolbarItem,
 } from '@patternfly/react-core';
 import { ActionsColumn, type IAction, Table, Tbody, Td, Th, Thead, Tr } from '@patternfly/react-table';
-import { ApiError } from '@app/api/client';
-import { messageFor } from '@app/api/messages';
 import { type FeatureGroup, deleteGroup, groupHistory, listGroups, listUngrouped } from '@app/api/billing';
 import { ConfirmModal } from '@app/admin/ConfirmModal';
 import { useAction } from '@app/admin/useAction';
@@ -21,6 +19,7 @@ import { useAccess } from '@app/session/useAccess';
 import { useSession } from '@app/session/SessionContext';
 import { BillingHistoryModal } from '@app/Billing/platform/BillingHistoryModal';
 import { FeatureGroupModal } from '@app/Billing/platform/FeatureGroupModal';
+import { groupError } from '@app/Billing/platform/groupErrors';
 
 type Dialog =
   | { kind: 'create' }
@@ -29,14 +28,6 @@ type Dialog =
   | { kind: 'delete'; group: FeatureGroup };
 
 const byOrder = (a: FeatureGroup, b: FeatureGroup) => a.sortOrder - b.sortOrder || a.code.localeCompare(b.code);
-
-/** Why a delete was refused, naming the plans in the way when the server gave them. */
-function deleteError(e: unknown): string {
-  if (e instanceof ApiError && e.code === 'GROUP_IN_USE') {
-    return e.extra?.plans ? `Used by plans: ${e.extra.plans}` : 'A customer holds this group; it cannot be deleted.';
-  }
-  return messageFor(e);
-}
 
 /** The feature groups plans are made of. */
 export const FeatureGroupsTab: React.FunctionComponent = () => {
@@ -60,7 +51,7 @@ export const FeatureGroupsTab: React.FunctionComponent = () => {
     const done = await remove.run(async () => {
       await deleteGroup(token as string, g.code);
       return true;
-    }, deleteError);
+    }, groupError);
     if (done) {
       groups.setData((list) => (list ?? []).filter((x) => x.code !== g.code));
       ungrouped.reload();

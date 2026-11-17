@@ -22,6 +22,7 @@ import { AuthorityPicker } from '@app/admin/AuthorityPicker';
 import { useAction } from '@app/admin/useAction';
 import { useLoad } from '@app/admin/useLoad';
 import { useSession } from '@app/session/SessionContext';
+import { groupError } from '@app/Billing/platform/groupErrors';
 
 const FIELDS = ['code', 'name', 'category', 'authorities', 'requires'];
 const CORE = 'core';
@@ -68,10 +69,12 @@ export const FeatureGroupModal: React.FunctionComponent<{
       requires,
       sortOrder: group?.sortOrder ?? Math.max(0, ...groups.map((g) => g.sortOrder)) + 10,
     };
-    const saved = await action.run(() =>
-      group
-        ? updateGroup(token as string, group.code, { ...body, version: group.version })
-        : createGroup(token as string, { ...body, code: code.trim() }),
+    const saved = await action.run(
+      () =>
+        group
+          ? updateGroup(token as string, group.code, { ...body, version: group.version })
+          : createGroup(token as string, { ...body, code: code.trim() }),
+      groupError,
     );
     if (saved) onSaved(saved);
   };

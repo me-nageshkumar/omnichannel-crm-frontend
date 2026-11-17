@@ -47,6 +47,7 @@ import { PriceSummary } from '@app/Billing/platform/PriceSummary';
 import {
   type GroupMode,
   type PlanDraft,
+  fieldProblems,
   priceItems,
   requiresProblems,
   setGroupMode,
@@ -99,7 +100,8 @@ const PlanForm: React.FunctionComponent<{
   const paid = groups.filter((g) => g.category === 'PAID').sort((a, b) => a.sortOrder - b.sortOrder);
   const free = groups.filter((g) => g.category === 'DEFAULT').sort((a, b) => a.sortOrder - b.sortOrder);
   const problems = requiresProblems(draft, groups);
-  const blocked = Object.keys(problems).length > 0;
+  const missing = fieldProblems(draft, groups, limitKeys);
+  const blocked = Object.keys(problems).length > 0 || Object.keys(missing).length > 0;
 
   const save = async () => {
     const input = toInput(draft);
@@ -179,8 +181,8 @@ const PlanForm: React.FunctionComponent<{
                     value={draft.rank}
                     onChange={(_e, v) => set('rank', v)}
                   />
-                  <FieldError message={action.fieldErrors.rank} />
-                  {!action.fieldErrors.rank && (
+                  <FieldError message={action.fieldErrors.rank ?? missing.rank} />
+                  {!action.fieldErrors.rank && !missing.rank && (
                     <FormHelperText>
                       <HelperText>
                         <HelperTextItem>
@@ -250,7 +252,7 @@ const PlanForm: React.FunctionComponent<{
                     />
                   </FlexItem>
                 </Flex>
-                <FieldError message={problems[g.code]} />
+                <FieldError message={problems[g.code] ?? missing[`group:${g.code}`]} />
               </fieldset>
             );
           })}
@@ -303,7 +305,7 @@ const PlanForm: React.FunctionComponent<{
                     <TextInput
                       aria-label={`Price of extra ${k.label}`}
                       type="number"
-                      isDisabled={readOnly || row.limit.trim() === ''}
+                      isDisabled={readOnly || (row.limit.trim() === '' && row.unitPrice === '')}
                       value={row.unitPrice}
                       onChange={(_e, v) => setLimit(k.key, 'unitPrice', v)}
                     />
@@ -313,12 +315,13 @@ const PlanForm: React.FunctionComponent<{
                     <TextInput
                       aria-label={`Extra ${k.label} per unit`}
                       type="number"
-                      isDisabled={readOnly || row.limit.trim() === ''}
+                      isDisabled={readOnly || (row.limit.trim() === '' && row.unit === '')}
                       value={row.unit}
                       onChange={(_e, v) => setLimit(k.key, 'unit', v)}
                     />
                   </FlexItem>
                 </Flex>
+                <FieldError message={missing[`limit:${k.key}`]} />
               </fieldset>
             );
           })}

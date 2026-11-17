@@ -1,5 +1,12 @@
 import { describe, expect, it } from 'vitest';
-import { priceItems, requiresProblems, setGroupMode, toDraft, toInput } from '@app/Billing/platform/planDraft';
+import {
+  fieldProblems,
+  priceItems,
+  requiresProblems,
+  setGroupMode,
+  toDraft,
+  toInput,
+} from '@app/Billing/platform/planDraft';
 import { LIMIT_KEYS, SEEDED_GROUPS, plan } from '../../../test/billing';
 
 describe('planDraft', () => {
@@ -68,16 +75,42 @@ describe('planDraft', () => {
   it('says which group another one needs', () => {
     const draft = toDraft(null, SEEDED_GROUPS, LIMIT_KEYS);
     expect(requiresProblems(draft, SEEDED_GROUPS)).toEqual({});
-    const included = setGroupMode(draft, 'ai', 'INCLUDED');
-    expect(requiresProblems(included, SEEDED_GROUPS)).toEqual({ ai: 'AI needs Chatbots to be included' });
-    expect(requiresProblems(setGroupMode(included, 'chatbots', 'ADDON'), SEEDED_GROUPS)).toEqual({
-      ai: 'AI needs Chatbots to be included',
+    // an included group needs what it requires to be included too
+    const ai = setGroupMode(draft, 'ai', 'INCLUDED');
+    expect(requiresProblems(ai, SEEDED_GROUPS)).toEqual({ ai: 'AI needs Chatbots to be included' });
+    const aiAndBots = setGroupMode(ai, 'chatbots', 'INCLUDED');
+    // and so on down the chain: chatbots are started by automation rules
+    expect(requiresProblems(aiAndBots, SEEDED_GROUPS)).toEqual({
+      chatbots: 'Chatbots needs Automations to be included',
     });
-    expect(requiresProblems(setGroupMode(included, 'chatbots', 'INCLUDED'), SEEDED_GROUPS)).toEqual({});
-    const offered = setGroupMode(draft, 'ai', 'ADDON');
+    expect(requiresProblems(setGroupMode(aiAndBots, 'automations', 'ADDON'), SEEDED_GROUPS)).toEqual({
+      chatbots: 'Chatbots needs Automations to be included',
+    });
+    expect(requiresProblems(setGroupMode(aiAndBots, 'automations', 'INCLUDED'), SEEDED_GROUPS)).toEqual({});
+    // an add-on needs it included or offered
+    const offered = setGroupMode(setGroupMode(draft, 'automations', 'INCLUDED'), 'ai', 'ADDON');
     expect(requiresProblems(offered, SEEDED_GROUPS)).toEqual({
       ai: 'AI needs Chatbots to be included or offered as an add-on',
     });
     expect(requiresProblems(setGroupMode(offered, 'chatbots', 'ADDON'), SEEDED_GROUPS)).toEqual({});
+  });
+
+  it('asks for what is half filled in, so nothing typed is dropped or saved as zero', () => {
+    const draft = toDraft(plan(), SEEDED_GROUPS, LIMIT_KEYS);
+    expect(fieldProblems(draft, SEEDED_GROUPS, LIMIT_KEYS)).toEqual({});
+
+    draft.rank = ' ';
+    draft.groups.crm = { mode: 'INCLUDED', price: '' };
+    draft.groups.campaigns = { mode: 'NONE', price: '' };
+    draft.limits.USERS = { limit: '5', unitPrice: '100', unit: '' };
+    draft.limits.BRANDS = { limit: '2', unitPrice: '', unit: '1' };
+    draft.limits.CHATBOTS = { limit: '', unitPrice: '50', unit: '5' };
+    expect(fieldProblems(draft, SEEDED_GROUPS, LIMIT_KEYS)).toEqual({
+      rank: 'Enter a rank',
+      'group:crm': 'Enter a price for CRM (0 if it is free)',
+      'limit:USERS': 'Enter how many extra Users the price buys',
+      'limit:BRANDS': 'Enter the price of extra Brands',
+      'limit:CHATBOTS': 'Extra Chatbots need a limit to add to',
+    });
   });
 });

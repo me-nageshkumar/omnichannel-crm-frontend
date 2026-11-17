@@ -59,4 +59,13 @@ describe('billing settings', () => {
     renderApp('/platform/billing-settings');
     expect(await screen.findByText(/404/)).toBeVisible();
   });
+
+  it('does not save blank grace days as none', async () => {
+    const fetch = mockFetch({ ...meAs(SUPER_ADMIN), ...billingRoutes() });
+    const { user } = renderApp('/platform/billing-settings');
+    await fill(user, 'Grace days', '');
+    await user.click(screen.getByRole('button', { name: 'Save' }));
+    expect(await screen.findByText('Enter the number of grace days (0 for none)')).toBeVisible();
+    expect(requestTo(fetch, 'PUT /api/billing/settings')).toBeUndefined();
+  });
 });

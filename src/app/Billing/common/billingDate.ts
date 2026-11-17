@@ -38,3 +38,9 @@ export function todayIn(zone: string, now: Date = new Date()): string {
   const part = (type: string) => parts.find((p) => p.type === type)?.value ?? '';
   return `${part('year')}-${part('month')}-${part('day')}`;
 }
+
+/** The ISO local date an instant falls on in the zone: a term's first day, or the day after its last. */
+export function localDateIn(iso: string, zone: string): string {
+  const d = new Date(iso);
+  return Number.isNaN(d.getTime()) ? '' : todayIn(zone, d);
+}

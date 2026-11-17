@@ -334,4 +334,16 @@ describe('roles page', () => {
       expect(requestTo(fetch, 'PUT /api/roles/r-wm')?.body.authorities).toEqual(['user:view']);
     });
   });
+
+  it('keeps what was ticked at one level while another level is looked at', async () => {
+    mockFetch(routes());
+    const { user } = renderApp('/roles');
+    await user.click(await screen.findByRole('button', { name: 'Add role' }));
+    await user.selectOptions(screen.getByLabelText(/^Level/), 'BRAND');
+    await user.click(screen.getByRole('checkbox', { name: /See users with access/ }));
+    await user.selectOptions(screen.getByLabelText(/^Level/), 'PLATFORM');
+    await user.click(screen.getByRole('checkbox', { name: /See the customer list/ }));
+    await user.selectOptions(screen.getByLabelText(/^Level/), 'BRAND');
+    expect(screen.getByRole('checkbox', { name: /See users with access/ })).toBeChecked();
+  });
 });

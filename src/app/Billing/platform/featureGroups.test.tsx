@@ -167,4 +167,22 @@ describe('feature groups', () => {
     expect(await screen.findByText('Removed crm:export')).toBeVisible();
     expect(screen.getByText('Nagesh Kumar')).toBeVisible();
   });
+
+  it('names the plans that keep a category from changing', async () => {
+    mockFetch({
+      ...meAs(SUPER_ADMIN),
+      ...billingRoutes(),
+      'GET /api/authorities': { status: 200, body: AUTHORITIES },
+      'PUT /api/billing/feature-groups/crm': {
+        status: 409,
+        body: { code: 'GROUP_IN_USE', message: 'The group is listed in a plan', plans: 'gold-monthly' },
+      },
+    });
+    const { user } = renderApp(GROUPS_TAB);
+    await rowAction(user, 'CRM', 'Edit');
+    const dialog = await screen.findByRole('dialog');
+    await user.click(within(dialog).getByRole('radio', { name: /Default/ }));
+    await user.click(within(dialog).getByRole('button', { name: 'Save' }));
+    expect(await within(dialog).findByText('Used by plans: gold-monthly')).toBeVisible();
+  });
 });

@@ -139,7 +139,11 @@ export const SubscriptionCard: React.FunctionComponent<{ customerId: string; onC
             setDialog(null);
             onChanged?.();
           }}
-          onCancel={() => setDialog(null)}
+          onCancel={() => {
+            // someone else may have changed it meanwhile: the next change must start from what is stored now
+            setDialog(null);
+            subscription.reload();
+          }}
         />
       )}
       {dialog === 'remove' && (

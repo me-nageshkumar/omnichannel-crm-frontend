@@ -40,7 +40,8 @@ export const SEEDED_GROUPS: FeatureGroup[] = [
   seed('templates', 'Templates', 'DEFAULT', 40, ['template:view', 'template:manage']),
   seed('campaigns', 'Campaigns', 'PAID', 50, ['campaign:view', 'campaign:manage']),
   seed('automations', 'Automations', 'PAID', 60, ['automation:view', 'automation:manage']),
-  seed('chatbots', 'Chatbots', 'PAID', 70, ['chatbot:view', 'chatbot:manage']),
+  // a chatbot is started by an automation rule
+  { ...seed('chatbots', 'Chatbots', 'PAID', 70, ['chatbot:view', 'chatbot:manage']), requires: ['automations'] },
   { ...seed('ai', 'AI', 'PAID', 80, ['ai:view', 'ai:manage']), requires: ['chatbots'] },
   seed('crm', 'CRM', 'PAID', 90, ['crm:view', 'crm:edit', 'crm:export']),
 ];

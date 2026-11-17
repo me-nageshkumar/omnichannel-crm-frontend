@@ -26,10 +26,17 @@ const SettingsForm: React.FunctionComponent<{ loaded: BillingSettings }> = ({ lo
   const [graceDays, setGraceDays] = React.useState(String(loaded.graceDays));
   const [withoutPlan, setWithoutPlan] = React.useState<WithoutPlan>(loaded.customersWithoutPlan);
   const [saved, setSaved] = React.useState(false);
+  const [graceError, setGraceError] = React.useState<string | undefined>(undefined);
   const action = useAction(FIELDS);
 
   const save = async () => {
     setSaved(false);
+    // a blank is not "no grace": that would turn every customer past its term read-only at once
+    if (graceDays.trim() === '' || Number.isNaN(Number(graceDays))) {
+      setGraceError('Enter the number of grace days (0 for none)');
+      return;
+    }
+    setGraceError(undefined);
     const result = await action.run(() =>
       putBillingSettings(token as string, {
         zone: zone.trim(),
@@ -74,7 +81,16 @@ const SettingsForm: React.FunctionComponent<{ loaded: BillingSettings }> = ({ lo
       </FormGroup>
       <FormGroup label="Grace days" isRequired fieldId="billing-grace">
         <TextInput id="billing-grace" type="number" value={graceDays} onChange={(_e, v) => setGraceDays(v)} />
-        {error('graceDays') ?? (
+        {graceError ? (
+          <FormHelperText>
+            <HelperText>
+              <HelperTextItem variant="error">{graceError}</HelperTextItem>
+            </HelperText>
+          </FormHelperText>
+        ) : (
+          error('graceDays')
+        )}
+        {!graceError && !action.fieldErrors.graceDays && (
           <FormHelperText>
             <HelperText>
               <HelperTextItem>Days of full use after a term ends, before the account turns read-only.</HelperTextItem>

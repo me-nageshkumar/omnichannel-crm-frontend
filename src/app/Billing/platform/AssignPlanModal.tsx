@@ -35,7 +35,7 @@ import { formatMoney } from '@app/Crm/common/money';
 import { useAction } from '@app/admin/useAction';
 import { useLoad } from '@app/admin/useLoad';
 import { useSession } from '@app/session/SessionContext';
-import { todayIn } from '@app/Billing/common/billingDate';
+import { localDateIn, todayIn } from '@app/Billing/common/billingDate';
 import { addMonths } from '@app/Billing/common/planDates';
 
 const FIELDS = ['planCode', 'startDate', 'endDate', 'addOns'];
@@ -60,8 +60,17 @@ export const AssignPlanModal: React.FunctionComponent<{
   const groups = useLoad(listGroups);
   const limitKeys = useLoad(listLimitKeys);
   const [planCode, setPlanCode] = React.useState(current.plan?.code ?? '');
-  const [startDate, setStartDate] = React.useState(() => todayIn(current.zone));
-  const [endDate, setEndDate] = React.useState('');
+  // a change starts from the term the customer is on; only a first assignment starts today
+  const [startDate, setStartDate] = React.useState(() =>
+    current.plan && current.termStart ? localDateIn(current.termStart, current.zone) : todayIn(current.zone),
+  );
+  const [endDate, setEndDate] = React.useState(() =>
+    current.plan && current.termEnd ? localDateIn(current.termEnd, current.zone) : '',
+  );
+  /** The plan and start date the end date was last worked out from; the term on file counts as worked out. */
+  const prefilledFor = React.useRef(current.plan ? `${current.plan.code}|${startDate}` : '');
+  /** Add-ons the customer holds that the chosen plan does not list; kept unless unticked. */
+  const [dropped, setDropped] = React.useState<string[]>([]);
   const [groupAddOns, setGroupAddOns] = React.useState<string[]>(
     current.addOns.filter((a) => a.kind === 'GROUP' && a.groupCode).map((a) => a.groupCode as string),
   );
@@ -80,13 +89,28 @@ export const AssignPlanModal: React.FunctionComponent<{
   const months = plan ? PERIOD_MONTHS[plan.period] : 0;
 
   React.useEffect(() => {
-    if (months > 0 && startDate) setEndDate(addMonths(startDate, months));
+    const key = `${planCode}|${startDate}`;
+    if (months === 0 || !startDate || prefilledFor.current === key) return;
+    prefilledFor.current = key;
+    setEndDate(addMonths(startDate, months));
   }, [months, startDate, planCode]);
 
   const nameOf = (code: string) => (groups.data ?? []).find((g: FeatureGroup) => g.code === code)?.name ?? code;
   const labelOf = (key: string) => (limitKeys.data ?? []).find((k: LimitKeyInfo) => k.key === key)?.label ?? key;
   const addOnGroups = plan ? plan.addOns : [];
   const addOnLimits = plan ? plan.limitAddOns : [];
+  // what the customer holds that this plan neither includes nor lists as an add-on (the plan was edited since)
+  const unlisted = !plan
+    ? []
+    : current.addOns.filter((a) =>
+        a.kind === 'GROUP'
+          ? !!a.groupCode &&
+            !plan.addOns.some((x) => x.groupCode === a.groupCode) &&
+            !plan.items.some((x) => x.groupCode === a.groupCode)
+          : !!a.limitKey &&
+            !plan.limitAddOns.some((x) => x.key === a.limitKey) &&
+            plan.limits[a.limitKey] !== undefined,
+      );
 
   const save = async () => {
     const addOns: SubscriptionAddOnInput[] = [
@@ -96,6 +120,13 @@ export const AssignPlanModal: React.FunctionComponent<{
       ...addOnLimits
         .filter((a) => Number(extra[a.key]) > 0)
         .map((a) => ({ kind: 'LIMIT' as const, limitKey: a.key, quantity: Number(extra[a.key]) })),
+      ...unlisted
+        .filter((a) => !dropped.includes(a.id))
+        .map((a) =>
+          a.kind === 'GROUP'
+            ? { kind: 'GROUP' as const, groupCode: a.groupCode as string }
+            : { kind: 'LIMIT' as const, limitKey: a.limitKey as string, quantity: a.quantity ?? 0 },
+        ),
     ];
     const saved = await action.run(
       () =>
@@ -161,7 +192,7 @@ export const AssignPlanModal: React.FunctionComponent<{
               </FormHelperText>
             )}
           </FormGroup>
-          {(addOnGroups.length > 0 || addOnLimits.length > 0) && (
+          {(addOnGroups.length > 0 || addOnLimits.length > 0 || unlisted.length > 0) && (
             <FormGroup role="group" label="Add-ons" fieldId="assign-plan-addons">
               {addOnGroups.map((a) => (
                 <Checkbox
@@ -186,6 +217,15 @@ export const AssignPlanModal: React.FunctionComponent<{
                   placeholder={`Extra ${labelOf(a.key).toLowerCase()} on top of ${plan?.limits[a.key] ?? 0}`}
                   value={extra[a.key] ?? ''}
                   onChange={(_e, v) => setExtra((x) => ({ ...x, [a.key]: v }))}
+                />
+              ))}
+              {unlisted.map((a) => (
+                <Checkbox
+                  key={a.id}
+                  id={`assign-plan-held-${a.id}`}
+                  label={`${a.kind === 'GROUP' ? nameOf(a.groupCode as string) : `${a.quantity} extra ${labelOf(a.limitKey as string)}`} (held now; no longer offered by this plan)`}
+                  isChecked={!dropped.includes(a.id)}
+                  onChange={(_e, on) => setDropped((list) => (on ? list.filter((id) => id !== a.id) : [...list, a.id]))}
                 />
               ))}
               {error('addOns')}

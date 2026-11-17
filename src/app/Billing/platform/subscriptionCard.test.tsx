@@ -3,7 +3,7 @@ import { screen, waitFor, within } from '@testing-library/react';
 import { renderApp } from '../../../test/renderApp';
 import { mockFetch, requestTo } from '../../../test/fetchMock';
 import { ACCOUNT_MANAGER, meAs, storeSession } from '../../../test/session';
-import { NO_SUBSCRIPTION, billingRoutes, subscription } from '../../../test/billing';
+import { NO_SUBSCRIPTION, billingRoutes, plan, subscription } from '../../../test/billing';
 import { rowWith, urlsOf } from '../../../test/admin';
 
 const ACME = {
@@ -157,5 +157,82 @@ describe("a customer's subscription", () => {
     expect(within(await rowWith('Globex')).getByText('No plan')).toBeVisible();
     await user.click(screen.getByRole('button', { name: 'Without a plan' }));
     await waitFor(() => expect(urlsOf(fetch, 'GET /api/customers').some((u) => u.includes('noPlan=true'))).toBe(true));
+  });
+
+  it('opens a change with the term the customer is on and keeps what it holds', async () => {
+    const held = subscription();
+    held.addOns = [
+      { id: 'a1', kind: 'GROUP', groupCode: 'automations', limitKey: null, quantity: 0 },
+      // the plan stopped offering these two after the customer got them
+      { id: 'a2', kind: 'GROUP', groupCode: 'campaigns', limitKey: null, quantity: 0 },
+      { id: 'a3', kind: 'LIMIT', groupCode: null, limitKey: 'CHATBOTS', quantity: 2 },
+    ];
+    const fetch = mockFetch({
+      ...meAs(ACCOUNT_MANAGER),
+      ...billingRoutes(),
+      ...customerRoutes,
+      // the plan still limits chatbots, but no longer sells extra ones
+      'GET /api/billing/plans': { status: 200, body: [plan({ limits: { USERS: 5, CHATBOTS: 3 } })] },
+      'GET /api/billing/customers/c1/subscription': { status: 200, body: held },
+      'PUT /api/billing/customers/c1/subscription': { status: 200, body: held },
+    });
+    const { user } = renderApp('/customers/c1');
+    const card = await screen.findByRole('region', { name: 'Subscription' });
+    await user.click(await within(card).findByRole('button', { name: 'Change plan' }));
+    const dialog = await screen.findByRole('dialog');
+    await waitFor(() => expect(within(dialog).getByLabelText(/^Plan/)).toHaveValue('gold-monthly'));
+    // the term as it is, not a new one from today
+    expect(within(dialog).getByLabelText(/^Start date/)).toHaveValue('2026-12-01');
+    expect(within(dialog).getByLabelText(/^End date/)).toHaveValue('2027-01-01');
+    expect(await within(dialog).findByRole('checkbox', { name: /Automations/ })).toBeChecked();
+    expect(within(dialog).getByRole('checkbox', { name: /Campaigns.*no longer offered/ })).toBeChecked();
+    expect(within(dialog).getByRole('checkbox', { name: /2 extra Chatbots.*no longer offered/ })).toBeChecked();
+    await user.click(within(dialog).getByRole('button', { name: 'Change' }));
+
+    await waitFor(() =>
+      expect(requestTo(fetch, 'PUT /api/billing/customers/c1/subscription')?.body).toEqual({
+        planCode: 'gold-monthly',
+        startDate: '2026-12-01',
+        endDate: '2027-01-01',
+        addOns: [
+          { kind: 'GROUP', groupCode: 'automations' },
+          { kind: 'GROUP', groupCode: 'campaigns' },
+          { kind: 'LIMIT', limitKey: 'CHATBOTS', quantity: 2 },
+        ],
+        revision: 1,
+      }),
+    );
+  });
+
+  it('looks at the subscription again after someone else changed it', async () => {
+    let revision = 1;
+    const fetch = mockFetch({
+      ...meAs(ACCOUNT_MANAGER),
+      ...billingRoutes(),
+      ...customerRoutes,
+      'GET /api/billing/customers/c1/subscription': () => ({ status: 200, body: subscription({ revision }) }),
+      'PUT /api/billing/customers/c1/subscription': (req) => {
+        if ((req.body as { revision: number }).revision === revision)
+          return { status: 200, body: subscription({ revision: 3 }) };
+        return { status: 409, body: { code: 'CONFLICT', message: 'changed' } };
+      },
+    });
+    const { user } = renderApp('/customers/c1');
+    const card = await screen.findByRole('region', { name: 'Subscription' });
+    await user.click(await within(card).findByRole('button', { name: 'Change plan' }));
+    revision = 2; // someone else changes it meanwhile
+    const dialog = await screen.findByRole('dialog');
+    await waitFor(() => expect(within(dialog).getByLabelText(/^Plan/)).toHaveValue('gold-monthly'));
+    await user.click(within(dialog).getByRole('button', { name: 'Change' }));
+    expect(await within(dialog).findByText(/Someone else changed this subscription/)).toBeVisible();
+    await user.click(within(dialog).getByRole('button', { name: 'Cancel' }));
+
+    await user.click(await within(card).findByRole('button', { name: 'Change plan' }));
+    const again = await screen.findByRole('dialog');
+    await waitFor(() => expect(within(again).getByLabelText(/^Plan/)).toHaveValue('gold-monthly'));
+    await user.click(within(again).getByRole('button', { name: 'Change' }));
+    await waitFor(() =>
+      expect(requestTo(fetch, 'PUT /api/billing/customers/c1/subscription', 1)?.body).toMatchObject({ revision: 2 }),
+    );
   });
 });

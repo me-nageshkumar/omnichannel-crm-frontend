@@ -165,7 +165,13 @@ export const RoleEditor: React.FunctionComponent<{
               onChange={(_e, v) => setDescription(v)}
             />
           </FormGroup>
-          <AuthorityPicker authorities={offered} selected={chosen} onChange={setSelected} idPrefix="auth" />
+          <AuthorityPicker
+            authorities={offered}
+            selected={chosen}
+            // what was ticked at another level is kept, in case the level is switched back
+            onChange={(next) => setSelected((s) => [...s.filter((c) => !offered.some((a) => a.code === c)), ...next])}
+            idPrefix="auth"
+          />
         </Form>
       </ModalBody>
       <ModalFooter>

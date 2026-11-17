@@ -126,3 +126,34 @@ export function requiresProblems(draft: PlanDraft, groups: FeatureGroup[]): Reco
   });
   return problems;
 }
+
+/**
+ * What is missing where something was started: a rank, the price of a group the plan sells, or half of an extra-unit
+ * price. Keys are `rank`, `group:<code>` and `limit:<key>`. A blank is never sent as 0 and a half-typed row is never
+ * dropped without a word.
+ */
+export function fieldProblems(
+  draft: PlanDraft,
+  groups: FeatureGroup[],
+  limitKeys: LimitKeyInfo[],
+): Record<string, string> {
+  const problems: Record<string, string> = {};
+  if (!filled(draft.rank)) problems.rank = 'Enter a rank';
+  groups.forEach((g) => {
+    const row = draft.groups[g.code];
+    if (g.category === 'PAID' && row && row.mode !== 'NONE' && !filled(row.price)) {
+      problems[`group:${g.code}`] = `Enter a price for ${g.name} (0 if it is free)`;
+    }
+  });
+  limitKeys.forEach((k) => {
+    const row = draft.limits[k.key];
+    if (!row) return;
+    const price = filled(row.unitPrice);
+    const unit = filled(row.unit);
+    if (!price && !unit) return;
+    if (!filled(row.limit)) problems[`limit:${k.key}`] = `Extra ${k.label} need a limit to add to`;
+    else if (!unit) problems[`limit:${k.key}`] = `Enter how many extra ${k.label} the price buys`;
+    else if (!price) problems[`limit:${k.key}`] = `Enter the price of extra ${k.label}`;
+  });
+  return problems;
+}
