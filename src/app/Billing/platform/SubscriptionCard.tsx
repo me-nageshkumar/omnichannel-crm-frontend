@@ -36,12 +36,16 @@ import { OrderDialog, type StaffOrderKind } from '@app/Billing/platform/OrderDia
 type Dialog = 'history' | StaffOrderKind;
 
 /** A customer's plan on its page, for platform staff: what it is on, until when, and what it uses. */
-export const SubscriptionCard: React.FunctionComponent<{ customerId: string; onChanged?(): void }> = ({
-  customerId,
-  onChanged,
-}) => {
+export const SubscriptionCard: React.FunctionComponent<{
+  customerId: string;
+  /** Changes when something else on the page changed the customer's billing. */
+  reloadKey?: number;
+  onChanged?(): void;
+}> = ({ customerId, reloadKey = 0, onChanged }) => {
   const canManage = useAccess().has('subscription:manage');
-  const subscription = useLoad((t) => getCustomerSubscription(t, customerId), [customerId]);
+  const subscription = useLoad((t) => getCustomerSubscription(t, customerId), [customerId, reloadKey], {
+    keepOnError: true,
+  });
   const [dialog, setDialog] = React.useState<Dialog | null>(null);
   const [raised, setRaised] = React.useState<Order | null>(null);
   const s: Subscription | undefined = subscription.data;
@@ -151,8 +155,8 @@ export const SubscriptionCard: React.FunctionComponent<{ customerId: string; onC
           onRaised={(order) => {
             setRaised(order);
             setDialog(null);
-            subscription.reload();
-            onChanged?.();
+            if (onChanged) onChanged();
+            else subscription.reload();
           }}
           onCancel={() => setDialog(null)}
         />
