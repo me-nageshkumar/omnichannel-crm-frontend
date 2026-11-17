@@ -1,9 +1,9 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { screen, waitFor, within } from '@testing-library/react';
 import { renderApp } from '../../../test/renderApp';
-import { mockFetch, requestTo } from '../../../test/fetchMock';
+import { mockFetch } from '../../../test/fetchMock';
 import { ACCOUNT_MANAGER, meAs, storeSession } from '../../../test/session';
-import { NO_SUBSCRIPTION, billingRoutes, plan, subscription } from '../../../test/billing';
+import { NO_SUBSCRIPTION, billingRoutes, subscription } from '../../../test/billing';
 import { rowWith, urlsOf } from '../../../test/admin';
 
 const ACME = {
@@ -33,46 +33,6 @@ describe("a customer's subscription", () => {
   });
   afterEach(() => vi.unstubAllGlobals());
 
-  it('assigns a plan to a customer that has none', async () => {
-    const fetch = mockFetch({
-      ...meAs(ACCOUNT_MANAGER),
-      ...billingRoutes(),
-      ...customerRoutes,
-      'GET /api/billing/customers/c1/subscription': { status: 200, body: NO_SUBSCRIPTION },
-      'PUT /api/billing/customers/c1/subscription': { status: 200, body: subscription() },
-    });
-    const { user } = renderApp('/customers/c1');
-    const card = await screen.findByRole('region', { name: 'Subscription' });
-    expect(await within(card).findByText('No plan')).toBeVisible();
-    await user.click(within(card).getByRole('button', { name: 'Assign plan' }));
-
-    const dialog = await screen.findByRole('dialog');
-    await user.selectOptions(within(dialog).getByLabelText(/^Plan/), 'gold-monthly');
-    const start = within(dialog).getByLabelText(/^Start date/) as HTMLInputElement;
-    await user.clear(start);
-    await user.type(start, '2026-12-01');
-    // a month on, as the plan's period says
-    await waitFor(() => expect(within(dialog).getByLabelText(/^End date/)).toHaveValue('2027-01-01'));
-    await user.click(within(dialog).getByRole('checkbox', { name: /Automations/ }));
-    await user.type(within(dialog).getByRole('spinbutton', { name: 'Extra Users' }), '5');
-    await user.click(within(dialog).getByRole('button', { name: 'Assign' }));
-
-    await waitFor(() =>
-      expect(requestTo(fetch, 'PUT /api/billing/customers/c1/subscription')?.body).toEqual({
-        planCode: 'gold-monthly',
-        startDate: '2026-12-01',
-        endDate: '2027-01-01',
-        addOns: [
-          { kind: 'GROUP', groupCode: 'automations' },
-          { kind: 'LIMIT', limitKey: 'USERS', quantity: 5 },
-        ],
-        revision: null,
-      }),
-    );
-    expect(await within(card).findByText('Gold')).toBeVisible();
-    expect(within(card).getByText('1 Dec 2026 – 31 Dec 2026')).toBeVisible();
-  });
-
   it('shows the plan, what it includes and the limits', async () => {
     mockFetch({
       ...meAs(ACCOUNT_MANAGER),
@@ -92,22 +52,6 @@ describe("a customer's subscription", () => {
     expect(
       within(within(card).getByText('Brands').closest('tr') as HTMLElement).getByText('1 of unlimited'),
     ).toBeVisible();
-    expect(within(card).getByRole('button', { name: 'Change plan' })).toBeVisible();
-  });
-
-  it('removes a plan after asking', async () => {
-    const fetch = mockFetch({
-      ...meAs(ACCOUNT_MANAGER),
-      ...billingRoutes(),
-      ...customerRoutes,
-      'GET /api/billing/customers/c1/subscription': { status: 200, body: subscription() },
-      'DELETE /api/billing/customers/c1/subscription': { status: 204 },
-    });
-    const { user } = renderApp('/customers/c1');
-    const card = await screen.findByRole('region', { name: 'Subscription' });
-    await user.click(await within(card).findByRole('button', { name: 'Remove plan' }));
-    await user.click(await screen.findByRole('button', { name: 'Remove' }));
-    await waitFor(() => expect(urlsOf(fetch, 'DELETE /api/billing/customers/c1/subscription')).toHaveLength(1));
   });
 
   it('has no actions for someone who may only look, and no card for someone who may not', async () => {
@@ -125,7 +69,9 @@ describe("a customer's subscription", () => {
     const card = await screen.findByRole('region', { name: 'Subscription' });
     expect(await within(card).findByText('Gold')).toBeVisible();
     expect(within(card).queryByRole('button', { name: 'Change plan' })).toBeNull();
-    expect(within(card).queryByRole('button', { name: 'Remove plan' })).toBeNull();
+    expect(within(card).queryByRole('button', { name: 'Renew' })).toBeNull();
+    expect(within(card).queryByRole('button', { name: 'Add add-on' })).toBeNull();
+    expect(within(card).getByRole('button', { name: 'History' })).toBeVisible();
 
     vi.unstubAllGlobals();
     const blind = { ...viewer, authorities: viewer.authorities.filter((a) => a !== 'subscription:view') };
@@ -133,6 +79,90 @@ describe("a customer's subscription", () => {
     renderApp('/customers/c1');
     await screen.findAllByText('Acme Retail');
     expect(screen.getAllByRole('region', { name: 'Subscription' })).toHaveLength(1);
+  });
+
+  it('offers what can be done with the plan as it stands', async () => {
+    const names = (card: HTMLElement) =>
+      within(card)
+        .getAllByRole('button')
+        .map((b) => b.textContent);
+    mockFetch({
+      ...meAs(ACCOUNT_MANAGER),
+      ...billingRoutes(),
+      ...customerRoutes,
+      'GET /api/billing/customers/c1/subscription': { status: 200, body: subscription() },
+    });
+    const first = renderApp('/customers/c1');
+    let card = await screen.findByRole('region', { name: 'Subscription' });
+    await within(card).findByText('Gold');
+    expect(names(card)).toEqual(['Change plan', 'Renew', 'Add add-on', 'More', 'History']);
+    first.unmount();
+
+    vi.unstubAllGlobals();
+    mockFetch({
+      ...meAs(ACCOUNT_MANAGER),
+      ...billingRoutes(),
+      ...customerRoutes,
+      'GET /api/billing/customers/c1/subscription': {
+        status: 200,
+        body: subscription({ state: 'EXPIRED', readOnly: true }),
+      },
+    });
+    const second = renderApp('/customers/c1');
+    card = await screen.findByRole('region', { name: 'Subscription' });
+    await within(card).findByText('Gold');
+    expect(names(card)).toEqual(['New plan', 'Renew', 'History']);
+    second.unmount();
+
+    vi.unstubAllGlobals();
+    mockFetch({
+      ...meAs(ACCOUNT_MANAGER),
+      ...billingRoutes(),
+      ...customerRoutes,
+      'GET /api/billing/customers/c1/subscription': { status: 200, body: NO_SUBSCRIPTION },
+    });
+    renderApp('/customers/c1');
+    card = await screen.findByRole('region', { name: 'Subscription' });
+    await within(card).findByText('No plan');
+    expect(names(card)).toEqual(['New plan', 'History']);
+  });
+
+  it('shows account credit, a renewal that waits and a cancelled plan', async () => {
+    mockFetch({
+      ...meAs(ACCOUNT_MANAGER),
+      ...billingRoutes(),
+      ...customerRoutes,
+      'GET /api/billing/customers/c1/subscription': {
+        status: 200,
+        body: subscription({
+          creditBalance: 182.71,
+          next: { planName: 'Gold', termStart: '2026-12-31T18:30:00Z', termEnd: '2027-01-31T18:30:00Z' },
+        }),
+      },
+    });
+    const first = renderApp('/customers/c1');
+    let card = await screen.findByRole('region', { name: 'Subscription' });
+    expect(await within(card).findByText('₹182.71')).toBeVisible();
+    expect(within(card).getByText('Gold, from 1 Jan 2027 to 31 Jan 2027')).toBeVisible();
+    // a plan that is renewed already cannot be renewed again
+    expect(within(card).queryByRole('button', { name: 'Renew' })).toBeNull();
+    first.unmount();
+
+    vi.unstubAllGlobals();
+    mockFetch({
+      ...meAs(ACCOUNT_MANAGER),
+      ...billingRoutes(),
+      ...customerRoutes,
+      'GET /api/billing/customers/c1/subscription': {
+        status: 200,
+        body: subscription({ state: 'EXPIRED', readOnly: true, cancelled: true }),
+      },
+    });
+    renderApp('/customers/c1');
+    card = await screen.findByRole('region', { name: 'Subscription' });
+    expect(await within(card).findByText('Cancelled')).toBeVisible();
+    expect(within(card).queryByRole('button', { name: 'Renew' })).toBeNull();
+    expect(within(card).getByRole('button', { name: 'New plan' })).toBeVisible();
   });
 
   it("shows each customer's plan in the list and filters those without one", async () => {
@@ -157,82 +187,5 @@ describe("a customer's subscription", () => {
     expect(within(await rowWith('Globex')).getByText('No plan')).toBeVisible();
     await user.click(screen.getByRole('button', { name: 'Without a plan' }));
     await waitFor(() => expect(urlsOf(fetch, 'GET /api/customers').some((u) => u.includes('noPlan=true'))).toBe(true));
-  });
-
-  it('opens a change with the term the customer is on and keeps what it holds', async () => {
-    const held = subscription();
-    held.addOns = [
-      { id: 'a1', kind: 'GROUP', groupCode: 'automations', limitKey: null, quantity: 0 },
-      // the plan stopped offering these two after the customer got them
-      { id: 'a2', kind: 'GROUP', groupCode: 'campaigns', limitKey: null, quantity: 0 },
-      { id: 'a3', kind: 'LIMIT', groupCode: null, limitKey: 'CHATBOTS', quantity: 2 },
-    ];
-    const fetch = mockFetch({
-      ...meAs(ACCOUNT_MANAGER),
-      ...billingRoutes(),
-      ...customerRoutes,
-      // the plan still limits chatbots, but no longer sells extra ones
-      'GET /api/billing/plans': { status: 200, body: [plan({ limits: { USERS: 5, CHATBOTS: 3 } })] },
-      'GET /api/billing/customers/c1/subscription': { status: 200, body: held },
-      'PUT /api/billing/customers/c1/subscription': { status: 200, body: held },
-    });
-    const { user } = renderApp('/customers/c1');
-    const card = await screen.findByRole('region', { name: 'Subscription' });
-    await user.click(await within(card).findByRole('button', { name: 'Change plan' }));
-    const dialog = await screen.findByRole('dialog');
-    await waitFor(() => expect(within(dialog).getByLabelText(/^Plan/)).toHaveValue('gold-monthly'));
-    // the term as it is, not a new one from today
-    expect(within(dialog).getByLabelText(/^Start date/)).toHaveValue('2026-12-01');
-    expect(within(dialog).getByLabelText(/^End date/)).toHaveValue('2027-01-01');
-    expect(await within(dialog).findByRole('checkbox', { name: /Automations/ })).toBeChecked();
-    expect(within(dialog).getByRole('checkbox', { name: /Campaigns.*no longer offered/ })).toBeChecked();
-    expect(within(dialog).getByRole('checkbox', { name: /2 extra Chatbots.*no longer offered/ })).toBeChecked();
-    await user.click(within(dialog).getByRole('button', { name: 'Change' }));
-
-    await waitFor(() =>
-      expect(requestTo(fetch, 'PUT /api/billing/customers/c1/subscription')?.body).toEqual({
-        planCode: 'gold-monthly',
-        startDate: '2026-12-01',
-        endDate: '2027-01-01',
-        addOns: [
-          { kind: 'GROUP', groupCode: 'automations' },
-          { kind: 'GROUP', groupCode: 'campaigns' },
-          { kind: 'LIMIT', limitKey: 'CHATBOTS', quantity: 2 },
-        ],
-        revision: 1,
-      }),
-    );
-  });
-
-  it('looks at the subscription again after someone else changed it', async () => {
-    let revision = 1;
-    const fetch = mockFetch({
-      ...meAs(ACCOUNT_MANAGER),
-      ...billingRoutes(),
-      ...customerRoutes,
-      'GET /api/billing/customers/c1/subscription': () => ({ status: 200, body: subscription({ revision }) }),
-      'PUT /api/billing/customers/c1/subscription': (req) => {
-        if ((req.body as { revision: number }).revision === revision)
-          return { status: 200, body: subscription({ revision: 3 }) };
-        return { status: 409, body: { code: 'CONFLICT', message: 'changed' } };
-      },
-    });
-    const { user } = renderApp('/customers/c1');
-    const card = await screen.findByRole('region', { name: 'Subscription' });
-    await user.click(await within(card).findByRole('button', { name: 'Change plan' }));
-    revision = 2; // someone else changes it meanwhile
-    const dialog = await screen.findByRole('dialog');
-    await waitFor(() => expect(within(dialog).getByLabelText(/^Plan/)).toHaveValue('gold-monthly'));
-    await user.click(within(dialog).getByRole('button', { name: 'Change' }));
-    expect(await within(dialog).findByText(/Someone else changed this subscription/)).toBeVisible();
-    await user.click(within(dialog).getByRole('button', { name: 'Cancel' }));
-
-    await user.click(await within(card).findByRole('button', { name: 'Change plan' }));
-    const again = await screen.findByRole('dialog');
-    await waitFor(() => expect(within(again).getByLabelText(/^Plan/)).toHaveValue('gold-monthly'));
-    await user.click(within(again).getByRole('button', { name: 'Change' }));
-    await waitFor(() =>
-      expect(requestTo(fetch, 'PUT /api/billing/customers/c1/subscription', 1)?.body).toMatchObject({ revision: 2 }),
-    );
   });
 });

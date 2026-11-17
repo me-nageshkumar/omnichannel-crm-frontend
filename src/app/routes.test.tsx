@@ -86,7 +86,7 @@ describe('authority-driven navigation', () => {
   });
 
   it('account manager sees customers only', async () => {
-    expect(await navFor(ACCOUNT_MANAGER)).toEqual(['Customers', 'All phone numbers', 'Plans']);
+    expect(await navFor(ACCOUNT_MANAGER)).toEqual(['Customers', 'All phone numbers', 'Plans', 'Billing requests']);
   });
 
   it('super admin sees platform users, roles and customers', async () => {
@@ -95,6 +95,7 @@ describe('authority-driven navigation', () => {
       'All phone numbers',
       'Chatbot defaults',
       'Plans',
+      'Billing requests',
       'Billing settings',
       'Platform users',
       'Roles',

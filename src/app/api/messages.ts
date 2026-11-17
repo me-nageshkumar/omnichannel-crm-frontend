@@ -42,6 +42,11 @@ const BY_CODE: Record<string, string> = {
   sender_state: 'This number cannot be changed now.',
   query_timeout: 'This filter takes too long to run. Make it more specific.',
   conflict: 'Someone else changed this at the same time. Reload and try again.',
+  order_stale: 'This quote is out of date; raise it again.',
+  order_expired: 'This request has expired; raise it again.',
+  order_not_open: 'This request is no longer open.',
+  order_pending: 'There is already an open request that changes the plan.',
+  not_enough_credit: 'There is not that much account credit.',
 };
 
 /** The user-facing sentence for an error from the API layer. */
@@ -77,6 +82,9 @@ export function messageFor(error: unknown): string {
       error.usedBy?.campaigns.length ? `Campaigns: ${names(error.usedBy.campaigns)}.` : '',
     ];
     return parts.filter(Boolean).join(' ');
+  }
+  if (code === 'billing_not_set_up') {
+    return `Billing is not set up yet: ${error.extra?.missing ?? 'the supplier details or the billing profile'}.`;
   }
   if (code === 'validation') {
     // The server names the field(s) in a readable sentence; show it rather than "try again".

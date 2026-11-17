@@ -39,6 +39,8 @@ import { useAction } from '@app/admin/useAction';
 import { upsert, useLoad } from '@app/admin/useLoad';
 import { CrmSwitchModal, useCrmSwitches } from '@app/Crm/platform/CrmSwitchModal';
 import { useSession } from '@app/session/SessionContext';
+import { BillingProfileCard } from '@app/Billing/platform/BillingProfileCard';
+import { CustomerBillingTabs } from '@app/Billing/platform/CustomerBillingTabs';
 import { SubscriptionCard } from '@app/Billing/platform/SubscriptionCard';
 import { useAccess } from '@app/session/useAccess';
 
@@ -65,6 +67,9 @@ export const CustomerDetailPage: React.FunctionComponent = () => {
   const canManage = useAccess().has('customer:manage');
   const canCrm = useAccess().has('crm:enable');
   const canSeePlan = useAccess().has('subscription:view');
+  // the plan card and the orders under it each reload when the other changed the customer's billing
+  const [billingTick, setBillingTick] = React.useState(0);
+  const billingChanged = React.useCallback(() => setBillingTick((n) => n + 1), []);
   const detail = useLoad((t) => getCustomer(t, id), [id]);
   const users = useLoad((t) => listCustomerUsers(t, id), [id]);
   const [dialog, setDialog] = React.useState<Dialog | null>(null);
@@ -168,7 +173,17 @@ export const CustomerDetailPage: React.FunctionComponent = () => {
         )}
         {canSeePlan && (
           <StackItem>
-            <SubscriptionCard customerId={customer.id} />
+            <SubscriptionCard customerId={customer.id} reloadKey={billingTick} onChanged={billingChanged} />
+          </StackItem>
+        )}
+        {canSeePlan && (
+          <StackItem>
+            <CustomerBillingTabs customerId={customer.id} reloadKey={billingTick} onChanged={billingChanged} />
+          </StackItem>
+        )}
+        {canSeePlan && (
+          <StackItem>
+            <BillingProfileCard customerId={customer.id} />
           </StackItem>
         )}
         <StackItem>
