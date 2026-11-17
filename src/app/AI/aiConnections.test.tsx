@@ -5,7 +5,7 @@ import type { CurrentUser } from '@app/api/users';
 import { renderApp } from '../../test/renderApp';
 import { mockFetch, requestTo } from '../../test/fetchMock';
 import { BRAND_A, WORKSPACE_MANAGER, meAs, storeSession } from '../../test/session';
-import { AI_BASE, CONNECTION, aiRoutes } from '../../test/ai';
+import { AI_BASE, CONNECTION, PROVIDERS, aiRoutes } from '../../test/ai';
 
 const VIEWER: CurrentUser = {
   ...WORKSPACE_MANAGER,
@@ -65,6 +65,7 @@ describe('AI page — connections', () => {
       name: 'Second key',
       provider: 'openai',
       apiKey: 'sk-secret-123',
+      settings: {},
     });
     expect(document.body.textContent).not.toContain('sk-secret-123');
   });
@@ -84,7 +85,7 @@ describe('AI page — connections', () => {
     await user.click(within(dialog).getByRole('button', { name: 'Save' }));
     await waitFor(() => expect(requestTo(fetch, `PUT ${AI_BASE}/connections/k1`)).toBeDefined());
     const body = requestTo(fetch, `PUT ${AI_BASE}/connections/k1`)?.body;
-    expect(body).toEqual({ name: 'Renamed', provider: 'openai', version: 0 });
+    expect(body).toEqual({ name: 'Renamed', provider: 'openai', settings: {}, version: 0 });
     expect(body).not.toHaveProperty('apiKey');
   });
 
@@ -103,6 +104,7 @@ describe('AI page — connections', () => {
         name: 'Main key',
         provider: 'openai',
         apiKey: 'sk-new-456',
+        settings: {},
         version: 0,
       }),
     );
@@ -170,5 +172,114 @@ describe('AI page — connections', () => {
     const dialog = await screen.findByRole('dialog', { name: 'Add connection' });
     await user.selectOptions(within(dialog).getByLabelText('Provider'), 'openai');
     expect(within(dialog).getByText('OpenAI keeps stored responses for 30 days in your OpenAI account.')).toBeVisible();
+  });
+
+  it('showsTheSelectedProvidersFields', async () => {
+    const user = userEvent.setup();
+    await openPage();
+    await user.click(screen.getByRole('button', { name: 'Add connection' }));
+    const dialog = await screen.findByRole('dialog', { name: 'Add connection' });
+    expect(within(dialog).getByLabelText('Organization ID')).toBeVisible();
+    expect(within(dialog).getByLabelText('Project ID')).toBeVisible();
+    expect(
+      within(dialog).getByText('Optional. Sent as OpenAI-Organization. Not a secret; the key goes in API key.'),
+    ).toBeVisible();
+    await user.selectOptions(within(dialog).getByLabelText('Provider'), 'scripted');
+    expect(within(dialog).queryByLabelText('Organization ID')).toBeNull();
+    expect(within(dialog).queryByLabelText('Project ID')).toBeNull();
+  });
+
+  it('sendsSettingsOnSave', async () => {
+    const user = userEvent.setup();
+    const fetch = await openPage(WORKSPACE_MANAGER, {
+      [`POST ${AI_BASE}/connections`]: { status: 201, body: { ...CONNECTION, id: 'k3', name: 'Second key' } },
+    });
+    await user.click(screen.getByRole('button', { name: 'Add connection' }));
+    const dialog = await screen.findByRole('dialog', { name: 'Add connection' });
+    await user.type(within(dialog).getByLabelText(/^Name/), 'Second key');
+    await user.type(within(dialog).getByLabelText(/^API key/), 'sk-secret-123');
+    await user.type(within(dialog).getByLabelText('Organization ID'), ' org_1 ');
+    await user.click(within(dialog).getByRole('button', { name: 'Save' }));
+    await waitFor(() => expect(screen.queryByRole('dialog')).toBeNull());
+    expect(requestTo(fetch, `POST ${AI_BASE}/connections`)?.body).toMatchObject({
+      settings: { organization: 'org_1' },
+    });
+  });
+
+  it('settingsOfAnotherProviderAreNotSent', async () => {
+    const user = userEvent.setup();
+    const fetch = await openPage(WORKSPACE_MANAGER, {
+      [`POST ${AI_BASE}/connections`]: { status: 201, body: { ...CONNECTION, id: 'k3', name: 'Second key' } },
+    });
+    await user.click(screen.getByRole('button', { name: 'Add connection' }));
+    const dialog = await screen.findByRole('dialog', { name: 'Add connection' });
+    await user.type(within(dialog).getByLabelText('Organization ID'), 'org_1');
+    await user.selectOptions(within(dialog).getByLabelText('Provider'), 'scripted');
+    await user.type(within(dialog).getByLabelText(/^Name/), 'Second key');
+    await user.type(within(dialog).getByLabelText(/^API key/), 'good');
+    await user.click(within(dialog).getByRole('button', { name: 'Save' }));
+    await waitFor(() => expect(screen.queryByRole('dialog')).toBeNull());
+    expect(requestTo(fetch, `POST ${AI_BASE}/connections`)?.body).toMatchObject({ provider: 'scripted', settings: {} });
+  });
+
+  it('showsStoredSettingsOnEditAndCanClearOne', async () => {
+    const user = userEvent.setup();
+    const stored = { ...CONNECTION, settings: { project: 'p1' } };
+    const fetch = await openPage(WORKSPACE_MANAGER, {
+      [`GET ${AI_BASE}/connections`]: { status: 200, body: [stored] },
+      [`PUT ${AI_BASE}/connections/k1`]: { status: 200, body: CONNECTION },
+    });
+    await user.click(screen.getByRole('button', { name: 'Edit Main key' }));
+    const dialog = await screen.findByRole('dialog', { name: 'Edit connection' });
+    const project = within(dialog).getByLabelText('Project ID');
+    expect(project).toHaveValue('p1');
+    expect(project).toHaveAttribute('type', 'text');
+    await user.clear(project);
+    await user.click(within(dialog).getByRole('button', { name: 'Save' }));
+    await waitFor(() => expect(requestTo(fetch, `PUT ${AI_BASE}/connections/k1`)).toBeDefined());
+    expect(requestTo(fetch, `PUT ${AI_BASE}/connections/k1`)?.body).toEqual({
+      name: 'Main key',
+      provider: 'openai',
+      settings: {},
+      version: 0,
+    });
+  });
+
+  it('showsASettingsFieldErrorUnderItsInput', async () => {
+    const user = userEvent.setup();
+    await openPage(WORKSPACE_MANAGER, {
+      [`PUT ${AI_BASE}/connections/k1`]: {
+        status: 400,
+        body: {
+          code: 'VALIDATION',
+          message: 'Validation failed',
+          fields: { 'settings.organization': 'must not contain control characters' },
+        },
+      },
+    });
+    await user.click(screen.getByRole('button', { name: 'Edit Main key' }));
+    const dialog = await screen.findByRole('dialog', { name: 'Edit connection' });
+    await user.type(within(dialog).getByLabelText('Organization ID'), 'org_1');
+    await user.click(within(dialog).getByRole('button', { name: 'Save' }));
+    expect(await within(dialog).findByText('must not contain control characters')).toBeVisible();
+  });
+
+  it('marksARequiredField', async () => {
+    const user = userEvent.setup();
+    const providers = [
+      {
+        ...PROVIDERS[1],
+        connectionFields: [{ key: 'region', label: 'Region', help: 'Where it runs.', kind: 'TEXT', required: true }],
+      },
+    ];
+    await openPage(WORKSPACE_MANAGER, { [`GET ${AI_BASE}/providers`]: { status: 200, body: providers } });
+    await user.click(screen.getByRole('button', { name: 'Add connection' }));
+    const dialog = await screen.findByRole('dialog', { name: 'Add connection' });
+    await user.type(within(dialog).getByLabelText(/^Name/), 'Cloud');
+    const region = within(dialog).getByLabelText(/^Region/);
+    expect(region).toBeRequired();
+    expect(within(dialog).getByRole('button', { name: 'Save' })).toBeDisabled();
+    await user.type(region, 'eu');
+    expect(within(dialog).getByRole('button', { name: 'Save' })).not.toBeDisabled();
   });
 });

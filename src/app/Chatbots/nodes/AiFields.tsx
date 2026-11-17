@@ -40,8 +40,6 @@ interface Field {
   type: 'TEXT' | 'NUMBER' | 'BOOLEAN';
 }
 
-const EFFORTS = ['minimal', 'low', 'medium', 'high'];
-
 /** An outcome id from its label: lower-case letters, digits and underscores, at most 30 (the server's rule). */
 export const slugOf = (label: string): string =>
   label
@@ -89,7 +87,9 @@ const AiNodeForm: React.FunctionComponent<NodeFieldsProps> = (p) => {
 
   const providers = useLoad((tk) => listAiProviders(tk, ws), [ws]);
   const caps: AiCapabilities | null = providers.data?.find((x) => x.id === chosen?.provider)?.capabilities ?? null;
-  const shows = (flag: keyof AiCapabilities) => caps == null || Boolean(caps[flag]);
+  // Yes/no capabilities only: an empty effort list is still truthy, so the list has its own check below.
+  const shows = (flag: 'temperature' | 'webSearch' | 'vectorStores' | 'hostedMcp' | 'structuredOutput') =>
+    caps == null || Boolean(caps[flag]);
   // The profile's own values, for the overrides' placeholders; only for people who may read profiles.
   const profile = useLoad(
     (tk) => (canSeeAi && ws && profileId ? getAiProfile(tk, ws, profileId) : Promise.resolve(null)),
@@ -121,6 +121,12 @@ const AiNodeForm: React.FunctionComponent<NodeFieldsProps> = (p) => {
   const overrides = (s.overrides ?? {}) as Any;
   const setOverride = (key: string, value: unknown) => set({ overrides: { ...overrides, [key]: value } });
   const present = (key: string) => overrides[key] !== null && overrides[key] !== undefined && overrides[key] !== '';
+  // The provider's effort values; a stored override outside the list stays visible so it can be reset.
+  const listedEfforts = caps?.reasoningEfforts ?? [];
+  const efforts =
+    present('reasoningEffort') && !listedEfforts.includes(str(overrides.reasoningEffort))
+      ? [...listedEfforts, str(overrides.reasoningEffort)]
+      : listedEfforts;
   const inherited = (key: string): string => {
     const v = (profile.data as Any | null | undefined)?.[key];
     if (v === null || v === undefined || v === '') return 'Profile default';
@@ -525,7 +531,7 @@ const AiNodeForm: React.FunctionComponent<NodeFieldsProps> = (p) => {
           {reset('instructions', 'Reset instructions')}
           <ErrorLine message={err('overrides.instructions')} />
         </FormGroup>
-        {(shows('reasoningEffort') || present('reasoningEffort')) && (
+        {(caps == null || efforts.length > 0 || present('reasoningEffort')) && (
           <FormGroup label="Reasoning effort override" fieldId={id('effort')}>
             <FormSelect
               id={id('effort')}
@@ -535,7 +541,7 @@ const AiNodeForm: React.FunctionComponent<NodeFieldsProps> = (p) => {
               onChange={(_e, v) => setOverride('reasoningEffort', v === '' ? null : v)}
             >
               <FormSelectOption value="" label={inherited('reasoningEffort')} />
-              {EFFORTS.map((x) => (
+              {efforts.map((x) => (
                 <FormSelectOption key={x} value={x} label={x} />
               ))}
             </FormSelect>

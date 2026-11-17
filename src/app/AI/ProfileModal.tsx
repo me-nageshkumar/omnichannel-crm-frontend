@@ -34,8 +34,6 @@ import { type McpRow, McpServersFields, rowOf, toolsOf } from '@app/AI/McpServer
 import { profileProblems } from '@app/AI/profileProblems';
 import { aiMessage } from '@app/AI/aiMessages';
 
-const EFFORTS = ['minimal', 'low', 'medium', 'high'];
-
 const num = (v: string): number | null => (v.trim() === '' || Number.isNaN(Number(v)) ? null : Number(v));
 
 /** Adds or edits a profile; the fields shown follow what the selected connection's provider supports. */
@@ -68,7 +66,13 @@ export const ProfileModal: React.FunctionComponent<{
   const connection = connections.find((c) => c.id === connectionId) ?? null;
   const provider = providers.find((p) => p.id === connection?.provider) ?? null;
   const caps = provider?.capabilities ?? null;
-  const shows = (flag: keyof NonNullable<typeof caps>) => caps == null || Boolean(caps[flag]);
+  // Yes/no capabilities only: an empty effort list is still truthy, so the list has its own check below.
+  const shows = (flag: 'temperature' | 'webSearch' | 'vectorStores' | 'hostedMcp') =>
+    caps == null || Boolean(caps[flag]);
+  // The provider's effort values; a stored value outside the list stays visible so it can be changed.
+  const listed = caps?.reasoningEfforts ?? [];
+  const takesEffort = caps == null || listed.length > 0;
+  const efforts = effort !== '' && !listed.includes(effort) ? [...listed, effort] : listed;
 
   React.useEffect(() => {
     if (!connectionId || !token) return;
@@ -103,7 +107,7 @@ export const ProfileModal: React.FunctionComponent<{
     connectionId,
     model: model.trim(),
     instructions: instructions.trim() === '' ? null : instructions,
-    reasoningEffort: shows('reasoningEffort') && effort !== '' ? effort : null,
+    reasoningEffort: takesEffort && effort !== '' ? effort : null,
     maxOutputTokens: num(maxTokens),
     temperature: shows('temperature') ? num(temperature) : null,
     webSearch: shows('webSearch') && webSearch,
@@ -197,11 +201,11 @@ export const ProfileModal: React.FunctionComponent<{
             />
             <FieldError error={errors.instructions} />
           </FormGroup>
-          {shows('reasoningEffort') && (
+          {takesEffort && (
             <FormGroup label="Reasoning effort" fieldId="ai-profile-effort">
               <FormSelect id="ai-profile-effort" value={effort} onChange={(_e, v) => setEffort(v)}>
                 <FormSelectOption value="" label="Provider default" />
-                {EFFORTS.map((x) => (
+                {efforts.map((x) => (
                   <FormSelectOption key={x} value={x} label={x} />
                 ))}
               </FormSelect>

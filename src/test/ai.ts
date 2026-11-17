@@ -9,7 +9,7 @@ export const OPENAI_CAPS: AiCapabilities = {
   vectorStores: true,
   functionTools: true,
   structuredOutput: true,
-  reasoningEffort: true,
+  reasoningEfforts: ['minimal', 'low', 'medium', 'high'],
   temperature: true,
   webSearch: true,
 };
@@ -21,14 +21,34 @@ export const SCRIPTED_CAPS: AiCapabilities = {
   vectorStores: false,
   functionTools: true,
   structuredOutput: true,
-  reasoningEffort: false,
+  reasoningEfforts: [],
   temperature: false,
   webSearch: false,
 };
 
 export const PROVIDERS: AiProvider[] = [
-  { id: 'openai', label: 'OpenAI', capabilities: OPENAI_CAPS },
-  { id: 'scripted', label: 'Scripted', capabilities: SCRIPTED_CAPS },
+  {
+    id: 'openai',
+    label: 'OpenAI',
+    capabilities: OPENAI_CAPS,
+    connectionFields: [
+      {
+        key: 'organization',
+        label: 'Organization ID',
+        help: 'Optional. Sent as OpenAI-Organization. Not a secret; the key goes in API key.',
+        kind: 'TEXT',
+        required: false,
+      },
+      {
+        key: 'project',
+        label: 'Project ID',
+        help: 'Optional. Sent as OpenAI-Project. Not a secret; the key goes in API key.',
+        kind: 'TEXT',
+        required: false,
+      },
+    ],
+  },
+  { id: 'scripted', label: 'Scripted', capabilities: SCRIPTED_CAPS, connectionFields: [] },
 ];
 
 export const CONNECTION: AiConnection = {
@@ -40,6 +60,7 @@ export const CONNECTION: AiConnection = {
   status: 'OK',
   checkedAt: '2026-11-12T10:00:01Z',
   lastError: null,
+  settings: {},
   version: 0,
 };
 

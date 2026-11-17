@@ -7,15 +7,26 @@ export interface AiCapabilities {
   vectorStores: boolean;
   functionTools: boolean;
   structuredOutput: boolean;
-  reasoningEffort: boolean;
+  /** The effort values the provider accepts, weakest first; empty when it takes none. */
+  reasoningEfforts: string[];
   temperature: boolean;
   webSearch: boolean;
+}
+
+/** A plain (never secret) setting a provider's connections take beside the API key. */
+export interface AiConnectionField {
+  key: string;
+  label: string;
+  help: string | null;
+  kind: 'TEXT' | 'URL';
+  required: boolean;
 }
 
 export interface AiProvider {
   id: string;
   label: string;
   capabilities: AiCapabilities;
+  connectionFields: AiConnectionField[];
 }
 
 export type AiConnectionStatus = 'UNVERIFIED' | 'OK' | 'INVALID';
@@ -30,14 +41,17 @@ export interface AiConnection {
   status: AiConnectionStatus;
   checkedAt: string | null;
   lastError: string | null;
+  /** The provider's plain settings; readable, unlike the key. */
+  settings: Record<string, string>;
   version: number | null;
 }
 
-/** `apiKey` sets or replaces the key; leave it out to keep the stored one. */
+/** `apiKey` sets or replaces the key; leave it out to keep the stored one. `settings` replace the stored ones. */
 export interface AiConnectionSave {
   name: string;
   provider: string;
   apiKey?: string;
+  settings: Record<string, string>;
   version?: number | null;
 }
 
