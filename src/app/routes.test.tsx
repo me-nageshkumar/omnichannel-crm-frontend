@@ -95,6 +95,7 @@ describe('authority-driven navigation', () => {
       'All phone numbers',
       'Chatbot defaults',
       'Plans',
+      'Billing settings',
       'Platform users',
       'Roles',
       'Authorities',

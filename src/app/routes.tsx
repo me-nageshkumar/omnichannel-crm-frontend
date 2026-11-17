@@ -142,6 +142,7 @@ const NAV_SECTIONS: NavEntry[][] = [
         { label: 'All phone numbers', path: '/platform/phone-numbers' },
         { label: 'Chatbot defaults', path: '/platform/chatbot-settings' },
         { label: 'Plans', path: '/platform/plans' },
+        { label: 'Billing settings', path: '/platform/billing-settings' },
       ],
     },
     {
