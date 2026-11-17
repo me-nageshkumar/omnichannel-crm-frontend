@@ -279,6 +279,32 @@ describe('what a customer can ask for', () => {
     expect(screen.queryByRole('button', { name: 'Edit' })).toBeNull();
   });
 
+  it('says so when what it may ask for cannot be loaded, and keeps the page', async () => {
+    mockFetch(routes({ 'GET /api/my/billing/options': { status: 500, body: { code: 'INTERNAL' } } }));
+    renderApp('/billing');
+    const plan = await screen.findByRole('region', { name: 'Your plan' });
+    expect(await screen.findByText(/What you can ask for could not be loaded/)).toBeVisible();
+    expect(within(plan).getByText('Gold')).toBeVisible();
+  });
+
+  it('keeps the reason a cancel was refused on screen, with the page behind it', async () => {
+    mockFetch(
+      routes({
+        'GET /api/my/billing/orders': { status: 200, body: [MINE] },
+        'POST /api/my/billing/orders/o1/cancel': { status: 409, body: { code: 'ORDER_NOT_OPEN', message: 'x' } },
+      }),
+    );
+    const { user } = renderApp('/billing');
+    const requests = await screen.findByRole('region', { name: 'Requests' });
+    await user.click(await within(requests).findByRole('button', { name: 'Cancel request' }));
+    await user.click(await screen.findByRole('button', { name: 'Yes, cancel it' }));
+    expect(await screen.findByText('This request is no longer open.')).toBeVisible();
+    await new Promise((r) => setTimeout(r, 100));
+    expect(screen.getByText('This request is no longer open.')).toBeVisible();
+    // behind the dialog, so hidden from assistive technology but still there
+    expect(screen.getByRole('region', { name: 'Your plan', hidden: true })).toBeInTheDocument();
+  });
+
   it('says what is missing when a request cannot be priced yet', async () => {
     mockFetch(
       routes({

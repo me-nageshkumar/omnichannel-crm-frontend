@@ -150,6 +150,9 @@ const SettingsForm: React.FunctionComponent<{ loaded: BillingSettings }> = ({ lo
     >
       {action.error && <Alert variant="danger" isInline title={action.error} />}
       {saved && <Alert variant="success" isInline title="Settings saved" />}
+      {states.error && (
+        <Alert variant="warning" isInline title={`The list of states could not be loaded. ${states.error}`} />
+      )}
       {!complete && (
         <Alert
           variant="warning"

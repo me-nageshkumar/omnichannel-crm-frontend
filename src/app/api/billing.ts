@@ -261,6 +261,10 @@ export interface Order extends Quote {
   invoiceNumber: string | null;
   creditNoteIds: string[];
   rejectedReason: string | null;
+  /** An adjustment's posting to the account credit (negative takes away); null otherwise. */
+  creditPosting: number | null;
+  /** The end an adjustment moved the last paid term to; null otherwise. */
+  newTermEnd: string | null;
 }
 
 export interface QuoteRequest {

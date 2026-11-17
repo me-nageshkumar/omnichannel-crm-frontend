@@ -38,13 +38,16 @@ const Row: React.FunctionComponent<{ label: React.ReactNode; strong?: boolean; c
  * figures are shown: those on screen always belong to the request on screen.
  */
 export const QuotePanel: React.FunctionComponent<{
-  quote: Quote | null;
+  /** A quote, or an order (which also says what an adjustment did). */
+  quote: (Quote & { creditPosting?: number | null; newTermEnd?: string | null }) | null;
   pending: boolean;
   error: string | null;
   /** The billing zone, for the term's dates. */
   zone: string;
 }> = ({ quote, pending, error, zone }) => {
   const charges = quote !== null && quote.lines.length > 0;
+  // an adjustment charges and credits nothing through notes: it says what it posted or moved
+  const adjustment = quote !== null && quote.kind === 'ADJUST';
   return (
     <section aria-label="Price" aria-busy={pending}>
       {error && <Alert variant="danger" isInline isPlain title={error} />}
@@ -85,18 +88,35 @@ export const QuotePanel: React.FunctionComponent<{
                   {money(quote.total)}
                 </Row>
               )}
+              {quote.credits.length > 0 && (
+                <Tr>
+                  <Td colSpan={2}>
+                    <small>Credit notes this issues, added to the account credit</small>
+                  </Td>
+                </Tr>
+              )}
               {quote.credits.map((c) => (
                 <Row key={c.creditNoteId} label={`Credit for unused time on ${c.invoiceNumber}`}>
                   {money(c.total)}
                 </Row>
               ))}
-              {!charges && (
+              {!charges && !adjustment && (
                 <Row label="Credit to the account" strong>
                   {money(quote.creditFromNotes)}
                 </Row>
               )}
+              {typeof quote.creditPosting === 'number' && (
+                <Row label="Account credit posted" strong>
+                  {money(quote.creditPosting)}
+                </Row>
+              )}
+              {quote.newTermEnd && (
+                <Row label="Last day of the term moved to" strong>
+                  {billingDate(quote.newTermEnd, zone, 1)}
+                </Row>
+              )}
               {charges && quote.accountCreditUsed > 0 && (
-                <Row label="Account credit used">{money(quote.accountCreditUsed)}</Row>
+                <Row label="Account credit set against this order">{money(quote.accountCreditUsed)}</Row>
               )}
               {charges && (
                 <Row label="Amount payable" strong>

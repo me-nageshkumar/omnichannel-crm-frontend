@@ -323,6 +323,8 @@ export function order(over: Partial<Order> = {}): Order {
     invoiceNumber: null,
     creditNoteIds: [],
     rejectedReason: null,
+    creditPosting: null,
+    newTermEnd: null,
     ...over,
   };
 }

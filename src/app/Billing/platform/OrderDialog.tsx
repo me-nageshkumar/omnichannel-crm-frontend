@@ -99,7 +99,10 @@ export const OrderDialog: React.FunctionComponent<{
     const held: Record<string, string> = {};
     if (kind === 'CHANGE') {
       subscription.addOns.forEach((a) => {
-        if (a.kind === 'LIMIT' && a.limitKey) held[a.limitKey] = String(a.quantity ?? '');
+        // the same extra units bought twice are two add-ons: together they are what the customer holds
+        if (a.kind === 'LIMIT' && a.limitKey) {
+          held[a.limitKey] = String(Number(held[a.limitKey] ?? 0) + (a.quantity ?? 0));
+        }
       });
     }
     return held;

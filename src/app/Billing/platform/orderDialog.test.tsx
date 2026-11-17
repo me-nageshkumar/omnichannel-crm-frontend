@@ -265,6 +265,29 @@ describe('raising an order for a customer', () => {
     );
   });
 
+  it('counts every purchase of the same extra units when the plan changes', async () => {
+    const twice = subscription({
+      addOns: [
+        { id: 'u1', kind: 'LIMIT', groupCode: null, limitKey: 'USERS', quantity: 5 },
+        { id: 'u2', kind: 'LIMIT', groupCode: null, limitKey: 'USERS', quantity: 5 },
+      ],
+    });
+    const fetch = mockFetch(routes(twice));
+    const { user } = renderApp('/customers/c1');
+    const dialog = await open(user, 'Change plan');
+    await user.selectOptions(await within(dialog).findByLabelText(/^Plan/), 'gold-monthly');
+    expect(await within(dialog).findByRole('spinbutton', { name: 'Extra Users' })).toHaveValue(10);
+    await waitFor(
+      () =>
+        expect(requestTo(fetch, QUOTES)?.body).toEqual({
+          kind: 'CHANGE',
+          planCode: 'gold-monthly',
+          addOns: [{ kind: 'LIMIT', limitKey: 'USERS', quantity: 10 }],
+        }),
+      { timeout: 3000 },
+    );
+  });
+
   it('starts a plan change from the add-ons the customer holds', async () => {
     const fetch = mockFetch(routes(subscription()));
     const { user } = renderApp('/customers/c1');

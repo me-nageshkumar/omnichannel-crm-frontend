@@ -59,14 +59,20 @@ function daysLeft(s: Subscription, now: number): string {
 export const MyBillingPage: React.FunctionComponent = () => {
   const canRequest = useAccess().has('billing:request');
   const [tick, setTick] = React.useState(0);
-  const subscription = useLoad(getMySubscription, [tick], { keepOnError: true });
-  const options = useLoad(getMyOptions, [tick], { keepOnError: true });
-  const orders = useLoad(listMyOrders, [tick], { keepOnError: true });
+  const subscription = useLoad(getMySubscription, [], { keepOnError: true });
+  const options = useLoad(getMyOptions, [], { keepOnError: true });
+  const orders = useLoad(listMyOrders, [], { keepOnError: true });
   const [dialog, setDialog] = React.useState<{ kind: MyOrderKind; offer?: AddOnOffer } | null>(null);
   const [sent, setSent] = React.useState<Order | null>(null);
   const s = subscription.data;
   const o = options.data;
-  const changed = () => setTick((n) => n + 1);
+  // each list is asked again in place: the page stays as it is while the answers come
+  const changed = () => {
+    subscription.reload();
+    options.reload();
+    orders.reload();
+    setTick((n) => n + 1);
+  };
   const waiting = (orders.data ?? []).some((x) => x.status === 'REQUESTED');
   // once the plan has run out, renewing is what is left; the rest comes back with the plan
   const running = !!s && s.state !== 'EXPIRED' && !s.cancelled;
@@ -80,6 +86,9 @@ export const MyBillingPage: React.FunctionComponent = () => {
     <PageShell title="Plan & billing">
       {subscription.error && <Alert variant="danger" isInline title={subscription.error} />}
       {!s && !subscription.error && <Spinner aria-label="Loading plan" />}
+      {options.error && (
+        <Alert variant="warning" isInline title={`What you can ask for could not be loaded. ${options.error}`} />
+      )}
       {s && (
         <Stack hasGutter>
           {sent && (

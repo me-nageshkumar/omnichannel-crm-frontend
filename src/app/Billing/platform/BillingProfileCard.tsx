@@ -30,6 +30,9 @@ export const BillingProfileCard: React.FunctionComponent<{ customerId: string }>
       </CardHeader>
       <CardBody>
         {profile.error && <Alert variant="danger" isInline title={profile.error} />}
+        {states.error && (
+          <Alert variant="warning" isInline title={`The list of states could not be loaded. ${states.error}`} />
+        )}
         {!p && !profile.error && <Spinner aria-label="Loading billing profile" />}
         {p && !p.legalName && (
           <Alert variant="info" isInline isPlain title="Not filled in yet">
