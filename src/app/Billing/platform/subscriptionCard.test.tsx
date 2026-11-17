@@ -3,7 +3,7 @@ import { screen, waitFor, within } from '@testing-library/react';
 import { renderApp } from '../../../test/renderApp';
 import { mockFetch } from '../../../test/fetchMock';
 import { ACCOUNT_MANAGER, meAs, storeSession } from '../../../test/session';
-import { billingRoutes, subscription } from '../../../test/billing';
+import { NO_SUBSCRIPTION, billingRoutes, subscription } from '../../../test/billing';
 import { rowWith, urlsOf } from '../../../test/admin';
 
 const ACME = {
@@ -69,7 +69,9 @@ describe("a customer's subscription", () => {
     const card = await screen.findByRole('region', { name: 'Subscription' });
     expect(await within(card).findByText('Gold')).toBeVisible();
     expect(within(card).queryByRole('button', { name: 'Change plan' })).toBeNull();
-    expect(within(card).queryByRole('button', { name: 'Remove plan' })).toBeNull();
+    expect(within(card).queryByRole('button', { name: 'Renew' })).toBeNull();
+    expect(within(card).queryByRole('button', { name: 'Add add-on' })).toBeNull();
+    expect(within(card).getByRole('button', { name: 'History' })).toBeVisible();
 
     vi.unstubAllGlobals();
     const blind = { ...viewer, authorities: viewer.authorities.filter((a) => a !== 'subscription:view') };
@@ -77,6 +79,90 @@ describe("a customer's subscription", () => {
     renderApp('/customers/c1');
     await screen.findAllByText('Acme Retail');
     expect(screen.getAllByRole('region', { name: 'Subscription' })).toHaveLength(1);
+  });
+
+  it('offers what can be done with the plan as it stands', async () => {
+    const names = (card: HTMLElement) =>
+      within(card)
+        .getAllByRole('button')
+        .map((b) => b.textContent);
+    mockFetch({
+      ...meAs(ACCOUNT_MANAGER),
+      ...billingRoutes(),
+      ...customerRoutes,
+      'GET /api/billing/customers/c1/subscription': { status: 200, body: subscription() },
+    });
+    const first = renderApp('/customers/c1');
+    let card = await screen.findByRole('region', { name: 'Subscription' });
+    await within(card).findByText('Gold');
+    expect(names(card)).toEqual(['Change plan', 'Renew', 'Add add-on', 'History']);
+    first.unmount();
+
+    vi.unstubAllGlobals();
+    mockFetch({
+      ...meAs(ACCOUNT_MANAGER),
+      ...billingRoutes(),
+      ...customerRoutes,
+      'GET /api/billing/customers/c1/subscription': {
+        status: 200,
+        body: subscription({ state: 'EXPIRED', readOnly: true }),
+      },
+    });
+    const second = renderApp('/customers/c1');
+    card = await screen.findByRole('region', { name: 'Subscription' });
+    await within(card).findByText('Gold');
+    expect(names(card)).toEqual(['New plan', 'Renew', 'History']);
+    second.unmount();
+
+    vi.unstubAllGlobals();
+    mockFetch({
+      ...meAs(ACCOUNT_MANAGER),
+      ...billingRoutes(),
+      ...customerRoutes,
+      'GET /api/billing/customers/c1/subscription': { status: 200, body: NO_SUBSCRIPTION },
+    });
+    renderApp('/customers/c1');
+    card = await screen.findByRole('region', { name: 'Subscription' });
+    await within(card).findByText('No plan');
+    expect(names(card)).toEqual(['New plan', 'History']);
+  });
+
+  it('shows account credit, a renewal that waits and a cancelled plan', async () => {
+    mockFetch({
+      ...meAs(ACCOUNT_MANAGER),
+      ...billingRoutes(),
+      ...customerRoutes,
+      'GET /api/billing/customers/c1/subscription': {
+        status: 200,
+        body: subscription({
+          creditBalance: 182.71,
+          next: { planName: 'Gold', termStart: '2026-12-31T18:30:00Z', termEnd: '2027-01-31T18:30:00Z' },
+        }),
+      },
+    });
+    const first = renderApp('/customers/c1');
+    let card = await screen.findByRole('region', { name: 'Subscription' });
+    expect(await within(card).findByText('₹182.71')).toBeVisible();
+    expect(within(card).getByText('Gold, from 1 Jan 2027 to 31 Jan 2027')).toBeVisible();
+    // a plan that is renewed already cannot be renewed again
+    expect(within(card).queryByRole('button', { name: 'Renew' })).toBeNull();
+    first.unmount();
+
+    vi.unstubAllGlobals();
+    mockFetch({
+      ...meAs(ACCOUNT_MANAGER),
+      ...billingRoutes(),
+      ...customerRoutes,
+      'GET /api/billing/customers/c1/subscription': {
+        status: 200,
+        body: subscription({ state: 'EXPIRED', readOnly: true, cancelled: true }),
+      },
+    });
+    renderApp('/customers/c1');
+    card = await screen.findByRole('region', { name: 'Subscription' });
+    expect(await within(card).findByText('Cancelled')).toBeVisible();
+    expect(within(card).queryByRole('button', { name: 'Renew' })).toBeNull();
+    expect(within(card).getByRole('button', { name: 'New plan' })).toBeVisible();
   });
 
   it("shows each customer's plan in the list and filters those without one", async () => {
