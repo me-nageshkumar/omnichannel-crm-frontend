@@ -2,8 +2,8 @@ import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { screen, waitFor, within } from '@testing-library/react';
 import { renderApp } from '../../../test/renderApp';
 import { mockFetch, requestTo } from '../../../test/fetchMock';
-import { ACCOUNT_MANAGER, meAs, storeSession, SUPER_ADMIN } from '../../../test/session';
-import { billingRoutes, group, plan, SEEDED_GROUPS } from '../../../test/billing';
+import { ACCOUNT_MANAGER, SUPER_ADMIN, meAs, storeSession } from '../../../test/session';
+import { SEEDED_GROUPS, billingRoutes, group, plan } from '../../../test/billing';
 import { fill, rowAction, rowWith } from '../../../test/admin';
 
 const authority = (code: string, description: string, level = 'BRAND') => ({

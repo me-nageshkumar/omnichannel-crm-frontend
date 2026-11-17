@@ -13,7 +13,7 @@ import {
 import { ActionsColumn, type IAction, Table, Tbody, Td, Th, Thead, Tr } from '@patternfly/react-table';
 import { ApiError } from '@app/api/client';
 import { messageFor } from '@app/api/messages';
-import { deleteGroup, type FeatureGroup, groupHistory, listGroups, listUngrouped } from '@app/api/billing';
+import { type FeatureGroup, deleteGroup, groupHistory, listGroups, listUngrouped } from '@app/api/billing';
 import { ConfirmModal } from '@app/admin/ConfirmModal';
 import { useAction } from '@app/admin/useAction';
 import { useLoad } from '@app/admin/useLoad';

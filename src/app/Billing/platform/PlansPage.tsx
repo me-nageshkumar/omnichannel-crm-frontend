@@ -1,6 +1,6 @@
 import * as React from 'react';
 import { useSearchParams } from 'react-router-dom';
-import { Tab, Tabs, TabTitleText } from '@patternfly/react-core';
+import { Tab, TabTitleText, Tabs } from '@patternfly/react-core';
 import { PageShell } from '@app/admin/PageShell';
 import { FeatureGroupsTab } from '@app/Billing/platform/FeatureGroupsTab';
 import { PlansTab } from '@app/Billing/platform/PlansTab';

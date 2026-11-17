@@ -16,7 +16,7 @@ import {
   TextArea,
   TextInput,
 } from '@patternfly/react-core';
-import { createGroup, type FeatureGroup, type GroupCategory, updateGroup } from '@app/api/billing';
+import { type FeatureGroup, type GroupCategory, createGroup, updateGroup } from '@app/api/billing';
 import { listAuthorities } from '@app/api/authorities';
 import { AuthorityPicker } from '@app/admin/AuthorityPicker';
 import { useAction } from '@app/admin/useAction';

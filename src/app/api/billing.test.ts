@@ -1,11 +1,11 @@
 import { afterEach, describe, expect, it, vi } from 'vitest';
 import {
+  type PlanInput,
   listPlans,
   pricePlan,
   putCustomerSubscription,
   updateGroup,
   updatePlan,
-  type PlanInput,
 } from '@app/api/billing';
 import { listCustomers } from '@app/api/customers';
 import { mockFetch, requestTo } from '../../test/fetchMock';
