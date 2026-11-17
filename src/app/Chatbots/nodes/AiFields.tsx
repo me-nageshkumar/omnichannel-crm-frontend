@@ -531,7 +531,7 @@ const AiNodeForm: React.FunctionComponent<NodeFieldsProps> = (p) => {
           {reset('instructions', 'Reset instructions')}
           <ErrorLine message={err('overrides.instructions')} />
         </FormGroup>
-        {(caps == null || efforts.length > 0 || present('reasoningEffort')) && (
+        {efforts.length > 0 && (
           <FormGroup label="Reasoning effort override" fieldId={id('effort')}>
             <FormSelect
               id={id('effort')}

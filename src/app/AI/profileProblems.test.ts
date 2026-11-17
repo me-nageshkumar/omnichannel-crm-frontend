@@ -58,7 +58,7 @@ describe('profileProblems', () => {
 
   it('reasoningEffortMustBeOneTheProviderLists', () => {
     expect(profileProblems({ ...BASE, reasoningEffort: 'turbo' }, OPENAI_CAPS)).toEqual({
-      reasoningEffort: 'must be one of minimal, low, medium, high',
+      reasoningEffort: 'must be one of none, minimal, low, medium, high, xhigh, max',
     });
   });
 

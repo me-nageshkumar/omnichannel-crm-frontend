@@ -120,6 +120,29 @@ describe('AI page — profiles', () => {
     expect(within(dialog).getByLabelText('Reasoning effort')).toHaveValue('turbo');
   });
 
+  it('noEffortSelectWithoutOptionsWhenTheProviderIsUnknown', async () => {
+    const user = userEvent.setup();
+    await openProfiles({ [`GET ${AI_BASE}/providers`]: { status: 200, body: [] } });
+    const dialog = await editSales(user);
+    expect(within(dialog).getByLabelText(/^Model/)).toBeVisible();
+    expect(within(dialog).queryByLabelText('Reasoning effort')).toBeNull();
+  });
+
+  it('storedEffortStaysVisibleWhenTheProviderIsUnknown', async () => {
+    const user = userEvent.setup();
+    const fetch = await openProfiles({
+      [`GET ${AI_BASE}/providers`]: { status: 200, body: [] },
+      [`GET ${AI_BASE}/profiles`]: { status: 200, body: [{ ...PROFILE, reasoningEffort: 'low' }] },
+      [`PUT ${AI_BASE}/profiles/p1`]: { status: 200, body: PROFILE },
+    });
+    const dialog = await editSales(user);
+    expect(within(dialog).getByLabelText('Reasoning effort')).toHaveValue('low');
+    // and it is not dropped from the save just because the list is unknown
+    await user.click(within(dialog).getByRole('button', { name: 'Save' }));
+    await waitFor(() => expect(requestTo(fetch, `PUT ${AI_BASE}/profiles/p1`)).toBeDefined());
+    expect(requestTo(fetch, `PUT ${AI_BASE}/profiles/p1`)?.body).toMatchObject({ reasoningEffort: 'low' });
+  });
+
   it('modelListedWithFreeText', async () => {
     const user = userEvent.setup();
     const fetch = await openProfiles({ [`PUT ${AI_BASE}/profiles/p1`]: { status: 200, body: PROFILE } });

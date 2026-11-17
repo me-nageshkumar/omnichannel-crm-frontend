@@ -253,6 +253,13 @@ describe('AI node fields', () => {
     await waitFor(() => expect(screen.queryByLabelText('Reasoning effort override')).toBeNull());
   });
 
+  it('noEffortOverrideWithoutOptionsWhenTheProviderIsUnknown', async () => {
+    const { user } = await open(aiNode(), { providers: [] });
+    await user.click(screen.getByRole('button', { name: 'Advanced' }));
+    expect(await screen.findByLabelText('Model override')).toBeVisible();
+    expect(screen.queryByLabelText('Reasoning effort override')).toBeNull();
+  });
+
   it('jsonSchemaInvalidShowsError', async () => {
     const { user } = await open(aiNode());
     await user.selectOptions(screen.getByLabelText('Reply format'), 'JSON');

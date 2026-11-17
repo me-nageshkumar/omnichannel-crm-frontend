@@ -71,7 +71,8 @@ export const ProfileModal: React.FunctionComponent<{
     caps == null || Boolean(caps[flag]);
   // The provider's effort values; a stored value outside the list stays visible so it can be changed.
   const listed = caps?.reasoningEfforts ?? [];
-  const takesEffort = caps == null || listed.length > 0;
+  // Unknown provider: no list to offer, so the select shows only when there is a stored value to keep or clear.
+  const takesEffort = caps == null ? effort !== '' : listed.length > 0;
   const efforts = effort !== '' && !listed.includes(effort) ? [...listed, effort] : listed;
 
   React.useEffect(() => {

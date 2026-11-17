@@ -279,7 +279,10 @@ describe('AI page — connections', () => {
     const region = within(dialog).getByLabelText(/^Region/);
     expect(region).toBeRequired();
     expect(within(dialog).getByRole('button', { name: 'Save' })).toBeDisabled();
+    // a disabled Save says what it is waiting for
+    expect(within(dialog).getByText('Fill in Region to save.')).toBeVisible();
     await user.type(region, 'eu');
     expect(within(dialog).getByRole('button', { name: 'Save' })).not.toBeDisabled();
+    expect(within(dialog).queryByText('Fill in Region to save.')).toBeNull();
   });
 });
