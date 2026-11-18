@@ -16,3 +16,33 @@ export function inr(amount: number | null | undefined): string {
   }
   return formatter.format(Number(amount));
 }
+
+let formatter4: Intl.NumberFormat | null = null;
+
+/**
+ * A wallet amount in rupees: its paise always, and up to four decimals when it has them ("₹999.25", "₹0.2575").
+ * A message can cost a fraction of a paisa, so the wallet keeps four decimals where a bill keeps two.
+ */
+export function inr4(amount: number | null | undefined): string {
+  if (amount === null || amount === undefined || Number.isNaN(Number(amount))) return '';
+  if (!formatter4) {
+    formatter4 = new Intl.NumberFormat('en-IN', {
+      style: 'currency',
+      currency: 'INR',
+      minimumFractionDigits: 2,
+      maximumFractionDigits: 4,
+    });
+  }
+  return formatter4.format(Number(amount));
+}
+
+/**
+ * A number a person typed, read strictly: plain digits with an optional decimal part ("1000", "0.25"), and a
+ * leading minus only where `signed` allows one. Anything else ("1,000", "₹100", "1e3", "0x10") is null, so nothing
+ * is ever sent that the person did not plainly write. Blank is null too.
+ */
+export function typedAmount(text: string, signed = false): number | null {
+  const trimmed = text.trim();
+  if (!(signed ? /^-?\d+(\.\d+)?$/ : /^\d+(\.\d+)?$/).test(trimmed)) return null;
+  return Number(trimmed);
+}

@@ -183,7 +183,7 @@ describe('what a customer can ask for', () => {
     const { user } = renderApp('/billing');
     const plan = await screen.findByRole('region', { name: 'Your plan' });
     expect(await within(plan).findByText('₹82.71')).toBeVisible();
-    const documents = await screen.findByRole('region', { name: 'Invoices and credit' });
+    const documents = await screen.findByRole('region', { name: 'Invoices, credit and wallet' });
     const link = await within(documents).findByRole('link', { name: 'INV/26-27/000001' });
     expect(link).toHaveAttribute('href', '/billing/invoices/i1');
     await user.click(within(documents).getByRole('tab', { name: 'Credit notes' }));
@@ -323,7 +323,7 @@ describe('what a customer can ask for', () => {
     expect(within(mine).queryByText('How to pay')).toBeNull();
     const plan = screen.getByRole('region', { name: 'Your plan' });
     expect(within(plan).getByText(/Your plan was cancelled/)).toBeVisible();
-    const documents = screen.getByRole('region', { name: 'Invoices and credit' });
+    const documents = screen.getByRole('region', { name: 'Invoices, credit and wallet' });
     await user.click(within(documents).getByRole('tab', { name: 'Refunds' }));
     expect(await within(documents).findByText('RF-000001')).toBeVisible();
     expect(within(documents).queryByText('Recorded by')).toBeNull();

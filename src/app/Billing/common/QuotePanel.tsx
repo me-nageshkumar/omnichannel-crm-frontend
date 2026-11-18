@@ -96,8 +96,11 @@ export const QuotePanel: React.FunctionComponent<{
                   </Td>
                 </Tr>
               )}
-              {quote.credits.map((c) => (
-                <Row key={c.creditNoteId} label={`Credit for unused time on ${c.invoiceNumber}`}>
+              {quote.credits.map((c, i) => (
+                <Row
+                  key={`${i}:${c.invoiceId}`}
+                  label={`${quote.kind === 'WALLET_REFUND' ? 'Credit for wallet money on' : 'Credit for unused time on'} ${c.invoiceNumber}`}
+                >
                   {money(c.total)}
                 </Row>
               ))}
@@ -126,7 +129,8 @@ export const QuotePanel: React.FunctionComponent<{
               )}
             </Tbody>
           </Table>
-          {charges && quote.termStart && quote.termEnd && (
+          {/* a top-up is priced on the term in force but is not for that term: wallet money does not lapse with it */}
+          {charges && quote.kind !== 'TOPUP' && quote.termStart && quote.termEnd && (
             <Content component="small">
               Term: {billingDate(quote.termStart, zone)} – {billingDate(quote.termEnd, zone, 1)}
             </Content>

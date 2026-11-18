@@ -2,15 +2,19 @@ import * as React from 'react';
 import { Alert, Card, CardBody, CardTitle, Spinner, Tab, TabTitleText, Tabs } from '@patternfly/react-core';
 import {
   getBillingSettings,
+  getWalletUsage,
   listCustomerCreditNotes,
   listCustomerInvoices,
   listCustomerOrders,
   listCustomerRefunds,
+  listWalletEntries,
 } from '@app/api/billing';
 import { type Loaded, useLoad } from '@app/admin/useLoad';
 import { DocumentsTable } from '@app/Billing/common/DocumentsTable';
 import { OrdersTable } from '@app/Billing/common/OrdersTable';
 import { RefundsTable } from '@app/Billing/common/RefundsTable';
+import { UsageTable } from '@app/Billing/common/UsageTable';
+import { WalletEntriesTable } from '@app/Billing/common/WalletEntriesTable';
 import { OrderDetailModal } from '@app/Billing/platform/OrderDetailModal';
 
 /** A list that is loading, failed, or there. */
@@ -85,7 +89,7 @@ const RefundsTab: React.FunctionComponent<{ customerId: string; reloadKey: numbe
 };
 
 /**
- * A customer's orders, invoices, credit notes and refunds, on its page for platform staff. `reloadKey` changes
+ * A customer's orders, invoices, credit notes, refunds, wallet ledger and usage, on its page for platform staff. `reloadKey` changes
  * when something on the page changed the customer's billing; `onChanged` says this card did.
  */
 export const CustomerBillingTabs: React.FunctionComponent<{
@@ -118,6 +122,16 @@ export const CustomerBillingTabs: React.FunctionComponent<{
           </Tab>
           <Tab eventKey="refunds" title={<TabTitleText>Refunds</TabTitleText>} aria-label="Refunds">
             <RefundsTab customerId={customerId} reloadKey={reloadKey} />
+          </Tab>
+          <Tab eventKey="wallet" title={<TabTitleText>Wallet</TabTitleText>} aria-label="Wallet">
+            <WalletEntriesTable
+              load={(t, page) => listWalletEntries(t, customerId, page)}
+              zone={zone}
+              reloadKey={reloadKey}
+            />
+          </Tab>
+          <Tab eventKey="usage" title={<TabTitleText>Usage</TabTitleText>} aria-label="Usage">
+            <UsageTable load={(t, days) => getWalletUsage(t, customerId, days)} />
           </Tab>
         </Tabs>
       </CardBody>

@@ -5,6 +5,7 @@ import {
   Card,
   CardBody,
   CardTitle,
+  Content,
   DescriptionList,
   DescriptionListDescription,
   DescriptionListGroup,
@@ -26,9 +27,13 @@ import {
   type Subscription,
   getMyOptions,
   getMySubscription,
+  getMyWallet,
   listMyOrders,
+  myQuote,
+  raiseMyOrder,
 } from '@app/api/billing';
 import { formatMoney } from '@app/Crm/common/money';
+import { useSession } from '@app/session/SessionContext';
 import { useAccess } from '@app/session/useAccess';
 import { billingDate } from '@app/Billing/common/billingDate';
 import { MyDocuments } from '@app/Billing/my/MyDocuments';
@@ -42,6 +47,8 @@ import { IncludedGroups } from '@app/Billing/common/IncludedGroups';
 import { LimitsTable } from '@app/Billing/common/LimitsTable';
 import { stateText, termText } from '@app/Billing/common/planDates';
 import { StateLabel } from '@app/Billing/common/StateLabel';
+import { TopUpDialog } from '@app/Billing/common/TopUpDialog';
+import { WalletCard } from '@app/Billing/common/WalletCard';
 
 const DAY_MS = 24 * 60 * 60 * 1000;
 
@@ -58,19 +65,33 @@ function daysLeft(s: Subscription, now: number): string {
  */
 export const MyBillingPage: React.FunctionComponent = () => {
   const canRequest = useAccess().has('billing:request');
+  const { user, refreshUser } = useSession();
   const [tick, setTick] = React.useState(0);
   const subscription = useLoad(getMySubscription, [], { keepOnError: true });
   const options = useLoad(getMyOptions, [], { keepOnError: true });
   const orders = useLoad(listMyOrders, [], { keepOnError: true });
+  const wallet = useLoad(getMyWallet, [], { keepOnError: true });
   const [dialog, setDialog] = React.useState<{ kind: MyOrderKind; offer?: AddOnOffer } | null>(null);
   const [sent, setSent] = React.useState<Order | null>(null);
+  const [toppingUp, setToppingUp] = React.useState(false);
   const s = subscription.data;
+  // The notice across the top comes from the session, which is as old as its last read. When the wallet shown
+  // here says otherwise (a top-up was paid, or messages ran it down), the session is asked again, once per answer.
+  const walletNow = wallet.data;
+  const sessionLow = !!user?.subscription?.lowWallet;
+  const checked = React.useRef<unknown>(null);
+  React.useEffect(() => {
+    if (!walletNow || checked.current === walletNow) return;
+    checked.current = walletNow;
+    if ((walletNow.low && walletNow.messageRate !== null) !== sessionLow) refreshUser().catch(() => undefined);
+  }, [walletNow, sessionLow, refreshUser]);
   const o = options.data;
   // each list is asked again in place: the page stays as it is while the answers come
   const changed = () => {
     subscription.reload();
     options.reload();
     orders.reload();
+    wallet.reload();
     setTick((n) => n + 1);
   };
   const waiting = (orders.data ?? []).some((x) => x.status === 'REQUESTED');
@@ -208,6 +229,26 @@ export const MyBillingPage: React.FunctionComponent = () => {
               </Card>
             </StackItem>
           )}
+          {s.plan && (
+            <StackItem>
+              <WalletCard
+                wallet={wallet.data}
+                error={wallet.error}
+                actions={
+                  canRequest && o?.topUp.allowed ? (
+                    <Button variant="secondary" onClick={() => setToppingUp(true)}>
+                      Top up
+                    </Button>
+                  ) : undefined
+                }
+              >
+                {/* a plan that charges nothing says so above; any other reason is the server's */}
+                {wallet.data && wallet.data.messageRate !== null && o && !o.topUp.allowed && o.topUp.reason && (
+                  <Content component="small">{o.topUp.reason}</Content>
+                )}
+              </WalletCard>
+            </StackItem>
+          )}
           {running && o && o.addOns.length > 0 && (
             <StackItem>
               <Card component="section" aria-label="Add-ons you can buy">
@@ -288,6 +329,23 @@ export const MyBillingPage: React.FunctionComponent = () => {
             changed();
           }}
           onCancel={() => setDialog(null)}
+        />
+      )}
+      {toppingUp && s && o && (
+        <TopUpDialog
+          zone={zone}
+          min={o.topUp.min}
+          max={o.topUp.max}
+          fetchQuote={myQuote}
+          raise={raiseMyOrder}
+          sendLabel="Send request"
+          note="Your request takes effect when your payment is recorded. How to pay is shown beside the request."
+          onRaised={(order) => {
+            setSent(order);
+            setToppingUp(false);
+            changed();
+          }}
+          onCancel={() => setToppingUp(false)}
         />
       )}
     </PageShell>

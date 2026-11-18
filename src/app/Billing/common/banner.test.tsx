@@ -107,4 +107,33 @@ describe('the plan banner', () => {
     expect(screen.queryByRole('link', { name: 'All campaigns' })).toBeNull();
     expect(screen.queryByRole('button', { name: 'Campaigns' })).toBeNull();
   });
+
+  it('warns that the wallet is low, with a way to top up for those who may', async () => {
+    mockFetch({ ...meAs({ ...CUSTOMER_ADMIN, subscription: { ...summaryIn('ACTIVE'), lowWallet: true } }), ...brands });
+    renderApp('/brands');
+    const notice = await screen.findByRole('region', { name: 'Wallet notice' });
+    expect(
+      within(notice).getByText(/Your wallet balance is low\. Messages stop sending when it runs out\./),
+    ).toBeVisible();
+    expect(within(notice).getByRole('link', { name: 'Top up' })).toHaveAttribute('href', '/billing');
+    expect(banner()).toBeNull();
+  });
+
+  it('tells those who cannot top up to ask, and stands under the plan notice', async () => {
+    mockFetch({ ...meAs({ ...WORKSPACE_MANAGER, subscription: { ...summaryIn('GRACE'), lowWallet: true } }) });
+    renderApp('/profile');
+    const wallet = await screen.findByRole('region', { name: 'Wallet notice' });
+    expect(within(wallet).getByText(/Ask your administrator\./)).toBeVisible();
+    expect(within(wallet).queryByRole('link')).toBeNull();
+    const plan = screen.getByRole('region', { name: 'Plan notice' });
+    // the plan's notice comes first
+    expect(plan.compareDocumentPosition(wallet) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy();
+  });
+
+  it('says nothing about the wallet while it is not low', async () => {
+    mockFetch({ ...meAs({ ...CUSTOMER_ADMIN, subscription: summaryIn('GRACE') }), ...brands });
+    renderApp('/brands');
+    await screen.findByRole('region', { name: 'Plan notice' });
+    expect(screen.queryByRole('region', { name: 'Wallet notice' })).toBeNull();
+  });
 });

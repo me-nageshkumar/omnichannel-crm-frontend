@@ -41,6 +41,7 @@ import { CrmSwitchModal, useCrmSwitches } from '@app/Crm/platform/CrmSwitchModal
 import { useSession } from '@app/session/SessionContext';
 import { BillingProfileCard } from '@app/Billing/platform/BillingProfileCard';
 import { CustomerBillingTabs } from '@app/Billing/platform/CustomerBillingTabs';
+import { CustomerWalletCard } from '@app/Billing/platform/CustomerWalletCard';
 import { SubscriptionCard } from '@app/Billing/platform/SubscriptionCard';
 import { useAccess } from '@app/session/useAccess';
 
@@ -174,6 +175,11 @@ export const CustomerDetailPage: React.FunctionComponent = () => {
         {canSeePlan && (
           <StackItem>
             <SubscriptionCard customerId={customer.id} reloadKey={billingTick} onChanged={billingChanged} />
+          </StackItem>
+        )}
+        {canSeePlan && (
+          <StackItem>
+            <CustomerWalletCard customerId={customer.id} reloadKey={billingTick} onChanged={billingChanged} />
           </StackItem>
         )}
         {canSeePlan && (

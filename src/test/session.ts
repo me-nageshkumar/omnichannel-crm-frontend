@@ -84,6 +84,7 @@ export const NO_PLAN: SubscriptionSummary = {
   graceEnd: null,
   readOnly: false,
   zone: 'Asia/Kolkata',
+  lowWallet: false,
 };
 
 export const SUPER_ADMIN: CurrentUser = {

@@ -51,7 +51,8 @@ export const MyRequests: React.FunctionComponent<{
               <ListItem key={o.id}>
                 <div>
                   <strong>{o.number}</strong> · {KIND_LABEL[o.kind]}
-                  {o.lines.length > 0 ? ` · ${o.lines[0].description}` : ''}
+                  {/* a top-up's one line only repeats its name: the amount going into the wallet says more */}
+                  {o.kind === 'TOPUP' ? ` ${inr(o.taxable)}` : o.lines.length > 0 ? ` · ${o.lines[0].description}` : ''}
                 </div>
                 {o.payable > 0 ? (
                   <div>

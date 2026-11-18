@@ -1,9 +1,17 @@
 import * as React from 'react';
 import { Alert, Card, CardBody, CardTitle, Spinner, Tab, TabTitleText, Tabs } from '@patternfly/react-core';
-import { listMyCreditNotes, listMyInvoices, listMyRefunds } from '@app/api/billing';
+import {
+  getMyWalletUsage,
+  listMyCreditNotes,
+  listMyInvoices,
+  listMyRefunds,
+  listMyWalletEntries,
+} from '@app/api/billing';
 import { useLoad } from '@app/admin/useLoad';
 import { DocumentsTable } from '@app/Billing/common/DocumentsTable';
 import { RefundsTable } from '@app/Billing/common/RefundsTable';
+import { UsageTable } from '@app/Billing/common/UsageTable';
+import { WalletEntriesTable } from '@app/Billing/common/WalletEntriesTable';
 
 const InvoicesTab: React.FunctionComponent<{ zone: string; reloadKey: number }> = ({ zone, reloadKey }) => {
   const invoices = useLoad(listMyInvoices, [reloadKey]);
@@ -35,17 +43,17 @@ const RefundsTab: React.FunctionComponent<{ reloadKey: number }> = ({ reloadKey 
   return <RefundsTable refunds={refunds.data} />;
 };
 
-/** The customer's invoices, credit notes and refunds. */
+/** The customer's invoices, credit notes and refunds, and its wallet's ledger and usage. */
 export const MyDocuments: React.FunctionComponent<{ zone: string; reloadKey: number }> = ({ zone, reloadKey }) => {
   const [tab, setTab] = React.useState('invoices');
   return (
-    <Card component="section" aria-label="Invoices and credit">
-      <CardTitle>Invoices and credit</CardTitle>
+    <Card component="section" aria-label="Invoices, credit and wallet">
+      <CardTitle>Invoices, credit and wallet</CardTitle>
       <CardBody>
         <Tabs
           activeKey={tab}
           onSelect={(_e, key) => setTab(String(key))}
-          aria-label="Invoices and credit"
+          aria-label="Invoices, credit and wallet"
           mountOnEnter
           unmountOnExit
         >
@@ -57,6 +65,12 @@ export const MyDocuments: React.FunctionComponent<{ zone: string; reloadKey: num
           </Tab>
           <Tab eventKey="refunds" title={<TabTitleText>Refunds</TabTitleText>} aria-label="Refunds">
             <RefundsTab reloadKey={reloadKey} />
+          </Tab>
+          <Tab eventKey="wallet" title={<TabTitleText>Wallet</TabTitleText>} aria-label="Wallet">
+            <WalletEntriesTable load={listMyWalletEntries} zone={zone} reloadKey={reloadKey} />
+          </Tab>
+          <Tab eventKey="usage" title={<TabTitleText>Usage</TabTitleText>} aria-label="Usage">
+            <UsageTable load={getMyWalletUsage} />
           </Tab>
         </Tabs>
       </CardBody>
