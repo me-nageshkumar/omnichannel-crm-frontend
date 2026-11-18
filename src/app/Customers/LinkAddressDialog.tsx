@@ -16,7 +16,7 @@ import {
 import { ApiError } from '@app/api/client';
 import { messageFor } from '@app/api/messages';
 import { type BrandPagesAddress, setBrandPagesAddress } from '@app/api/pagesAddresses';
-import { customerStep, typedHost } from '@app/Customers/linkAddressText';
+import { customerStep, needsCertificate, typedHost } from '@app/Customers/linkAddressText';
 import { useSession } from '@app/session/SessionContext';
 
 const TAKEN = 'Another customer uses this domain.';
@@ -111,7 +111,7 @@ export const LinkAddressDialog: React.FunctionComponent<{
               <HelperText>
                 {fieldError && <HelperTextItem variant="error">{fieldError}</HelperTextItem>}
                 {step && <HelperTextItem>{step}</HelperTextItem>}
-                <HelperTextItem>{CERTIFICATE_NOTE}</HelperTextItem>
+                {needsCertificate(text) && <HelperTextItem>{CERTIFICATE_NOTE}</HelperTextItem>}
               </HelperText>
             </FormHelperText>
           </FormGroup>

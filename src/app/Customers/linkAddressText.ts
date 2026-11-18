@@ -49,6 +49,16 @@ export function typedHost(typed: string): string | null {
   return readAddress(typed)?.host ?? null;
 }
 
+/**
+ * True for a subdomain without a folder: the one case where our server gets the certificate (Caddy, on the first
+ * visit). A folder address is served by the customer's own server and certificate; a bare domain is told to use one of
+ * the two.
+ */
+export function needsCertificate(typed: string): boolean {
+  const read = readAddress(typed);
+  return read !== null && !read.folder && !bareDomain(read.host);
+}
+
 function hostOf(url: string): string {
   try {
     return new URL(url).hostname;

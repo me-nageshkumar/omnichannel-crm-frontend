@@ -1,5 +1,5 @@
 import * as React from 'react';
-import { Alert, Button, Card, CardBody, CardTitle, Content, Label, Spinner } from '@patternfly/react-core';
+import { Alert, Button, Card, CardBody, CardTitle, Content, Flex, Label, Spinner } from '@patternfly/react-core';
 import { Table, Tbody, Td, Th, Thead, Tr } from '@patternfly/react-table';
 import { ApiError } from '@app/api/client';
 import { messageFor } from '@app/api/messages';
@@ -142,14 +142,16 @@ export const LinkAddressesCard: React.FunctionComponent<{ customerId: string }> 
                       ) : null}
                     </Td>
                     <Td dataLabel="Actions" modifier="nowrap">
-                      <Button variant="link" isInline isDisabled={busy} onClick={() => setEditing(b)}>
-                        {a ? 'Change…' : 'Set…'}
-                      </Button>{' '}
-                      {a && (
-                        <>
+                      <Flex spaceItems={{ default: 'spaceItemsMd' }} flexWrap={{ default: 'nowrap' }}>
+                        <Button variant="link" isInline isDisabled={busy} onClick={() => setEditing(b)}>
+                          {a ? 'Change…' : 'Set…'}
+                        </Button>
+                        {a && (
                           <Button variant="link" isInline isDisabled={busy} onClick={() => void check(b)}>
                             Check
-                          </Button>{' '}
+                          </Button>
+                        )}
+                        {a && (
                           <Button
                             variant="link"
                             isInline
@@ -162,8 +164,8 @@ export const LinkAddressesCard: React.FunctionComponent<{ customerId: string }> 
                           >
                             Remove
                           </Button>
-                        </>
-                      )}
+                        )}
+                      </Flex>
                     </Td>
                   </Tr>
                 );
