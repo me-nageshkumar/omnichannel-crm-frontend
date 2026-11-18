@@ -190,4 +190,49 @@ describe('the wallet', () => {
     await user.click(within(documents).getByRole('tab', { name: 'Usage' }));
     expect(await rowWith('2 Dec 2026')).toBeVisible();
   });
+
+  it('does not warn about a low balance on a plan that charges nothing', async () => {
+    mockFetch(
+      staff({
+        [`GET ${BASE}/wallet`]: {
+          status: 200,
+          body: wallet({ balance: 0, lowBalanceAt: 100, low: true, messageRate: null, refundable: 0 }),
+        },
+      }),
+    );
+    renderApp('/customers/c1');
+    const card = await screen.findByRole('region', { name: 'Wallet' });
+    expect(await within(card).findByText('Messages are not charged on this plan.')).toBeVisible();
+    expect(within(card).queryByText(/below the warning level/)).toBeNull();
+    expect(within(card).queryByText('Warning level')).toBeNull();
+  });
+
+  it('drops the low-wallet notice once the wallet it shows is no longer low', async () => {
+    // the session learned the wallet was low before the top-up was paid; only asking again after the wallet
+    // was read says otherwise
+    let walletRead = false;
+    let askedAfter = 0;
+    mockFetch(
+      mine({
+        // not a 402 here: that alone makes the session ask again
+        'GET /api/workspaces/w1/crm/status': { status: 404, body: { code: 'NOT_FOUND' } },
+        'GET /api/my/billing/wallet': () => {
+          walletRead = true;
+          return { status: 200, body: wallet() };
+        },
+        'GET /api/users/me': () => {
+          if (walletRead) askedAfter += 1;
+          return {
+            status: 200,
+            body: { ...CUSTOMER_ADMIN, subscription: { ...summaryIn('ACTIVE'), lowWallet: !walletRead } },
+          };
+        },
+      }),
+    );
+    renderApp('/billing');
+    const card = await screen.findByRole('region', { name: 'Wallet' });
+    expect(await within(card).findByText('₹999.25')).toBeVisible();
+    await waitFor(() => expect(screen.queryByRole('region', { name: 'Wallet notice' })).toBeNull());
+    expect(askedAfter).toBeGreaterThan(0);
+  });
 });

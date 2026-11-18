@@ -33,6 +33,7 @@ import {
   raiseMyOrder,
 } from '@app/api/billing';
 import { formatMoney } from '@app/Crm/common/money';
+import { useSession } from '@app/session/SessionContext';
 import { useAccess } from '@app/session/useAccess';
 import { billingDate } from '@app/Billing/common/billingDate';
 import { MyDocuments } from '@app/Billing/my/MyDocuments';
@@ -64,6 +65,7 @@ function daysLeft(s: Subscription, now: number): string {
  */
 export const MyBillingPage: React.FunctionComponent = () => {
   const canRequest = useAccess().has('billing:request');
+  const { user, refreshUser } = useSession();
   const [tick, setTick] = React.useState(0);
   const subscription = useLoad(getMySubscription, [], { keepOnError: true });
   const options = useLoad(getMyOptions, [], { keepOnError: true });
@@ -73,6 +75,16 @@ export const MyBillingPage: React.FunctionComponent = () => {
   const [sent, setSent] = React.useState<Order | null>(null);
   const [toppingUp, setToppingUp] = React.useState(false);
   const s = subscription.data;
+  // The notice across the top comes from the session, which is as old as its last read. When the wallet shown
+  // here says otherwise (a top-up was paid, or messages ran it down), the session is asked again, once per answer.
+  const walletNow = wallet.data;
+  const sessionLow = !!user?.subscription?.lowWallet;
+  const checked = React.useRef<unknown>(null);
+  React.useEffect(() => {
+    if (!walletNow || checked.current === walletNow) return;
+    checked.current = walletNow;
+    if ((walletNow.low && walletNow.messageRate !== null) !== sessionLow) refreshUser().catch(() => undefined);
+  }, [walletNow, sessionLow, refreshUser]);
   const o = options.data;
   // each list is asked again in place: the page stays as it is while the answers come
   const changed = () => {

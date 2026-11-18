@@ -46,14 +46,15 @@ export const WalletCard: React.FunctionComponent<{
                   : `${inr4(wallet.messageRate)} per message`}
               </DescriptionListDescription>
             </DescriptionListGroup>
-            {wallet.lowBalanceAt !== null && (
+            {/* a warning level means nothing where messages cost nothing */}
+            {wallet.lowBalanceAt !== null && wallet.messageRate !== null && (
               <DescriptionListGroup>
                 <DescriptionListTerm>Warning level</DescriptionListTerm>
                 <DescriptionListDescription>{inr4(wallet.lowBalanceAt)}</DescriptionListDescription>
               </DescriptionListGroup>
             )}
           </DescriptionList>
-          {wallet.low && (
+          {wallet.low && wallet.messageRate !== null && (
             <Alert
               variant="warning"
               isInline

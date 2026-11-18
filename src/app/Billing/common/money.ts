@@ -35,3 +35,14 @@ export function inr4(amount: number | null | undefined): string {
   }
   return formatter4.format(Number(amount));
 }
+
+/**
+ * A number a person typed, read strictly: plain digits with an optional decimal part ("1000", "0.25"), and a
+ * leading minus only where `signed` allows one. Anything else ("1,000", "₹100", "1e3", "0x10") is null, so nothing
+ * is ever sent that the person did not plainly write. Blank is null too.
+ */
+export function typedAmount(text: string, signed = false): number | null {
+  const trimmed = text.trim();
+  if (!(signed ? /^-?\d+(\.\d+)?$/ : /^\d+(\.\d+)?$/).test(trimmed)) return null;
+  return Number(trimmed);
+}

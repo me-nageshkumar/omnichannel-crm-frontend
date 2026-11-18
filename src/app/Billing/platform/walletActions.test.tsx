@@ -182,4 +182,29 @@ describe('staff actions on a wallet', () => {
     expect(screen.getByRole('menuitem', { name: 'Low-balance warning' })).toBeVisible();
     expect(screen.queryByRole('menuitem', { name: 'Refund wallet' })).toBeNull();
   });
+
+  it('reads only plain digits as an amount', async () => {
+    const fetch = mockFetch(routes());
+    const { user } = renderApp('/customers/c1');
+    let dialog = await more(user, 'Adjust wallet');
+    await user.type(within(dialog).getByLabelText(/^Amount/), '1e3');
+    await user.type(within(dialog).getByLabelText(/^Note/), 'Goodwill');
+    await user.click(within(dialog).getByRole('button', { name: 'Adjust' }));
+    expect(await within(dialog).findByText('Enter an amount; a minus sign takes it out of the wallet')).toBeVisible();
+    expect(requestTo(fetch, ADJUST)).toBeUndefined();
+    await user.click(within(dialog).getByRole('button', { name: 'Cancel' }));
+
+    dialog = await more(user, 'Refund wallet');
+    await user.type(within(dialog).getByLabelText(/^Amount/), '1,000');
+    expect(await within(dialog).findByText('Enter the amount in digits, for example 400')).toBeVisible();
+    await new Promise((r) => setTimeout(r, 400));
+    expect(requestTo(fetch, REFUND_QUOTE)).toBeUndefined();
+    await user.click(within(dialog).getByRole('button', { name: 'Cancel' }));
+
+    dialog = await more(user, 'Low-balance warning');
+    await user.type(within(dialog).getByLabelText(/^Warn below/), '0x10');
+    await user.click(within(dialog).getByRole('button', { name: 'Save' }));
+    expect(await within(dialog).findByText('Enter an amount, or leave it empty for no warning')).toBeVisible();
+    expect(requestTo(fetch, THRESHOLD)).toBeUndefined();
+  });
 });

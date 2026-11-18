@@ -129,7 +129,8 @@ export const QuotePanel: React.FunctionComponent<{
               )}
             </Tbody>
           </Table>
-          {charges && quote.termStart && quote.termEnd && (
+          {/* a top-up is priced on the term in force but is not for that term: wallet money does not lapse with it */}
+          {charges && quote.kind !== 'TOPUP' && quote.termStart && quote.termEnd && (
             <Content component="small">
               Term: {billingDate(quote.termStart, zone)} – {billingDate(quote.termEnd, zone, 1)}
             </Content>

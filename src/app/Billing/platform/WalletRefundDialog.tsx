@@ -18,7 +18,7 @@ import { ApiError } from '@app/api/client';
 import { messageFor } from '@app/api/messages';
 import { useAction } from '@app/admin/useAction';
 import { useSession } from '@app/session/SessionContext';
-import { inr4 } from '@app/Billing/common/money';
+import { inr4, typedAmount } from '@app/Billing/common/money';
 import { QuotePanel } from '@app/Billing/common/QuotePanel';
 import { useQuote } from '@app/Billing/common/useQuote';
 
@@ -45,8 +45,9 @@ export const WalletRefundDialog: React.FunctionComponent<{
   const [reason, setReason] = React.useState('');
   const [missing, setMissing] = React.useState<Record<string, string>>({});
   const action = useAction(FIELDS);
-  const typed = amount.trim();
-  const value = typed === '' || !Number.isFinite(Number(typed)) || Number(typed) <= 0 ? null : Number(typed);
+  const read = typedAmount(amount);
+  const value = read !== null && read > 0 ? read : null;
+  const unreadable = amount.trim() !== '' && value === null ? 'Enter the amount in digits, for example 400' : undefined;
   const request = value === null ? null : { amount: value };
   const priced = useQuote<{ amount: number }>(request, (t, r) => quoteWalletRefund(t, customerId, r));
   const refused =
@@ -65,7 +66,8 @@ export const WalletRefundDialog: React.FunctionComponent<{
     if (order) onDone(order);
   };
   const problem = (field: string, hint?: string) => {
-    const text = missing[field] ?? action.fieldErrors[field] ?? refused[field];
+    const text =
+      (field === 'amount' ? unreadable : undefined) ?? missing[field] ?? action.fieldErrors[field] ?? refused[field];
     return text || hint ? (
       <FormHelperText>
         <HelperText>

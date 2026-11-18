@@ -16,6 +16,7 @@ import {
 import { type Wallet, setWalletThreshold } from '@app/api/billing';
 import { useAction } from '@app/admin/useAction';
 import { useSession } from '@app/session/SessionContext';
+import { typedAmount } from '@app/Billing/common/money';
 
 const FIELDS = ['lowBalanceAt'];
 
@@ -33,15 +34,14 @@ export const WalletThresholdDialog: React.FunctionComponent<{
 
   const save = async () => {
     const blank = level.trim() === '';
-    if (!blank && !Number.isFinite(Number(level))) {
+    const value = typedAmount(level);
+    if (!blank && value === null) {
       setMissing('Enter an amount, or leave it empty for no warning');
       return;
     }
     setMissing(null);
     // an empty field is no warning, never a warning at zero
-    const wallet = await action.run(() =>
-      setWalletThreshold(token as string, customerId, blank ? null : Number(level)),
-    );
+    const wallet = await action.run(() => setWalletThreshold(token as string, customerId, blank ? null : value));
     if (wallet) onDone(wallet);
   };
   const error = missing ?? action.fieldErrors.lowBalanceAt;

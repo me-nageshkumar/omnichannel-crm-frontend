@@ -545,11 +545,6 @@ export function topUpQuote(over: Partial<Quote> = {}): Quote {
     tax: { ratePercent: 18, cgst: 90, sgst: 90, igst: 0, interState: false },
     total: 1180,
     payable: 1180,
-    planCode: null,
-    planName: null,
-    period: null,
-    termStart: null,
-    termEnd: null,
     ...over,
   });
 }
@@ -575,11 +570,6 @@ export function walletRefundQuote(over: Partial<Quote> = {}): Quote {
     ],
     creditFromNotes: 472,
     payable: 0,
-    planCode: null,
-    planName: null,
-    period: null,
-    termStart: null,
-    termEnd: null,
     validUntil: null,
     ...over,
   });

@@ -18,18 +18,16 @@ import { ApiError } from '@app/api/client';
 import { messageFor } from '@app/api/messages';
 import { useAction } from '@app/admin/useAction';
 import { useSession } from '@app/session/SessionContext';
-import { inr } from '@app/Billing/common/money';
+import { inr, typedAmount } from '@app/Billing/common/money';
 import { QuotePanel } from '@app/Billing/common/QuotePanel';
 import { useQuote } from '@app/Billing/common/useQuote';
 
 const SHOWN = ['topUpAmount'];
 
-/** The amount as a request can carry it: a number above zero, or null while the field says nothing usable. */
+/** The amount as a request can carry it: plain digits above zero, or null while the field says nothing usable. */
 function amountOf(text: string): number | null {
-  const trimmed = text.trim();
-  if (trimmed === '') return null;
-  const n = Number(trimmed);
-  return Number.isFinite(n) && n > 0 ? n : null;
+  const n = typedAmount(text);
+  return n !== null && n > 0 ? n : null;
 }
 
 /**
@@ -60,7 +58,10 @@ export const TopUpDialog: React.FunctionComponent<{
   const priced = useQuote(request, fetchQuote);
   const refused =
     priced.problem instanceof ApiError && priced.problem.code === 'VALIDATION' ? (priced.problem.fields ?? {}) : {};
-  const fieldError = action.fieldErrors.topUpAmount ?? refused.topUpAmount;
+  // something is typed that cannot be read as an amount: say so, rather than sit silent with no price
+  const unreadable =
+    amount.trim() !== '' && value === null ? 'Enter the amount in digits, for example 1000' : undefined;
+  const fieldError = unreadable ?? action.fieldErrors.topUpAmount ?? refused.topUpAmount;
   const unshown = Object.keys(refused)
     .filter((f) => SHOWN.indexOf(f) < 0)
     .map((f) => refused[f]);

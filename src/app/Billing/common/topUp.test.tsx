@@ -233,4 +233,28 @@ describe('topping up the wallet', () => {
     expect(await within(again).findByText('₹999.25')).toBeVisible();
     expect(within(again).queryByRole('button', { name: 'Top up' })).toBeNull();
   });
+
+  it('does not print the term of the plan under the price of a top-up', async () => {
+    mockFetch(staff());
+    const { user } = renderApp('/customers/c1');
+    const dialog = await open(user);
+    await user.type(within(dialog).getByLabelText(/^Amount/), '1000');
+    const panel = within(dialog).getByRole('region', { name: 'Price' });
+    expect(await within(panel).findByText('Amount payable', {}, { timeout: 3000 })).toBeVisible();
+    expect(within(panel).queryByText(/Term:/)).toBeNull();
+  });
+
+  it('says how to write an amount it cannot read', async () => {
+    const fetch = mockFetch(staff());
+    const { user } = renderApp('/customers/c1');
+    const dialog = await open(user);
+    const amount = within(dialog).getByLabelText(/^Amount/);
+    for (const typed of ['1,000', '₹1000', '1e3', '-5', '0']) {
+      await user.clear(amount);
+      await user.type(amount, typed);
+      expect(await within(dialog).findByText('Enter the amount in digits, for example 1000')).toBeVisible();
+    }
+    await new Promise((r) => setTimeout(r, 400));
+    expect(requestTo(fetch, QUOTES)).toBeUndefined();
+  });
 });

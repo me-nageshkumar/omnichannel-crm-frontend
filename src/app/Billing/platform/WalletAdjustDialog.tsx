@@ -16,7 +16,7 @@ import {
 import { type Wallet, adjustWallet } from '@app/api/billing';
 import { useAction } from '@app/admin/useAction';
 import { useSession } from '@app/session/SessionContext';
-import { inr4 } from '@app/Billing/common/money';
+import { inr4, typedAmount } from '@app/Billing/common/money';
 
 const FIELDS = ['amount', 'note'];
 
@@ -38,13 +38,13 @@ export const WalletAdjustDialog: React.FunctionComponent<{
 
   const save = async () => {
     const problems: Record<string, string> = {};
-    const value = Number(amount);
-    if (amount.trim() === '' || !Number.isFinite(value) || value === 0) {
+    const value = typedAmount(amount, true);
+    if (value === null || value === 0) {
       problems.amount = 'Enter an amount; a minus sign takes it out of the wallet';
     }
     if (note.trim() === '') problems.note = 'Say why, for the record';
     setMissing(problems);
-    if (Object.keys(problems).length > 0) return;
+    if (value === null || Object.keys(problems).length > 0) return;
     const wallet = await action.run(() =>
       adjustWallet(token as string, customerId, { amount: value, note: note.trim() }),
     );
