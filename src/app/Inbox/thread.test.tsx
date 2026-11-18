@@ -541,6 +541,15 @@ describe('thread', () => {
     expect(actionText(action({ type: 'ROUTED', toUser: to, reason: 'STICKY' }))).toBe(
       'Routed to Demo Agent (returning customer)',
     );
+    // a chatbot that gave the chat back to the agent who last had it is named, as a person who handed it back is
+    expect(
+      actionText(
+        action({ type: 'ROUTED', toUser: to, reason: 'STICKY', by: { id: null, name: 'Chatbot: Walk hand-over' } }),
+      ),
+    ).toBe('Routed to Demo Agent (returning customer, by Chatbot: Walk hand-over)');
+    expect(actionText(action({ type: 'ROUTED', toUser: to, by: { id: null, name: 'Chatbot: Walk hand-over' } }))).toBe(
+      'Routed to Demo Agent (by Chatbot: Walk hand-over)',
+    );
     expect(actionText(action({ type: 'ROUTED', toUser: to, reason: 'HANDED_BACK', by }))).toBe(
       'Routed to Demo Agent (handed back by Ishaan)',
     );
