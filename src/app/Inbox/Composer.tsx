@@ -37,6 +37,13 @@ export const Composer: React.FunctionComponent<{
   // A second Enter can arrive before the first send has re-rendered the button as disabled.
   const inFlight = React.useRef(false);
 
+  // what was said about a send belongs to the chat it was tried in
+  React.useEffect(() => {
+    setError(null);
+    setWalletEmpty(false);
+    setTextError(null);
+  }, [chat.id]);
+
   const notice =
     chat.status === 'CLOSED' ? 'Reopen to reply' : !numberConnected ? 'WhatsApp is not connected on this number' : null;
   const trimmed = text.trim();
@@ -138,6 +145,8 @@ export const Composer: React.FunctionComponent<{
           onClose={() => setComposing(false)}
           onSent={(id) => {
             setComposing(false);
+            setError(null);
+            setWalletEmpty(false);
             onSentId?.(id);
           }}
         />
@@ -149,6 +158,8 @@ export const Composer: React.FunctionComponent<{
           onClose={() => setPicking(false)}
           onSent={(message) => {
             setPicking(false);
+            setError(null);
+            setWalletEmpty(false);
             onSent(message);
           }}
         />

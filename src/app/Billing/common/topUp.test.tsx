@@ -257,4 +257,58 @@ describe('topping up the wallet', () => {
     await new Promise((r) => setTimeout(r, 400));
     expect(requestTo(fetch, QUOTES)).toBeUndefined();
   });
+
+  it('is ready to be typed into as it opens, and forgets a refusal once the amount changes', async () => {
+    let refuse = true;
+    mockFetch(
+      staff({
+        [ORDERS]: () =>
+          refuse
+            ? {
+                status: 400,
+                body: { code: 'VALIDATION', fields: { topUpAmount: 'must be between 100 and 10,00,000' } },
+              }
+            : { status: 201, body: TOP_UP_ORDER },
+      }),
+    );
+    const { user } = renderApp('/customers/c1');
+    const dialog = await open(user);
+    await waitFor(() => expect(within(dialog).getByLabelText(/^Amount/)).toHaveFocus());
+    await user.keyboard('1000');
+    const raise = within(dialog).getByRole('button', { name: 'Raise order' });
+    await waitFor(() => expect(raise).toBeEnabled(), { timeout: 3000 });
+    await user.click(raise);
+    expect(await within(dialog).findByText('must be between 100 and 10,00,000')).toBeVisible();
+    expect(within(dialog).getByLabelText(/^Amount/)).toHaveAttribute('aria-invalid', 'true');
+
+    refuse = false;
+    await user.type(within(dialog).getByLabelText(/^Amount/), '0');
+    await waitFor(() => expect(within(dialog).queryByText('must be between 100 and 10,00,000')).toBeNull());
+  });
+
+  it('takes the "order raised" line away once something else changes the billing', async () => {
+    mockFetch(
+      staff({
+        [`GET ${BASE}/orders`]: { status: 200, body: [TOP_UP_ORDER] },
+        'GET /api/billing/orders/o6': { status: 200, body: TOP_UP_ORDER },
+        'POST /api/billing/orders/o6/cancel': { status: 200, body: { ...TOP_UP_ORDER, status: 'CANCELLED' } },
+      }),
+    );
+    const { user } = renderApp('/customers/c1');
+    const dialog = await open(user);
+    await user.keyboard('1000');
+    const raise = within(dialog).getByRole('button', { name: 'Raise order' });
+    await waitFor(() => expect(raise).toBeEnabled(), { timeout: 3000 });
+    await user.click(raise);
+    const card = screen.getByRole('region', { name: 'Wallet' });
+    expect(await within(card).findByText(/Order ORD-000006 was raised/)).toBeVisible();
+
+    // the order is dealt with from the list under the card
+    await user.click(await screen.findByRole('button', { name: 'ORD-000006' }));
+    const order = await screen.findByRole('dialog');
+    await user.click(await within(order).findByRole('button', { name: 'Cancel order' }));
+    const confirm = screen.queryByRole('button', { name: /^(Cancel order|Yes|Confirm)/ });
+    if (confirm && confirm !== within(order).queryByRole('button', { name: 'Cancel order' })) await user.click(confirm);
+    await waitFor(() => expect(within(card).queryByText(/Order ORD-000006 was raised/)).toBeNull(), { timeout: 3000 });
+  });
 });

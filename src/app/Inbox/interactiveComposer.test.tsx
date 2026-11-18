@@ -285,4 +285,18 @@ describe('interactive composer', () => {
     await fillButtonMessage(user);
     expect(sendButton()).toBeEnabled();
   });
+
+  it('says in a full sentence that the wallet is too low', async () => {
+    mockFetch({
+      ...meAs(AGENT_IN_BRAND),
+      [PREVIEW]: PREVIEW_OK,
+      [SEND]: { status: 402, body: { code: 'WALLET_EMPTY', message: 'The wallet balance is too low to send' } },
+    });
+    const { user, onSent } = renderComposer();
+    await screen.findByText('Send an interactive message');
+    await fillButtonMessage(user);
+    await user.click(sendButton());
+    expect(await screen.findByText('The wallet balance is too low to send.')).toBeVisible();
+    expect(onSent).not.toHaveBeenCalled();
+  });
 });

@@ -179,7 +179,12 @@ export const CustomerDetailPage: React.FunctionComponent = () => {
         )}
         {canSeePlan && (
           <StackItem>
-            <CustomerWalletCard customerId={customer.id} reloadKey={billingTick} onChanged={billingChanged} />
+            <CustomerWalletCard
+              customerId={customer.id}
+              reloadKey={billingTick}
+              hasPlan={!!customer.planName}
+              onChanged={billingChanged}
+            />
           </StackItem>
         )}
         {canSeePlan && (

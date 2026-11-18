@@ -50,6 +50,7 @@ export const WalletAdjustDialog: React.FunctionComponent<{
     );
     if (wallet) onDone(wallet);
   };
+  const invalid = (field: string) => !!(missing[field] ?? action.fieldErrors[field]);
   const problem = (field: string, hint?: string) => {
     const text = missing[field] ?? action.fieldErrors[field];
     return text || hint ? (
@@ -79,12 +80,21 @@ export const WalletAdjustDialog: React.FunctionComponent<{
               id="wallet-adjust-amount"
               inputMode="decimal"
               value={amount}
+              autoFocus
+              validated={invalid('amount') ? 'error' : 'default'}
+              aria-invalid={invalid('amount') ? true : undefined}
               onChange={(_e, v) => setAmount(v)}
             />
             {problem('amount', 'Up to 4 decimals. No tax is charged, and an adjustment cannot be refunded.')}
           </FormGroup>
           <FormGroup label="Note" isRequired fieldId="wallet-adjust-note">
-            <TextInput id="wallet-adjust-note" value={note} onChange={(_e, v) => setNote(v)} />
+            <TextInput
+              id="wallet-adjust-note"
+              value={note}
+              validated={invalid('note') ? 'error' : 'default'}
+              aria-invalid={invalid('note') ? true : undefined}
+              onChange={(_e, v) => setNote(v)}
+            />
             {problem('note')}
           </FormGroup>
         </Form>

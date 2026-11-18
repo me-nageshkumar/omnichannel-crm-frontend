@@ -98,12 +98,19 @@ export const TopUpDialog: React.FunctionComponent<{
               id="top-up-amount"
               inputMode="decimal"
               value={amount}
+              autoFocus
               validated={fieldError ? 'error' : 'default'}
-              onChange={(_e, v) => setAmount(v)}
+              aria-invalid={fieldError ? true : undefined}
+              aria-describedby="top-up-amount-help"
+              onChange={(_e, v) => {
+                setAmount(v);
+                // what the server said was about the amount that was there
+                action.reset();
+              }}
             />
             <FormHelperText>
               <HelperText>
-                <HelperTextItem variant={fieldError ? 'error' : 'default'}>
+                <HelperTextItem id="top-up-amount-help" variant={fieldError ? 'error' : 'default'}>
                   {fieldError ?? `Between ${inr(min)} and ${inr(max)}, before tax`}
                 </HelperTextItem>
               </HelperText>

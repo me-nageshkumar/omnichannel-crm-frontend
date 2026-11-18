@@ -28,6 +28,8 @@ export interface Session {
   /** Fetches the user for a fresh token; true when signed in. Failures land in {@link notice}. */
   signIn(token: string, expiresAt: string): Promise<boolean>;
   signOut(notice?: string): Promise<void>;
+  /** The user logged out themselves: whoever signs in next starts at home, not on the page that was left. */
+  leftOnPurpose: boolean;
   refreshUser(): Promise<void>;
   /** Replaces the signed-in user with a fresher copy the caller already holds (e.g. an API answer). */
   setUser(user: CurrentUser): void;
@@ -147,10 +149,13 @@ export const SessionProvider: React.FunctionComponent<{ children: React.ReactNod
     return () => window.removeEventListener('storage', onStorage);
   }, [signedIn]);
 
+  const leftOnPurpose = React.useRef(false);
   const signOut = React.useCallback(
     async (notice?: string) => {
       const token = state.token;
       if (token) await logout(token).catch(() => undefined);
+      // a session that ended by itself carries a notice, and its owner is taken back to where they were
+      leftOnPurpose.current = notice === undefined;
       signedOut(notice ?? null);
     },
     [state.token, signedOut],
@@ -190,8 +195,12 @@ export const SessionProvider: React.FunctionComponent<{ children: React.ReactNod
     startTwoFactor: (pendingTwoFactorToken) => setState((s) => ({ ...s, pendingTwoFactorToken, notice: null })),
     startPasswordChange: (pendingPasswordChangeToken) =>
       setState((s) => ({ ...s, pendingPasswordChangeToken, notice: null })),
-    signIn: establish,
+    signIn: (token, expiresAt) => {
+      leftOnPurpose.current = false;
+      return establish(token, expiresAt);
+    },
     signOut,
+    leftOnPurpose: leftOnPurpose.current,
     refreshUser,
     setUser: (user) => setState((s) => ({ ...s, user })),
     showNotice: (notice) => setState((s) => ({ ...s, notice })),

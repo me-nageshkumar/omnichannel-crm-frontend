@@ -235,4 +235,40 @@ describe('the wallet', () => {
     await waitFor(() => expect(screen.queryByRole('region', { name: 'Wallet notice' })).toBeNull());
     expect(askedAfter).toBeGreaterThan(0);
   });
+
+  it('says that a customer without a plan has none, rather than that its plan charges nothing', async () => {
+    mockFetch(
+      staff({
+        'GET /api/customers/c1': {
+          status: 200,
+          body: { customer: { ...ACME, planName: null, subscriptionState: 'NONE' }, workspaces: [], admins: [] },
+        },
+        [`GET ${BASE}/wallet`]: { status: 200, body: NO_WALLET },
+      }),
+    );
+    renderApp('/customers/c1');
+    const card = await screen.findByRole('region', { name: 'Wallet' });
+    expect(await within(card).findByText('This customer has no plan, so nothing is charged.')).toBeVisible();
+    expect(within(card).queryByText('Messages are not charged on this plan.')).toBeNull();
+  });
+
+  it('keeps the ledger and its pager on screen while another page loads, and when it fails', async () => {
+    let fail = false;
+    mockFetch(
+      staff({
+        [`GET ${BASE}/wallet/entries`]: () =>
+          fail ? { status: 500, body: {} } : { status: 200, body: { items: LEDGER, total: 120, page: 0 } },
+      }),
+    );
+    const { user } = renderApp('/customers/c1');
+    const billing = await screen.findByRole('region', { name: 'Orders and documents' });
+    await user.click(within(billing).getByRole('tab', { name: 'Wallet' }));
+    await rowWith('ORD-000006');
+    fail = true;
+    await user.click(within(billing).getByRole('button', { name: 'Go to next page' }));
+    expect(await within(billing).findByText('Something went wrong. Please try again.')).toBeVisible();
+    // what was there stays, with the way back
+    expect(within(billing).getByText('ORD-000006')).toBeVisible();
+    expect(within(billing).getByRole('button', { name: 'Go to previous page' })).toBeVisible();
+  });
 });

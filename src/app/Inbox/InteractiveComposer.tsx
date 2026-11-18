@@ -123,7 +123,9 @@ export const InteractiveComposer: React.FunctionComponent<{
     if (keys.length > 0) setServerErrors(fields as Record<string, string>);
     const known = renderedPaths(draft);
     if (keys.length > 0 && keys.every((k) => known.indexOf(keyFor(k)) >= 0)) return;
-    setError((e instanceof ApiError && e.serverMessage) || messageFor(e));
+    // a refusal the console has its own sentence for reads as it does everywhere else
+    const coded = e instanceof ApiError && e.code?.toUpperCase() === 'WALLET_EMPTY';
+    setError((!coded && e instanceof ApiError && e.serverMessage) || messageFor(e));
   };
 
   // the preview effect reports errors through the latest handler without depending on it (it closes over draft)

@@ -207,4 +207,55 @@ describe('staff actions on a wallet', () => {
     expect(await within(dialog).findByText('Enter an amount, or leave it empty for no warning')).toBeVisible();
     expect(requestTo(fetch, THRESHOLD)).toBeUndefined();
   });
+
+  it('does not offer a refund when nothing can be refunded, and takes a warning level of 0 as 0', async () => {
+    const fetch = mockFetch(routes({ [WALLET]: { status: 200, body: wallet({ refundable: 0 }) } }));
+    const { user } = renderApp('/customers/c1');
+    const card = await screen.findByRole('region', { name: 'Wallet' });
+    await user.click(await within(card).findByRole('button', { name: 'More' }));
+    expect(await screen.findByRole('menuitem', { name: 'Adjust wallet' })).toBeVisible();
+    expect(screen.queryByRole('menuitem', { name: 'Refund wallet' })).toBeNull();
+    await user.click(screen.getByRole('menuitem', { name: 'Low-balance warning' }));
+    const dialog = await screen.findByRole('dialog');
+    await user.type(within(dialog).getByLabelText(/^Warn below/), '0');
+    await user.click(within(dialog).getByRole('button', { name: 'Save' }));
+    await waitFor(() => expect(requestTo(fetch, THRESHOLD)?.body).toEqual({ lowBalanceAt: 0 }));
+  });
+
+  it('never shows or refunds the credit of an amount that is no longer on screen', async () => {
+    const waiting: { body: { amount: number }; release(): void }[] = [];
+    const base = mockFetch(
+      routes({
+        [REFUND_QUOTE]: (req) => ({
+          status: 200,
+          body: req.body.amount === 100 ? walletRefundQuote({ creditFromNotes: 118 }) : walletRefundQuote(),
+        }),
+      }),
+    );
+    vi.stubGlobal('fetch', async (input: RequestInfo | URL, init?: RequestInit) => {
+      const url = typeof input === 'string' ? input : input.toString();
+      if ((init?.method ?? 'GET') === 'POST' && url.endsWith('/refunds/quote')) {
+        await new Promise<void>((release) => {
+          waiting.push({ body: JSON.parse(init?.body as string), release });
+        });
+      }
+      return base(input, init);
+    });
+    const { user } = renderApp('/customers/c1');
+    const dialog = await more(user, 'Refund wallet');
+    const amount = within(dialog).getByLabelText(/^Amount/);
+    await user.type(amount, '100');
+    await waitFor(() => expect(waiting).toHaveLength(1), { timeout: 3000 });
+    await user.clear(amount);
+    await user.type(amount, '400');
+    await waitFor(() => expect(waiting.some((w) => w.body.amount === 400)).toBe(true), { timeout: 3000 });
+    const confirm = within(dialog).getByRole('button', { name: 'Refund wallet' });
+    waiting.filter((w) => w.body.amount === 100).forEach((w) => w.release());
+    await new Promise((r) => setTimeout(r, 50));
+    expect(within(dialog).queryByText('₹118.00')).toBeNull();
+    expect(confirm).toBeDisabled();
+    waiting.filter((w) => w.body.amount !== 100).forEach((w) => w.release());
+    expect((await within(dialog).findAllByText('₹472.00')).length).toBeGreaterThan(0);
+    await waitFor(() => expect(confirm).toBeEnabled());
+  });
 });

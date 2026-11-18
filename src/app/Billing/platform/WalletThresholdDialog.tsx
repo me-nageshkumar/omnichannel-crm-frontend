@@ -63,6 +63,9 @@ export const WalletThresholdDialog: React.FunctionComponent<{
               id="wallet-threshold-level"
               inputMode="decimal"
               value={level}
+              autoFocus
+              validated={error ? 'error' : 'default'}
+              aria-invalid={error ? true : undefined}
               onChange={(_e, v) => setLevel(v)}
             />
             <FormHelperText>
