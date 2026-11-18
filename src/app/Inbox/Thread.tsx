@@ -61,11 +61,13 @@ export function actionText(action: ActionView): string {
   }
 }
 
-/** Why routing chose as it did, when it was not the plain setting. */
+/** Why routing chose as it did, when it was not the plain setting, and who asked when it was not a person (a chatbot). */
 function routedReason(action: ActionView): string {
+  // a chatbot or rule that asked for the routing has a name and no user id
+  const system = action.by && action.by.id === null ? action.by.name : null;
   switch (action.reason) {
     case 'STICKY':
-      return ' (returning customer)';
+      return system ? ` (returning customer, by ${system})` : ' (returning customer)';
     case 'HANDED_BACK':
       return action.by ? ` (handed back by ${action.by.name})` : ' (handed back)';
     case 'OWNER_CHANGED':
@@ -81,7 +83,7 @@ function routedReason(action: ActionView): string {
     case 'CHATBOT_ENDED':
       return action.reasonDetail ? ` (after chatbot ${action.reasonDetail} ended)` : ' (after a chatbot ended)';
     default:
-      return '';
+      return system ? ` (by ${system})` : '';
   }
 }
 
