@@ -363,6 +363,7 @@ export const InboxPage: React.FunctionComponent = () => {
                   <Composer
                     chat={open}
                     numberConnected={numberConnected}
+                    archivedAt={openNumber?.archiveOf ? (openNumber.archivedAt ?? null) : null}
                     onSent={(message) => thread.apply({ type: 'message', chatId: open.id, message })}
                     onSentId={() => thread.reload()}
                   />

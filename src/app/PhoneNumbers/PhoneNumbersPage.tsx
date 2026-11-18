@@ -74,6 +74,13 @@ export const PhoneNumbersPage: React.FunctionComponent = () => {
       confirm.reset();
       setDialog(d);
     };
+    // an archive keeps a moved number's old chats: it can be renamed or deleted, nothing else
+    if (n.archiveOf) {
+      return [
+        { title: 'Edit label', onClick: open({ kind: 'edit', number: n }) },
+        { title: 'Delete', onClick: open({ kind: 'delete', number: n }) },
+      ];
+    }
     return [
       { title: 'Edit label', onClick: open({ kind: 'edit', number: n }) },
       { title: 'Set team', onClick: open({ kind: 'team', number: n }) },

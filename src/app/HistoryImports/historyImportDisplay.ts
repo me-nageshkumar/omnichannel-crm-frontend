@@ -83,6 +83,7 @@ export const chatStatusLabel = (s: HistoryChatStatus): string => CHAT_STATUS_TEX
 /** Why a chat was skipped, failed or ended early; null when there is nothing to say. */
 export function chatNote(c: HistoryChatView): string | null {
   if (c.skipReason === 'NO_CHAT') return 'No chat on the phone';
+  if (c.skipReason === 'NOTHING_AFTER_MOVE') return 'Nothing since the number moved to this brand';
   if (c.error) return c.error;
   if (c.olderUnavailable) return 'Reached the oldest message WhatsApp Web would load';
   return c.capped ? 'Capped' : null;

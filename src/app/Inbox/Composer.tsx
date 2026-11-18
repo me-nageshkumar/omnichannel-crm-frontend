@@ -17,12 +17,18 @@ export const COUNTER_FROM = 3900;
  * can be sent instead. An interactive send answers with the message id only, so {@code onSentId} lets the thread
  * reload.
  */
+/** "18 Nov", as the server words the archived-number refusal. */
+const movedOn = (iso: string) =>
+  new Date(iso).toLocaleDateString('en-GB', { day: 'numeric', month: 'short', timeZone: 'Asia/Kolkata' });
+
 export const Composer: React.FunctionComponent<{
   chat: ChatView;
   numberConnected: boolean;
+  /** Set when the chat's number is an archive: the number moved to another brand then. */
+  archivedAt?: string | null;
   onSent(message: MessageView): void;
   onSentId?(messageId: string): void;
-}> = ({ chat, numberConnected, onSent, onSentId }) => {
+}> = ({ chat, numberConnected, archivedAt, onSent, onSentId }) => {
   const { token, workspace } = useSession();
   const ws = workspace?.id ?? '';
   const [text, setText] = React.useState('');
@@ -46,8 +52,13 @@ export const Composer: React.FunctionComponent<{
     setTextError(null);
   }, [chat.id]);
 
-  const notice =
-    chat.status === 'CLOSED' ? 'Reopen to reply' : !numberConnected ? 'WhatsApp is not connected on this number' : null;
+  const notice = archivedAt
+    ? `This number moved to another brand on ${movedOn(archivedAt)}.`
+    : chat.status === 'CLOSED'
+      ? 'Reopen to reply'
+      : !numberConnected
+        ? 'WhatsApp is not connected on this number'
+        : null;
   const trimmed = text.trim();
   const canSend = notice === null && !sending && trimmed.length > 0;
 

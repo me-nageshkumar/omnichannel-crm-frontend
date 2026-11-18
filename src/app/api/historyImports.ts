@@ -41,7 +41,7 @@ export interface HistoryChatView {
   chatName: string | null;
   chatId: string | null;
   status: HistoryChatStatus;
-  skipReason: 'NO_CHAT' | null;
+  skipReason: 'NO_CHAT' | 'NOTHING_AFTER_MOVE' | null;
   error: string | null;
   counts: { seen: number; inserted: number; updated: number };
   capped: boolean;

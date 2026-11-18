@@ -36,6 +36,7 @@ export const NumberFilter: React.FunctionComponent<{
           <SelectOption key={n.id} value={n.id} hasCheckbox isSelected={all || selected.includes(n.id)}>
             {shown(n.number)}
             {n.label ? ` · ${n.label}` : ''}
+            {n.archiveOf ? ' · archived' : ''}
             {n.guest && (
               <>
                 {' '}
