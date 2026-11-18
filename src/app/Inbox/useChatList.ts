@@ -27,6 +27,8 @@ const assignment = (chat: ChatView) => `${chat.assignedUser?.id ?? ''}/${chat.as
 
 /** Whether {@code chat}, as it is now, belongs in the list of {@code status} and {@code scope} for user {@code meId}. */
 function belongs(chat: ChatView, status: ChatView['status'], scope: ListScope, meId: string): boolean {
+  // the Chatbot list is every chat a chatbot holds; no other list has one
+  if (scope === 'BOT') return chat.status === 'BOT';
   if (chat.status !== status) return false;
   if (scope === 'UNASSIGNED') return !assigned(chat);
   if (scope === 'MINE' && meId) return chat.assignedUser?.id === meId;

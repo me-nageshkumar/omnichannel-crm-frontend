@@ -4,16 +4,26 @@ import type { Availability } from '@app/api/users';
 
 export type { Availability } from '@app/api/users';
 
-export type ChatStatus = 'OPEN' | 'CLOSED';
+/** `BOT`: a chatbot holds the chat and no person does (shown as "With chatbot"). */
+export type ChatStatus = 'OPEN' | 'BOT' | 'CLOSED';
 export type MessageDirection = 'IN' | 'OUT';
 /** Who produced the message: the contact, our console, or the phone / WhatsApp Web tab. */
 export type MessageSource = 'CONTACT' | 'CONSOLE' | 'WHATSAPP_WEB' | 'CAMPAIGN' | 'AUTOMATION' | 'CHATBOT';
 export type MessageStatus = 'PENDING' | 'SENT' | 'DELIVERED' | 'READ' | 'PLAYED' | 'FAILED';
-export type ListScope = 'MINE' | 'TEAM' | 'UNASSIGNED' | 'ALL';
+/** `BOT`: the chats chatbots hold, for holders of `inbox:view-bot`. */
+export type ListScope = 'MINE' | 'TEAM' | 'UNASSIGNED' | 'ALL' | 'BOT';
 export type RoutingMode = 'NONE' | 'TEAM' | 'USER' | 'ROUND_ROBIN';
 export type ActionType = 'ROUTED' | 'ASSIGNED' | 'UNASSIGNED' | 'CLOSED' | 'REOPENED' | 'TRANSFERRED';
 /** Why a ROUTED action chose as it did, when it was not the plain routing setting. */
-export type RoutedReason = 'STICKY' | 'HANDED_BACK' | 'OWNER_CHANGED' | 'MEMBER_REMOVED' | 'FETCHED' | 'AUTOMATION';
+export type RoutedReason =
+  | 'STICKY'
+  | 'HANDED_BACK'
+  | 'OWNER_CHANGED'
+  | 'MEMBER_REMOVED'
+  | 'FETCHED'
+  | 'AUTOMATION'
+  | 'CHATBOT_HANDOVER'
+  | 'CHATBOT_ENDED';
 
 export interface IdName {
   id: string;
@@ -255,7 +265,8 @@ export function listChats(token: string, ws: string, filters: ChatFilters = {}):
     query.set('phoneNumberIds', filters.phoneNumberIds.join(','));
   }
   if (filters.scope) query.set('scope', filters.scope);
-  if (filters.status) query.set('status', filters.status);
+  // the Chatbot list is one status already
+  if (filters.status && filters.scope !== 'BOT') query.set('status', filters.status);
   if (filters.q) query.set('q', filters.q);
   if (filters.unread) query.set('unread', 'true');
   if (filters.before) query.set('before', filters.before);

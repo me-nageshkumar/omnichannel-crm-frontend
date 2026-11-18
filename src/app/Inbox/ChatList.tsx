@@ -151,18 +151,20 @@ export const ChatList: React.FunctionComponent<ChatListProps> = ({
             ))}
           </ToggleGroup>
         )}
-        <ToggleGroup aria-label="Status" isCompact>
-          <ToggleGroupItem
-            text="Open"
-            isSelected={filters.status === 'OPEN'}
-            onChange={() => set({ status: 'OPEN' })}
-          />
-          <ToggleGroupItem
-            text="Closed"
-            isSelected={filters.status === 'CLOSED'}
-            onChange={() => set({ status: 'CLOSED' })}
-          />
-        </ToggleGroup>
+        {filters.scope !== 'BOT' && (
+          <ToggleGroup aria-label="Status" isCompact>
+            <ToggleGroupItem
+              text="Open"
+              isSelected={filters.status === 'OPEN'}
+              onChange={() => set({ status: 'OPEN' })}
+            />
+            <ToggleGroupItem
+              text="Closed"
+              isSelected={filters.status === 'CLOSED'}
+              onChange={() => set({ status: 'CLOSED' })}
+            />
+          </ToggleGroup>
+        )}
         <Switch
           id="chat-list-unread"
           label="Unread only"
