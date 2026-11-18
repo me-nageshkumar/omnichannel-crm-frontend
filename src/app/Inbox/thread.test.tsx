@@ -554,6 +554,21 @@ describe('thread', () => {
       'Routed to Demo Agent (fetched from WhatsApp, waiting for a reply)',
     );
     expect(
+      actionText(action({ type: 'ROUTED', toUser: to, reason: 'CHATBOT_HANDOVER', reasonDetail: 'Welcome' })),
+    ).toBe('Routed to Demo Agent (handed over by chatbot: Welcome)');
+    expect(actionText(action({ type: 'ROUTED', toUser: to, reason: 'CHATBOT_HANDOVER' }))).toBe(
+      'Routed to Demo Agent (handed over by a chatbot)',
+    );
+    expect(actionText(action({ type: 'ROUTED', toUser: to, reason: 'CHATBOT_ENDED', reasonDetail: 'Welcome' }))).toBe(
+      'Routed to Demo Agent (after chatbot Welcome ended)',
+    );
+    expect(actionText(action({ type: 'ROUTED', toUser: to, reason: 'CHATBOT_ENDED' }))).toBe(
+      'Routed to Demo Agent (after a chatbot ended)',
+    );
+    expect(actionText(action({ type: 'CLOSED', by: { id: null, name: 'Chatbot: Welcome' } }))).toBe(
+      'Closed by Chatbot: Welcome',
+    );
+    expect(
       actionText(
         action({
           type: 'TRANSFERRED',

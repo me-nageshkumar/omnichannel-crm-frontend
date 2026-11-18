@@ -76,6 +76,10 @@ function routedReason(action: ActionView): string {
       return ' (fetched from WhatsApp, waiting for a reply)';
     case 'AUTOMATION':
       return action.reasonDetail ? ` (by automation: ${action.reasonDetail})` : ' (by automation)';
+    case 'CHATBOT_HANDOVER':
+      return action.reasonDetail ? ` (handed over by chatbot: ${action.reasonDetail})` : ' (handed over by a chatbot)';
+    case 'CHATBOT_ENDED':
+      return action.reasonDetail ? ` (after chatbot ${action.reasonDetail} ended)` : ' (after a chatbot ended)';
     default:
       return '';
   }

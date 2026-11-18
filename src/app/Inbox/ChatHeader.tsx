@@ -166,9 +166,15 @@ export const ChatHeader: React.FunctionComponent<{
             Ad
           </Label>
         )}
-        <Label isCompact color={chat.assignedUser || chat.assignedTeam ? 'blue' : 'grey'}>
-          {assignmentText(chat)}
-        </Label>
+        {chat.status === 'BOT' ? (
+          <Label isCompact color="purple" icon={<RobotIcon />}>
+            With chatbot
+          </Label>
+        ) : (
+          <Label isCompact color={chat.assignedUser || chat.assignedTeam ? 'blue' : 'grey'}>
+            {assignmentText(chat)}
+          </Label>
+        )}
         {bot && (
           <Label isCompact color="blue" icon={<RobotIcon />}>
             {botText}
