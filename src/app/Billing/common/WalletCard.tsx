@@ -22,8 +22,10 @@ export const WalletCard: React.FunctionComponent<{
   wallet: Wallet | undefined;
   error?: string | null;
   actions?: React.ReactNode;
+  /** The customer has no plan at all (staff see this; a customer without a plan is not shown its wallet). */
+  noPlan?: boolean;
   children?: React.ReactNode;
-}> = ({ wallet, error, actions, children }) => (
+}> = ({ wallet, error, actions, noPlan, children }) => (
   <Card component="section" aria-label="Wallet">
     <CardHeader actions={actions && wallet ? { actions } : undefined}>
       <CardTitle>Wallet</CardTitle>
@@ -41,9 +43,11 @@ export const WalletCard: React.FunctionComponent<{
             <DescriptionListGroup>
               <DescriptionListTerm>Message rate</DescriptionListTerm>
               <DescriptionListDescription>
-                {wallet.messageRate === null
-                  ? 'Messages are not charged on this plan.'
-                  : `${inr4(wallet.messageRate)} per message`}
+                {noPlan
+                  ? 'This customer has no plan, so nothing is charged.'
+                  : wallet.messageRate === null
+                    ? 'Messages are not charged on this plan.'
+                    : `${inr4(wallet.messageRate)} per message`}
               </DescriptionListDescription>
             </DescriptionListGroup>
             {/* a warning level means nothing where messages cost nothing */}

@@ -28,18 +28,21 @@ export const CustomerWalletCard: React.FunctionComponent<{
   customerId: string;
   /** Changes when something else on the page changed the customer's billing. */
   reloadKey?: number;
+  /** False for a customer with no plan. */
+  hasPlan?: boolean;
   onChanged?(): void;
-}> = ({ customerId, reloadKey = 0, onChanged }) => {
+}> = ({ customerId, reloadKey = 0, hasPlan = true, onChanged }) => {
   const canManage = useAccess().has('subscription:manage');
   const canRefund = useAccess().has('refund:manage');
   const [moreOpen, setMoreOpen] = React.useState(false);
-  const [refunded, setRefunded] = React.useState<Order | null>(null);
+  const [refunded, setRefunded] = React.useState<{ order: Order; at: number } | null>(null);
   const wallet = useLoad((t) => getWallet(t, customerId), [customerId], { keepOnError: true });
   const options = useLoad((t) => getCustomerOptions(t, customerId), [customerId], { keepOnError: true });
   const settings = useLoad(getBillingSettings);
   const zone = settings.data?.zone ?? 'Asia/Kolkata';
   const [dialog, setDialog] = React.useState<Dialog | null>(null);
-  const [raised, setRaised] = React.useState<Order | null>(null);
+  // a result line belongs to the change that made it: the next change to the customer's billing takes it away
+  const [raised, setRaised] = React.useState<{ order: Order; at: number } | null>(null);
   const first = React.useRef(true);
   const reloadWallet = wallet.reload;
   const reloadOptions = options.reload;
@@ -50,6 +53,9 @@ export const CustomerWalletCard: React.FunctionComponent<{
     }
     reloadWallet();
     reloadOptions();
+    // the change that made a line bumps the key once itself; anything after that is news
+    setRaised((r) => (r && reloadKey > r.at + 1 ? null : r));
+    setRefunded((r) => (r && reloadKey > r.at + 1 ? null : r));
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [reloadKey]);
 
@@ -68,7 +74,7 @@ export const CustomerWalletCard: React.FunctionComponent<{
   const more: { label: string; dialog: Dialog }[] = [
     ...(canManage ? [{ label: 'Adjust wallet', dialog: { kind: 'adjust' as const } }] : []),
     ...(canManage ? [{ label: 'Low-balance warning', dialog: { kind: 'threshold' as const } }] : []),
-    ...(canRefund ? [{ label: 'Refund wallet', dialog: { kind: 'refund' as const } }] : []),
+    ...(canRefund && w && w.refundable > 0 ? [{ label: 'Refund wallet', dialog: { kind: 'refund' as const } }] : []),
   ];
   const actions = (
     <Flex gap={{ default: 'gapSm' }}>
@@ -112,7 +118,7 @@ export const CustomerWalletCard: React.FunctionComponent<{
 
   return (
     <>
-      <WalletCard wallet={w} error={wallet.error} actions={actions}>
+      <WalletCard wallet={w} error={wallet.error} actions={actions} noPlan={!hasPlan}>
         {/* a plan that charges nothing says so above; any other reason is the server's */}
         {w && w.messageRate !== null && topUp && !topUp.allowed && topUp.reason && (
           <Content component="small">{topUp.reason}</Content>
@@ -122,7 +128,7 @@ export const CustomerWalletCard: React.FunctionComponent<{
             variant="success"
             isInline
             className="pf-v6-u-mt-md"
-            title={`Order ${raised.number} was raised for ${inr(raised.payable)}. The wallet is topped up when its payment is recorded.`}
+            title={`Order ${raised.order.number} was raised for ${inr(raised.order.payable)}. The wallet is topped up when its payment is recorded.`}
             actionClose={<AlertActionCloseButton onClose={() => setRaised(null)} />}
           />
         )}
@@ -131,7 +137,7 @@ export const CustomerWalletCard: React.FunctionComponent<{
             variant="success"
             isInline
             className="pf-v6-u-mt-md"
-            title={`${inr(refunded.creditFromNotes)} was added to the account credit (${refunded.number}). Pay it out with Record refund.`}
+            title={`${inr(refunded.order.creditFromNotes)} was added to the account credit (${refunded.order.number}). Pay it out with Record refund.`}
             actionClose={<AlertActionCloseButton onClose={() => setRefunded(null)} />}
           />
         )}
@@ -158,7 +164,7 @@ export const CustomerWalletCard: React.FunctionComponent<{
           refundable={w.refundable}
           zone={zone}
           onDone={(order) => {
-            setRefunded(order);
+            setRefunded({ order, at: reloadKey });
             done();
           }}
           onCancel={() => setDialog(null)}
@@ -173,7 +179,7 @@ export const CustomerWalletCard: React.FunctionComponent<{
           raise={(t, request) => raiseOrder(t, customerId, request)}
           sendLabel="Raise order"
           onRaised={(order) => {
-            setRaised(order);
+            setRaised({ order, at: reloadKey });
             done();
           }}
           onCancel={() => setDialog(null)}

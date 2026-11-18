@@ -65,6 +65,8 @@ export const WalletRefundDialog: React.FunctionComponent<{
     const order = await action.run(() => refundWallet(token as string, customerId, body), describe);
     if (order) onDone(order);
   };
+  const invalid = (field: string) =>
+    !!((field === 'amount' ? unreadable : undefined) ?? missing[field] ?? action.fieldErrors[field] ?? refused[field]);
   const problem = (field: string, hint?: string) => {
     const text =
       (field === 'amount' ? unreadable : undefined) ?? missing[field] ?? action.fieldErrors[field] ?? refused[field];
@@ -95,12 +97,24 @@ export const WalletRefundDialog: React.FunctionComponent<{
               id="wallet-refund-amount"
               inputMode="decimal"
               value={amount}
-              onChange={(_e, v) => setAmount(v)}
+              autoFocus
+              validated={invalid('amount') ? 'error' : 'default'}
+              aria-invalid={invalid('amount') ? true : undefined}
+              onChange={(_e, v) => {
+                setAmount(v);
+                action.reset();
+              }}
             />
             {problem('amount', 'Before tax; the tax paid on it comes back with it')}
           </FormGroup>
           <FormGroup label="Reason" isRequired fieldId="wallet-refund-reason">
-            <TextInput id="wallet-refund-reason" value={reason} onChange={(_e, v) => setReason(v)} />
+            <TextInput
+              id="wallet-refund-reason"
+              value={reason}
+              validated={invalid('reason') ? 'error' : 'default'}
+              aria-invalid={invalid('reason') ? true : undefined}
+              onChange={(_e, v) => setReason(v)}
+            />
             {problem('reason')}
           </FormGroup>
           <QuotePanel quote={priced.quote} pending={priced.pending} error={quoteError} zone={zone} />

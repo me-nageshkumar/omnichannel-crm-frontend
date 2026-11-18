@@ -5,7 +5,7 @@ import { useSession } from '@app/session/SessionContext';
 
 /** Renders children only for a signed-in user; otherwise sends them to /login and back afterwards. */
 export const RequireSession: React.FunctionComponent<{ children: React.ReactNode }> = ({ children }) => {
-  const { status } = useSession();
+  const { status, leftOnPurpose } = useSession();
   const location = useLocation();
   if (status === 'loading') {
     return (
@@ -15,7 +15,7 @@ export const RequireSession: React.FunctionComponent<{ children: React.ReactNode
     );
   }
   if (status === 'signedOut') {
-    return <Navigate to="/login" state={{ from: location.pathname }} replace />;
+    return <Navigate to="/login" state={leftOnPurpose ? undefined : { from: location.pathname }} replace />;
   }
   return <>{children}</>;
 };

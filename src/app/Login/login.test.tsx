@@ -111,7 +111,9 @@ describe('sign-in', () => {
   });
 
   it('shows lockout minutes', async () => {
-    mockFetch({ 'POST /api/auth/login': { status: 429, body: { error: 'too_many_attempts', retryAfterSeconds: 1800 } } });
+    mockFetch({
+      'POST /api/auth/login': { status: 429, body: { error: 'too_many_attempts', retryAfterSeconds: 1800 } },
+    });
     const { user } = renderApp('/login');
     await submitLogin(user);
     expect(await screen.findByText('Too many attempts. Try again in 30 minutes.')).toBeVisible();
@@ -152,5 +154,22 @@ describe('sign-in', () => {
     expect(await screen.findByText('Your session has expired. Please log in again.')).toBeVisible();
     expect(screen.getByRole('heading', { name: LOGIN_HEADING })).toBeVisible();
     expect(stored()).toBeNull();
+  });
+
+  it('does not send the next person to the page the last one logged out from', async () => {
+    storeSession('t0');
+    mockFetch({
+      ...meRoute(),
+      'POST /api/auth/logout': { status: 204 },
+      'POST /api/auth/login': { status: 200, body: { token: 't1', expiresAt: inMs(3600_000) } },
+    });
+    const { user } = renderApp('/profile');
+    expect(await screen.findByRole('heading', { name: 'Profile' })).toBeVisible();
+    await user.click(screen.getByRole('button', { name: /Nagesh Kumar/ }));
+    await user.click(await screen.findByRole('menuitem', { name: 'Log out' }));
+    expect(await screen.findByRole('heading', { name: LOGIN_HEADING })).toBeVisible();
+    await submitLogin(user);
+    // whoever signs in now starts at home; the page the last person left may not even exist for them
+    expect(await screen.findByRole('heading', { name: 'Dashboard' })).toBeVisible();
   });
 });

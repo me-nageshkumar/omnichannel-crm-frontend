@@ -389,4 +389,34 @@ describe('template picker', () => {
     await waitFor(() => expect(onSent).toHaveBeenCalledTimes(1));
     expect(requestTo(fetch, SEND)?.body).toEqual({ templateId: 't1', values: {} });
   });
+
+  it('forgets a refusal when another chat is opened', async () => {
+    mockFetch({
+      ...meAs(AGENT_IN_BRAND),
+      [SEND]: { status: 402, body: { code: 'WALLET_EMPTY', message: 'The wallet balance is too low to send' } },
+    });
+    const onSent = vi.fn();
+    const user = userEvent.setup();
+    const view = render(
+      <ThemeProvider>
+        <SessionProvider>
+          <MemoryRouter>
+            <Host chat={CHAT} numberConnected onSent={onSent} />
+          </MemoryRouter>
+        </SessionProvider>
+      </ThemeProvider>,
+    );
+    await user.type(await box(), 'hello{Enter}');
+    expect(await screen.findByText(/The wallet balance is too low to send\./)).toBeInTheDocument();
+    view.rerender(
+      <ThemeProvider>
+        <SessionProvider>
+          <MemoryRouter>
+            <Host chat={{ ...CHAT, id: 'c2' }} numberConnected onSent={onSent} />
+          </MemoryRouter>
+        </SessionProvider>
+      </ThemeProvider>,
+    );
+    await waitFor(() => expect(screen.queryByText(/The wallet balance is too low to send\./)).toBeNull());
+  });
 });
