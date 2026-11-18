@@ -73,7 +73,11 @@ const AddActionMenu: React.FunctionComponent<{
   onAdd(type: AutomationAction['type']): void;
 }> = ({ event, isDisabled, onAdd }) => {
   const [open, setOpen] = React.useState(false);
-  const offered = ACTIONS.filter((a) => a.type !== 'ADD_TO_CRM' || event === 'MESSAGE_RECEIVED');
+  // Assign chat is no longer offered (2026-11-18): chats reach people by the number's routing or a chatbot's hand-over;
+  // a rule that has one still shows, edits and runs it
+  const offered = ACTIONS.filter(
+    (a) => a.type !== 'ASSIGN_CHAT' && (a.type !== 'ADD_TO_CRM' || event === 'MESSAGE_RECEIVED'),
+  );
   return (
     <Dropdown
       isOpen={open}

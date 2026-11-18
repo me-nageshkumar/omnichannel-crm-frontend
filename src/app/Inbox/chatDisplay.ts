@@ -1,10 +1,13 @@
-import type { ChatContact, ChatStatus, ListScope, MessageStatus, MessageView } from '@app/api/inbox';
+import type { ChatContact, ListScope, MessageStatus, MessageView } from '@app/api/inbox';
 import type { Access } from '@app/session/useAccess';
+
+/** The Open / Closed switch; a chat a chatbot holds is in the Chatbot list instead. */
+export type ListStatus = 'OPEN' | 'CLOSED';
 
 /** The list's filters as the pane edits them; `q` is the raw search text. */
 export interface ChatListFilters {
   scope: ListScope;
-  status: ChatStatus;
+  status: ListStatus;
   q: string;
   unread: boolean;
 }
@@ -15,6 +18,7 @@ export const SCOPE_TEXT: Record<ListScope, string> = {
   TEAM: 'Team',
   UNASSIGNED: 'Unassigned',
   ALL: 'All',
+  BOT: 'Chatbot',
 };
 
 /** Who the contact is: name, else `+phone`, else a hidden number. */
@@ -31,19 +35,25 @@ export function otherChatLabel(remoteId: string): string {
 
 /**
  * The lists the user may look at: their own always; the unassigned (their teams' queue) with view-queue; the team's
- * too with view-team; all with view-all.
+ * too with view-team; all with view-all; the chats chatbots hold with view-bot.
  */
 export function allowedScopes(access: Pick<Access, 'hasInWorkspace'>): ListScope[] {
   const scopes: ListScope[] = ['MINE'];
   if (access.hasInWorkspace('inbox:view-team')) scopes.push('TEAM');
   if (access.hasInWorkspace('inbox:view-team') || access.hasInWorkspace('inbox:view-queue')) scopes.push('UNASSIGNED');
   if (access.hasInWorkspace('inbox:view-all')) scopes.push('ALL');
+  if (access.hasInWorkspace('inbox:view-bot')) scopes.push('BOT');
   return scopes;
 }
 
 /** The widest of the allowed scopes: All, then Team, then Mine. */
 export function defaultScope(scopes: ListScope[]): ListScope {
   return (['ALL', 'TEAM', 'MINE'] as const).find((s) => scopes.includes(s)) ?? 'MINE';
+}
+
+/** {@code scope} while the user may still use it (authorities can change under an open page), else their default. */
+export function usableScope(scope: ListScope, scopes: ListScope[]): ListScope {
+  return scopes.indexOf(scope) >= 0 ? scope : defaultScope(scopes);
 }
 
 export const defaultFilters = (access: Pick<Access, 'hasInWorkspace'>): ChatListFilters => ({

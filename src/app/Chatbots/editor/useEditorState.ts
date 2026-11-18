@@ -52,7 +52,11 @@ export function useEditorState(initial: Chatbot): EditorState {
   const t = token as string;
   const ws = workspace?.id ?? '';
   const [chatbot, setChatbot] = React.useState<Chatbot>(initial);
-  const [flow, setFlowState] = React.useState<SavedFlow>(initial.flow);
+  // A draft opens without edges that can no longer run (an old edge after a hand-over); the saved signature stays the
+  // stored flow's, so the editor shows the change and Save carries it. A published chatbot is read-only and opens as it is.
+  const [flow, setFlowState] = React.useState<SavedFlow>(() =>
+    initial.status === 'PUBLISHED' ? initial.flow : pruneEdges(initial.flow),
+  );
   const [savedSignature, setSavedSignature] = React.useState(() => signature(initial.flow));
   const [serverProblems, setServerProblems] = React.useState<Problem[]>([]);
   const [selectedId, setSelectedId] = React.useState<string | null>(null);

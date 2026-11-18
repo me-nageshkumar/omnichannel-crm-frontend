@@ -5,6 +5,8 @@ import {
   Form,
   FormGroup,
   FormHelperText,
+  FormSelect,
+  FormSelectOption,
   HelperText,
   HelperTextItem,
   Switch,
@@ -142,6 +144,34 @@ export const LayeredSettingsForm: React.FunctionComponent<Props> = ({
     );
   };
 
+  /** A choice among {@code options}; in a layer, the empty option inherits and names the value above it. */
+  const choiceField = (f: SettingField, id: string, label: string, options: [string, string][]) => {
+    const labelOf = (v: unknown) => options.find(([value]) => value === v)?.[1] ?? '';
+    const inheritedNote = layered && inheriting(f) ? FROM_TEXT[source(f)] : undefined;
+    return (
+      <FormGroup label={label} fieldId={id} labelHelp={reset(f, label) ?? undefined}>
+        <FormSelect
+          id={id}
+          aria-label={label}
+          value={text(f)}
+          isDisabled={readOnly}
+          validated={errors[f] ? 'error' : 'default'}
+          onChange={(_e, v) => set(f, v ? { kind: 'set', text: v } : { kind: 'inherit' })}
+        >
+          {layered ? (
+            <FormSelectOption value="" label={`${labelOf(inherited?.[f])} — ${SOURCE_TEXT[source(f)]}`} />
+          ) : (
+            text(f) === '' && <FormSelectOption value="" label="Choose" isPlaceholder />
+          )}
+          {options.map(([value, optionLabel]) => (
+            <FormSelectOption key={value} value={value} label={optionLabel} />
+          ))}
+        </FormSelect>
+        <Helper error={errors[f]} note={inheritedNote} />
+      </FormGroup>
+    );
+  };
+
   const warning = reminderWarning(eff);
 
   return (
@@ -193,6 +223,17 @@ export const LayeredSettingsForm: React.FunctionComponent<Props> = ({
           'Stop when an agent replies',
           'Stop when an agent replies in the chat',
         )}
+      </FormGroup>
+      <FormGroup label="When the chatbot ends" fieldId="cs-after" role="group">
+        {choiceField('whenCompleted', 'cs-completed', 'When the chatbot finishes', [
+          ['CLOSE', 'Close the chat'],
+          ['ROUTE', 'Send to the team'],
+        ])}
+        {choiceField('whenAbandoned', 'cs-abandoned', 'When the customer stops answering', [
+          ['ROUTE', 'Send to the team'],
+          ['CLOSE', 'Close the chat'],
+        ])}
+        <Helper note="A chatbot that fails always sends the chat to the team." />
       </FormGroup>
     </Form>
   );

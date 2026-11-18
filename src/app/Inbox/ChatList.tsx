@@ -12,7 +12,14 @@ import {
 import type { ChatView } from '@app/api/inbox';
 import type { PhoneNumber } from '@app/api/phoneNumbers';
 import { NumberChip } from '@app/Inbox/NumberChip';
-import { ChatListFilters, SCOPE_TEXT, STATUS_TICK, allowedScopes, contactName } from '@app/Inbox/chatDisplay';
+import {
+  ChatListFilters,
+  SCOPE_TEXT,
+  STATUS_TICK,
+  allowedScopes,
+  contactName,
+  usableScope,
+} from '@app/Inbox/chatDisplay';
 import type { ChatList as ChatListState } from '@app/Inbox/useChatList';
 import { relative } from '@app/PhoneNumbers/PhoneNumberStatusLabel';
 import { RobotIcon } from '@patternfly/react-icons';
@@ -128,6 +135,7 @@ export const ChatList: React.FunctionComponent<ChatListProps> = ({
   list,
 }) => {
   const scopes = allowedScopes(useAccess());
+  const scope = usableScope(filters.scope, scopes);
   const set = (change: Partial<ChatListFilters>) => onFilters({ ...filters, ...change });
   return (
     <div style={{ display: 'flex', flexDirection: 'column', height: '100%', minHeight: 0 }}>
@@ -145,24 +153,26 @@ export const ChatList: React.FunctionComponent<ChatListProps> = ({
               <ToggleGroupItem
                 key={s}
                 text={SCOPE_TEXT[s]}
-                isSelected={filters.scope === s}
+                isSelected={scope === s}
                 onChange={() => set({ scope: s })}
               />
             ))}
           </ToggleGroup>
         )}
-        <ToggleGroup aria-label="Status" isCompact>
-          <ToggleGroupItem
-            text="Open"
-            isSelected={filters.status === 'OPEN'}
-            onChange={() => set({ status: 'OPEN' })}
-          />
-          <ToggleGroupItem
-            text="Closed"
-            isSelected={filters.status === 'CLOSED'}
-            onChange={() => set({ status: 'CLOSED' })}
-          />
-        </ToggleGroup>
+        {scope !== 'BOT' && (
+          <ToggleGroup aria-label="Status" isCompact>
+            <ToggleGroupItem
+              text="Open"
+              isSelected={filters.status === 'OPEN'}
+              onChange={() => set({ status: 'OPEN' })}
+            />
+            <ToggleGroupItem
+              text="Closed"
+              isSelected={filters.status === 'CLOSED'}
+              onChange={() => set({ status: 'CLOSED' })}
+            />
+          </ToggleGroup>
+        )}
         <Switch
           id="chat-list-unread"
           label="Unread only"

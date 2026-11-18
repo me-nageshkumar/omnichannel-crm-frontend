@@ -207,6 +207,44 @@ describe('inbox page', () => {
     expect(within(await list()).queryByRole('button', { name: /Asha Rao/ })).toBeNull();
   });
 
+  it('an open chat a chatbot takes closes with the chatbot notice', async () => {
+    const { routes: r, stream } = routes();
+    const fetch = mockFetch(r);
+    renderApp('/inbox/chats/c1', <Where />);
+    await screen.findByText('Hello from Asha', { selector: 'div' });
+    await streamOpened(fetch);
+
+    act(() =>
+      stream.push(
+        frame('chat', { chat: { id: ASHA.id, phoneNumberId: ASHA.phoneNumberId, status: 'BOT' }, visible: false }),
+      ),
+    );
+
+    expect(await screen.findByText('A chatbot is handling this chat now')).toBeVisible();
+    expect(screen.queryByText('This chat was reassigned and is no longer in your inbox')).toBeNull();
+    expect(await screen.findByText('Pick a chat')).toBeVisible();
+    expect(screen.getByLabelText('Location')).toHaveTextContent(/^\/inbox$/);
+  });
+
+  it('a chatbot chat that people take back stays open and loses its label', async () => {
+    const { routes: r, stream } = routes();
+    const fetch = mockFetch(r);
+    renderApp('/inbox/chats/c1', <Where />);
+    await screen.findByText('Hello from Asha', { selector: 'div' });
+    await streamOpened(fetch);
+    act(() => stream.push(frame('chat', { chat: { ...ASHA, status: 'BOT' }, visible: true })));
+    expect(await screen.findByText('With chatbot')).toBeVisible();
+
+    act(() =>
+      stream.push(
+        frame('chat', { chat: { ...ASHA, status: 'OPEN', assignedUser: { id: 'u9', name: 'Other' } }, visible: true }),
+      ),
+    );
+
+    await waitFor(() => expect(screen.queryByText('With chatbot')).toBeNull());
+    expect(screen.getByLabelText('Location')).toHaveTextContent(/^\/inbox\/chats\/c1$/);
+  });
+
   it('assign menu assigns and updates the header', async () => {
     const { routes: r } = routes({
       [ASSIGNEES]: {

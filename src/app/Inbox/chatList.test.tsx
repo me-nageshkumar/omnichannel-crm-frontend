@@ -2,7 +2,7 @@ import * as React from 'react';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { act, render, screen, waitFor, within } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
-import type { ChatView, InboxEvent } from '@app/api/inbox';
+import type { ChatView, InboxEvent, ListScope } from '@app/api/inbox';
 import type { CurrentUser } from '@app/api/users';
 import { ChatList } from '@app/Inbox/ChatList';
 import { defaultFilters } from '@app/Inbox/chatDisplay';
@@ -70,6 +70,8 @@ const AGENT = withAuthorities('inbox:view');
 const QUEUE_AGENT = withAuthorities('inbox:view', 'inbox:view-queue');
 const LEAD = withAuthorities('inbox:view', 'inbox:view-team');
 const MANAGER = withAuthorities('inbox:view', 'inbox:view-team', 'inbox:view-all');
+const BOT_MANAGER = withAuthorities('inbox:view', 'inbox:view-team', 'inbox:view-all', 'inbox:view-bot');
+const WITH_BOT = (c: ChatView): ChatView => ({ ...c, status: 'BOT' });
 
 let apply: (event: InboxEvent) => void = () => undefined;
 
@@ -78,9 +80,14 @@ const Host: React.FunctionComponent = () => {
   return status === 'signedIn' ? <Inbox /> : null;
 };
 
+let startScope: ListScope | null = null;
+
 const Inbox: React.FunctionComponent = () => {
   const access = useAccess();
-  const [filters, setFilters] = React.useState(() => defaultFilters(access));
+  const [filters, setFilters] = React.useState(() => ({
+    ...defaultFilters(access),
+    ...(startScope ? { scope: startScope } : {}),
+  }));
   const [selectedId, setSelectedId] = React.useState<string | null>('b');
   const list = useChatList(['p1'], filters);
   apply = list.apply;
@@ -114,6 +121,10 @@ const rows = async () => within(await screen.findByRole('list', { name: 'Chats' 
 const urls = (fetch: ReturnType<typeof mockFetch>) =>
   fetch.mock.calls.map(([input]) => new URL(String(input), 'http://localhost'));
 const listUrls = (fetch: ReturnType<typeof mockFetch>) => urls(fetch).filter((u) => u.pathname === LIST);
+const lastListUrl = (fetch: ReturnType<typeof mockFetch>) => {
+  const all = listUrls(fetch);
+  return all[all.length - 1];
+};
 const pressed = (name: string) => screen.getByRole('button', { name }).getAttribute('aria-pressed');
 
 /** A list reply held back until {@code release(items)}; headers arrive at once, the body does not. */
@@ -230,6 +241,81 @@ describe('chat list', () => {
     const [asha] = await rows();
     await user.click(within(asha).getByRole('button'));
     expect(within((await rows())[0]).getByRole('button')).toHaveAttribute('aria-current', 'true');
+  });
+
+  it('shows the Chatbot list only with inbox:view-bot', async () => {
+    mockFetch({ ...meAs(MANAGER), [`GET ${LIST}`]: page([ASHA]) });
+    const first = renderList();
+    await rows();
+    expect(screen.queryByRole('button', { name: 'Chatbot' })).toBeNull();
+    first.unmount();
+
+    mockFetch({ ...meAs(BOT_MANAGER), [`GET ${LIST}`]: page([ASHA]) });
+    renderList();
+    await rows();
+    const scope = within(screen.getByRole('group', { name: 'Scope' }));
+    expect(scope.getAllByRole('button').map((b) => b.textContent)).toEqual([
+      'Mine',
+      'Team',
+      'Unassigned',
+      'All',
+      'Chatbot',
+    ]);
+    expect(pressed('All')).toBe('true');
+  });
+
+  it('the Chatbot list asks for scope=BOT and hides the status switch', async () => {
+    const fetch = mockFetch({ ...meAs(BOT_MANAGER), [`GET ${LIST}`]: page([ASHA]) });
+    const { user } = renderList();
+    await rows();
+    await user.click(screen.getByRole('button', { name: 'Chatbot' }));
+    await waitFor(() => expect(lastListUrl(fetch).searchParams.get('scope')).toBe('BOT'));
+    expect(lastListUrl(fetch).searchParams.get('status')).toBeNull();
+    expect(screen.queryByRole('group', { name: 'Status' })).toBeNull();
+    expect(screen.getByLabelText('Unread only')).toBeInTheDocument();
+  });
+
+  it('leaving the Chatbot list brings the status switch back', async () => {
+    const fetch = mockFetch({ ...meAs(BOT_MANAGER), [`GET ${LIST}`]: page([ASHA]) });
+    const { user } = renderList();
+    await rows();
+    await user.click(screen.getByRole('button', { name: 'Chatbot' }));
+    await user.click(screen.getByRole('button', { name: 'All' }));
+    await waitFor(() => expect(lastListUrl(fetch).searchParams.get('scope')).toBe('ALL'));
+    expect(lastListUrl(fetch).searchParams.get('status')).toBe('OPEN');
+    expect(screen.getByRole('group', { name: 'Status' })).toBeInTheDocument();
+  });
+
+  it('a chatbot chat stays in the Chatbot list and leaves the others', async () => {
+    mockFetch({ ...meAs(BOT_MANAGER), [`GET ${LIST}`]: page([ASHA, MEENA]) });
+    const { user } = renderList();
+    await rows();
+    // in All, the chat turning BOT leaves the list
+    act(() => apply({ type: 'chat', chat: WITH_BOT(ASHA), visible: true }));
+    await waitFor(() => expect(screen.queryByText('Asha Rao')).toBeNull());
+
+    await user.click(screen.getByRole('button', { name: 'Chatbot' }));
+    await rows();
+    const updated = { ...WITH_BOT(MEENA), unreadCount: 2 };
+    act(() => apply({ type: 'chat', chat: updated, visible: true }));
+    expect(await screen.findByText('Meena')).toBeInTheDocument();
+    // and back with people, it leaves the Chatbot list
+    act(() => apply({ type: 'chat', chat: { ...MEENA, assignedUser: otherUser }, visible: true }));
+    await waitFor(() => expect(screen.queryByText('Meena')).toBeNull());
+  });
+
+  it('a Chatbot list the user may no longer use falls back to their default list', async () => {
+    startScope = 'BOT';
+    try {
+      const fetch = mockFetch({ ...meAs(MANAGER), [`GET ${LIST}`]: page([ASHA]) });
+      renderList();
+      await rows();
+      expect(pressed('All')).toBe('true');
+      expect(listUrls(fetch).map((u) => u.searchParams.get('scope'))).not.toContain('BOT');
+      expect(screen.getByRole('group', { name: 'Status' })).toBeInTheDocument();
+    } finally {
+      startScope = null;
+    }
   });
 
   it('visible:false event removes the row', async () => {

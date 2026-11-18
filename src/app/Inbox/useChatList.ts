@@ -1,8 +1,9 @@
 import * as React from 'react';
 import { ChatView, InboxEvent, ListScope, listChats } from '@app/api/inbox';
 import { messageFor } from '@app/api/messages';
-import type { ChatListFilters } from '@app/Inbox/chatDisplay';
+import { ChatListFilters, allowedScopes, usableScope } from '@app/Inbox/chatDisplay';
 import { useSession } from '@app/session/SessionContext';
+import { useAccess } from '@app/session/useAccess';
 
 export const SEARCH_DEBOUNCE_MS = 300;
 
@@ -27,6 +28,8 @@ const assignment = (chat: ChatView) => `${chat.assignedUser?.id ?? ''}/${chat.as
 
 /** Whether {@code chat}, as it is now, belongs in the list of {@code status} and {@code scope} for user {@code meId}. */
 function belongs(chat: ChatView, status: ChatView['status'], scope: ListScope, meId: string): boolean {
+  // the Chatbot list is every chat a chatbot holds; no other list has one
+  if (scope === 'BOT') return chat.status === 'BOT';
   if (chat.status !== status) return false;
   if (scope === 'UNASSIGNED') return !assigned(chat);
   if (scope === 'MINE' && meId) return chat.assignedUser?.id === meId;
@@ -59,7 +62,8 @@ export function useChatList(phoneNumberIds: string[], filters: ChatListFilters, 
   const { token, user, workspace } = useSession();
   const meId = user?.id ?? '';
   const ws = workspace?.id ?? '';
-  const { scope, status, unread } = filters;
+  const { status, unread } = filters;
+  const scope = usableScope(filters.scope, allowedScopes(useAccess()));
   const [q, setQ] = React.useState(filters.q);
   const [items, setItems] = React.useState<ChatView[]>([]);
   const [hasMore, setHasMore] = React.useState(false);

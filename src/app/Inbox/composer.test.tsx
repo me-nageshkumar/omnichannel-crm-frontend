@@ -108,6 +108,28 @@ describe('composer', () => {
     expect(await screen.findByText('Send an interactive message')).toBeInTheDocument();
   });
 
+  it('a chatbot chat can be replied to and says the reply takes it over', async () => {
+    const fetch = mockFetch({ ...meAs(AGENT_IN_BRAND), [SEND]: { status: 200, body: SENT } });
+    const { user } = renderComposer({ chat: { ...CHAT, status: 'BOT' } });
+    expect(await screen.findByText('Replying takes this chat over from the chatbot')).toBeInTheDocument();
+    await user.type(await box(), 'Hello{Enter}');
+    await waitFor(() => expect(callsTo(fetch, SEND)).toBe(1));
+  });
+
+  it('no take-over hint while WhatsApp is not connected', async () => {
+    mockFetch({ ...meAs(AGENT_IN_BRAND) });
+    renderComposer({ chat: { ...CHAT, status: 'BOT' }, numberConnected: false });
+    expect(await screen.findByText('WhatsApp is not connected on this number')).toBeInTheDocument();
+    expect(screen.queryByText('Replying takes this chat over from the chatbot')).toBeNull();
+  });
+
+  it('an open chat shows no take-over hint', async () => {
+    mockFetch({ ...meAs(AGENT_IN_BRAND) });
+    renderComposer();
+    await box();
+    expect(screen.queryByText('Replying takes this chat over from the chatbot')).toBeNull();
+  });
+
   it('interactive button is disabled when the chat is closed', async () => {
     mockFetch({ ...meAs(AGENT_IN_BRAND) });
     renderComposer({ chat: { ...CHAT, status: 'CLOSED' } });

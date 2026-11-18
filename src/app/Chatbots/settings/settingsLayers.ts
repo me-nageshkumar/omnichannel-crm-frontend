@@ -1,6 +1,6 @@
 import type { SettingField, SettingsLayer } from '@app/api/chatbots';
 
-/** The nine settings, in the order the backend lists them (spec 2026-11-14 §3). */
+/** The eleven settings, in the order the backend lists them (spec 2026-11-14 §3, 2026-11-18 §5.1). */
 export const FIELDS: SettingField[] = [
   'reminderOn',
   'reminderAfterMinutes',
@@ -11,6 +11,8 @@ export const FIELDS: SettingField[] = [
   'retryMessage',
   'giveUpMessage',
   'stopOnAgentReply',
+  'whenCompleted',
+  'whenAbandoned',
 ];
 
 /** The two messages that may be set to "send no message" (`''`). */
@@ -39,6 +41,8 @@ export const EMPTY_LAYER: SettingsLayer = {
   retryMessage: null,
   giveUpMessage: null,
   stopOnAgentReply: null,
+  whenCompleted: null,
+  whenAbandoned: null,
 };
 
 /** One field being edited: inherited, set to a value (booleans as 'true'/'false'), or "send no message". */

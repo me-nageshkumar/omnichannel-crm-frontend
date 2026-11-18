@@ -29,7 +29,7 @@ export function variableSchema(
   contact.push({ path: 'contact.doNotContact', hint: 'true or false' });
   const chat: VariablePath[] = [
     { path: 'chat.id' },
-    { path: 'chat.status', hint: 'OPEN or CLOSED' },
+    { path: 'chat.status', hint: 'OPEN, BOT or CLOSED, as when this chatbot started' },
     { path: 'chat.assignedUser' },
     { path: 'chat.assignedTeam' },
     { path: 'number.label' },

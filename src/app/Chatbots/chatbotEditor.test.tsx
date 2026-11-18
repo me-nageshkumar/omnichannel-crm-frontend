@@ -86,6 +86,75 @@ describe('chatbot editor', () => {
     expect(screen.getByRole('button', { name: 'Save' })).toBeDisabled();
   });
 
+  it('a flow saved with an edge after the hand-over opens, and saving drops the edge', async () => {
+    const handOver = {
+      ...LEAD_QUALIFIER,
+      flow: {
+        nodes: [
+          {
+            id: 'h',
+            type: 'assign_chat' as const,
+            position: { x: 0, y: 0 },
+            data: { name: 'Hand', settings: { mode: 'NUMBER_ROUTING' } },
+          },
+          {
+            id: 's',
+            type: 'send_message' as const,
+            position: { x: 0, y: 200 },
+            data: { name: 'After', settings: { message: { type: 'text', text: { body: 'x' } } } },
+          },
+        ],
+        edges: [{ id: 'e1', source: 'h', sourceHandle: 'next', target: 's' }],
+      },
+    };
+    const { f, user } = open('/chatbots/c1', {
+      [`GET ${CHATBOTS_BASE}/c1`]: { status: 200, body: handOver },
+      [`PUT ${CHATBOTS_BASE}/c1`]: { status: 200, body: { chatbot: { ...handOver, version: 4 }, problems: [] } },
+    });
+    await screen.findByRole('heading', { name: 'Lead qualifier' });
+    expect(nodeItem('Hand').getByText("By the number's routing")).toBeVisible();
+    // the edge that can no longer run is gone on opening, so the draft can be saved without it at once
+    expect(screen.getByRole('button', { name: 'Save' })).toBeEnabled();
+    await user.click(screen.getByRole('button', { name: 'Save' }));
+    await waitFor(() => expect(callsTo(f, `PUT ${CHATBOTS_BASE}/c1`)).toBe(1));
+    expect(requestTo(f, `PUT ${CHATBOTS_BASE}/c1`)?.body.flow.edges).toEqual([]);
+  });
+
+  it('a published chatbot with an old edge after the hand-over opens unchanged and read-only', async () => {
+    const published = {
+      ...LEAD_QUALIFIER,
+      status: 'PUBLISHED' as const,
+      flow: {
+        nodes: [
+          {
+            id: 'h',
+            type: 'assign_chat' as const,
+            position: { x: 0, y: 0 },
+            data: { name: 'Hand', settings: { mode: 'NUMBER_ROUTING' } },
+          },
+          {
+            id: 's',
+            type: 'send_message' as const,
+            position: { x: 0, y: 200 },
+            data: { name: 'After', settings: { message: { type: 'text', text: { body: 'x' } } } },
+          },
+        ],
+        edges: [{ id: 'e1', source: 'h', sourceHandle: 'next', target: 's' }],
+      },
+    };
+    const { user } = open('/chatbots/c1', { [`GET ${CHATBOTS_BASE}/c1`]: { status: 200, body: published } });
+    expect(await screen.findByText(PUBLISHED_TEXT)).toBeVisible();
+    // nothing to save, so leaving asks nothing
+    await user.click(
+      within(screen.getByRole('navigation', { name: 'Global', hidden: true })).getByRole('link', {
+        name: 'All chatbots',
+        hidden: true,
+      }),
+    );
+    expect(screen.queryByText('Leave without saving?')).toBeNull();
+    expect(screen.getByLabelText('Location')).toHaveTextContent(/^\/chatbots$/);
+  });
+
   it('ctrlSSaves', async () => {
     const { f, user } = open('/chatbots/c1', {
       [`PUT ${CHATBOTS_BASE}/c1`]: { status: 200, body: { chatbot: LEAD_QUALIFIER, problems: [] } },

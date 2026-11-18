@@ -66,6 +66,8 @@ export const LEAD_QUALIFIER: Chatbot = {
     retryMessage: null,
     giveUpMessage: null,
     stopOnAgentReply: null,
+    whenCompleted: null,
+    whenAbandoned: null,
   },
   inheritedSettings: {
     reminderOn: false,
@@ -77,6 +79,8 @@ export const LEAD_QUALIFIER: Chatbot = {
     retryMessage: "Sorry, I didn't get that. Please choose one of the options.",
     giveUpMessage: '',
     stopOnAgentReply: true,
+    whenCompleted: 'CLOSE',
+    whenAbandoned: 'ROUTE',
   },
   inheritedSources: {
     reminderOn: 'PLATFORM',
@@ -88,6 +92,8 @@ export const LEAD_QUALIFIER: Chatbot = {
     retryMessage: 'PLATFORM',
     giveUpMessage: 'PLATFORM',
     stopOnAgentReply: 'PLATFORM',
+    whenCompleted: 'PLATFORM',
+    whenAbandoned: 'PLATFORM',
   },
   versionNumber: 2,
   version: 3,

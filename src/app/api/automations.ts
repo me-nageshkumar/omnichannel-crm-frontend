@@ -1,3 +1,4 @@
+import type { ChatStatus } from '@app/api/inbox';
 import { apiFetch } from '@app/api/client';
 import type { Page } from '@app/api/historyImports';
 
@@ -30,7 +31,8 @@ export type AutomationAction = {
   templateId?: string | null;
   values?: Record<string, string>;
   // ASSIGN_CHAT
-  mode?: 'AGENT' | 'TEAM_QUEUE' | 'TEAM_ROUND_ROBIN';
+  /** `NUMBER_ROUTING` (the number's own routing) is for the chatbot hand-over node only; a rule refuses it. */
+  mode?: 'AGENT' | 'TEAM_QUEUE' | 'TEAM_ROUND_ROBIN' | 'NUMBER_ROUTING';
   userId?: string | null;
   teamId?: string | null;
   whenAway?: 'KEEP_WITH_AGENT' | 'OWNING_TEAM_QUEUE' | null;
@@ -118,7 +120,7 @@ export type EventData = {
   chat: {
     id: string;
     isNew: boolean;
-    status: 'OPEN' | 'CLOSED' | null;
+    status: ChatStatus | null;
     assignedUser: Ref | null;
     assignedTeam: Ref | null;
     /** A chatbot run was active on the chat when the event was written. */

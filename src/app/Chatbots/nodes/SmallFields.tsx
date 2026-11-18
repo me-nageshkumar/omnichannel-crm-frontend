@@ -105,12 +105,20 @@ export const JumpFields: React.FunctionComponent<NodeFieldsProps> = (p) => (
 
 export const AssignChatFields: React.FunctionComponent<NodeFieldsProps> = (p) => {
   const s = p.settings;
-  const mode = str(s.mode) || 'TEAM_QUEUE';
+  const mode = str(s.mode) || 'NUMBER_ROUTING';
   const set = (patch: Record<string, unknown>) =>
     p.onChange({ mode, userId: s.userId ?? null, teamId: s.teamId ?? null, whenAway: s.whenAway ?? null, ...patch });
   return (
     <Form onSubmit={(e) => e.preventDefault()}>
       <FormGroup role="radiogroup" label="Give the chat to" fieldId="ac-mode">
+        <Radio
+          id="ac-routing"
+          name="ac-mode"
+          label="The number's normal routing"
+          isChecked={mode === 'NUMBER_ROUTING'}
+          isDisabled={p.isDisabled}
+          onChange={() => set({ mode: 'NUMBER_ROUTING', userId: null, teamId: null, whenAway: null })}
+        />
         <Radio
           id="ac-agent"
           name="ac-mode"
@@ -136,8 +144,11 @@ export const AssignChatFields: React.FunctionComponent<NodeFieldsProps> = (p) =>
           onChange={() => set({ mode: 'TEAM_ROUND_ROBIN' })}
         />
         <ErrorLine message={p.errors['settings.mode']} />
+        <p className="pf-v6-u-color-200">
+          The chatbot ends here. To tell the customer first, put a Send message node before this one.
+        </p>
       </FormGroup>
-      {mode === 'AGENT' ? (
+      {mode === 'NUMBER_ROUTING' ? null : mode === 'AGENT' ? (
         <>
           <FormGroup label="Agent" isRequired fieldId="ac-user">
             <FormSelect

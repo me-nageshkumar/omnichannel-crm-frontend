@@ -58,6 +58,7 @@ function useNarrow(): boolean {
 const GAP = 'var(--pf-t--global--spacer--sm)';
 const BORDER = '1px solid var(--pf-t--global--border--color--default)';
 const REASSIGNED = 'This chat was reassigned and is no longer in your inbox';
+const BOT_TAKEN = 'A chatbot is handling this chat now';
 const NO_NUMBERS = 'No numbers assigned to your teams yet';
 
 /**
@@ -151,8 +152,8 @@ export const InboxPage: React.FunctionComponent = () => {
   }, [rows, readId, applyToList]);
 
   // The chat leaves this inbox: say so, and go back to the empty pane.
-  const leave = () => {
-    setNotice(REASSIGNED);
+  const leave = (why: string = REASSIGNED) => {
+    setNotice(why);
     navigate('/inbox');
   };
 
@@ -163,7 +164,8 @@ export const InboxPage: React.FunctionComponent = () => {
     }
     if (event.type === 'chat' && event.chat.id === openId.current) {
       if (!event.visible) {
-        leave();
+        // the server names the status of a chat that left: a chatbot taking it is no reassignment
+        leave(event.chat.status === 'BOT' ? BOT_TAKEN : REASSIGNED);
       } else {
         setChat(event.chat);
         // Something arrived while the chat is on screen: it is read already.

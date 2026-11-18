@@ -40,6 +40,7 @@ export const BRAND_CODES = [
   'inbox:view-queue',
   'inbox:view-team',
   'inbox:view-all',
+  'inbox:view-bot',
   'inbox:send',
   'inbox:assign',
   'inbox:settings',

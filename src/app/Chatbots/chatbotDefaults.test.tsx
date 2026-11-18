@@ -42,6 +42,25 @@ describe('platform chatbot defaults page', () => {
     });
   });
 
+  it('the platform page saves both after-chatbot choices', async () => {
+    const fetch = mockFetch({
+      ...meAs(SUPER_ADMIN),
+      [`GET ${PATH}`]: { status: 200, body: { settings: PLATFORM, version: 1, lastUpdateTime: null, updatedBy: null } },
+      [`PUT ${PATH}`]: { status: 200, body: { settings: PLATFORM, version: 2, lastUpdateTime: null, updatedBy: 'u1' } },
+    });
+    const { user } = renderApp('/platform/chatbot-settings');
+    const finished = await screen.findByRole('combobox', { name: 'When the chatbot finishes' });
+    expect(finished).toHaveValue('CLOSE');
+    await user.selectOptions(finished, 'ROUTE');
+    await user.selectOptions(screen.getByRole('combobox', { name: 'When the customer stops answering' }), 'CLOSE');
+    await user.click(screen.getByRole('button', { name: 'Save' }));
+    expect(await screen.findByText('Settings saved')).toBeVisible();
+    expect(requestTo(fetch, `PUT ${PATH}`)?.body.settings).toMatchObject({
+      whenCompleted: 'ROUTE',
+      whenAbandoned: 'CLOSE',
+    });
+  });
+
   it('aClearedRequiredFieldBlocksSave', async () => {
     mockFetch({
       ...meAs(SUPER_ADMIN),
