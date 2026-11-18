@@ -146,9 +146,26 @@ describe('automation rule editor', () => {
     expect(screen.getByText('No conditions: every deal that moves to another lane runs this rule.')).toBeVisible();
     await user.click(screen.getByRole('button', { name: 'Add action' }));
     expect(await screen.findByRole('menuitem', { name: /^Send template/ })).toBeVisible();
-    expect(screen.getByText('Gives the chat to an agent or a team, replacing what routing did.')).toBeVisible();
-    expect(screen.getByRole('menuitem', { name: /^Assign chat/ })).toBeVisible();
     expect(screen.queryByRole('menuitem', { name: /^Add to CRM/ })).toBeNull();
+  });
+
+  it('Add action does not offer Assign chat', async () => {
+    const { user } = open('/automations/new');
+    await user.click(await screen.findByRole('button', { name: 'Add action' }));
+    expect(await screen.findByRole('menuitem', { name: /^Send template/ })).toBeVisible();
+    expect(screen.getByRole('menuitem', { name: /^Add to CRM/ })).toBeVisible();
+    expect(screen.getByRole('menuitem', { name: /^Start chatbot/ })).toBeVisible();
+    expect(screen.queryByRole('menuitem', { name: /^Assign chat/ })).toBeNull();
+  });
+
+  it('a rule that has Assign chat keeps it, and once removed it cannot be added back', async () => {
+    const { user } = open('/automations/r1');
+    expect(await screen.findByRole('region', { name: '2. Assign chat' })).toBeVisible();
+    await user.click(card('2. Assign chat').getByRole('button', { name: 'Remove' }));
+    expect(cardTitles()).toEqual(['1. Send template', '2. Add to CRM']);
+    await user.click(screen.getByRole('button', { name: 'Add action' }));
+    expect(await screen.findByRole('menuitem', { name: /^Send template/ })).toBeVisible();
+    expect(screen.queryByRole('menuitem', { name: /^Assign chat/ })).toBeNull();
   });
 
   it('changingEventAsksAndClears', async () => {

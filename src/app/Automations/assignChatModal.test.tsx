@@ -117,29 +117,7 @@ describe('assign chat in the editor', () => {
     mockFetch(routes);
     return renderApp(path);
   };
-  const add = async (user: ReturnType<typeof renderApp>['user']) => {
-    await user.click(await screen.findByRole('button', { name: 'Add action' }));
-    await user.click(await screen.findByRole('menuitem', { name: /^Assign chat/ }));
-  };
-
-  it('editorOpensDialogOnAdd', async () => {
-    const { user } = open();
-    await add(user);
-    expect(await screen.findByRole('heading', { name: 'Assign chat', level: 1 })).toBeVisible();
-    await user.click(screen.getByRole('radio', { name: 'A team, round robin' }));
-    await user.selectOptions(screen.getByLabelText('Team'), 'Support');
-    await user.click(screen.getByRole('button', { name: 'Save' }));
-    expect(await screen.findByText('Round robin in Support')).toBeVisible();
-    expect(screen.queryByRole('dialog')).toBeNull();
-  });
-
-  it('cancellingAFreshActionRemovesIt', async () => {
-    const { user } = open();
-    await add(user);
-    await user.click(await screen.findByRole('button', { name: 'Cancel' }));
-    expect(screen.queryByRole('region', { name: '1. Assign chat' })).toBeNull();
-  });
-
+  // Assign chat is no longer offered as a new action (2026-11-18): only an existing one is edited.
   it('changeOnExistingCardOpensTheDialogAndCancelKeepsIt', async () => {
     const { user } = open('/automations/r1');
     const card = await screen.findByRole('region', { name: '2. Assign chat' });
