@@ -9,6 +9,8 @@ export const KIND_LABEL: Record<OrderKind, string> = {
   ADJUST: 'Adjustment',
   CANCEL_ADDON: 'Add-on cancelled',
   CANCEL_PLAN: 'Plan cancelled',
+  TOPUP: 'Wallet top-up',
+  WALLET_REFUND: 'Wallet refund',
 };
 
 export const STATUS_LABEL: Record<OrderStatus, string> = {

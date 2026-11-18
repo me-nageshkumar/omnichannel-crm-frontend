@@ -172,7 +172,17 @@ export interface Subscription {
   cancelled: boolean;
 }
 
-export type OrderKind = 'NEW' | 'RENEWAL' | 'UPGRADE' | 'CHANGE' | 'ADDON' | 'ADJUST' | 'CANCEL_ADDON' | 'CANCEL_PLAN';
+export type OrderKind =
+  | 'NEW'
+  | 'RENEWAL'
+  | 'UPGRADE'
+  | 'CHANGE'
+  | 'ADDON'
+  | 'ADJUST'
+  | 'CANCEL_ADDON'
+  | 'CANCEL_PLAN'
+  | 'TOPUP'
+  | 'WALLET_REFUND';
 export type OrderStatus =
   | 'REQUESTED'
   | 'ACTIVATING'
@@ -193,7 +203,7 @@ export interface Tax {
 }
 
 export interface OrderLine {
-  type: 'PLAN' | 'ADDON' | 'LIMIT_ADDON';
+  type: 'PLAN' | 'ADDON' | 'LIMIT_ADDON' | 'TOPUP';
   description: string;
   groupCode: string | null;
   limitKey: string | null;
@@ -282,6 +292,8 @@ export interface QuoteRequest {
   addOn?: SubscriptionAddOnInput;
   extraDiscountPercent?: number;
   extraDiscountReason?: string;
+  /** TOPUP: the rupees to add to the wallet, before tax. */
+  topUpAmount?: number;
 }
 
 export interface PayInput {
@@ -402,6 +414,10 @@ export interface BillingOptions {
     unit: number;
     unitPrice: number;
   }[];
+  /** Whether the wallet can be topped up now, and between which amounts. */
+  topUp: { allowed: boolean; reason: string | null; min: number; max: number };
+  /** Rupees per message on the term in force; null when messages are not charged. */
+  messageRate: number | null;
 }
 
 /** One of the two. `termEnd` is the day after the term's last day, as an ISO local date. */
@@ -441,6 +457,56 @@ export interface SubscriptionSummary {
   graceEnd: string | null;
   readOnly: boolean;
   zone: string;
+  /** The customer's messages are charged and its wallet is below its warning level. */
+  lowWallet: boolean;
+}
+
+export type WalletEntryType = 'TOPUP' | 'USAGE' | 'REVERSAL' | 'ADJUSTMENT' | 'REFUND';
+export type UsageSource = 'CONSOLE' | 'CAMPAIGN' | 'AUTOMATION' | 'CHATBOT';
+
+/** A customer's prepaid balance for usage charges. Amounts have up to four decimals. */
+export interface Wallet {
+  balance: number;
+  /** Below this the customer is warned; null for no warning. */
+  lowBalanceAt: number | null;
+  low: boolean;
+  /** Rupees per message on the term in force; null when messages are not charged. */
+  messageRate: number | null;
+  /** What a wallet refund could return, before tax: top-up money still in the wallet. */
+  refundable: number;
+}
+
+/** One line of the wallet's ledger; `amount` is signed. */
+export interface WalletEntry {
+  id: string;
+  type: WalletEntryType;
+  amount: number;
+  balanceAfter: number;
+  meter: string | null;
+  source: UsageSource | null;
+  workspaceId: string | null;
+  workspaceName: string | null;
+  /** The order's number for a top-up or a refund. */
+  ref: string | null;
+  /** Null in what a customer is sent for an adjustment. */
+  note: string | null;
+  /** Null in what a customer is sent. */
+  byName: string | null;
+  at: string;
+}
+
+export interface WalletEntryPage {
+  items: WalletEntry[];
+  total: number;
+  page: number;
+}
+
+/** One day's charged messages from one source; `day` is an ISO local date in the billing zone. */
+export interface UsageDay {
+  day: string;
+  source: UsageSource;
+  messages: number;
+  amount: number;
 }
 
 const GROUPS = '/api/billing/feature-groups';
@@ -623,3 +689,40 @@ export const putMyProfile = (token: string, body: BillingProfileInput) =>
   apiFetch<BillingProfile>(`${MY}/profile`, { method: 'PUT', token, body });
 
 export const listMyStates = (token: string) => apiFetch<IndianState[]>(`${MY}/states`, { token });
+
+// --- phase 3: the usage wallet --------------------------------------------------------------------------------------
+
+const walletOf = (customerId: string) => `${customerOf(customerId)}/wallet`;
+
+export const getWallet = (token: string, customerId: string) => apiFetch<Wallet>(walletOf(customerId), { token });
+
+/** A page of the ledger, newest first, 50 to a page. */
+export const listWalletEntries = (token: string, customerId: string, page: number) =>
+  apiFetch<WalletEntryPage>(`${walletOf(customerId)}/entries?page=${page}`, { token });
+
+/** Charged messages by day and source for the last `days` days, today included. */
+export const getWalletUsage = (token: string, customerId: string, days: number) =>
+  apiFetch<UsageDay[]>(`${walletOf(customerId)}/usage?days=${days}`, { token });
+
+/** Adds to the wallet, or with a negative amount takes from it. */
+export const adjustWallet = (token: string, customerId: string, body: { amount: number; note: string }) =>
+  apiFetch<Wallet>(`${walletOf(customerId)}/adjustments`, { method: 'POST', token, body });
+
+/** Sets the balance below which the customer is warned; null removes the warning. */
+export const setWalletThreshold = (token: string, customerId: string, lowBalanceAt: number | null) =>
+  apiFetch<Wallet>(`${walletOf(customerId)}/threshold`, { method: 'PUT', token, body: { lowBalanceAt } });
+
+/** What taking this much out of the wallet would credit. Nothing is stored. */
+export const quoteWalletRefund = (token: string, customerId: string, body: { amount: number }) =>
+  apiFetch<Quote>(`${walletOf(customerId)}/refunds/quote`, { method: 'POST', token, body });
+
+export const refundWallet = (token: string, customerId: string, body: { amount: number; reason: string }) =>
+  apiFetch<Order>(`${walletOf(customerId)}/refunds`, { method: 'POST', token, body });
+
+export const getMyWallet = (token: string) => apiFetch<Wallet>(`${MY}/wallet`, { token });
+
+export const listMyWalletEntries = (token: string, page: number) =>
+  apiFetch<WalletEntryPage>(`${MY}/wallet/entries?page=${page}`, { token });
+
+export const getMyWalletUsage = (token: string, days: number) =>
+  apiFetch<UsageDay[]>(`${MY}/wallet/usage?days=${days}`, { token });

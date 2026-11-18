@@ -1,6 +1,16 @@
 import { afterEach, describe, expect, it, vi } from 'vitest';
 import {
   type PlanInput,
+  adjustWallet,
+  getMyWallet,
+  getMyWalletUsage,
+  getWallet,
+  getWalletUsage,
+  listMyWalletEntries,
+  listWalletEntries,
+  quoteWalletRefund,
+  refundWallet,
+  setWalletThreshold,
   creditNotePdfPath,
   invoicePdfPath,
   listOrders,
@@ -133,5 +143,62 @@ describe('billing api', () => {
     const fetch = mockFetch({ 'GET /api/customers': { status: 200, body: { items: [], total: 0, page: 0 } } });
     await listCustomers('t', { q: '', page: 0, noPlan: true });
     expect(urlsOf(fetch, 'GET /api/customers')[0]).toContain('noPlan=true');
+  });
+
+  it("reads a customer's wallet, its ledger and its usage", async () => {
+    const fetch = mockFetch({
+      'GET /api/billing/customers/c1/wallet': { status: 200, body: {} },
+      'GET /api/billing/customers/c1/wallet/entries': { status: 200, body: { items: [], total: 0, page: 0 } },
+      'GET /api/billing/customers/c1/wallet/usage': { status: 200, body: [] },
+    });
+    await getWallet('t', 'c1');
+    await listWalletEntries('t', 'c1', 2);
+    await getWalletUsage('t', 'c1', 7);
+    expect(urlsOf(fetch, 'GET /api/billing/customers/c1/wallet')).toEqual(['/api/billing/customers/c1/wallet']);
+    expect(urlsOf(fetch, 'GET /api/billing/customers/c1/wallet/entries')).toEqual([
+      '/api/billing/customers/c1/wallet/entries?page=2',
+    ]);
+    expect(urlsOf(fetch, 'GET /api/billing/customers/c1/wallet/usage')).toEqual([
+      '/api/billing/customers/c1/wallet/usage?days=7',
+    ]);
+  });
+
+  it('adjusts a wallet, sets and removes its warning level, and refunds it', async () => {
+    const fetch = mockFetch({
+      'POST /api/billing/customers/c1/wallet/adjustments': { status: 200, body: {} },
+      'PUT /api/billing/customers/c1/wallet/threshold': { status: 200, body: {} },
+      'POST /api/billing/customers/c1/wallet/refunds/quote': { status: 200, body: {} },
+      'POST /api/billing/customers/c1/wallet/refunds': { status: 200, body: {} },
+    });
+    await adjustWallet('t', 'c1', { amount: -0.25, note: 'Sent twice' });
+    expect(requestTo(fetch, 'POST /api/billing/customers/c1/wallet/adjustments')?.body).toEqual({
+      amount: -0.25,
+      note: 'Sent twice',
+    });
+    await setWalletThreshold('t', 'c1', 200);
+    await setWalletThreshold('t', 'c1', null);
+    expect(requestTo(fetch, 'PUT /api/billing/customers/c1/wallet/threshold', 0)?.body).toEqual({ lowBalanceAt: 200 });
+    expect(requestTo(fetch, 'PUT /api/billing/customers/c1/wallet/threshold', 1)?.body).toEqual({ lowBalanceAt: null });
+    await quoteWalletRefund('t', 'c1', { amount: 400 });
+    expect(requestTo(fetch, 'POST /api/billing/customers/c1/wallet/refunds/quote')?.body).toEqual({ amount: 400 });
+    await refundWallet('t', 'c1', { amount: 400, reason: 'Closing' });
+    expect(requestTo(fetch, 'POST /api/billing/customers/c1/wallet/refunds')?.body).toEqual({
+      amount: 400,
+      reason: 'Closing',
+    });
+  });
+
+  it("reads the signed-in customer's own wallet", async () => {
+    const fetch = mockFetch({
+      'GET /api/my/billing/wallet': { status: 200, body: {} },
+      'GET /api/my/billing/wallet/entries': { status: 200, body: { items: [], total: 0, page: 0 } },
+      'GET /api/my/billing/wallet/usage': { status: 200, body: [] },
+    });
+    await getMyWallet('t');
+    await listMyWalletEntries('t', 0);
+    await getMyWalletUsage('t', 30);
+    expect(urlsOf(fetch, 'GET /api/my/billing/wallet')).toEqual(['/api/my/billing/wallet']);
+    expect(urlsOf(fetch, 'GET /api/my/billing/wallet/entries')).toEqual(['/api/my/billing/wallet/entries?page=0']);
+    expect(urlsOf(fetch, 'GET /api/my/billing/wallet/usage')).toEqual(['/api/my/billing/wallet/usage?days=30']);
   });
 });

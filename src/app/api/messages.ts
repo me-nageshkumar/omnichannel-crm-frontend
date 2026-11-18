@@ -47,6 +47,8 @@ const BY_CODE: Record<string, string> = {
   order_not_open: 'This request is no longer open.',
   order_pending: 'There is already an open request that changes the plan.',
   not_enough_credit: 'There is not that much account credit.',
+  wallet_empty: 'The wallet balance is too low to send.',
+  not_enough_wallet: 'The wallet does not hold that much that can be taken.',
 };
 
 /** The user-facing sentence for an error from the API layer. */

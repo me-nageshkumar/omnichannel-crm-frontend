@@ -15,6 +15,9 @@ import type {
   Subscription,
   SubscriptionSummary,
   Tax,
+  UsageDay,
+  Wallet,
+  WalletEntry,
 } from '@app/api/billing';
 import type { MockRoute } from './fetchMock';
 
@@ -428,6 +431,8 @@ export const OPTIONS: BillingOptions = {
     },
     { kind: 'LIMIT', groupCode: null, name: 'Extra users', limitKey: 'USERS', label: 'Users', unit: 5, unitPrice: 100 },
   ],
+  topUp: { allowed: true, reason: null, min: 100, max: 1000000 },
+  messageRate: 0.25,
 };
 
 /** What `/users/me` carries for a customer on Gold in the given state. */
@@ -439,7 +444,145 @@ export function summaryIn(state: SubscriptionSummary['state']): SubscriptionSumm
     graceEnd: '2027-01-07T18:30:00Z',
     readOnly: state === 'EXPIRED',
     zone: 'Asia/Kolkata',
+    lowWallet: false,
   };
+}
+
+/** Acme's wallet after a top-up of 1,000.00 and three messages at 0.25. */
+export function wallet(over: Partial<Wallet> = {}): Wallet {
+  return { balance: 999.25, lowBalanceAt: null, low: false, messageRate: 0.25, refundable: 999.25, ...over };
+}
+
+/** A customer that never topped up, on a plan that charges nothing. */
+export const NO_WALLET: Wallet = { balance: 0, lowBalanceAt: null, low: false, messageRate: null, refundable: 0 };
+
+/** One message sent from the console in Brand A, as staff see it. */
+export function walletEntry(over: Partial<WalletEntry> = {}): WalletEntry {
+  return {
+    id: 'e2',
+    type: 'USAGE',
+    amount: -0.25,
+    balanceAfter: 999.75,
+    meter: 'WHATSAPP_MESSAGE',
+    source: 'CONSOLE',
+    workspaceId: 'w1',
+    workspaceName: 'Brand A',
+    ref: null,
+    note: null,
+    byName: 'Ravi Agent',
+    at: '2026-12-01T06:00:00Z',
+    ...over,
+  };
+}
+
+/** The worked example's ledger, newest first: a top-up, three messages, one returned, a refund of 400. */
+export const LEDGER: WalletEntry[] = [
+  walletEntry({
+    id: 'e6',
+    type: 'REFUND',
+    amount: -400,
+    balanceAfter: 599.5,
+    meter: null,
+    source: null,
+    workspaceId: null,
+    workspaceName: null,
+    ref: 'ORD-000007',
+    note: 'Closing the account',
+    byName: 'Asha Manager',
+    at: '2026-12-02T05:00:00Z',
+  }),
+  walletEntry({
+    id: 'e5',
+    type: 'REVERSAL',
+    amount: 0.25,
+    balanceAfter: 999.5,
+    source: 'CAMPAIGN',
+    ref: 'e4',
+    note: 'the phone refused it',
+    byName: null,
+    at: '2026-12-01T06:03:00Z',
+  }),
+  walletEntry({ id: 'e4', amount: -0.25, balanceAfter: 999.25, source: 'CAMPAIGN', byName: null, ref: 'cmp1' }),
+  walletEntry({ id: 'e3', amount: -0.25, balanceAfter: 999.5, source: 'CHATBOT', byName: null }),
+  walletEntry(),
+  walletEntry({
+    id: 'e1',
+    type: 'TOPUP',
+    amount: 1000,
+    balanceAfter: 1000,
+    meter: null,
+    source: null,
+    workspaceId: null,
+    workspaceName: null,
+    ref: 'ORD-000006',
+    byName: 'Asha Manager',
+    at: '2026-12-01T05:00:00Z',
+  }),
+];
+
+export const USAGE_DAYS: UsageDay[] = [
+  { day: '2026-12-02', source: 'CAMPAIGN', messages: 120, amount: 30 },
+  { day: '2026-12-01', source: 'CONSOLE', messages: 1, amount: 0.25 },
+  { day: '2026-12-01', source: 'CHATBOT', messages: 3, amount: 0.7575 },
+];
+
+/** Worked example T: a top-up of 1,000.00 for Acme, 1,000.00 + 90.00 + 90.00 = 1,180.00. */
+export function topUpQuote(over: Partial<Quote> = {}): Quote {
+  return quote({
+    kind: 'TOPUP',
+    lines: [
+      {
+        type: 'TOPUP',
+        description: 'Wallet top-up',
+        groupCode: null,
+        limitKey: null,
+        quantity: 0,
+        listAmount: 1000,
+        amount: 1000,
+      },
+    ],
+    taxable: 1000,
+    tax: { ratePercent: 18, cgst: 90, sgst: 90, igst: 0, interState: false },
+    total: 1180,
+    payable: 1180,
+    planCode: null,
+    planName: null,
+    period: null,
+    termStart: null,
+    termEnd: null,
+    ...over,
+  });
+}
+
+/** Refunding 400.00 of the wallet: a credit note of 400.00 + 72.00 against the top-up's invoice, nothing to pay. */
+export function walletRefundQuote(over: Partial<Quote> = {}): Quote {
+  return quote({
+    kind: 'WALLET_REFUND',
+    lines: [],
+    taxable: 0,
+    tax: { ratePercent: 18, cgst: 0, sgst: 0, igst: 0, interState: false },
+    total: 0,
+    credits: [
+      {
+        creditNoteId: '',
+        invoiceId: 'i6',
+        invoiceNumber: 'INV/26-27/000006',
+        description: 'Wallet refunded',
+        taxable: 400,
+        tax: { ratePercent: 18, cgst: 36, sgst: 36, igst: 0, interState: false },
+        total: 472,
+      },
+    ],
+    creditFromNotes: 472,
+    payable: 0,
+    planCode: null,
+    planName: null,
+    period: null,
+    termStart: null,
+    termEnd: null,
+    validUntil: null,
+    ...over,
+  });
 }
 
 /** Routes for every billing GET, each replaceable. */
@@ -451,6 +594,9 @@ export function billingRoutes(over: Record<string, MockRoute> = {}): Record<stri
     'GET /api/billing/limit-keys': { status: 200, body: LIMIT_KEYS },
     'GET /api/billing/settings': { status: 200, body: SETTINGS },
     'GET /api/billing/states': { status: 200, body: STATES },
+    // Acme (c1) is the customer of every staff test
+    'GET /api/billing/customers/c1/wallet': { status: 200, body: wallet() },
+    'GET /api/billing/customers/c1/options': { status: 200, body: OPTIONS },
     ...over,
   };
 }
@@ -466,6 +612,7 @@ export function myBillingRoutes(over: Record<string, MockRoute> = {}): Record<st
     'GET /api/my/billing/refunds': { status: 200, body: [] },
     'GET /api/my/billing/profile': { status: 200, body: PROFILE },
     'GET /api/my/billing/states': { status: 200, body: STATES },
+    'GET /api/my/billing/wallet': { status: 200, body: wallet() },
     ...over,
   };
 }
