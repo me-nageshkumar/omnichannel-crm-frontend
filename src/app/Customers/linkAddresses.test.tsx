@@ -185,6 +185,43 @@ describe('link addresses card', () => {
     ).toBeInTheDocument();
   });
 
+  it('after a stale version, closing and opening again saves with the fresh version', async () => {
+    let lists = 0;
+    const { fetch, user } = show({
+      [LIST]: () => {
+        lists++;
+        return {
+          status: 200,
+          body: lists === 1 ? PAGES_ADDRESSES : { ...PAGES_ADDRESSES, brands: [brandRow({ version: 7 }), BRAND_B] },
+        };
+      },
+      [PUT_A]: (req) =>
+        (req.body as { version: number }).version === 7
+          ? { status: 200, body: brandRow({ version: 8 }) }
+          : { status: 409, body: { code: 'CONFLICT', message: 'changed meanwhile' } },
+    });
+    await user.click((await row('Brand A')).getByRole('button', { name: 'Change…' }));
+    await user.click(dialog().getByRole('button', { name: 'Save' }));
+    expect(
+      await dialog().findByText('Someone else changed this address. Close and open it again.'),
+    ).toBeInTheDocument();
+    await user.click(dialog().getByRole('button', { name: 'Cancel' }));
+    await waitFor(() => expect(lists).toBe(2));
+    await user.click((await row('Brand A')).getByRole('button', { name: 'Change…' }));
+    await user.click(dialog().getByRole('button', { name: 'Save' }));
+    await waitFor(() => expect(screen.queryByRole('dialog')).toBeNull());
+    expect(callsTo(fetch, PUT_A)).toBe(2);
+  });
+
+  it('an empty address is not sent and asks for one', async () => {
+    const { fetch, user } = show();
+    await user.click((await row('Brand A')).getByRole('button', { name: 'Change…' }));
+    await user.clear(dialog().getByLabelText('Address'));
+    await user.click(dialog().getByRole('button', { name: 'Save' }));
+    expect(await dialog().findByText('Enter an address')).toBeInTheDocument();
+    expect(callsTo(fetch, PUT_A)).toBe(0);
+  });
+
   it('Check disables the row while it runs and shows the result', async () => {
     const reply = held();
     const { fetch, user } = show({ [CHECK_A]: reply.response });

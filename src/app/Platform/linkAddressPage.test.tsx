@@ -89,6 +89,16 @@ describe('platform link address page', () => {
     expect(screen.queryByText('Address saved')).toBeNull();
   });
 
+  it('an empty address is not sent and asks for one', async () => {
+    const fetch = mockFetch({ ...meAs(SUPER_ADMIN), [`GET ${PATH}`]: { status: 200, body: SAVED } });
+    const { user } = renderApp('/platform/link-address');
+    await user.clear(await screen.findByLabelText('Address'));
+    await user.click(screen.getByRole('button', { name: 'Save' }));
+    expect(await screen.findByText('Enter an address')).toBeVisible();
+    expect(callsTo(fetch, `PUT ${PATH}`)).toBe(0);
+    expect(screen.queryByText('Address saved')).toBeNull();
+  });
+
   it('the page and its menu entry need pages-address:manage', async () => {
     mockFetch(meAs(ACCOUNT_MANAGER));
     renderApp('/platform/link-address');

@@ -62,6 +62,12 @@ export const LinkAddressPage: React.FunctionComponent = () => {
         <Form
           onSubmit={(e) => {
             e.preventDefault();
+            // an empty field is never "use the startup setting": that has its own button
+            if (value.trim() === '') {
+              setSaved(null);
+              setFieldError('Enter an address');
+              return;
+            }
             void save(value.trim());
           }}
         >

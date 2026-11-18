@@ -26,10 +26,13 @@ describe('the customer’s set-up step', () => {
     expect(customerStep('https://links.bimal.in/a/b/', PLATFORM)).toBe(FORWARD('links.bimal.in', '/a/b'));
   });
 
-  it('a bare domain without a folder gets both, and the advice to use a folder', () => {
-    const both = (host: string) =>
-      `${CNAME(host)} If the domain already serves a website, give the address a folder (for example https://${host}/wa) and forward that instead.`;
-    expect(customerStep('https://bimalinstitute.com', PLATFORM)).toBe(both('bimalinstitute.com'));
-    expect(customerStep('https://bimal.co.in', PLATFORM)).toBe(both('bimal.co.in'));
+  it('a bare domain without a folder is told it cannot take a CNAME, and given both ways that work', () => {
+    const bare = (host: string) =>
+      `A bare domain cannot take a CNAME record. Use a subdomain (for example https://links.${host}) and add a CNAME record for it pointing to go.example.in, or give the address a folder (for example https://${host}/wa) and forward https://${host}/wa/t/ and https://${host}/wa/f/ to ${PLATFORM}, removing /wa.`;
+    expect(customerStep('https://bimalinstitute.com', PLATFORM)).toBe(bare('bimalinstitute.com'));
+    expect(customerStep('https://bimal.co.in', PLATFORM)).toBe(bare('bimal.co.in'));
+    expect(customerStep('https://bimalinstitute.com', PLATFORM)).not.toContain(
+      'Add a CNAME record for bimalinstitute.com',
+    );
   });
 });

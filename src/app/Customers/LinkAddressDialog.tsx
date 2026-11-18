@@ -49,6 +49,11 @@ export const LinkAddressDialog: React.FunctionComponent<{
 
   const save = async () => {
     if (busy) return;
+    // an empty field is never a removal: Remove asks first
+    if (text.trim() === '') {
+      setFieldError('Enter an address');
+      return;
+    }
     setBusy(true);
     setFieldError(null);
     setError(null);

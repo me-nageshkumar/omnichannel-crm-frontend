@@ -43,7 +43,11 @@ export function customerStep(typed: string, platformBaseUrl: string): string | n
   if (folder) {
     return `Forward https://${host}${folder}/t/ and https://${host}${folder}/f/ to ${platformBaseUrl}, removing ${folder}.`;
   }
-  const cname = `Add a CNAME record for ${host} pointing to ${platformHost}.`;
-  if (!bareDomain(host)) return cname;
-  return `${cname} If the domain already serves a website, give the address a folder (for example https://${host}/wa) and forward that instead.`;
+  if (!bareDomain(host)) return `Add a CNAME record for ${host} pointing to ${platformHost}.`;
+  // DNS allows no CNAME at a zone's apex (spec §5.9: a bare domain is forwarded)
+  return (
+    `A bare domain cannot take a CNAME record. Use a subdomain (for example https://links.${host}) and add a CNAME ` +
+    `record for it pointing to ${platformHost}, or give the address a folder (for example https://${host}/wa) and ` +
+    `forward https://${host}/wa/t/ and https://${host}/wa/f/ to ${platformBaseUrl}, removing /wa.`
+  );
 }

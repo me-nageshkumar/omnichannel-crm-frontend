@@ -161,7 +161,11 @@ export const LinkAddressesCard: React.FunctionComponent<{ customerId: string }> 
             put(row);
             setEditing(null);
           }}
-          onCancel={() => setEditing(null)}
+          onCancel={() => {
+            setEditing(null);
+            // someone may have changed it meanwhile (a stale version): the next open uses what is stored now
+            list.reload();
+          }}
         />
       )}
       {removing && removing.address && (
