@@ -144,6 +144,32 @@ describe('link addresses card', () => {
     ).toBeInTheDocument();
   });
 
+  it('the certificate note shows only for a subdomain, which is the one we get a certificate for', async () => {
+    const { user } = show();
+    await user.click((await row('Brand B')).getByRole('button', { name: 'Set…' }));
+    const note = /can need a minute for its certificate/;
+    expect(dialog().queryByText(note)).toBeNull();
+    const field = dialog().getByLabelText('Address');
+    // a folder address is served by the customer's own server and certificate
+    await user.type(field, 'https://bimalinstitute.com/wa');
+    expect(dialog().queryByText(note)).toBeNull();
+    await user.clear(field);
+    await user.type(field, 'https://bimalinstitute.com');
+    expect(dialog().queryByText(note)).toBeNull();
+    await user.clear(field);
+    await user.type(field, 'https://links.bimalinstitute.com');
+    expect(dialog().getByText(note)).toBeInTheDocument();
+  });
+
+  it("a row's buttons sit in one spaced group", async () => {
+    show();
+    const a = await row('Brand A');
+    const group = a.getByRole('button', { name: 'Check' }).parentElement as HTMLElement;
+    expect(group).toHaveClass('pf-m-space-items-md');
+    expect(within(group).getByRole('button', { name: 'Change…' })).toBeInTheDocument();
+    expect(within(group).getByRole('button', { name: 'Remove' })).toBeInTheDocument();
+  });
+
   it('changing the domain says the old one must keep working, for the days the server keeps it', async () => {
     const { user } = show({ [LIST]: { status: 200, body: { ...PAGES_ADDRESSES, keepDays: 30 } } });
     await user.click((await row('Brand A')).getByRole('button', { name: 'Change…' }));
