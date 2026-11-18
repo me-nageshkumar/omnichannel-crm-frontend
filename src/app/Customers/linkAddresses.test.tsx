@@ -32,6 +32,9 @@ function show(routes: Parameters<typeof mockFetch>[0] = {}) {
 
 const row = async (brand: string) => within(await screen.findByRole('row', { name: new RegExp(`^${brand}\\b`) }));
 const dialog = () => within(screen.getByRole('dialog'));
+/** A row while a dialog is open over it (the page behind a dialog is hidden from the accessibility tree). */
+const rowBehind = async (brand: string) =>
+  within(await screen.findByRole('row', { name: new RegExp(`^${brand}\\b`), hidden: true }));
 
 /** A reply held back until {@code release(body)}. */
 function held() {
@@ -141,12 +144,19 @@ describe('link addresses card', () => {
     ).toBeInTheDocument();
   });
 
-  it('changing an address says the old one must keep working', async () => {
-    const { user } = show();
+  it('changing the domain says the old one must keep working, for the days the server keeps it', async () => {
+    const { user } = show({ [LIST]: { status: 200, body: { ...PAGES_ADDRESSES, keepDays: 30 } } });
     await user.click((await row('Brand A')).getByRole('button', { name: 'Change…' }));
-    expect(dialog().getByLabelText('Address')).toHaveValue('https://links.branda.in');
+    const field = dialog().getByLabelText('Address');
+    expect(field).toHaveValue('https://links.branda.in');
+    const note = /links\.branda\.in must keep working for 30 days after the change/;
+    // the same domain with a folder added is not a change of domain
+    await user.type(field, '/wa');
+    expect(dialog().queryByText(note)).toBeNull();
+    await user.clear(field);
+    await user.type(field, 'https://go.branda.in');
     expect(
-      dialog().getByText('links.branda.in must keep working for 90 days after the change, for links already sent.'),
+      dialog().getByText('links.branda.in must keep working for 30 days after the change, for links already sent.'),
     ).toBeInTheDocument();
   });
 
@@ -245,6 +255,100 @@ describe('link addresses card', () => {
     );
     expect(await a.findByText('Failing')).toBeInTheDocument();
     expect(a.getByRole('button', { name: 'Check' })).toBeEnabled();
+  });
+
+  it('Remove says how long the address must keep working, as the server keeps it', async () => {
+    const { user } = show({ [LIST]: { status: 200, body: { ...PAGES_ADDRESSES, keepDays: 30 } } });
+    await user.click((await row('Brand A')).getByRole('button', { name: 'Remove' }));
+    expect(
+      dialog().getByText(/links\.branda\.in must keep working for 30 days, for links already sent\./),
+    ).toBeInTheDocument();
+  });
+
+  it('Remove shows that it is removing, not checking', async () => {
+    const reply = held();
+    const { user } = show({ [PUT_A]: reply.response });
+    await user.click((await row('Brand A')).getByRole('button', { name: 'Remove' }));
+    await user.click(dialog().getByRole('button', { name: 'Remove' }));
+    const a = await rowBehind('Brand A');
+    expect(await a.findByText('Removing…')).toBeInTheDocument();
+    expect(a.queryByText('Checking…')).toBeNull();
+    reply.release(brandRow({ address: null, version: 4 }));
+    expect(await a.findByText('Uses the platform address')).toBeInTheDocument();
+  });
+
+  it('while a save runs the dialog cannot be closed and the row shows it is saving', async () => {
+    const reply = held();
+    const { user } = show({ [PUT_B]: reply.response });
+    await user.click((await row('Brand B')).getByRole('button', { name: 'Set…' }));
+    await user.type(dialog().getByLabelText('Address'), 'https://links.brandb.in');
+    await user.click(dialog().getByRole('button', { name: 'Save' }));
+    expect(await (await rowBehind('Brand B')).findByText('Saving…')).toBeInTheDocument();
+    expect(dialog().getByRole('button', { name: 'Cancel' })).toBeDisabled();
+    expect(dialog().queryByRole('button', { name: 'Close' })).toBeNull();
+    await user.keyboard('{Escape}');
+    expect(screen.getByRole('dialog')).toBeInTheDocument();
+    reply.release({
+      ...BRAND_B,
+      address: { baseUrl: 'https://links.brandb.in', status: 'WORKING', checkedAt: null, lastError: null, inUse: true },
+      version: 6,
+    });
+    await waitFor(() => expect(screen.queryByRole('dialog')).toBeNull());
+    const b = await row('Brand B');
+    expect(b.getByText('Working')).toBeInTheDocument();
+    expect(b.queryByText('Saving…')).toBeNull();
+  });
+
+  it('a working address whose last daily check failed says so', async () => {
+    show({
+      [LIST]: {
+        status: 200,
+        body: {
+          ...PAGES_ADDRESSES,
+          brands: [
+            brandRow({
+              address: {
+                baseUrl: 'https://links.branda.in',
+                status: 'WORKING',
+                checkedAt: '2026-11-18T04:15:00Z',
+                lastError: 'The address did not answer',
+                inUse: true,
+              },
+            }),
+          ],
+        },
+      },
+    });
+    const a = await row('Brand A');
+    expect(a.getByText('Working')).toBeInTheDocument();
+    expect(
+      a.getByText(
+        'The last daily check failed: The address did not answer. It turns Failing after three failed daily checks in a row.',
+      ),
+    ).toBeInTheDocument();
+  });
+
+  it('a check that fails names the brand', async () => {
+    const { user } = show({ [CHECK_A]: { status: 500, body: { code: 'INTERNAL', message: 'boom' } } });
+    await user.click((await row('Brand A')).getByRole('button', { name: 'Check' }));
+    expect(await screen.findByText(/^Brand A: /)).toBeInTheDocument();
+  });
+
+  it('a check of an address someone removed meanwhile says so and shows the list as stored', async () => {
+    let lists = 0;
+    const { user } = show({
+      [LIST]: () => {
+        lists++;
+        return {
+          status: 200,
+          body: lists === 1 ? PAGES_ADDRESSES : { ...PAGES_ADDRESSES, brands: [brandRow({ address: null }), BRAND_B] },
+        };
+      },
+      [CHECK_A]: { status: 404, body: { code: 'NO_PAGES_ADDRESS', message: 'This brand has no link address' } },
+    });
+    await user.click((await row('Brand A')).getByRole('button', { name: 'Check' }));
+    expect(await screen.findByText('Brand A has no link address any more.')).toBeInTheDocument();
+    expect(await (await row('Brand A')).findByText('Uses the platform address')).toBeInTheDocument();
   });
 
   it('Remove asks first and sends baseUrl null', async () => {

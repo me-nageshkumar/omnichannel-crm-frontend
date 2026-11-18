@@ -1,6 +1,7 @@
 import * as React from 'react';
 import { Alert, Button, Card, CardBody, CardTitle, Content, Label, Spinner } from '@patternfly/react-core';
 import { Table, Tbody, Td, Th, Thead, Tr } from '@patternfly/react-table';
+import { ApiError } from '@app/api/client';
 import { messageFor } from '@app/api/messages';
 import {
   type BrandPagesAddress,
@@ -16,10 +17,16 @@ import { useSession } from '@app/session/SessionContext';
 
 const STATUS_COLOR = { WORKING: 'green', UNCHECKED: 'grey', FAILING: 'red' } as const;
 
+type Work = 'check' | 'remove' | 'save';
+const WORK_TEXT: Record<Work, string> = { check: 'Checking…', remove: 'Removing…', save: 'Saving…' };
+
+// the viewer's own locale and time zone
 const day = (iso: string) =>
-  new Date(iso).toLocaleDateString('en-IN', { day: 'numeric', month: 'short', year: 'numeric' });
+  new Date(iso).toLocaleDateString(undefined, { day: 'numeric', month: 'short', year: 'numeric' });
 const moment = (iso: string) =>
-  new Date(iso).toLocaleString('en-IN', { day: 'numeric', month: 'short', hour: '2-digit', minute: '2-digit' });
+  new Date(iso).toLocaleString(undefined, { day: 'numeric', month: 'short', hour: '2-digit', minute: '2-digit' });
+
+const sentence = (text: string) => text.replace(/[.\s]+$/, '');
 
 function hostOf(url: string): string {
   try {
@@ -35,29 +42,35 @@ export const LinkAddressesCard: React.FunctionComponent<{ customerId: string }> 
   const list = useLoad((t) => getCustomerPagesAddresses(t, customerId), [customerId], { keepOnError: true });
   const [editing, setEditing] = React.useState<BrandPagesAddress | null>(null);
   const [removing, setRemoving] = React.useState<BrandPagesAddress | null>(null);
-  const [working, setWorking] = React.useState<Record<string, boolean>>({});
+  const [working, setWorking] = React.useState<Record<string, Work | undefined>>({});
   const [error, setError] = React.useState<string | null>(null);
   const [removeError, setRemoveError] = React.useState<string | null>(null);
 
   const put = (row: BrandPagesAddress) =>
     list.setData((d) => (d ? { ...d, brands: d.brands.map((b) => (b.workspaceId === row.workspaceId ? row : b)) } : d));
-  const busyOn = (id: string, on: boolean) => setWorking((w) => ({ ...w, [id]: on }));
+  const busyOn = (id: string, work: Work | undefined) => setWorking((w) => ({ ...w, [id]: work }));
 
   const check = async (b: BrandPagesAddress) => {
     if (working[b.workspaceId]) return;
-    busyOn(b.workspaceId, true);
+    busyOn(b.workspaceId, 'check');
     setError(null);
     try {
       put(await checkBrandPagesAddress(token as string, customerId, b.workspaceId));
     } catch (e) {
-      setError(messageFor(e));
+      if (e instanceof ApiError && e.code === 'NO_PAGES_ADDRESS') {
+        // removed meanwhile, from another screen: show what is stored now
+        setError(`${b.workspaceName} has no link address any more.`);
+        list.reload();
+      } else {
+        setError(`${b.workspaceName}: ${messageFor(e)}`);
+      }
     } finally {
-      busyOn(b.workspaceId, false);
+      busyOn(b.workspaceId, undefined);
     }
   };
 
   const remove = async (b: BrandPagesAddress) => {
-    busyOn(b.workspaceId, true);
+    busyOn(b.workspaceId, 'remove');
     setRemoveError(null);
     try {
       put(await setBrandPagesAddress(token as string, customerId, b.workspaceId, null, b.version));
@@ -65,7 +78,7 @@ export const LinkAddressesCard: React.FunctionComponent<{ customerId: string }> 
     } catch (e) {
       setRemoveError(messageFor(e));
     } finally {
-      busyOn(b.workspaceId, false);
+      busyOn(b.workspaceId, undefined);
     }
   };
 
@@ -93,7 +106,8 @@ export const LinkAddressesCard: React.FunctionComponent<{ customerId: string }> 
             </Thead>
             <Tbody>
               {data.brands.map((b) => {
-                const busy = !!working[b.workspaceId];
+                const work = working[b.workspaceId];
+                const busy = !!work;
                 const a = b.address;
                 return (
                   <Tr key={b.workspaceId}>
@@ -107,14 +121,20 @@ export const LinkAddressesCard: React.FunctionComponent<{ customerId: string }> 
                       ))}
                     </Td>
                     <Td dataLabel="Status">
-                      {busy ? (
-                        'Checking…'
+                      {work ? (
+                        WORK_TEXT[work]
                       ) : a ? (
                         <>
                           <Label isCompact color={STATUS_COLOR[a.status]}>
                             {STATUS_TEXT[a.status]}
                           </Label>
                           {a.status === 'FAILING' && a.lastError && <span> {a.lastError}</span>}
+                          {a.status === 'WORKING' && a.lastError && (
+                            // the daily check waits for three failures in a row before it calls an address Failing
+                            <div className="pf-v6-u-font-size-sm">{`The last daily check failed: ${sentence(
+                              a.lastError,
+                            )}. It turns Failing after three failed daily checks in a row.`}</div>
+                          )}
                           {a.checkedAt && (
                             <div className="pf-v6-u-color-200 pf-v6-u-font-size-sm">{`checked ${moment(a.checkedAt)}`}</div>
                           )}
@@ -157,6 +177,8 @@ export const LinkAddressesCard: React.FunctionComponent<{ customerId: string }> 
           customerId={customerId}
           brand={editing}
           platformBaseUrl={data.platformBaseUrl}
+          keepDays={data.keepDays}
+          onSaving={(on) => busyOn(editing.workspaceId, on ? 'save' : undefined)}
           onDone={(row) => {
             put(row);
             setEditing(null);
@@ -168,7 +190,7 @@ export const LinkAddressesCard: React.FunctionComponent<{ customerId: string }> 
           }}
         />
       )}
-      {removing && removing.address && (
+      {removing && removing.address && data && (
         <ConfirmModal
           title="Remove link address"
           confirmLabel="Remove"
@@ -180,7 +202,7 @@ export const LinkAddressesCard: React.FunctionComponent<{ customerId: string }> 
         >
           {`Remove the link address of ${removing.workspaceName}? Its links will use the platform address. ${hostOf(
             removing.address.baseUrl,
-          )} must keep working for 90 days, for links already sent.`}
+          )} must keep working for ${data.keepDays} days, for links already sent.`}
         </ConfirmModal>
       )}
     </Card>

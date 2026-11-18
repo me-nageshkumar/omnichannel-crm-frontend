@@ -29,6 +29,8 @@ export interface BrandPagesAddress {
 export interface CustomerPagesAddresses {
   platformBaseUrl: string;
   brands: BrandPagesAddress[];
+  /** How long an earlier address must keep working, for links already sent. */
+  keepDays: number;
 }
 
 export interface PlatformPagesAddress {

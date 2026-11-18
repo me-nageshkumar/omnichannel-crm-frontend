@@ -87,6 +87,8 @@ export const LinkAddressPage: React.FunctionComponent = () => {
               onChange={(_e, v) => {
                 setText(v);
                 setFieldError(null);
+                // the notice was about what was saved, not what is being typed now
+                setSaved(null);
               }}
             />
             <FormHelperText>

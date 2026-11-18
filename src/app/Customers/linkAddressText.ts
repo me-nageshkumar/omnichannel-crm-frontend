@@ -6,13 +6,47 @@ export const STATUS_TEXT: Record<PagesAddressStatus, string> = {
   FAILING: 'Failing',
 };
 
-/** Two-letter second-level pairs such as co.in, where three labels still make a bare domain. */
-const SHORT_PAIR = /^[a-z]{2,3}\.[a-z]{2}$/;
+/**
+ * Second-level names under which a registrable domain has three labels (bimal.co.in, bimal.com.au). A short middle
+ * label alone proves nothing: wa.tcs.in is a subdomain of tcs.in.
+ */
+const SECOND_LEVEL = 'ac co com edu firm gen gov ind ltd mil net nic or org plc res sch'.split(' ');
 
 function bareDomain(host: string): boolean {
   const labels = host.split('.');
   if (labels.length === 2) return true;
-  return labels.length === 3 && SHORT_PAIR.test(labels.slice(1).join('.')) && labels[1].length <= 3;
+  return labels.length === 3 && /^[a-z]{2}$/.test(labels[2]) && SECOND_LEVEL.indexOf(labels[1]) >= 0;
+}
+
+const HOST = /^[a-z0-9-]+(\.[a-z0-9-]+)+$/;
+const IPV4 = /^\d{1,3}(\.\d{1,3}){3}$/;
+const FOLDER_PART = /^[A-Za-z0-9_-]+$/;
+
+/**
+ * The host and folder of an address the server would take (PagesUrl on the server): https, a dotted ASCII domain
+ * name, no IP, port, user, query or fragment, and up to three folder parts of letters, digits, - and _. Else null.
+ */
+function readAddress(typed: string): { host: string; folder: string } | null {
+  const text = typed.trim();
+  if (text.slice(0, 8).toLowerCase() !== 'https://') return null;
+  const rest = text.slice(8);
+  const slash = rest.indexOf('/');
+  const authority = slash < 0 ? rest : rest.slice(0, slash);
+  const raw = slash < 0 ? '' : rest.slice(slash);
+  if (/[@?#:\[]/.test(authority) || /[?#]/.test(raw)) return null;
+  const host = authority.toLowerCase().replace(/\.+$/, '');
+  if (!HOST.test(host) || IPV4.test(host)) return null;
+  const folder = raw.replace(/\/$/, '');
+  if (folder) {
+    const parts = folder.slice(1).split('/');
+    if (parts.length > 3 || parts.some((part) => !FOLDER_PART.test(part))) return null;
+  }
+  return { host, folder };
+}
+
+/** The host of a typed address the server would take, else null. */
+export function typedHost(typed: string): string | null {
+  return readAddress(typed)?.host ?? null;
 }
 
 function hostOf(url: string): string {
@@ -25,20 +59,13 @@ function hostOf(url: string): string {
 
 /**
  * What the customer must do for the address being typed (link addresses spec §5.9): a CNAME record for a
- * subdomain, forwarding of the two page paths for an address with a folder. Null until the address can be read.
+ * subdomain, forwarding of the two page paths for an address with a folder. Null for an address the server would
+ * refuse, so no advice is given for it.
  */
 export function customerStep(typed: string, platformBaseUrl: string): string | null {
-  const text = typed.trim();
-  if (!/^https:\/\//i.test(text)) return null;
-  let url: URL;
-  try {
-    url = new URL(text);
-  } catch {
-    return null;
-  }
-  const host = url.hostname.toLowerCase().replace(/\.+$/, '');
-  if (!host || host.indexOf('.') < 0) return null;
-  const folder = url.pathname.replace(/\/+$/, '');
+  const read = readAddress(typed);
+  if (!read) return null;
+  const { host, folder } = read;
   const platformHost = hostOf(platformBaseUrl);
   if (folder) {
     return `Forward https://${host}${folder}/t/ and https://${host}${folder}/f/ to ${platformBaseUrl}, removing ${folder}.`;

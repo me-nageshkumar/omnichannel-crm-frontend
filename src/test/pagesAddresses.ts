@@ -32,6 +32,7 @@ export const BRAND_B: BrandPagesAddress = {
 export const PAGES_ADDRESSES: CustomerPagesAddresses = {
   platformBaseUrl: PLATFORM_BASE,
   brands: [brandRow(), BRAND_B],
+  keepDays: 90,
 };
 
 export const PLATFORM_ADDRESS: PlatformPagesAddress = {

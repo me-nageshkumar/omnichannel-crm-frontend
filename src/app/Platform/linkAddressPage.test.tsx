@@ -58,6 +58,23 @@ describe('platform link address page', () => {
     expect(requestTo(fetch, `PUT ${PATH}`)?.body).toEqual({ baseUrl: 'https://links.example.in', version: null });
   });
 
+  it('editing after a save clears the saved notice and its warning', async () => {
+    mockFetch({
+      ...meAs(SUPER_ADMIN),
+      [`GET ${PATH}`]: { status: 200, body: PLATFORM_ADDRESS },
+      [`PUT ${PATH}`]: { status: 200, body: { ...SAVED, warning: 'The address did not answer' } },
+    });
+    const { user } = renderApp('/platform/link-address');
+    const field = await screen.findByLabelText('Address');
+    await user.clear(field);
+    await user.type(field, 'https://links.example.in');
+    await user.click(screen.getByRole('button', { name: 'Save' }));
+    expect(await screen.findByText('Address saved')).toBeVisible();
+    await user.type(field, '/wa');
+    expect(screen.queryByText('Address saved')).toBeNull();
+    expect(screen.queryByText(/the check failed/)).toBeNull();
+  });
+
   it('a failed check shows as a warning, not an error', async () => {
     mockFetch({
       ...meAs(SUPER_ADMIN),

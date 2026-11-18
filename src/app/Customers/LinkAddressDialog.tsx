@@ -16,7 +16,7 @@ import {
 import { ApiError } from '@app/api/client';
 import { messageFor } from '@app/api/messages';
 import { type BrandPagesAddress, setBrandPagesAddress } from '@app/api/pagesAddresses';
-import { customerStep } from '@app/Customers/linkAddressText';
+import { customerStep, typedHost } from '@app/Customers/linkAddressText';
 import { useSession } from '@app/session/SessionContext';
 
 const TAKEN = 'Another customer uses this domain.';
@@ -37,15 +37,23 @@ export const LinkAddressDialog: React.FunctionComponent<{
   customerId: string;
   brand: BrandPagesAddress;
   platformBaseUrl: string;
+  /** How long an earlier address must keep working (from the server). */
+  keepDays: number;
+  /** True while a save runs, so the row can show it. */
+  onSaving(on: boolean): void;
   onDone(row: BrandPagesAddress): void;
   onCancel(): void;
-}> = ({ customerId, brand, platformBaseUrl, onDone, onCancel }) => {
+}> = ({ customerId, brand, platformBaseUrl, keepDays, onSaving, onDone, onCancel }) => {
   const { token } = useSession();
   const [text, setText] = React.useState(brand.address?.baseUrl ?? '');
   const [fieldError, setFieldError] = React.useState<string | null>(null);
   const [error, setError] = React.useState<string | null>(null);
   const [busy, setBusy] = React.useState(false);
   const step = customerStep(text, platformBaseUrl);
+  const oldHost = brand.address ? hostOf(brand.address.baseUrl) : null;
+  const newHost = typedHost(text);
+  // only a new domain leaves the old one to serve links already sent; a folder change keeps the domain
+  const hostChanges = oldHost !== null && newHost !== null && newHost !== oldHost;
 
   const save = async () => {
     if (busy) return;
@@ -55,6 +63,7 @@ export const LinkAddressDialog: React.FunctionComponent<{
       return;
     }
     setBusy(true);
+    onSaving(true);
     setFieldError(null);
     setError(null);
     try {
@@ -66,11 +75,13 @@ export const LinkAddressDialog: React.FunctionComponent<{
       else setError(messageFor(e));
     } finally {
       setBusy(false);
+      onSaving(false);
     }
   };
 
   return (
-    <Modal isOpen variant="medium" onClose={onCancel} aria-labelledby="link-address-title">
+    // while a save runs the dialog stays open: its answer must land here, not after a close
+    <Modal isOpen variant="medium" onClose={busy ? undefined : onCancel} aria-labelledby="link-address-title">
       <ModalHeader title={`Link address of ${brand.workspaceName}`} labelId="link-address-title" />
       <ModalBody>
         <Form
@@ -104,8 +115,8 @@ export const LinkAddressDialog: React.FunctionComponent<{
               </HelperText>
             </FormHelperText>
           </FormGroup>
-          {brand.address && (
-            <p>{`${hostOf(brand.address.baseUrl)} must keep working for 90 days after the change, for links already sent.`}</p>
+          {hostChanges && (
+            <p>{`${oldHost} must keep working for ${keepDays} days after the change, for links already sent.`}</p>
           )}
         </Form>
       </ModalBody>
@@ -113,7 +124,7 @@ export const LinkAddressDialog: React.FunctionComponent<{
         <Button variant="primary" type="submit" form="link-address-form" isDisabled={busy} isLoading={busy}>
           Save
         </Button>
-        <Button variant="link" onClick={onCancel}>
+        <Button variant="link" isDisabled={busy} onClick={onCancel}>
           Cancel
         </Button>
       </ModalFooter>
