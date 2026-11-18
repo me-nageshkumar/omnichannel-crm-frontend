@@ -1,5 +1,15 @@
 import * as React from 'react';
-import { Alert, Breadcrumb, BreadcrumbItem, Button, Content, Flex, Spinner } from '@patternfly/react-core';
+import {
+  Alert,
+  Breadcrumb,
+  BreadcrumbItem,
+  Button,
+  Content,
+  EmptyState,
+  EmptyStateBody,
+  Flex,
+  Spinner,
+} from '@patternfly/react-core';
 import { Table, Tbody, Td, Th, Thead, Tr } from '@patternfly/react-table';
 import { Link, useParams } from 'react-router-dom';
 import {
@@ -53,6 +63,7 @@ export const KnowledgeBasePage: React.FunctionComponent = () => {
   const [dialog, setDialog] = React.useState<Dialog | null>(null);
   const [notice, setNotice] = React.useState<string | null>(null);
   const [busy, setBusy] = React.useState(false);
+  const [uploading, setUploading] = React.useState(false);
   const [dialogError, setDialogError] = React.useState<string | null>(null);
   const fileInput = React.useRef<HTMLInputElement>(null);
   const tk = token as string;
@@ -83,7 +94,8 @@ export const KnowledgeBasePage: React.FunctionComponent = () => {
       setNotice('Files up to 16 MB');
       return;
     }
-    act(() => addKnowledgeFile(tk, ws, id, file));
+    setUploading(true);
+    act(() => addKnowledgeFile(tk, ws, id, file)).finally(() => setUploading(false));
   };
 
   const editNote = async (s: KnowledgeSource) => {
@@ -133,7 +145,9 @@ export const KnowledgeBasePage: React.FunctionComponent = () => {
       {base.data?.description && <Content component="p">{base.data.description}</Content>}
       {canManage && (
         <Flex spaceItems={{ default: 'spaceItemsSm' }}>
-          <Button onClick={() => fileInput.current?.click()}>Add file</Button>
+          <Button onClick={() => fileInput.current?.click()} isDisabled={uploading} isLoading={uploading}>
+            {uploading ? 'Uploading…' : 'Add file'}
+          </Button>
           <Button variant="secondary" onClick={() => setDialog({ kind: 'page' })}>
             Add web page
           </Button>
@@ -153,7 +167,14 @@ export const KnowledgeBasePage: React.FunctionComponent = () => {
       {notice && <Alert variant="danger" isInline isPlain title={notice} />}
       {(base.error || sources.error) && <Alert variant="danger" isInline title={base.error ?? sources.error} />}
       {!sources.data && !sources.error && <Spinner aria-label="Loading sources" />}
-      {sources.data && sources.data.length === 0 && <Content component="p">No sources yet.</Content>}
+      {sources.data && sources.data.length === 0 && (
+        <EmptyState titleText="No sources yet" headingLevel="h3">
+          <EmptyStateBody>
+            Add a brochure, course pages or a note with the answers your team gives. Each source shows Ready once the AI
+            can use it.
+          </EmptyStateBody>
+        </EmptyState>
+      )}
       {sources.data && sources.data.length > 0 && (
         <Table aria-label="Sources" variant="compact">
           <Thead>
@@ -191,16 +212,18 @@ export const KnowledgeBasePage: React.FunctionComponent = () => {
                             Download
                           </Button>
                         ) : (
-                          <Button
-                            variant="link"
-                            isInline
-                            aria-label={`View text ${s.title}`}
-                            onClick={() => setDialog({ kind: 'text', source: s })}
-                          >
-                            View text
-                          </Button>
+                          (s.size ?? 0) > 0 && (
+                            <Button
+                              variant="link"
+                              isInline
+                              aria-label={`View text ${s.title}`}
+                              onClick={() => setDialog({ kind: 'text', source: s })}
+                            >
+                              View text
+                            </Button>
+                          )
                         )}
-                        {canManage && s.kind === 'WEB_PAGE' && (s.state === 'READY' || s.state === 'FAILED') && (
+                        {canManage && s.kind === 'WEB_PAGE' && s.state === 'READY' && (
                           <Button
                             variant="link"
                             isInline

@@ -5,6 +5,7 @@ import type { CurrentUser } from '@app/api/users';
 import type { KnowledgeSource } from '@app/api/aiKnowledge';
 import { renderApp } from '../../../test/renderApp';
 import { callsTo, mockFetch, requestTo } from '../../../test/fetchMock';
+import { gate } from '../../../test/gate';
 import { BRAND_A, WORKSPACE_MANAGER, meAs, storeSession } from '../../../test/session';
 import { AI_BASE, CONNECTION, SCRIPTED_CONNECTION, aiRoutes } from '../../../test/ai';
 import { KB, KB_BASE, SOURCES, knowledgeRoutes } from '../../../test/aiKnowledge';
@@ -52,7 +53,9 @@ describe('Knowledge tab', () => {
     await openTab();
     const r = row(/Bimal courses/);
     expect(within(r).getByText('12 sources · 10 ready · 1 failed · 1 adding')).toBeVisible();
-    expect(within(r).getByText('Used by: Bimal counsellor')).toBeVisible();
+    expect(within(r).getByText('Bimal counsellor')).toBeVisible();
+    expect(within(r).queryByText(/Used by:/)).toBeNull();
+    expect(within(r).getByText('18 Nov')).toBeVisible();
     expect(within(r).getByText('OpenAI · Main key')).toBeVisible();
   });
 
@@ -81,6 +84,13 @@ describe('Knowledge tab', () => {
 
     await screen.findByRole('row', { name: /Fees/ });
     expect(requestTo(fetch, `POST ${KB_BASE}`)?.body).toEqual({ name: 'Fees', description: null, connectionId: 'k1' });
+  });
+
+  it('emptyTabInvitesTheFirstKnowledgeBase', async () => {
+    mockFetch(routes({ [`GET ${KB_BASE}`]: { status: 200, body: [] } }));
+    renderApp('/ai?tab=knowledge');
+    expect(await screen.findByRole('heading', { name: 'No knowledge bases yet' })).toBeVisible();
+    expect(screen.getAllByRole('button', { name: 'New knowledge base' }).length).toBeGreaterThan(0);
   });
 
   it('deleteInUseShowsServerSentence', async () => {
@@ -117,6 +127,52 @@ describe('A knowledge base page', () => {
     expect(within(row(/blog/)).getByText('Failed: The page answered 403')).toBeVisible();
     expect(within(row(/Answers the team confirms/)).getByText('Adding')).toBeVisible();
     expect(within(row(/Crypto & Forex/)).getByText('Web page')).toBeVisible();
+  });
+
+  it('failedPageOffersRetryOnlyAndNoViewText', async () => {
+    await openBase();
+    const failed = row(/blog/);
+    expect(within(failed).getByRole('button', { name: /^Retry/ })).toBeVisible();
+    expect(within(failed).queryByRole('button', { name: /^Fetch again/ })).toBeNull();
+    expect(within(failed).queryByRole('button', { name: /^View text/ })).toBeNull();
+  });
+
+  it('emptyBaseSaysWhatToAdd', async () => {
+    mockFetch(routes({ [`GET ${KB_BASE}/kb1/sources`]: { status: 200, body: [] } }));
+    renderApp('/ai/knowledge/kb1');
+    expect(await screen.findByRole('heading', { name: 'No sources yet' })).toBeVisible();
+    expect(screen.getByText(/brochure, course pages or a note/)).toBeVisible();
+  });
+
+  it('viewTextErrorIsWorded', async () => {
+    const user = userEvent.setup();
+    await openBase({ [`GET ${KB_BASE}/kb1/sources/s3/content`]: { status: 404, body: { error: 'NOT_FOUND' } } });
+    await user.click(within(row(/Counsellor pitch/)).getByRole('button', { name: 'View text Counsellor pitch' }));
+    const dialog = await screen.findByRole('dialog');
+    await waitFor(() => expect(within(dialog).queryByRole('progressbar')).toBeNull());
+    expect(within(dialog).queryByText('NOT_FOUND')).toBeNull();
+    expect(within(dialog).queryByText('HTTP 404')).toBeNull();
+  });
+
+  it('uploadShowsProgressAndBlocksASecondFile', async () => {
+    const added: KnowledgeSource = {
+      ...SOURCES[0],
+      id: 's7',
+      title: 'fees.pdf',
+      fileName: 'fees.pdf',
+      state: 'QUEUED',
+    };
+    const fetch = await openBase({ [`POST ${KB_BASE}/kb1/sources/file`]: { status: 201, body: added } });
+    const held = gate(fetch, `POST ${KB_BASE}/kb1/sources/file`, 1);
+
+    fireEvent.change(screen.getByLabelText('File to add'), {
+      target: { files: [new File(['%PDF'], 'fees.pdf', { type: 'application/pdf' })] },
+    });
+
+    const button = await screen.findByRole('button', { name: /Uploading/ });
+    expect(button).toBeDisabled();
+    held.release();
+    expect(await screen.findByRole('button', { name: 'Add file' })).toBeEnabled();
   });
 
   it('stopsRefreshingWhenNothingIsAdding', async () => {

@@ -112,13 +112,59 @@ describe('move a number to another brand', () => {
     expect(
       await within(dialog).findByText('Its 75 chats stay in Demo Fashion as "Main line (until 18 Nov)", read only.'),
     ).toBeVisible();
-    expect(
-      within(dialog).getByText(/2 unfinished chatbot runs on this number end\. Its team \(Sales\) is cleared/),
-    ).toBeVisible();
+    expect(within(dialog).getByText('2 unfinished chatbot runs on this number end.')).toBeVisible();
+    expect(within(dialog).getByText('Its team (Sales) is cleared; set one in the new brand.')).toBeVisible();
     await user.click(within(dialog).getByRole('button', { name: 'Move' }));
 
     expect(await within(await rowWith('+919928088743')).findByText('Bimal Institute')).toBeVisible();
     expect(requestTo(fetch, 'POST /api/phone-numbers/n1/move')?.body).toEqual({ workspaceId: 'w9' });
+  });
+
+  it('aMoveThatStopsShowsWhy', async () => {
+    const { user } = open({
+      'GET /api/phone-numbers/n1/move/preview': { status: 200, body: PREVIEW },
+      'POST /api/phone-numbers/n1/move': {
+        status: 200,
+        body: { ...MOVE, step: 'RUNS_ENDED', done: false, error: 'Mongo write failed', finishedAt: null },
+      },
+    });
+    await rowAction(user, '+919928088743', 'Move to brand…');
+    const dialog = await screen.findByRole('dialog', { name: /Move Main line/ });
+    await user.selectOptions(within(dialog).getByLabelText('To brand'), 'w9');
+    await within(dialog).findByText(/Its 75 chats stay/);
+    await user.click(within(dialog).getByRole('button', { name: 'Move' }));
+
+    expect(
+      await within(dialog).findByText('The move did not finish: Mongo write failed. Close this and use Retry move.'),
+    ).toBeVisible();
+  });
+
+  it('aRetryThatStopsShowsWhy', async () => {
+    const { user } = open({
+      'GET /api/phone-numbers': page([{ ...MAIN, moveUnfinished: true }]),
+      'POST /api/phone-numbers/n1/move/retry': {
+        status: 200,
+        body: { ...MOVE, done: false, error: 'Mongo write failed', finishedAt: null },
+      },
+    });
+    await rowAction(user, '+919928088743', 'Retry move');
+    expect(await screen.findByText('The move did not finish: Mongo write failed.')).toBeVisible();
+  });
+
+  it('previewGrammarForOneAndNone', async () => {
+    const { user } = open({
+      'GET /api/phone-numbers/n1/move/preview': {
+        status: 200,
+        body: { ...PREVIEW, chats: 1, activeRuns: 1, teamName: null },
+      },
+    });
+    await rowAction(user, '+919928088743', 'Move to brand…');
+    const dialog = await screen.findByRole('dialog', { name: /Move Main line/ });
+    await user.selectOptions(within(dialog).getByLabelText('To brand'), 'w9');
+    expect(
+      await within(dialog).findByText('Its 1 chat stays in Demo Fashion as "Main line (until 18 Nov)", read only.'),
+    ).toBeVisible();
+    expect(within(dialog).getByText('1 unfinished chatbot run on this number ends.')).toBeVisible();
   });
 
   it('movingBackWording', async () => {

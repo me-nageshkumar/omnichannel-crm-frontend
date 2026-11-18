@@ -31,25 +31,40 @@ export function moveMessage(e: unknown): string {
 }
 
 const plural = (n: number, one: string) => `${n} ${one}${n === 1 ? '' : 's'}`;
+const verb = (n: number, one: string, many: string) => (n === 1 ? one : many);
 
-/** The lines of spec 2026-11-18 §7.1 for one preview. */
+/** The lines of spec 2026-11-18 §7.1 for one preview, worded for one, many and none. */
 function previewLines(p: MovePreview, label: string): string[] {
-  const lines = [`Its ${plural(p.chats, 'chat')} stay in ${p.fromWorkspaceName} as "${p.archiveLabel}", read only.`];
+  const lines = [
+    p.chats === 0
+      ? `It has no chats yet; an empty archive "${p.archiveLabel}" stays in ${p.fromWorkspaceName}.`
+      : `Its ${plural(p.chats, 'chat')} ${verb(p.chats, 'stays', 'stay')} in ${p.fromWorkspaceName} as "${p.archiveLabel}", read only.`,
+  ];
   if (p.movingBack) {
-    lines.push(`The ${plural(p.returningChats, 'archived chat')} in ${p.toWorkspaceName} return to ${label}.`);
+    lines.push(
+      `The ${plural(p.returningChats, 'archived chat')} in ${p.toWorkspaceName} ${verb(p.returningChats, 'returns', 'return')} to ${label}.`,
+    );
   } else {
     lines.push(`New chats start in ${p.toWorkspaceName}. The phone stays linked and reconnects in a few seconds.`);
   }
-  const runs = p.activeRuns > 0 ? `${plural(p.activeRuns, 'unfinished chatbot run')} on this number end. ` : '';
+  const runs =
+    p.activeRuns > 0
+      ? `${plural(p.activeRuns, 'unfinished chatbot run')} on this number ${verb(p.activeRuns, 'ends', 'end')}.`
+      : '';
   const team = p.teamName ? `Its team (${p.teamName}) is cleared; set one in the new brand.` : '';
-  if (runs || team) lines.push(`${runs}${team}`.trim());
+  if (runs) lines.push(runs);
+  if (team) lines.push(team);
   return lines;
 }
+
+/** "The move did not finish: <reason>." for a move or retry the server stopped part way. */
+export const stoppedText = (error: string | null) => `The move did not finish: ${error ?? 'unknown reason'}.`;
 
 /** Platform → Phone numbers → Move to brand…: moves a number to another brand of its customer. */
 export const MoveNumberModal: React.FunctionComponent<{
   number: PhoneNumber;
-  onMoved(): void;
+  /** {@code done} false: the move stopped part way; the dialog stays open with the reason. */
+  onMoved(done: boolean): void;
   onClose(): void;
 }> = ({ number, onMoved, onClose }) => {
   const { token } = useSession();
@@ -88,8 +103,12 @@ export const MoveNumberModal: React.FunctionComponent<{
     setBusy(true);
     setError(null);
     try {
-      await moveNumber(t, number.id, target);
-      onMoved();
+      const result = await moveNumber(t, number.id, target);
+      if (!result.done) {
+        setError(`${stoppedText(result.error)} Close this and use Retry move.`);
+        setBusy(false);
+      }
+      onMoved(result.done);
     } catch (e) {
       setError(moveMessage(e));
       setBusy(false);
@@ -151,7 +170,7 @@ export const MoveNumberModal: React.FunctionComponent<{
         )}
       </ModalBody>
       <ModalFooter>
-        <Button onClick={move} isDisabled={!preview || blocked || busy} isLoading={busy}>
+        <Button onClick={move} isDisabled={!preview || blocked || busy || Boolean(error)} isLoading={busy}>
           Move
         </Button>
         <Button variant="link" onClick={onClose}>

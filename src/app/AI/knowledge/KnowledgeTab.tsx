@@ -1,5 +1,16 @@
 import * as React from 'react';
-import { Alert, Button, Content, Spinner } from '@patternfly/react-core';
+import {
+  Alert,
+  Button,
+  Content,
+  EmptyState,
+  EmptyStateActions,
+  EmptyStateBody,
+  EmptyStateFooter,
+  HelperText,
+  HelperTextItem,
+  Spinner,
+} from '@patternfly/react-core';
 import { Table, Tbody, Td, Th, Thead, Tr } from '@patternfly/react-table';
 import { Link } from 'react-router-dom';
 import { type AiProvider, listAiConnections } from '@app/api/ai';
@@ -66,7 +77,22 @@ export const KnowledgeTab: React.FunctionComponent<{ providers: AiProvider[]; ca
       )}
       {bases.error && <Alert variant="danger" isInline title={bases.error} />}
       {!bases.data && !bases.error && <Spinner aria-label="Loading knowledge bases" />}
-      {bases.data && bases.data.length === 0 && <Content component="p">No knowledge bases yet.</Content>}
+      {bases.data && bases.data.length === 0 && (
+        <EmptyState titleText="No knowledge bases yet" headingLevel="h3">
+          <EmptyStateBody>
+            Create one, then add your brochures, course pages and notes. The AI answers customers from what you add.
+          </EmptyStateBody>
+          {canManage && (
+            <EmptyStateFooter>
+              <EmptyStateActions>
+                <Button onClick={() => setEditing('new')} isDisabled={!connections.data}>
+                  New knowledge base
+                </Button>
+              </EmptyStateActions>
+            </EmptyStateFooter>
+          )}
+        </EmptyState>
+      )}
       {bases.data && bases.data.length > 0 && (
         <Table aria-label="Knowledge bases" variant="compact">
           <Thead>
@@ -84,13 +110,17 @@ export const KnowledgeTab: React.FunctionComponent<{ providers: AiProvider[]; ca
               <Tr key={b.id}>
                 <Td dataLabel="Name">
                   <Link to={`/ai/knowledge/${encodeURIComponent(b.id)}`}>{b.name}</Link>
-                  {b.status === 'FAILED' && b.error && <div className="pf-v6-u-danger-color-100">{b.error}</div>}
+                  {b.status === 'FAILED' && b.error && (
+                    <HelperText>
+                      <HelperTextItem variant="error">{b.error}</HelperTextItem>
+                    </HelperText>
+                  )}
                 </Td>
                 <Td dataLabel="Connection">{`${providerLabel(b.provider)} · ${b.connectionName ?? b.connectionId}`}</Td>
                 <Td dataLabel="Sources">{countsText(b)}</Td>
-                <Td dataLabel="Used by">{b.usedBy.length > 0 ? `Used by: ${b.usedBy.join(', ')}` : 'Not used yet'}</Td>
+                <Td dataLabel="Used by">{b.usedBy.length > 0 ? b.usedBy.join(', ') : 'Not used yet'}</Td>
                 <Td dataLabel="Updated">
-                  {new Date(b.updatedAt).toLocaleDateString(undefined, { day: 'numeric', month: 'short' })}
+                  {new Date(b.updatedAt).toLocaleDateString('en-GB', { day: 'numeric', month: 'short' })}
                 </Td>
                 {canManage && (
                   <Td isActionCell>

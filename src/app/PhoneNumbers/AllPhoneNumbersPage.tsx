@@ -34,7 +34,7 @@ import { useLoad } from '@app/admin/useLoad';
 import { useSession } from '@app/session/SessionContext';
 import { useAccess } from '@app/session/useAccess';
 import { PhoneNumberStatusLabel, relative } from '@app/PhoneNumbers/PhoneNumberStatusLabel';
-import { MoveNumberModal, moveMessage } from '@app/PhoneNumbers/MoveNumberModal';
+import { MoveNumberModal, moveMessage, stoppedText } from '@app/PhoneNumbers/MoveNumberModal';
 
 type StatusFilter = 'ALL' | PhoneNumberStatus;
 
@@ -107,7 +107,8 @@ export const AllPhoneNumbersPage: React.FunctionComponent = () => {
   const onRetryMove = async (n: PhoneNumber) => {
     setNotice(null);
     try {
-      await retryNumberMove(t, n.id);
+      const result = await retryNumberMove(t, n.id);
+      if (!result.done) setNotice(stoppedText(result.error));
       numbers.reload();
     } catch (e) {
       setNotice(moveMessage(e));
@@ -263,9 +264,9 @@ export const AllPhoneNumbersPage: React.FunctionComponent = () => {
       {dialog?.kind === 'move' && (
         <MoveNumberModal
           number={dialog.number}
-          onMoved={() => {
+          onMoved={(done) => {
             numbers.reload();
-            setDialog(null);
+            if (done) setDialog(null);
           }}
           onClose={() => setDialog(null)}
         />
@@ -280,8 +281,8 @@ export const AllPhoneNumbersPage: React.FunctionComponent = () => {
           onConfirm={() => onCancelMove(dialog.number)}
           onCancel={() => setDialog(null)}
         >
-          The number stays in its brand and its phone connects again. Once chats have started moving, only Retry can
-          finish the move.
+          The number stays in its brand and its phone connects again. Once chats have started moving, only Retry move
+          can finish it.
         </ConfirmModal>
       )}
     </PageShell>

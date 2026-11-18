@@ -10,6 +10,7 @@ import {
   ModalHeader,
   Spinner,
 } from '@patternfly/react-core';
+import { aiMessage } from '@app/AI/aiMessages';
 
 /** The stored text of a web page or note, as the AI reads it. */
 export const SourceTextModal: React.FunctionComponent<{ title: string; load(): Promise<string>; onClose(): void }> = ({
@@ -20,7 +21,7 @@ export const SourceTextModal: React.FunctionComponent<{ title: string; load(): P
   const [text, setText] = React.useState<string | null>(null);
   const [error, setError] = React.useState<string | null>(null);
   React.useEffect(() => {
-    load().then(setText, (e: unknown) => setError(e instanceof Error ? e.message : 'The text could not be loaded.'));
+    load().then(setText, (e: unknown) => setError(aiMessage(e)));
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
   return (
