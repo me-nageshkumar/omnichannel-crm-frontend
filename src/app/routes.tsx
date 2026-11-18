@@ -36,6 +36,7 @@ import { ChatbotsPage } from '@app/Chatbots/ChatbotsPage';
 import { HistoryImportsPage } from '@app/HistoryImports/HistoryImportsPage';
 import { crmRoutes } from '@app/Crm/routes';
 import { chatbotRoutes } from '@app/Chatbots/routes';
+import { LinkAddressPage } from '@app/Platform/LinkAddressPage';
 import { aiRoutes } from '@app/AI/routes';
 import { billingRoutes } from '@app/Billing/routes';
 import { useCrmReminderCount, useCrmStatus } from '@app/Crm/status/CrmStatusContext';
@@ -142,6 +143,7 @@ const NAV_SECTIONS: NavEntry[][] = [
         { label: 'Customers', path: '/customers' },
         { label: 'All phone numbers', path: '/platform/phone-numbers' },
         { label: 'Chatbot defaults', path: '/platform/chatbot-settings' },
+        { label: 'Link address', path: '/platform/link-address' },
         { label: 'Plans', path: '/platform/plans' },
         { label: 'Billing requests', path: '/platform/billing-requests' },
         { label: 'Billing settings', path: '/platform/billing-settings' },
@@ -185,6 +187,11 @@ const routes: IAppRoute[] = [
     element: <CustomerDetailPage />,
     path: '/customers/:id',
     requires: (a) => a.has('customer:view'),
+  },
+  {
+    element: <LinkAddressPage />,
+    path: '/platform/link-address',
+    requires: (a) => a.has('pages-address:manage'),
   },
   {
     element: <AllPhoneNumbersPage />,
