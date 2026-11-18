@@ -20,6 +20,8 @@ const PLATFORM: SettingsLayer = {
   retryMessage: "Sorry, I didn't get that. Please choose one of the options.",
   giveUpMessage: '',
   stopOnAgentReply: true,
+  whenCompleted: 'CLOSE',
+  whenAbandoned: 'ROUTE',
 };
 
 describe('settings layers', () => {
@@ -31,7 +33,8 @@ describe('settings layers', () => {
     expect(d.reminderOn).toEqual({ kind: 'set', text: 'true' });
     expect(d.retryMessage).toEqual({ kind: 'inherit' });
     expect(fromDraft(d)).toEqual(own);
-    expect(FIELDS).toHaveLength(9);
+    expect(FIELDS).toHaveLength(11);
+    expect(FIELDS.slice(-2)).toEqual(['whenCompleted', 'whenAbandoned']);
   });
 
   it('clearedInputIsInherited', () => {
@@ -81,6 +84,8 @@ describe('settings layers', () => {
         'invalidReplyRetries',
         'retryMessage',
         'stopOnAgentReply',
+        'whenCompleted',
+        'whenAbandoned',
       ].sort(),
     );
     expect(p.retryMessage).toBe('is required');
@@ -99,5 +104,21 @@ describe('settings layers', () => {
     expect(reminderWarning({ ...PLATFORM, reminderOn: true, reminderAfterMinutes: 120 })).toBe(msg);
     expect(reminderWarning({ ...PLATFORM, reminderOn: true, reminderAfterMinutes: 119 })).toBeNull();
     expect(reminderWarning({ ...PLATFORM, reminderOn: false, reminderAfterMinutes: 500 })).toBeNull();
+  });
+
+  it('a layer saved without the after-chatbot keys reads as inherited', () => {
+    const old = { ...EMPTY_LAYER } as Record<string, unknown>;
+    delete old.whenCompleted;
+    delete old.whenAbandoned;
+    const d = toDraft(old as unknown as SettingsLayer);
+    expect(d.whenCompleted).toEqual({ kind: 'inherit' });
+    expect(d.whenAbandoned).toEqual({ kind: 'inherit' });
+    expect(fromDraft(d).whenAbandoned).toBeNull();
+  });
+
+  it('a chosen after-chatbot value round-trips to the layer', () => {
+    const own: SettingsLayer = { ...EMPTY_LAYER, whenAbandoned: 'CLOSE' };
+    expect(toDraft(own).whenAbandoned).toEqual({ kind: 'set', text: 'CLOSE' });
+    expect(fromDraft(toDraft(own))).toEqual(own);
   });
 });

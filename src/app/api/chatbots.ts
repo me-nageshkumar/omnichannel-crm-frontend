@@ -58,7 +58,14 @@ export interface SettingsLayer {
   retryMessage: string | null;
   giveUpMessage: string | null;
   stopOnAgentReply: boolean | null;
+  /** What happens to a chat the chatbot held when the flow finishes (spec 2026-11-18 §5.3). */
+  whenCompleted: AfterChatbot | null;
+  /** ... when the customer stops answering. */
+  whenAbandoned: AfterChatbot | null;
 }
+
+/** Close the chat, or open it and send it to the number's team. */
+export type AfterChatbot = 'CLOSE' | 'ROUTE';
 
 export type SettingField = keyof SettingsLayer;
 export type SettingSource = 'CHATBOT' | 'BRAND' | 'PLATFORM';
