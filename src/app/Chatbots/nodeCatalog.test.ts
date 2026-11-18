@@ -70,6 +70,8 @@ describe('nodeCatalog', () => {
   it('httpSuccessFailureAndJumpHasNoOutputs', () => {
     expect(CATALOG.http_request.outputs({}).map((o) => o.id)).toEqual(['success', 'failure']);
     expect(CATALOG.jump.outputs({})).toEqual([]);
+    // spec 2026-11-18 §5.4: the hand-over ends the chatbot, as the server's AssignChatExecutor.outputs
+    expect(CATALOG.assign_chat.outputs({})).toEqual([]);
     expect(CATALOG.ask_question.outputs({}).map((o) => o.id)).toEqual(['next', 'noAnswer']);
     expect(CATALOG.ask_form.outputs({}).map((o) => o.id)).toEqual(['next']);
     expect(CATALOG.wait.waitsFor({})).toBe('TIMER');
@@ -178,5 +180,17 @@ describe('nodeCatalog', () => {
     expect(CATALOG.ai.waitsFor({ mode: 'SINGLE' })).toBe('AI_RESPONSE');
     expect(CATALOG.ai.preview({ mode: 'SINGLE', profileId: 'p1' }, OPTIONS)).toBe('Sales assistant · One call');
     expect(CATALOG.ai.preview({ mode: 'CONVERSATION', profileId: '' }, OPTIONS)).toBe('No profile yet · Conversation');
+  });
+
+  it("hand over defaults to the number's routing and says so", () => {
+    expect(CATALOG.assign_chat.label).toBe('Hand over to agent');
+    expect(CATALOG.assign_chat.description).toBe('Gives the chat to a person and ends the chatbot.');
+    expect(CATALOG.assign_chat.defaultSettings()).toEqual({
+      mode: 'NUMBER_ROUTING',
+      userId: null,
+      teamId: null,
+      whenAway: null,
+    });
+    expect(CATALOG.assign_chat.preview({ mode: 'NUMBER_ROUTING' }, OPTIONS)).toBe("By the number's routing");
   });
 });

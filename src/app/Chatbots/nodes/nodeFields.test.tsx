@@ -160,7 +160,9 @@ describe('node fields', () => {
   });
 
   it('assignChatModeAndTeam', async () => {
-    const { onChange, user } = open(node('assign_chat'));
+    const { onChange, user } = open(
+      node('assign_chat', { mode: 'TEAM_QUEUE', userId: null, teamId: null, whenAway: null }),
+    );
     await user.selectOptions(screen.getByLabelText('Team'), 't1');
     expect(last(onChange)).toMatchObject({ mode: 'TEAM_QUEUE', teamId: 't1' });
     await user.click(screen.getByRole('radio', { name: 'An agent' }));
@@ -178,5 +180,24 @@ describe('node fields', () => {
     await u3.selectOptions(screen.getByLabelText('Template'), 'tp2');
     expect(last(on3)).toMatchObject({ templateId: 'tp2' });
     expect(within(screen.getByRole('dialog', { name: 'Node1' })).getByLabelText(/Order id/)).toBeVisible();
+  });
+
+  it("choosing the number's routing hides the target fields and saves nulls", async () => {
+    const { onChange, user } = open(
+      node('assign_chat', { mode: 'TEAM_QUEUE', userId: null, teamId: 't1', whenAway: null }),
+    );
+    expect(screen.getByLabelText('Team')).toBeInTheDocument();
+    await user.click(screen.getByRole('radio', { name: "The number's normal routing" }));
+    expect(last(onChange)).toEqual({ mode: 'NUMBER_ROUTING', userId: null, teamId: null, whenAway: null });
+    expect(screen.queryByLabelText('Team')).toBeNull();
+    expect(screen.queryByLabelText('Agent')).toBeNull();
+    expect(
+      screen.getByText('The chatbot ends here. To tell the customer first, put a Send message node before this one.'),
+    ).toBeInTheDocument();
+  });
+
+  it("a new hand-over starts on the number's routing", () => {
+    open(node('assign_chat'));
+    expect(screen.getByRole('radio', { name: "The number's normal routing" })).toBeChecked();
   });
 });

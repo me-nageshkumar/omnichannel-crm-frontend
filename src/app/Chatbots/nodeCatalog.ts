@@ -201,12 +201,14 @@ export const CATALOG: Record<NodeType, NodeMeta> = {
   },
   assign_chat: {
     type: 'assign_chat',
-    label: 'Assign chat',
-    description: 'Gives the chat to an agent, a team queue or the next team member in turn.',
+    label: 'Hand over to agent',
+    description: 'Gives the chat to a person and ends the chatbot.',
     icon: UsersIcon,
-    defaultSettings: () => ({ mode: 'TEAM_QUEUE', userId: null, teamId: null, whenAway: null }),
-    outputs: () => [NEXT],
+    defaultSettings: () => ({ mode: 'NUMBER_ROUTING', userId: null, teamId: null, whenAway: null }),
+    // the chatbot ends here (spec 2026-11-18 §5.4); the server's node has no outputs either
+    outputs: () => [],
     preview: (s, o) => {
+      if (s.mode === 'NUMBER_ROUTING') return "By the number's routing";
       if (s.mode === 'AGENT') return `Assign to ${nameOf(o?.agents, s.userId, 'an agent')}`;
       const team = nameOf(o?.teams, s.teamId, 'a team');
       return s.mode === 'TEAM_ROUND_ROBIN' ? `Round robin in ${team}` : `Queue in ${team}`;

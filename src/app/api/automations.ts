@@ -30,7 +30,8 @@ export type AutomationAction = {
   templateId?: string | null;
   values?: Record<string, string>;
   // ASSIGN_CHAT
-  mode?: 'AGENT' | 'TEAM_QUEUE' | 'TEAM_ROUND_ROBIN';
+  /** `NUMBER_ROUTING` (the number's own routing) is for the chatbot hand-over node only; a rule refuses it. */
+  mode?: 'AGENT' | 'TEAM_QUEUE' | 'TEAM_ROUND_ROBIN' | 'NUMBER_ROUTING';
   userId?: string | null;
   teamId?: string | null;
   whenAway?: 'KEEP_WITH_AGENT' | 'OWNING_TEAM_QUEUE' | null;

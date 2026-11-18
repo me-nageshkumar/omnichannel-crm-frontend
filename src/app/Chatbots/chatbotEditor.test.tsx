@@ -86,6 +86,42 @@ describe('chatbot editor', () => {
     expect(screen.getByRole('button', { name: 'Save' })).toBeDisabled();
   });
 
+  it('a flow saved with an edge after the hand-over opens, and saving drops the edge', async () => {
+    const handOver = {
+      ...LEAD_QUALIFIER,
+      flow: {
+        nodes: [
+          {
+            id: 'h',
+            type: 'assign_chat' as const,
+            position: { x: 0, y: 0 },
+            data: { name: 'Hand', settings: { mode: 'NUMBER_ROUTING' } },
+          },
+          {
+            id: 's',
+            type: 'send_message' as const,
+            position: { x: 0, y: 200 },
+            data: { name: 'After', settings: { message: { type: 'text', text: { body: 'x' } } } },
+          },
+        ],
+        edges: [{ id: 'e1', source: 'h', sourceHandle: 'next', target: 's' }],
+      },
+    };
+    const { f, user } = open('/chatbots/c1', {
+      [`GET ${CHATBOTS_BASE}/c1`]: { status: 200, body: handOver },
+      [`PUT ${CHATBOTS_BASE}/c1`]: { status: 200, body: { chatbot: { ...handOver, version: 4 }, problems: [] } },
+    });
+    await screen.findByRole('heading', { name: 'Lead qualifier' });
+    expect(nodeItem('Hand').getByText("By the number's routing")).toBeVisible();
+    await user.click(nodeItem('After').getByRole('button', { name: 'Rename After' }));
+    const input = await screen.findByRole('textbox', { name: 'Node name' });
+    await user.clear(input);
+    await user.type(input, 'Later{Enter}');
+    await user.click(screen.getByRole('button', { name: 'Save' }));
+    await waitFor(() => expect(callsTo(f, `PUT ${CHATBOTS_BASE}/c1`)).toBe(1));
+    expect(requestTo(f, `PUT ${CHATBOTS_BASE}/c1`)?.body.flow.edges).toEqual([]);
+  });
+
   it('ctrlSSaves', async () => {
     const { f, user } = open('/chatbots/c1', {
       [`PUT ${CHATBOTS_BASE}/c1`]: { status: 200, body: { chatbot: LEAD_QUALIFIER, problems: [] } },

@@ -223,4 +223,25 @@ describe('flowModel', () => {
       target: free.id,
     });
   });
+
+  it('saving drops an edge that leaves a hand-over node', () => {
+    const f: SavedFlow = {
+      nodes: [
+        {
+          id: 'h',
+          type: 'assign_chat',
+          position: { x: 0, y: 0 },
+          data: { name: 'Hand', settings: { mode: 'NUMBER_ROUTING' } },
+        },
+        {
+          id: 's',
+          type: 'send_message',
+          position: { x: 0, y: 200 },
+          data: { name: 'After', settings: { message: { type: 'text', text: { body: 'x' } } } },
+        },
+      ],
+      edges: [{ id: 'e1', source: 'h', sourceHandle: 'next', target: 's' }],
+    };
+    expect(pruneEdges(f).edges).toEqual([]);
+  });
 });
