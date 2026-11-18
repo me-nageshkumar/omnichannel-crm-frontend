@@ -12,6 +12,7 @@ const PLATFORM_CODES = [
   'phone-number:view-all',
   'phone-number:manage-all',
   'chatbot-defaults:manage',
+  'pages-address:manage',
   'plan:manage',
   'billing-settings:manage',
   'subscription:view',

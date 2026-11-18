@@ -42,6 +42,7 @@ import { useSession } from '@app/session/SessionContext';
 import { BillingProfileCard } from '@app/Billing/platform/BillingProfileCard';
 import { CustomerBillingTabs } from '@app/Billing/platform/CustomerBillingTabs';
 import { CustomerWalletCard } from '@app/Billing/platform/CustomerWalletCard';
+import { LinkAddressesCard } from '@app/Customers/LinkAddressesCard';
 import { SubscriptionCard } from '@app/Billing/platform/SubscriptionCard';
 import { useAccess } from '@app/session/useAccess';
 
@@ -68,6 +69,7 @@ export const CustomerDetailPage: React.FunctionComponent = () => {
   const canManage = useAccess().has('customer:manage');
   const canCrm = useAccess().has('crm:enable');
   const canSeePlan = useAccess().has('subscription:view');
+  const canSetLinks = useAccess().has('pages-address:manage');
   // the plan card and the orders under it each reload when the other changed the customer's billing
   const [billingTick, setBillingTick] = React.useState(0);
   const billingChanged = React.useCallback(() => setBillingTick((n) => n + 1), []);
@@ -259,6 +261,11 @@ export const CustomerDetailPage: React.FunctionComponent = () => {
             </CardBody>
           </Card>
         </StackItem>
+        {canSetLinks && (
+          <StackItem>
+            <LinkAddressesCard customerId={customer.id} />
+          </StackItem>
+        )}
         <StackItem>
           <Card>
             <CardHeader
