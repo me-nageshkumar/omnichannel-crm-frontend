@@ -344,8 +344,8 @@ const PlanForm: React.FunctionComponent<{
             <FormHelperText>
               <HelperText>
                 <HelperTextItem>
-                  Up to 4 decimals; leave it empty to charge nothing. Each message sent is taken from the customer's
-                  wallet. A new rate reaches a customer with its next term: a renewal, or a plan change.
+                  Up to 4 decimals; leave it empty to charge nothing. Each message sent is taken from the wallet of the
+                  customer. A new rate reaches a customer with its next term: a renewal, or a plan change.
                 </HelperTextItem>
               </HelperText>
             </FormHelperText>

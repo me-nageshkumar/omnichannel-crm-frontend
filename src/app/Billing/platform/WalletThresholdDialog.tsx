@@ -66,7 +66,11 @@ export const WalletThresholdDialog: React.FunctionComponent<{
               autoFocus
               validated={error ? 'error' : 'default'}
               aria-invalid={error ? true : undefined}
-              onChange={(_e, v) => setLevel(v)}
+              onChange={(_e, v) => {
+                setLevel(v);
+                action.reset();
+                setMissing(null);
+              }}
             />
             <FormHelperText>
               <HelperText>

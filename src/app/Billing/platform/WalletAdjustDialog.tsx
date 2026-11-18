@@ -83,7 +83,12 @@ export const WalletAdjustDialog: React.FunctionComponent<{
               autoFocus
               validated={invalid('amount') ? 'error' : 'default'}
               aria-invalid={invalid('amount') ? true : undefined}
-              onChange={(_e, v) => setAmount(v)}
+              onChange={(_e, v) => {
+                setAmount(v);
+                // what was said was about the amount that was there
+                action.reset();
+                setMissing({});
+              }}
             />
             {problem('amount', 'Up to 4 decimals. No tax is charged, and an adjustment cannot be refunded.')}
           </FormGroup>

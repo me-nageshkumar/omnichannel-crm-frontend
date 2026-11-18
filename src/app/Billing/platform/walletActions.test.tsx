@@ -258,4 +258,22 @@ describe('staff actions on a wallet', () => {
     expect((await within(dialog).findAllByText('₹472.00')).length).toBeGreaterThan(0);
     await waitFor(() => expect(confirm).toBeEnabled());
   });
+
+  it('forgets what was wrong with an adjustment once it is typed again', async () => {
+    mockFetch(
+      routes({
+        [ADJUST]: { status: 409, body: { code: 'NOT_ENOUGH_WALLET', message: 'The wallet holds less than that' } },
+      }),
+    );
+    const { user } = renderApp('/customers/c1');
+    const dialog = await more(user, 'Adjust wallet');
+    await user.type(within(dialog).getByLabelText(/^Amount/), '-5000');
+    await user.type(within(dialog).getByLabelText(/^Note/), 'Test');
+    await user.click(within(dialog).getByRole('button', { name: 'Adjust' }));
+    expect(await within(dialog).findByText('The wallet does not hold that much that can be taken.')).toBeVisible();
+    await user.type(within(dialog).getByLabelText(/^Amount/), '0');
+    await waitFor(() =>
+      expect(within(dialog).queryByText('The wallet does not hold that much that can be taken.')).toBeNull(),
+    );
+  });
 });

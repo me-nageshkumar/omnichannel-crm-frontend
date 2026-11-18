@@ -153,9 +153,10 @@ export const SessionProvider: React.FunctionComponent<{ children: React.ReactNod
   const signOut = React.useCallback(
     async (notice?: string) => {
       const token = state.token;
-      if (token) await logout(token).catch(() => undefined);
-      // a session that ended by itself carries a notice, and its owner is taken back to where they were
+      // A session that ended by itself carries a notice, and its owner is taken back to where they were. Set
+      // before the server is told, so a request refused meanwhile cannot send the next person to this page.
       leftOnPurpose.current = notice === undefined;
+      if (token) await logout(token).catch(() => undefined);
       signedOut(notice ?? null);
     },
     [state.token, signedOut],

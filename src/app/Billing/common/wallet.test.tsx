@@ -254,7 +254,7 @@ describe('the wallet', () => {
 
   it('keeps the ledger and its pager on screen while another page loads, and when it fails', async () => {
     let fail = false;
-    mockFetch(
+    const fetch = mockFetch(
       staff({
         [`GET ${BASE}/wallet/entries`]: () =>
           fail ? { status: 500, body: {} } : { status: 200, body: { items: LEDGER, total: 120, page: 0 } },
@@ -270,5 +270,45 @@ describe('the wallet', () => {
     // what was there stays, with the way back
     expect(within(billing).getByText('ORD-000006')).toBeVisible();
     expect(within(billing).getByRole('button', { name: 'Go to previous page' })).toBeVisible();
+    // the pager still says which rows those are, and Next asks for the page that failed, not the one after it
+    expect(within(billing).getByRole('button', { name: 'Go to previous page' })).toBeDisabled();
+    fail = false;
+    await user.click(within(billing).getByRole('button', { name: 'Go to next page' }));
+    await waitFor(() => {
+      const asked = urlsOf(fetch, `GET ${BASE}/wallet/entries`);
+      expect(asked[asked.length - 1]).toBe(`${BASE}/wallet/entries?page=1`);
+    });
+  });
+
+  it('stops saying the customer has no plan once a plan is sold on the page', async () => {
+    let sold = false;
+    mockFetch(
+      staff({
+        'GET /api/customers/c1': () => ({
+          status: 200,
+          body: {
+            customer: sold ? ACME : { ...ACME, planName: null, subscriptionState: 'NONE' },
+            workspaces: [],
+            admins: [],
+          },
+        }),
+        [`GET ${BASE}/wallet`]: () => ({ status: 200, body: sold ? wallet({ balance: 0, refundable: 0 }) : NO_WALLET }),
+        [`POST ${BASE}/wallet/threshold`]: { status: 200, body: wallet() },
+        [`PUT ${BASE}/wallet/threshold`]: () => {
+          // stands in for any change to the customer's billing made on this page
+          sold = true;
+          return { status: 200, body: wallet({ balance: 0, refundable: 0 }) };
+        },
+      }),
+    );
+    const { user } = renderApp('/customers/c1');
+    const card = await screen.findByRole('region', { name: 'Wallet' });
+    expect(await within(card).findByText('This customer has no plan, so nothing is charged.')).toBeVisible();
+    await user.click(within(card).getByRole('button', { name: 'More' }));
+    await user.click(await screen.findByRole('menuitem', { name: 'Low-balance warning' }));
+    const dialog = await screen.findByRole('dialog');
+    await user.click(within(dialog).getByRole('button', { name: 'Save' }));
+    expect(await within(card).findByText('₹0.25 per message')).toBeVisible();
+    expect(within(card).queryByText('This customer has no plan, so nothing is charged.')).toBeNull();
   });
 });

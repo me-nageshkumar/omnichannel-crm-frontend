@@ -71,7 +71,15 @@ export const CustomerDetailPage: React.FunctionComponent = () => {
   // the plan card and the orders under it each reload when the other changed the customer's billing
   const [billingTick, setBillingTick] = React.useState(0);
   const billingChanged = React.useCallback(() => setBillingTick((n) => n + 1), []);
-  const detail = useLoad((t) => getCustomer(t, id), [id]);
+  const detail = useLoad((t) => getCustomer(t, id), [id], { keepOnError: true });
+  // what the page says about the customer's plan follows a billing change made on it, in place
+  const reloadDetail = detail.reload;
+  const firstTick = React.useRef(true);
+  React.useEffect(() => {
+    if (firstTick.current) firstTick.current = false;
+    else reloadDetail();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [billingTick]);
   const users = useLoad((t) => listCustomerUsers(t, id), [id]);
   const [dialog, setDialog] = React.useState<Dialog | null>(null);
   const toggle = useAction();

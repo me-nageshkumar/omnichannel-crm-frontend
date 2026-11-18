@@ -21,15 +21,14 @@ export const WalletEntriesTable: React.FunctionComponent<{
   zone: string;
   reloadKey?: number;
 }> = ({ load, zone, reloadKey = 0 }) => {
-  // The page asked for. It is not part of the load's key: a new page is asked for in place, so the rows and the
-  // pager stay on screen until the answer comes, and stay if it fails.
-  const [page, setPage] = React.useState(0);
+  // The page asked for is not part of the load's key: a new page is asked for in place, so the rows and the pager
+  // stay on screen until the answer comes, and stay if it fails. The pager shows the page the rows are of (the
+  // server's answer), so the two cannot disagree.
   const wanted = React.useRef(0);
   const entries = useLoad((t) => load(t, wanted.current), [], { keepOnError: true });
   const reload = entries.reload;
   const go = (to: number) => {
     wanted.current = to;
-    setPage(to);
     reload();
   };
   const first = React.useRef(true);
@@ -40,7 +39,6 @@ export const WalletEntriesTable: React.FunctionComponent<{
     }
     // something changed the wallet: its line is the newest, on the first page
     wanted.current = 0;
-    setPage(0);
     reload();
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [reloadKey]);
@@ -92,7 +90,7 @@ export const WalletEntriesTable: React.FunctionComponent<{
         <Pagination
           itemCount={total}
           perPage={PER_PAGE}
-          page={page + 1}
+          page={entries.data.page + 1}
           perPageOptions={[]}
           onSetPage={(_e, p) => go(p - 1)}
           isCompact

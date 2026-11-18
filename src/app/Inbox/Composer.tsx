@@ -37,6 +37,8 @@ export const Composer: React.FunctionComponent<{
   // A second Enter can arrive before the first send has re-rendered the button as disabled.
   const inFlight = React.useRef(false);
 
+  const shownChat = React.useRef(chat.id);
+  shownChat.current = chat.id;
   // what was said about a send belongs to the chat it was tried in
   React.useEffect(() => {
     setError(null);
@@ -52,6 +54,7 @@ export const Composer: React.FunctionComponent<{
   const send = async () => {
     if (!canSend || inFlight.current) return;
     inFlight.current = true;
+    const sentIn = chat.id;
     setSending(true);
     setError(null);
     setWalletEmpty(false);
@@ -62,6 +65,8 @@ export const Composer: React.FunctionComponent<{
       setText((now) => (now === text ? '' : now));
       onSent(message);
     } catch (e) {
+      // a refusal that comes back after another chat was opened is not about the chat on screen
+      if (shownChat.current !== sentIn) return;
       const field = e instanceof ApiError && e.code?.toUpperCase() === 'VALIDATION' ? e.fields?.text : undefined;
       if (field) setTextError(field);
       else if (e instanceof ApiError && e.code?.toUpperCase() === 'WALLET_EMPTY') setWalletEmpty(true);
