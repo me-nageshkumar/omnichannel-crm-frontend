@@ -2,12 +2,12 @@ import * as React from 'react';
 import { Alert, Card, CardBody, CardTitle, Spinner, Tab, TabTitleText, Tabs } from '@patternfly/react-core';
 import {
   getBillingSettings,
+  getWalletUsage,
   listCustomerCreditNotes,
   listCustomerInvoices,
   listCustomerOrders,
   listCustomerRefunds,
   listWalletEntries,
-  getWalletUsage,
 } from '@app/api/billing';
 import { type Loaded, useLoad } from '@app/admin/useLoad';
 import { DocumentsTable } from '@app/Billing/common/DocumentsTable';
