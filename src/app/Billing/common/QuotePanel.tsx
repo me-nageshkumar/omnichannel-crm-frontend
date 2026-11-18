@@ -96,8 +96,11 @@ export const QuotePanel: React.FunctionComponent<{
                   </Td>
                 </Tr>
               )}
-              {quote.credits.map((c) => (
-                <Row key={c.creditNoteId} label={`Credit for unused time on ${c.invoiceNumber}`}>
+              {quote.credits.map((c, i) => (
+                <Row
+                  key={`${i}:${c.invoiceId}`}
+                  label={`${quote.kind === 'WALLET_REFUND' ? 'Credit for wallet money on' : 'Credit for unused time on'} ${c.invoiceNumber}`}
+                >
                   {money(c.total)}
                 </Row>
               ))}
