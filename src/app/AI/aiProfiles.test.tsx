@@ -5,6 +5,7 @@ import { renderApp } from '../../test/renderApp';
 import { callsTo, mockFetch, requestTo } from '../../test/fetchMock';
 import { WORKSPACE_MANAGER, meAs, storeSession } from '../../test/session';
 import { AI_BASE, CONNECTION, PROFILE, PROVIDERS, SCRIPTED_CONNECTION, aiRoutes } from '../../test/ai';
+import { KB, KB_BASE } from '../../test/aiKnowledge';
 
 type User = ReturnType<typeof userEvent.setup>;
 
@@ -42,6 +43,46 @@ describe('AI page — profiles', () => {
     storeSession();
   });
   afterEach(() => vi.unstubAllGlobals());
+
+  it('knowledgeBasesGroupedAndNotRepeated', async () => {
+    const user = userEvent.setup();
+    const elsewhere = { ...KB, id: 'kb2', name: 'Scripted notes', connectionId: 'k2', providerStoreId: 'vs_kb2' };
+    const fetch = await openProfiles({
+      [`GET ${KB_BASE}`]: { status: 200, body: [KB, elsewhere] },
+      [`GET ${AI_BASE}/connections/k1/vector-stores`]: {
+        status: 200,
+        body: [
+          { id: 'vs_kb1', name: 'Bimal courses', fileCount: 11 },
+          { id: 'vs2', name: 'Return policy', fileCount: 4 },
+        ],
+      },
+      [`PUT ${AI_BASE}/profiles/p1`]: { status: 200, body: PROFILE },
+    });
+    const dialog = await editSales(user);
+
+    const ours = await within(dialog).findByRole('group', { name: 'Knowledge bases' });
+    expect(
+      within(ours)
+        .getAllByRole('checkbox')
+        .map((c) => c.closest('div')?.textContent),
+    ).toEqual(['Bimal courses (10 ready, 1 adding, 1 failed)']);
+    const others = await within(dialog).findByRole('group', { name: 'Other stores in this OpenAI account' });
+    expect(within(others).getByLabelText('Return policy (4 files)')).toBeVisible();
+    expect(within(others).queryByLabelText(/Bimal courses/)).toBeNull();
+
+    await user.click(within(ours).getByLabelText(/Bimal courses/));
+    await user.click(within(dialog).getByRole('button', { name: 'Save' }));
+    await waitFor(() => expect(requestTo(fetch, `PUT ${AI_BASE}/profiles/p1`)).toBeDefined());
+    expect(requestTo(fetch, `PUT ${AI_BASE}/profiles/p1`)?.body.vectorStoreIds).toEqual(['vs1', 'vs_kb1']);
+  });
+
+  it('noKnowledgeBasesLinksToTheTab', async () => {
+    const user = userEvent.setup();
+    await openProfiles();
+    const dialog = await editSales(user);
+    expect(await within(dialog).findByText('No knowledge bases yet.')).toBeVisible();
+    expect(within(dialog).getByRole('link', { name: 'Create one' })).toHaveAttribute('href', '/ai?tab=knowledge');
+  });
 
   it('listsProfiles', async () => {
     await openProfiles();

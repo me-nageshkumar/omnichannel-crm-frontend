@@ -3,6 +3,7 @@ import {
   Alert,
   Button,
   Checkbox,
+  Content,
   Form,
   FormGroup,
   FormSelect,
@@ -27,7 +28,9 @@ import {
   listMcpTools,
   saveAiProfile,
 } from '@app/api/ai';
+import { type KnowledgeBase, listKnowledgeBases } from '@app/api/aiKnowledge';
 import { ApiError } from '@app/api/client';
+import { Link } from 'react-router-dom';
 import { useSession } from '@app/session/SessionContext';
 import { FieldError } from '@app/AI/ConnectionModal';
 import { type McpRow, McpServersFields, rowOf, toolsOf } from '@app/AI/McpServersFields';
@@ -35,6 +38,18 @@ import { profileProblems } from '@app/AI/profileProblems';
 import { aiMessage } from '@app/AI/aiMessages';
 
 const num = (v: string): number | null => (v.trim() === '' || Number.isNaN(Number(v)) ? null : Number(v));
+
+/** "Bimal courses (10 ready, 1 adding, 1 failed)". */
+const baseLabel = (b: KnowledgeBase) => {
+  const adding = b.counts.adding + b.counts.queued;
+  return `${b.name} (${[
+    `${b.counts.ready} ready`,
+    adding > 0 && `${adding} adding`,
+    b.counts.failed > 0 && `${b.counts.failed} failed`,
+  ]
+    .filter(Boolean)
+    .join(', ')})`;
+};
 
 /** Adds or edits a profile; the fields shown follow what the selected connection's provider supports. */
 export const ProfileModal: React.FunctionComponent<{
@@ -59,6 +74,7 @@ export const ProfileModal: React.FunctionComponent<{
   const [models, setModels] = React.useState<AiModel[]>([]);
   const [storeList, setStoreList] = React.useState<AiVectorStore[] | null>(null);
   const [storeError, setStoreError] = React.useState<string | null>(null);
+  const [bases, setBases] = React.useState<KnowledgeBase[] | null>(null);
   const [busy, setBusy] = React.useState(false);
   const [error, setError] = React.useState<string | null>(null);
   const [fields, setFields] = React.useState<Record<string, string>>({});
@@ -90,14 +106,27 @@ export const ProfileModal: React.FunctionComponent<{
     if (!connectionId || !token) return;
     setStoreError(null);
     try {
-      setStoreList(await listAiVectorStores(token, ws, connectionId));
+      const [listed, own] = await Promise.all([
+        listAiVectorStores(token, ws, connectionId),
+        listKnowledgeBases(token, ws),
+      ]);
+      setStoreList(listed);
+      setBases(own);
     } catch (e) {
       setStoreError(aiMessage(e));
     }
   }, [token, ws, connectionId]);
 
+  // The brand's knowledge bases on this connection come first, by name; the key's other stores follow, without ours.
+  const ownBases = (bases ?? []).filter((b) => b.connectionId === connectionId);
+  const ourStoreIds = new Set((bases ?? []).map((b) => b.providerStoreId));
+  const otherStores = (storeList ?? []).filter((v) => !ourStoreIds.has(v.id));
+  const toggleStore = (storeId: string, on: boolean) =>
+    setStores(on ? [...stores, storeId] : stores.filter((x) => x !== storeId));
+
   React.useEffect(() => {
     setStoreList(null);
+    setBases(null);
     if (shows('vectorStores')) loadStores();
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [connectionId, caps?.vectorStores]);
@@ -251,16 +280,37 @@ export const ProfileModal: React.FunctionComponent<{
           {shows('vectorStores') && (
             <FormGroup role="group" aria-label="Knowledge" label="Knowledge" fieldId="ai-profile-stores">
               {storeError && <Alert variant="warning" isInline isPlain title={storeError} />}
-              {(storeList ?? []).map((v) => (
-                <Checkbox
-                  key={v.id}
-                  id={`ai-store-${v.id}`}
-                  label={`${v.name ?? v.id} (${v.fileCount} files)`}
-                  isChecked={stores.includes(v.id)}
-                  onChange={(_e, on) => setStores(on ? [...stores, v.id] : stores.filter((x) => x !== v.id))}
-                />
-              ))}
-              {storeList && storeList.length === 0 && <span>This key sees no vector stores.</span>}
+              <div role="group" aria-label="Knowledge bases">
+                <Content component="small">Knowledge bases</Content>
+                {ownBases.map((b) => (
+                  <Checkbox
+                    key={b.id}
+                    id={`ai-kb-${b.id}`}
+                    label={baseLabel(b)}
+                    isChecked={stores.includes(b.providerStoreId)}
+                    onChange={(_e, on) => toggleStore(b.providerStoreId, on)}
+                  />
+                ))}
+                {bases && ownBases.length === 0 && (
+                  <Content component="p">
+                    No knowledge bases yet. <Link to="/ai?tab=knowledge">Create one</Link>
+                  </Content>
+                )}
+              </div>
+              {otherStores.length > 0 && (
+                <div role="group" aria-label="Other stores in this OpenAI account">
+                  <Content component="small">Other stores in this OpenAI account</Content>
+                  {otherStores.map((v) => (
+                    <Checkbox
+                      key={v.id}
+                      id={`ai-store-${v.id}`}
+                      label={`${v.name ?? v.id} (${v.fileCount} files)`}
+                      isChecked={stores.includes(v.id)}
+                      onChange={(_e, on) => toggleStore(v.id, on)}
+                    />
+                  ))}
+                </div>
+              )}
               <Button variant="link" isInline onClick={loadStores}>
                 Refresh
               </Button>

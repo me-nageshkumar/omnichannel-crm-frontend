@@ -119,6 +119,7 @@ export function aiRoutes(overrides: Record<string, MockRoute> = {}): Record<stri
     },
     [`GET ${AI_BASE}/profiles`]: { status: 200, body: [PROFILE] },
     [`GET ${AI_BASE}/profiles/p1`]: { status: 200, body: PROFILE },
+    [`GET ${AI_BASE}/knowledge-bases`]: { status: 200, body: [] },
     ...overrides,
   };
 }

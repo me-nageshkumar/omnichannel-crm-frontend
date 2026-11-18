@@ -76,7 +76,8 @@ export const ProfilesTab: React.FunctionComponent<{ providers: AiProvider[]; can
                 <Td dataLabel="Tools">
                   {[
                     p.mcpServers.length > 0 && `${p.mcpServers.length} MCP`,
-                    p.vectorStoreIds.length > 0 && `${p.vectorStoreIds.length} vector store`,
+                    p.vectorStoreIds.length > 0 &&
+                      `${p.vectorStoreIds.length} knowledge source${p.vectorStoreIds.length === 1 ? '' : 's'}`,
                     p.webSearch && 'web search',
                   ]
                     .filter(Boolean)
