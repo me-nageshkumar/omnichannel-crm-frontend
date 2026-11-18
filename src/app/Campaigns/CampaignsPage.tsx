@@ -27,8 +27,11 @@ const GENERIC_PAUSE_TEXT = 'A campaign was paused by the system. Open it to see 
 const REFUSED_TEXT =
   'Sending was refused for this campaign, for example because a template was archived. Fix the campaign, then resume it.';
 
+const WALLET_TEXT = 'Paused: the wallet balance is too low. Top up the wallet, then resume.';
+
 /** The sentence explaining why the system paused a campaign. */
 export function systemPauseText(reason: string | null): string {
+  if (reason === 'WALLET_EMPTY') return WALLET_TEXT;
   return reason === 'SEND_REFUSED' ? REFUSED_TEXT : SYSTEM_PAUSE_TEXT;
 }
 

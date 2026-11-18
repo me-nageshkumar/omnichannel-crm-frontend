@@ -2,6 +2,7 @@ import * as React from 'react';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { fireEvent, render, screen, waitFor } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
+import { MemoryRouter } from 'react-router-dom';
 import type { ChatView, MessageView } from '@app/api/inbox';
 import { Composer } from '@app/Inbox/Composer';
 import { SessionProvider, useSession } from '@app/session/SessionContext';
@@ -66,7 +67,9 @@ function renderComposer(over: { chat?: ChatView; numberConnected?: boolean } = {
   render(
     <ThemeProvider>
       <SessionProvider>
-        <Host chat={over.chat ?? CHAT} numberConnected={over.numberConnected ?? true} onSent={onSent} />
+        <MemoryRouter>
+          <Host chat={over.chat ?? CHAT} numberConnected={over.numberConnected ?? true} onSent={onSent} />
+        </MemoryRouter>
       </SessionProvider>
     </ThemeProvider>,
   );
@@ -191,6 +194,31 @@ describe('composer', () => {
     expect(await screen.findByText('WhatsApp is not connected on this number.')).toBeInTheDocument();
     expect(await box()).toHaveValue('hello');
     expect(onSent).not.toHaveBeenCalled();
+  });
+
+  it('keeps the text and says the wallet is too low when a send is refused for it', async () => {
+    mockFetch({
+      ...meAs(AGENT_IN_BRAND),
+      [SEND]: { status: 402, body: { code: 'WALLET_EMPTY', message: 'The wallet balance is too low to send' } },
+    });
+    const { user, onSent } = renderComposer();
+    await user.type(await box(), 'hello{Enter}');
+    expect(await screen.findByText(/The wallet balance is too low to send\./)).toBeInTheDocument();
+    expect(screen.getByText(/Ask your administrator to top up the wallet\./)).toBeInTheDocument();
+    expect(screen.queryByRole('link', { name: 'Top up the wallet' })).toBeNull();
+    expect(await box()).toHaveValue('hello');
+    expect(onSent).not.toHaveBeenCalled();
+  });
+
+  it('links to Plan & billing from the wallet refusal for someone who may see it', async () => {
+    mockFetch({
+      ...meAs({ ...AGENT_IN_BRAND, authorities: ['billing:view'] }),
+      [SEND]: { status: 402, body: { code: 'WALLET_EMPTY', message: 'The wallet balance is too low to send' } },
+    });
+    const { user } = renderComposer();
+    await user.type(await box(), 'hello{Enter}');
+    expect(await screen.findByRole('link', { name: 'Top up the wallet' })).toHaveAttribute('href', '/billing');
+    expect(await box()).toHaveValue('hello');
   });
 
   it('shows a text validation error under the textarea', async () => {

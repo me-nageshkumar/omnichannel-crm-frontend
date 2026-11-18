@@ -257,6 +257,15 @@ describe('campaign detail', () => {
     expect(screen.queryByText(SYSTEM_PAUSE_TEXT)).toBeNull();
   });
 
+  it('saysThatTheWalletIsWhyItPaused', async () => {
+    mockFetch(routes(campaignDetail({ status: 'PAUSED', pausedBy: 'SYSTEM', pauseReason: 'WALLET_EMPTY' })));
+    open();
+    expect(
+      await screen.findByText('Paused: the wallet balance is too low. Top up the wallet, then resume.'),
+    ).toBeVisible();
+    expect(screen.queryByText(SYSTEM_PAUSE_TEXT)).toBeNull();
+  });
+
   it('noBannerWhenTheUserPaused', async () => {
     mockFetch(routes(PAUSED));
     open();

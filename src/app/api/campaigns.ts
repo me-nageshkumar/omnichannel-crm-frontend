@@ -86,7 +86,7 @@ export interface CampaignView {
   name: string;
   status: CampaignStatus;
   pausedBy: 'USER' | 'SYSTEM' | null;
-  pauseReason: 'TWO_LOGOUTS' | 'SEND_REFUSED' | null;
+  pauseReason: 'TWO_LOGOUTS' | 'SEND_REFUSED' | 'WALLET_EMPTY' | null;
   audience: CampaignAudience;
   templateIds: string[];
   templateNames: string[];

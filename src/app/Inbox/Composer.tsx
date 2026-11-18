@@ -1,4 +1,5 @@
 import * as React from 'react';
+import { Link } from 'react-router-dom';
 import { Alert, Button, FormHelperText, HelperText, HelperTextItem, TextArea } from '@patternfly/react-core';
 import { ApiError } from '@app/api/client';
 import { ChatView, MessageView, sendTemplate, sendText } from '@app/api/inbox';
@@ -6,6 +7,7 @@ import { messageFor } from '@app/api/messages';
 import { InteractiveComposer } from '@app/Inbox/InteractiveComposer';
 import { TemplatePickerModal } from '@app/Inbox/TemplatePickerModal';
 import { useSession } from '@app/session/SessionContext';
+import { useAccess } from '@app/session/useAccess';
 
 export const MAX_LENGTH = 4096;
 export const COUNTER_FROM = 3900;
@@ -26,6 +28,9 @@ export const Composer: React.FunctionComponent<{
   const [text, setText] = React.useState('');
   const [sending, setSending] = React.useState(false);
   const [error, setError] = React.useState<string | null>(null);
+  // the wallet could not pay for the send: said with a way to the page where it is topped up
+  const [walletEmpty, setWalletEmpty] = React.useState(false);
+  const canSeeBilling = useAccess().has('billing:view');
   const [textError, setTextError] = React.useState<string | null>(null);
   const [picking, setPicking] = React.useState(false);
   const [composing, setComposing] = React.useState(false);
@@ -42,6 +47,7 @@ export const Composer: React.FunctionComponent<{
     inFlight.current = true;
     setSending(true);
     setError(null);
+    setWalletEmpty(false);
     setTextError(null);
     try {
       const message = await sendText(token as string, ws, chat.id, trimmed);
@@ -51,6 +57,7 @@ export const Composer: React.FunctionComponent<{
     } catch (e) {
       const field = e instanceof ApiError && e.code?.toUpperCase() === 'VALIDATION' ? e.fields?.text : undefined;
       if (field) setTextError(field);
+      else if (e instanceof ApiError && e.code?.toUpperCase() === 'WALLET_EMPTY') setWalletEmpty(true);
       else setError(messageFor(e));
     } finally {
       inFlight.current = false;
@@ -68,6 +75,25 @@ export const Composer: React.FunctionComponent<{
     <div style={{ display: 'flex', flexDirection: 'column', gap: 'var(--pf-t--global--spacer--sm)' }}>
       {notice && <Alert variant="info" isInline isPlain title={notice} />}
       {error && <Alert variant="danger" isInline isPlain title={error} />}
+      {walletEmpty && (
+        <Alert
+          variant="danger"
+          isInline
+          isPlain
+          title={
+            <>
+              The wallet balance is too low to send.{' '}
+              {canSeeBilling ? (
+                <>
+                  <Link to="/billing">Top up the wallet</Link>.
+                </>
+              ) : (
+                'Ask your administrator to top up the wallet.'
+              )}
+            </>
+          }
+        />
+      )}
       <TextArea
         aria-label="Message"
         placeholder="Type a message"
