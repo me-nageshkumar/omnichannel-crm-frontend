@@ -8,15 +8,17 @@ import { useSession } from '@app/session/SessionContext';
 import { useAccess } from '@app/session/useAccess';
 import { ConnectionsTab } from '@app/AI/ConnectionsTab';
 import { ProfilesTab } from '@app/AI/ProfilesTab';
+import { KnowledgeTab } from '@app/AI/knowledge/KnowledgeTab';
 
-/** Brand setup → AI (spec 2026-11-15 §5.10): provider connections and AI profiles. */
+/** Brand setup → AI (spec 2026-11-15 §5.10, 2026-11-18 §6.1): connections, AI profiles and knowledge bases. */
 export const AiPage: React.FunctionComponent = () => {
   const { workspace } = useSession();
   const ws = workspace?.id ?? '';
   const canManage = useAccess().hasInWorkspace('ai:manage');
   const providers = useLoad((tk) => listAiProviders(tk, ws), [ws]);
   const [params, setParams] = useSearchParams();
-  const tab = params.get('tab') === 'profiles' ? 'profiles' : 'connections';
+  const asked = params.get('tab');
+  const tab = asked === 'profiles' || asked === 'knowledge' ? asked : 'connections';
   return (
     <PageShell title="AI">
       {providers.error && <Alert variant="danger" isInline title={providers.error} />}
@@ -24,7 +26,7 @@ export const AiPage: React.FunctionComponent = () => {
       {providers.data && (
         <Tabs
           activeKey={tab}
-          onSelect={(_e, key) => setParams(key === 'profiles' ? { tab: 'profiles' } : {}, { replace: true })}
+          onSelect={(_e, key) => setParams(key === 'connections' ? {} : { tab: String(key) }, { replace: true })}
           aria-label="AI"
           mountOnEnter
           unmountOnExit
@@ -34,6 +36,9 @@ export const AiPage: React.FunctionComponent = () => {
           </Tab>
           <Tab eventKey="profiles" title={<TabTitleText>Profiles</TabTitleText>}>
             <ProfilesTab providers={providers.data} canManage={canManage} />
+          </Tab>
+          <Tab eventKey="knowledge" title={<TabTitleText>Knowledge</TabTitleText>}>
+            <KnowledgeTab providers={providers.data} canManage={canManage} />
           </Tab>
         </Tabs>
       )}

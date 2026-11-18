@@ -27,6 +27,8 @@ export interface AiProvider {
   label: string;
   capabilities: AiCapabilities;
   connectionFields: AiConnectionField[];
+  /** The app can create knowledge bases (vector stores) on this provider. */
+  knowledgeBases: boolean;
 }
 
 export type AiConnectionStatus = 'UNVERIFIED' | 'OK' | 'INVALID';

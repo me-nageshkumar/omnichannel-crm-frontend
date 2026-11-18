@@ -55,20 +55,26 @@ const SENT: MessageView = {
 const Host: React.FunctionComponent<{
   chat: ChatView;
   numberConnected: boolean;
+  archivedAt?: string | null;
   onSent(m: MessageView): void;
 }> = (props) => {
   const { status } = useSession();
   return status === 'signedIn' ? <Composer {...props} /> : null;
 };
 
-function renderComposer(over: { chat?: ChatView; numberConnected?: boolean } = {}) {
+function renderComposer(over: { chat?: ChatView; numberConnected?: boolean; archivedAt?: string } = {}) {
   const onSent = vi.fn();
   const user = userEvent.setup();
   render(
     <ThemeProvider>
       <SessionProvider>
         <MemoryRouter>
-          <Host chat={over.chat ?? CHAT} numberConnected={over.numberConnected ?? true} onSent={onSent} />
+          <Host
+            chat={over.chat ?? CHAT}
+            numberConnected={over.numberConnected ?? true}
+            archivedAt={over.archivedAt}
+            onSent={onSent}
+          />
         </MemoryRouter>
       </SessionProvider>
     </ThemeProvider>,
@@ -269,6 +275,14 @@ describe('composer', () => {
     expect(screen.getByRole('textbox', { name: 'Message' })).toBeDisabled();
     expect(sendButton()).toBeDisabled();
     expect(screen.getByRole('button', { name: 'Template' })).toBeDisabled();
+  });
+
+  it('archivedNumberComposerNotice', async () => {
+    mockFetch({ ...meAs(AGENT_IN_BRAND) });
+    renderComposer({ numberConnected: false, archivedAt: '2026-11-18T10:00:00Z' });
+    expect(await screen.findByText('This number moved to another brand on 18 Nov.')).toBeInTheDocument();
+    expect(screen.queryByText('WhatsApp is not connected on this number')).toBeNull();
+    expect(sendButton()).toBeDisabled();
   });
 
   it('not connected shows the notice', async () => {

@@ -1,6 +1,7 @@
 import * as React from 'react';
 import {
   Alert,
+  Label,
   MenuToggle,
   Pagination,
   SearchInput,
@@ -19,8 +20,10 @@ import {
   PhoneNumber,
   PhoneNumberStatus,
   STATUSES,
+  cancelNumberMove,
   deleteAnyNumber,
   listAllNumbers,
+  retryNumberMove,
   setAnyNumberEnabled,
   shown,
 } from '@app/api/phoneNumbers';
@@ -31,6 +34,7 @@ import { useLoad } from '@app/admin/useLoad';
 import { useSession } from '@app/session/SessionContext';
 import { useAccess } from '@app/session/useAccess';
 import { PhoneNumberStatusLabel, relative } from '@app/PhoneNumbers/PhoneNumberStatusLabel';
+import { MoveNumberModal, moveMessage, stoppedText } from '@app/PhoneNumbers/MoveNumberModal';
 
 type StatusFilter = 'ALL' | PhoneNumberStatus;
 
@@ -42,9 +46,14 @@ const STATUS_LABELS: Record<StatusFilter, string> = {
   WRONG_NUMBER: 'Wrong number',
   NOT_CONNECTED_YET: 'Not connected yet',
   DISABLED: 'Disabled',
+  ARCHIVED: 'Archived',
 };
 
-type Dialog = { kind: 'toggle'; number: PhoneNumber } | { kind: 'delete'; number: PhoneNumber };
+type Dialog =
+  | { kind: 'toggle'; number: PhoneNumber }
+  | { kind: 'delete'; number: PhoneNumber }
+  | { kind: 'move'; number: PhoneNumber }
+  | { kind: 'cancelMove'; number: PhoneNumber };
 
 /** Platform staff: every WhatsApp number on the platform, searchable, 50 per page. */
 export const AllPhoneNumbersPage: React.FunctionComponent = () => {
@@ -57,6 +66,7 @@ export const AllPhoneNumbersPage: React.FunctionComponent = () => {
   const [page, setPage] = React.useState(0);
   const [dialog, setDialog] = React.useState<Dialog | null>(null);
   const confirm = useAction();
+  const [notice, setNotice] = React.useState<string | null>(null);
   const t = token as string;
 
   React.useEffect(() => {
@@ -93,6 +103,37 @@ export const AllPhoneNumbersPage: React.FunctionComponent = () => {
       removeRow(n.id);
       setDialog(null);
     }
+  };
+  const onRetryMove = async (n: PhoneNumber) => {
+    setNotice(null);
+    try {
+      const result = await retryNumberMove(t, n.id);
+      if (!result.done) setNotice(stoppedText(result.error));
+      numbers.reload();
+    } catch (e) {
+      setNotice(moveMessage(e));
+    }
+  };
+  const onCancelMove = async (n: PhoneNumber) => {
+    const done = await confirm.run(() => cancelNumberMove(t, n.id), moveMessage);
+    if (done) {
+      numbers.reload();
+      setDialog(null);
+    }
+  };
+  const actionsFor = (n: PhoneNumber) => {
+    if (n.archiveOf) return [{ title: 'Delete', onClick: open({ kind: 'delete', number: n }) }];
+    const moving = n.moveUnfinished
+      ? [
+          { title: 'Retry move', onClick: () => onRetryMove(n) },
+          { title: 'Cancel move', onClick: open({ kind: 'cancelMove', number: n }) },
+        ]
+      : [{ title: 'Move to brand…', onClick: open({ kind: 'move', number: n }) }];
+    return [
+      { title: n.disabled ? 'Enable' : 'Disable', onClick: open({ kind: 'toggle', number: n }) },
+      ...moving,
+      { title: 'Delete', onClick: open({ kind: 'delete', number: n }) },
+    ];
   };
   const open = (d: Dialog) => () => {
     confirm.reset();
@@ -150,6 +191,7 @@ export const AllPhoneNumbersPage: React.FunctionComponent = () => {
         </ToolbarContent>
       </Toolbar>
       {numbers.error && <Alert variant="danger" isInline title={numbers.error} />}
+      {notice && <Alert variant="danger" isInline isPlain title={notice} />}
       {numbers.loading && !numbers.data ? (
         <Spinner aria-label="Loading phone numbers" />
       ) : (
@@ -176,21 +218,15 @@ export const AllPhoneNumbersPage: React.FunctionComponent = () => {
                 <Td dataLabel="Type">{CONNECTION_LABELS[n.connectionType] ?? n.connectionType}</Td>
                 <Td dataLabel="Status">
                   <PhoneNumberStatusLabel number={n} />
-                </Td>
-                <Td dataLabel="Last seen">{n.lastSeenAt ? relative(n.lastSeenAt) : '—'}</Td>
-                <Td isActionCell>
-                  {canManage && (
-                    <ActionsColumn
-                      items={[
-                        {
-                          title: n.disabled ? 'Enable' : 'Disable',
-                          onClick: open({ kind: 'toggle', number: n }),
-                        },
-                        { title: 'Delete', onClick: open({ kind: 'delete', number: n }) },
-                      ]}
-                    />
+                  {n.moveUnfinished && (
+                    <>
+                      {' '}
+                      <Label color="orange">Move did not finish</Label>
+                    </>
                   )}
                 </Td>
+                <Td dataLabel="Last seen">{n.lastSeenAt ? relative(n.lastSeenAt) : '—'}</Td>
+                <Td isActionCell>{canManage && <ActionsColumn items={actionsFor(n)} />}</Td>
               </Tr>
             ))}
           </Tbody>
@@ -223,6 +259,30 @@ export const AllPhoneNumbersPage: React.FunctionComponent = () => {
           onCancel={() => setDialog(null)}
         >
           Its device is disconnected and its connect code stops working.
+        </ConfirmModal>
+      )}
+      {dialog?.kind === 'move' && (
+        <MoveNumberModal
+          number={dialog.number}
+          onMoved={(done) => {
+            numbers.reload();
+            if (done) setDialog(null);
+          }}
+          onClose={() => setDialog(null)}
+        />
+      )}
+      {dialog?.kind === 'cancelMove' && (
+        <ConfirmModal
+          title={`Cancel the move of ${shown(dialog.number.number)}?`}
+          confirmLabel="Cancel move"
+          variant="danger"
+          busy={confirm.busy}
+          error={confirm.error}
+          onConfirm={() => onCancelMove(dialog.number)}
+          onCancel={() => setDialog(null)}
+        >
+          The number stays in its brand and its phone connects again. Once chats have started moving, only Retry move
+          can finish it.
         </ConfirmModal>
       )}
     </PageShell>

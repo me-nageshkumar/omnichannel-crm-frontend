@@ -10,6 +10,10 @@ const SERVER_WORDED = new Set([
   'ai_provider_error',
   'mcp_error',
   'mcp_provider_server',
+  'ai_knowledge_in_use',
+  'ai_knowledge_limit',
+  'ai_knowledge_file_type',
+  'ai_knowledge_no_store_support',
 ]);
 
 export const isSecretsUnavailable = (e: unknown): boolean =>

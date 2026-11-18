@@ -162,3 +162,11 @@ export async function apiFetchBlob(path: string, token: string): Promise<Blob> {
   if (!res.ok) throw failure(res, path, await res.text());
   return res.blob();
 }
+
+/** A GET whose reply is text that is not JSON (a stored Markdown copy). */
+export async function apiFetchText(path: string, token: string): Promise<string> {
+  const res = await fetch(path, { method: 'GET', headers: { Authorization: `Bearer ${token}` } });
+  const text = await res.text();
+  if (!res.ok) throw failure(res, path, text);
+  return text;
+}

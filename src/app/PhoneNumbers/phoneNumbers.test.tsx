@@ -25,6 +25,26 @@ describe('brand phone numbers page', () => {
     vi.unstubAllGlobals();
   });
 
+  it('archiveOffersOnlyRelabelAndDelete', async () => {
+    const archive = phoneNumber({
+      id: 'p9',
+      number: '919928088700',
+      label: 'Main line (until 18 Nov)',
+      status: 'ARCHIVED',
+      archiveOf: 'p0',
+      archivedAt: '2026-11-18T10:00:00Z',
+      disabled: OFF,
+      disabledBecause: 'NUMBER',
+    });
+    mockFetch(routes([archive]));
+    const { user } = renderApp('/phone-numbers');
+    const row = await rowWith('+919928088700');
+    expect(within(row).getByText('Archived')).toBeVisible();
+    await user.click(within(row).getByRole('button', { name: 'Kebab toggle' }));
+    const items = (await screen.findAllByRole('menuitem')).map((m) => m.textContent);
+    expect(items).toEqual(['Edit label', 'Delete']);
+  });
+
   it('listsNumbersWithStatus', async () => {
     const list = [
       phoneNumber({ id: 'a', number: '910000000001', status: 'NOT_CONNECTED_YET' }),

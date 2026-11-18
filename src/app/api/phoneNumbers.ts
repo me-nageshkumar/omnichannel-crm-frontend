@@ -7,7 +7,8 @@ export type PhoneNumberStatus =
   | 'WAITING_FOR_LOGIN'
   | 'CONNECTED'
   | 'WRONG_NUMBER'
-  | 'DISCONNECTED';
+  | 'DISCONNECTED'
+  | 'ARCHIVED';
 
 export const STATUSES: PhoneNumberStatus[] = [
   'CONNECTED',
@@ -16,6 +17,7 @@ export const STATUSES: PhoneNumberStatus[] = [
   'WRONG_NUMBER',
   'NOT_CONNECTED_YET',
   'DISABLED',
+  'ARCHIVED',
 ];
 
 /** How the number reaches WhatsApp: WhatsApp Web through the extension today, Cloud API later. */
@@ -49,6 +51,11 @@ export interface PhoneNumber {
   team: { id: string; name: string } | null;
   /** Only on the inbox's number list: true when the viewer sees it only through a chat handed to them. */
   guest?: boolean;
+  /** Set on an archive: the number whose old chats it keeps after a move. */
+  archiveOf?: string | null;
+  archivedAt?: string | null;
+  /** On the platform list: the number's last move has not finished. */
+  moveUnfinished?: boolean | null;
 }
 
 export interface PhoneNumberPage {
@@ -123,3 +130,49 @@ export const setAnyNumberEnabled = (token: string, id: string, enabled: boolean)
 
 export const deleteAnyNumber = (token: string, id: string) =>
   apiFetch<void>(`/api/phone-numbers/${id}`, { method: 'DELETE', token });
+
+/** What moving a number to another brand would do (spec 2026-11-18 §7.1). */
+export interface MovePreview {
+  fromWorkspaceName: string;
+  toWorkspaceName: string;
+  chats: number;
+  activeRuns: number;
+  teamName: string | null;
+  archiveLabel: string;
+  movingBack: boolean;
+  returningChats: number;
+  rulesNamingNumber: string[];
+  /** Running or paused campaigns sending from the number: the move is refused while any exists. */
+  activeCampaigns: string[];
+}
+
+export interface PhoneNumberMove {
+  id: string;
+  phoneNumberId: string;
+  fromWorkspaceId: string;
+  fromWorkspaceName: string | null;
+  toWorkspaceId: string;
+  toWorkspaceName: string | null;
+  step: string;
+  done: boolean;
+  error: string | null;
+  counts: { chats: number; messages: number; runsEnded: number } | null;
+  startedAt: string;
+  finishedAt: string | null;
+}
+
+const moveBase = (id: string) => `/api/phone-numbers/${encodeURIComponent(id)}/move`;
+
+export const previewNumberMove = (token: string, id: string, workspaceId: string) =>
+  apiFetch<MovePreview>(`${moveBase(id)}/preview?${new URLSearchParams({ workspaceId }).toString()}`, { token });
+
+export const moveNumber = (token: string, id: string, workspaceId: string) =>
+  apiFetch<PhoneNumberMove>(moveBase(id), { method: 'POST', body: { workspaceId }, token });
+
+export const lastNumberMove = (token: string, id: string) => apiFetch<PhoneNumberMove>(moveBase(id), { token });
+
+export const retryNumberMove = (token: string, id: string) =>
+  apiFetch<PhoneNumberMove>(`${moveBase(id)}/retry`, { method: 'POST', token });
+
+export const cancelNumberMove = (token: string, id: string) =>
+  apiFetch<PhoneNumberMove>(`${moveBase(id)}/cancel`, { method: 'POST', token });
