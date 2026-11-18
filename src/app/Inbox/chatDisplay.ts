@@ -51,6 +51,11 @@ export function defaultScope(scopes: ListScope[]): ListScope {
   return (['ALL', 'TEAM', 'MINE'] as const).find((s) => scopes.includes(s)) ?? 'MINE';
 }
 
+/** {@code scope} while the user may still use it (authorities can change under an open page), else their default. */
+export function usableScope(scope: ListScope, scopes: ListScope[]): ListScope {
+  return scopes.indexOf(scope) >= 0 ? scope : defaultScope(scopes);
+}
+
 export const defaultFilters = (access: Pick<Access, 'hasInWorkspace'>): ChatListFilters => ({
   scope: defaultScope(allowedScopes(access)),
   status: 'OPEN',

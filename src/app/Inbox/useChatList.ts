@@ -1,8 +1,9 @@
 import * as React from 'react';
 import { ChatView, InboxEvent, ListScope, listChats } from '@app/api/inbox';
 import { messageFor } from '@app/api/messages';
-import type { ChatListFilters } from '@app/Inbox/chatDisplay';
+import { ChatListFilters, allowedScopes, usableScope } from '@app/Inbox/chatDisplay';
 import { useSession } from '@app/session/SessionContext';
+import { useAccess } from '@app/session/useAccess';
 
 export const SEARCH_DEBOUNCE_MS = 300;
 
@@ -61,7 +62,8 @@ export function useChatList(phoneNumberIds: string[], filters: ChatListFilters, 
   const { token, user, workspace } = useSession();
   const meId = user?.id ?? '';
   const ws = workspace?.id ?? '';
-  const { scope, status, unread } = filters;
+  const { status, unread } = filters;
+  const scope = usableScope(filters.scope, allowedScopes(useAccess()));
   const [q, setQ] = React.useState(filters.q);
   const [items, setItems] = React.useState<ChatView[]>([]);
   const [hasMore, setHasMore] = React.useState(false);

@@ -2,7 +2,7 @@ import * as React from 'react';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { act, render, screen, waitFor, within } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
-import type { ChatView, InboxEvent } from '@app/api/inbox';
+import type { ChatView, InboxEvent, ListScope } from '@app/api/inbox';
 import type { CurrentUser } from '@app/api/users';
 import { ChatList } from '@app/Inbox/ChatList';
 import { defaultFilters } from '@app/Inbox/chatDisplay';
@@ -80,9 +80,14 @@ const Host: React.FunctionComponent = () => {
   return status === 'signedIn' ? <Inbox /> : null;
 };
 
+let startScope: ListScope | null = null;
+
 const Inbox: React.FunctionComponent = () => {
   const access = useAccess();
-  const [filters, setFilters] = React.useState(() => defaultFilters(access));
+  const [filters, setFilters] = React.useState(() => ({
+    ...defaultFilters(access),
+    ...(startScope ? { scope: startScope } : {}),
+  }));
   const [selectedId, setSelectedId] = React.useState<string | null>('b');
   const list = useChatList(['p1'], filters);
   apply = list.apply;
@@ -297,6 +302,20 @@ describe('chat list', () => {
     // and back with people, it leaves the Chatbot list
     act(() => apply({ type: 'chat', chat: { ...MEENA, assignedUser: otherUser }, visible: true }));
     await waitFor(() => expect(screen.queryByText('Meena')).toBeNull());
+  });
+
+  it('a Chatbot list the user may no longer use falls back to their default list', async () => {
+    startScope = 'BOT';
+    try {
+      const fetch = mockFetch({ ...meAs(MANAGER), [`GET ${LIST}`]: page([ASHA]) });
+      renderList();
+      await rows();
+      expect(pressed('All')).toBe('true');
+      expect(listUrls(fetch).map((u) => u.searchParams.get('scope'))).not.toContain('BOT');
+      expect(screen.getByRole('group', { name: 'Status' })).toBeInTheDocument();
+    } finally {
+      startScope = null;
+    }
   });
 
   it('visible:false event removes the row', async () => {
