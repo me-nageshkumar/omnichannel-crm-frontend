@@ -128,9 +128,11 @@ export const ChatHeader: React.FunctionComponent<{
     }
   };
   const bot = chat.chatbot;
-  const botText = bot
-    ? `Chatbot: ${bot.name}${bot.nodeName ? ` · ${bot.waitingFor ? 'waiting at' : 'at'} ${bot.nodeName}${bot.waitingFor ? ` for ${bot.waitingFor}` : ''}` : ''}`
+  const botWhere = bot
+    ? `${bot.name}${bot.nodeName ? ` · ${bot.waitingFor ? 'waiting at' : 'at'} ${bot.nodeName}${bot.waitingFor ? ` for ${bot.waitingFor}` : ''}` : ''}`
     : '';
+  const botText = bot ? `Chatbot: ${botWhere}` : '';
+  const withBot = chat.status === 'BOT';
   const toggleStatus = async () => {
     setBusy(true);
     try {
@@ -166,16 +168,16 @@ export const ChatHeader: React.FunctionComponent<{
             Ad
           </Label>
         )}
-        {chat.status === 'BOT' ? (
+        {withBot ? (
           <Label isCompact color="purple" icon={<RobotIcon />}>
-            With chatbot
+            {bot ? `With chatbot: ${botWhere}` : 'With chatbot'}
           </Label>
         ) : (
           <Label isCompact color={chat.assignedUser || chat.assignedTeam ? 'blue' : 'grey'}>
             {assignmentText(chat)}
           </Label>
         )}
-        {bot && (
+        {bot && !withBot && (
           <Label isCompact color="blue" icon={<RobotIcon />}>
             {botText}
           </Label>

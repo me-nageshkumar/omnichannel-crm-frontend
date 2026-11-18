@@ -116,6 +116,13 @@ describe('composer', () => {
     await waitFor(() => expect(callsTo(fetch, SEND)).toBe(1));
   });
 
+  it('no take-over hint while WhatsApp is not connected', async () => {
+    mockFetch({ ...meAs(AGENT_IN_BRAND) });
+    renderComposer({ chat: { ...CHAT, status: 'BOT' }, numberConnected: false });
+    expect(await screen.findByText('WhatsApp is not connected on this number')).toBeInTheDocument();
+    expect(screen.queryByText('Replying takes this chat over from the chatbot')).toBeNull();
+  });
+
   it('an open chat shows no take-over hint', async () => {
     mockFetch({ ...meAs(AGENT_IN_BRAND) });
     renderComposer();

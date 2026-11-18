@@ -257,6 +257,22 @@ describe('chat header: fetch history', () => {
     expect(screen.queryByRole('button', { name: 'Reopen' })).toBeNull();
   });
 
+  it('a chatbot chat shows one chatbot label with the chatbot and where it waits', async () => {
+    setup(
+      WORKSPACE_MANAGER,
+      {},
+      {
+        ...CHAT,
+        status: 'BOT',
+        chatbot: { runId: 'r1', chatbotId: 'cb1', name: 'Welcome', nodeName: 'AskName', waitingFor: 'WhatsApp reply' },
+      },
+    );
+    expect(
+      await screen.findByText('With chatbot: Welcome · waiting at AskName for WhatsApp reply'),
+    ).toBeInTheDocument();
+    expect(screen.queryByText(/^Chatbot: Welcome/)).toBeNull();
+  });
+
   it('an open chat has no With chatbot label', async () => {
     setup(WORKSPACE_MANAGER);
     await screen.findByText('Asha Rao');

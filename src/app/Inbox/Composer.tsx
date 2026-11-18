@@ -121,7 +121,7 @@ export const Composer: React.FunctionComponent<{
         }}
         onKeyDown={onKeyDown}
       />
-      {chat.status === 'BOT' && (
+      {chat.status === 'BOT' && notice === null && (
         <HelperText>
           <HelperTextItem>Replying takes this chat over from the chatbot</HelperTextItem>
         </HelperText>
