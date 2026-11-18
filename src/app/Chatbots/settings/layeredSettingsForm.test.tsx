@@ -97,11 +97,11 @@ describe('LayeredSettingsForm', () => {
     const { user, latest } = show(EMPTY_LAYER);
     const stop = screen.getByRole('switch', { name: 'Stop when an agent replies' });
     expect(stop).toBeChecked();
-    // both switches inherit from the platform here
-    expect(screen.getAllByText('From the platform defaults')).toHaveLength(2);
+    // both switches and "When the chatbot finishes" inherit from the platform here
+    expect(screen.getAllByText('From the platform defaults')).toHaveLength(3);
     await user.click(stop);
     expect(latest().stopOnAgentReply).toBe(false);
-    expect(screen.getAllByText('From the platform defaults')).toHaveLength(1);
+    expect(screen.getAllByText('From the platform defaults')).toHaveLength(2);
     expect(screen.getByRole('button', { name: 'Reset Stop when an agent replies' })).toBeVisible();
   });
 
@@ -168,5 +168,13 @@ describe('LayeredSettingsForm', () => {
     expect(latest().whenCompleted).toBeNull();
     await user.selectOptions(screen.getByRole('combobox', { name: 'When the customer stops answering' }), '');
     expect(latest().whenAbandoned).toBeNull();
+  });
+
+  it('an inherited choice says where it comes from; a set one can be reset', async () => {
+    const { user, latest } = show({ ...EMPTY_LAYER, whenCompleted: 'ROUTE' });
+    expect(screen.getByText("From the brand's settings")).toBeInTheDocument();
+    await user.click(screen.getByRole('button', { name: 'Reset When the chatbot finishes' }));
+    expect(latest().whenCompleted).toBeNull();
+    expect(screen.queryByRole('button', { name: 'Reset When the chatbot finishes' })).toBeNull();
   });
 });

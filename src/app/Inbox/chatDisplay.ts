@@ -1,10 +1,10 @@
 import type { ChatContact, ListScope, MessageStatus, MessageView } from '@app/api/inbox';
 import type { Access } from '@app/session/useAccess';
 
-/** The list's filters as the pane edits them; `q` is the raw search text. */
 /** The Open / Closed switch; a chat a chatbot holds is in the Chatbot list instead. */
 export type ListStatus = 'OPEN' | 'CLOSED';
 
+/** The list's filters as the pane edits them; `q` is the raw search text. */
 export interface ChatListFilters {
   scope: ListScope;
   status: ListStatus;

@@ -113,13 +113,46 @@ describe('chatbot editor', () => {
     });
     await screen.findByRole('heading', { name: 'Lead qualifier' });
     expect(nodeItem('Hand').getByText("By the number's routing")).toBeVisible();
-    await user.click(nodeItem('After').getByRole('button', { name: 'Rename After' }));
-    const input = await screen.findByRole('textbox', { name: 'Node name' });
-    await user.clear(input);
-    await user.type(input, 'Later{Enter}');
+    // the edge that can no longer run is gone on opening, so the draft can be saved without it at once
+    expect(screen.getByRole('button', { name: 'Save' })).toBeEnabled();
     await user.click(screen.getByRole('button', { name: 'Save' }));
     await waitFor(() => expect(callsTo(f, `PUT ${CHATBOTS_BASE}/c1`)).toBe(1));
     expect(requestTo(f, `PUT ${CHATBOTS_BASE}/c1`)?.body.flow.edges).toEqual([]);
+  });
+
+  it('a published chatbot with an old edge after the hand-over opens unchanged and read-only', async () => {
+    const published = {
+      ...LEAD_QUALIFIER,
+      status: 'PUBLISHED' as const,
+      flow: {
+        nodes: [
+          {
+            id: 'h',
+            type: 'assign_chat' as const,
+            position: { x: 0, y: 0 },
+            data: { name: 'Hand', settings: { mode: 'NUMBER_ROUTING' } },
+          },
+          {
+            id: 's',
+            type: 'send_message' as const,
+            position: { x: 0, y: 200 },
+            data: { name: 'After', settings: { message: { type: 'text', text: { body: 'x' } } } },
+          },
+        ],
+        edges: [{ id: 'e1', source: 'h', sourceHandle: 'next', target: 's' }],
+      },
+    };
+    const { user } = open('/chatbots/c1', { [`GET ${CHATBOTS_BASE}/c1`]: { status: 200, body: published } });
+    expect(await screen.findByText(PUBLISHED_TEXT)).toBeVisible();
+    // nothing to save, so leaving asks nothing
+    await user.click(
+      within(screen.getByRole('navigation', { name: 'Global', hidden: true })).getByRole('link', {
+        name: 'All chatbots',
+        hidden: true,
+      }),
+    );
+    expect(screen.queryByText('Leave without saving?')).toBeNull();
+    expect(screen.getByLabelText('Location')).toHaveTextContent(/^\/chatbots$/);
   });
 
   it('ctrlSSaves', async () => {

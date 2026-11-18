@@ -147,8 +147,9 @@ export const LayeredSettingsForm: React.FunctionComponent<Props> = ({
   /** A choice among {@code options}; in a layer, the empty option inherits and names the value above it. */
   const choiceField = (f: SettingField, id: string, label: string, options: [string, string][]) => {
     const labelOf = (v: unknown) => options.find(([value]) => value === v)?.[1] ?? '';
+    const inheritedNote = layered && inheriting(f) ? FROM_TEXT[source(f)] : undefined;
     return (
-      <FormGroup label={label} fieldId={id}>
+      <FormGroup label={label} fieldId={id} labelHelp={reset(f, label) ?? undefined}>
         <FormSelect
           id={id}
           aria-label={label}
@@ -166,7 +167,7 @@ export const LayeredSettingsForm: React.FunctionComponent<Props> = ({
             <FormSelectOption key={value} value={value} label={optionLabel} />
           ))}
         </FormSelect>
-        <Helper error={errors[f]} />
+        <Helper error={errors[f]} note={inheritedNote} />
       </FormGroup>
     );
   };

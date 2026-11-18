@@ -1,3 +1,4 @@
+import type { ChatStatus } from '@app/api/inbox';
 import { apiFetch } from '@app/api/client';
 import type { Page } from '@app/api/historyImports';
 
@@ -119,7 +120,7 @@ export type EventData = {
   chat: {
     id: string;
     isNew: boolean;
-    status: 'OPEN' | 'CLOSED' | null;
+    status: ChatStatus | null;
     assignedUser: Ref | null;
     assignedTeam: Ref | null;
     /** A chatbot run was active on the chat when the event was written. */
