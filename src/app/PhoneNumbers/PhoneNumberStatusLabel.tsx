@@ -12,6 +12,7 @@ const COLORS: Record<PhoneNumberStatus, 'green' | 'blue' | 'orange' | 'red' | 'g
   DISCONNECTED: 'orange',
   WRONG_NUMBER: 'red',
   DISABLED: 'grey',
+  ARCHIVED: 'grey',
 };
 
 /** "5 minutes ago", "2 days ago". */
@@ -45,6 +46,8 @@ export function statusText(n: PhoneNumber): string {
       return n.wrongNumber ? `Wrong number: ${shown(n.wrongNumber)}` : 'Wrong number';
     case 'DISCONNECTED':
       return n.lastSeenAt ? `Disconnected · last seen ${relative(n.lastSeenAt)}` : 'Disconnected';
+    case 'ARCHIVED':
+      return 'Archived';
   }
 }
 
@@ -64,6 +67,7 @@ const PLAIN_TEXT: Record<PhoneNumberStatus, string> = {
   DISCONNECTED: 'Disconnected',
   WRONG_NUMBER: 'Wrong number',
   DISABLED: 'Disabled',
+  ARCHIVED: 'Archived',
 };
 
 /** A bare connection status, for lists that only know the status. */

@@ -48,8 +48,9 @@ export const PROVIDERS: AiProvider[] = [
         required: false,
       },
     ],
+    knowledgeBases: true,
   },
-  { id: 'scripted', label: 'Scripted', capabilities: SCRIPTED_CAPS, connectionFields: [] },
+  { id: 'scripted', label: 'Scripted', capabilities: SCRIPTED_CAPS, connectionFields: [], knowledgeBases: false },
 ];
 
 export const CONNECTION: AiConnection = {

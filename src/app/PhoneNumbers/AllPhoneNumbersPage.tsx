@@ -42,6 +42,7 @@ const STATUS_LABELS: Record<StatusFilter, string> = {
   WRONG_NUMBER: 'Wrong number',
   NOT_CONNECTED_YET: 'Not connected yet',
   DISABLED: 'Disabled',
+  ARCHIVED: 'Archived',
 };
 
 type Dialog = { kind: 'toggle'; number: PhoneNumber } | { kind: 'delete'; number: PhoneNumber };
