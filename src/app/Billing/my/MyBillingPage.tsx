@@ -5,6 +5,7 @@ import {
   Card,
   CardBody,
   CardTitle,
+  Content,
   DescriptionList,
   DescriptionListDescription,
   DescriptionListGroup,
@@ -28,6 +29,8 @@ import {
   getMySubscription,
   getMyWallet,
   listMyOrders,
+  myQuote,
+  raiseMyOrder,
 } from '@app/api/billing';
 import { formatMoney } from '@app/Crm/common/money';
 import { useAccess } from '@app/session/useAccess';
@@ -43,6 +46,7 @@ import { IncludedGroups } from '@app/Billing/common/IncludedGroups';
 import { LimitsTable } from '@app/Billing/common/LimitsTable';
 import { stateText, termText } from '@app/Billing/common/planDates';
 import { StateLabel } from '@app/Billing/common/StateLabel';
+import { TopUpDialog } from '@app/Billing/common/TopUpDialog';
 import { WalletCard } from '@app/Billing/common/WalletCard';
 
 const DAY_MS = 24 * 60 * 60 * 1000;
@@ -67,6 +71,7 @@ export const MyBillingPage: React.FunctionComponent = () => {
   const wallet = useLoad(getMyWallet, [], { keepOnError: true });
   const [dialog, setDialog] = React.useState<{ kind: MyOrderKind; offer?: AddOnOffer } | null>(null);
   const [sent, setSent] = React.useState<Order | null>(null);
+  const [toppingUp, setToppingUp] = React.useState(false);
   const s = subscription.data;
   const o = options.data;
   // each list is asked again in place: the page stays as it is while the answers come
@@ -214,7 +219,22 @@ export const MyBillingPage: React.FunctionComponent = () => {
           )}
           {s.plan && (
             <StackItem>
-              <WalletCard wallet={wallet.data} error={wallet.error} />
+              <WalletCard
+                wallet={wallet.data}
+                error={wallet.error}
+                actions={
+                  canRequest && o?.topUp.allowed ? (
+                    <Button variant="secondary" onClick={() => setToppingUp(true)}>
+                      Top up
+                    </Button>
+                  ) : undefined
+                }
+              >
+                {/* a plan that charges nothing says so above; any other reason is the server's */}
+                {wallet.data && wallet.data.messageRate !== null && o && !o.topUp.allowed && o.topUp.reason && (
+                  <Content component="small">{o.topUp.reason}</Content>
+                )}
+              </WalletCard>
             </StackItem>
           )}
           {running && o && o.addOns.length > 0 && (
@@ -297,6 +317,23 @@ export const MyBillingPage: React.FunctionComponent = () => {
             changed();
           }}
           onCancel={() => setDialog(null)}
+        />
+      )}
+      {toppingUp && s && o && (
+        <TopUpDialog
+          zone={zone}
+          min={o.topUp.min}
+          max={o.topUp.max}
+          fetchQuote={myQuote}
+          raise={raiseMyOrder}
+          sendLabel="Send request"
+          note="Your request takes effect when your payment is recorded. How to pay is shown beside the request."
+          onRaised={(order) => {
+            setSent(order);
+            setToppingUp(false);
+            changed();
+          }}
+          onCancel={() => setToppingUp(false)}
         />
       )}
     </PageShell>
