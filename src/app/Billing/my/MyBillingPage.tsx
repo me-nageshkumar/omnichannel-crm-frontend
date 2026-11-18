@@ -26,6 +26,7 @@ import {
   type Subscription,
   getMyOptions,
   getMySubscription,
+  getMyWallet,
   listMyOrders,
 } from '@app/api/billing';
 import { formatMoney } from '@app/Crm/common/money';
@@ -42,6 +43,7 @@ import { IncludedGroups } from '@app/Billing/common/IncludedGroups';
 import { LimitsTable } from '@app/Billing/common/LimitsTable';
 import { stateText, termText } from '@app/Billing/common/planDates';
 import { StateLabel } from '@app/Billing/common/StateLabel';
+import { WalletCard } from '@app/Billing/common/WalletCard';
 
 const DAY_MS = 24 * 60 * 60 * 1000;
 
@@ -62,6 +64,7 @@ export const MyBillingPage: React.FunctionComponent = () => {
   const subscription = useLoad(getMySubscription, [], { keepOnError: true });
   const options = useLoad(getMyOptions, [], { keepOnError: true });
   const orders = useLoad(listMyOrders, [], { keepOnError: true });
+  const wallet = useLoad(getMyWallet, [], { keepOnError: true });
   const [dialog, setDialog] = React.useState<{ kind: MyOrderKind; offer?: AddOnOffer } | null>(null);
   const [sent, setSent] = React.useState<Order | null>(null);
   const s = subscription.data;
@@ -71,6 +74,7 @@ export const MyBillingPage: React.FunctionComponent = () => {
     subscription.reload();
     options.reload();
     orders.reload();
+    wallet.reload();
     setTick((n) => n + 1);
   };
   const waiting = (orders.data ?? []).some((x) => x.status === 'REQUESTED');
@@ -206,6 +210,11 @@ export const MyBillingPage: React.FunctionComponent = () => {
                   )}
                 </CardBody>
               </Card>
+            </StackItem>
+          )}
+          {s.plan && (
+            <StackItem>
+              <WalletCard wallet={wallet.data} error={wallet.error} />
             </StackItem>
           )}
           {running && o && o.addOns.length > 0 && (
