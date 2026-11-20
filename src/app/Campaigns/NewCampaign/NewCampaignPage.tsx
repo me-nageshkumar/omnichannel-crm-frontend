@@ -1,7 +1,7 @@
 import * as React from 'react';
 import { useNavigate } from 'react-router-dom';
 import { Alert, Wizard, WizardStep, WizardStepType } from '@patternfly/react-core';
-import { listSenders } from '@app/api/campaigns';
+import { listCloudSenders, listSenders } from '@app/api/campaigns';
 import { listAttributes } from '@app/api/contacts';
 import { previewSavedSegment } from '@app/api/crm';
 import { PageShell } from '@app/admin/PageShell';
@@ -15,6 +15,7 @@ import {
   audienceReady,
   mappingContext,
   messageReady,
+  sendersReady,
 } from '@app/Campaigns/NewCampaign/draft';
 import { MessageStep } from '@app/Campaigns/NewCampaign/MessageStep';
 import { ReviewFooter, ReviewStep, useCreateCampaign } from '@app/Campaigns/NewCampaign/ReviewStep';
@@ -36,6 +37,13 @@ const NewCampaignWizard: React.FunctionComponent<{ ws: string }> = ({ ws }) => {
     [sendersLoad.data],
   );
   const [draft, setDraft] = React.useState<Draft>(EMPTY_DRAFT);
+  const cloudChosen = draft.channel === 'WHATSAPP_CLOUD_API';
+  // the Cloud numbers are read only once the kind is chosen
+  const cloudLoad = useLoad(
+    (tk) => (cloudChosen ? listCloudSenders(tk, ws) : Promise.resolve(null)),
+    [ws, cloudChosen],
+  );
+  const cloud = cloudLoad.data ?? undefined;
   // A segment audience is counted for the signed-in user here, so the footer can refuse a truncated one.
   const segmentId = draft.kind === 'SEGMENT' ? draft.segmentId : '';
   const segmentPreview = useLoad(
@@ -69,7 +77,7 @@ const NewCampaignWizard: React.FunctionComponent<{ ws: string }> = ({ ws }) => {
   const stepReady = {
     audience: audienceReady(draft),
     message: messageReady(draft),
-    senders: draft.senderIds.length > 0,
+    senders: sendersReady(draft, cloud ?? []) === null,
   };
   const truncated = segmentId !== '' && segmentPreview.data?.truncated === true;
   const ready = stepReady.audience && stepReady.message && stepReady.senders && !truncated;
@@ -90,20 +98,27 @@ const NewCampaignWizard: React.FunctionComponent<{ ws: string }> = ({ ws }) => {
           <AudienceStep draft={draft} update={update} />
         </WizardStep>
         <WizardStep
+          name="Senders"
+          id="senders"
+          status={status('senders')}
+          footer={{ isNextDisabled: !stepReady.senders }}
+        >
+          <SendersStep
+            draft={draft}
+            update={update}
+            senders={senders}
+            error={sendersLoad.error}
+            cloud={cloud}
+            cloudError={cloudLoad.error}
+          />
+        </WizardStep>
+        <WizardStep
           name="Message"
           id="message"
           status={status('message')}
           footer={{ isNextDisabled: !stepReady.message }}
         >
           <MessageStep draft={draft} update={update} attributes={attributes} />
-        </WizardStep>
-        <WizardStep
-          name="Senders"
-          id="senders"
-          status={status('senders')}
-          footer={{ isNextDisabled: !stepReady.senders }}
-        >
-          <SendersStep draft={draft} update={update} senders={senders} error={sendersLoad.error} />
         </WizardStep>
         <WizardStep
           name="Review"

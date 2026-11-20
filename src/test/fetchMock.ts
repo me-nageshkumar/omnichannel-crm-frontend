@@ -25,8 +25,10 @@ export function mockFetch(routes: Record<string, MockRoute>) {
   const fn = vi.fn(async (input: RequestInfo | URL, init?: RequestInit) => {
     const url = typeof input === 'string' ? input : input.toString();
     const method = (init?.method ?? 'GET').toUpperCase();
-    const key = `${method} ${new URL(url, 'http://localhost').pathname}`;
-    const route = routes[key];
+    const parsed = new URL(url, 'http://localhost');
+    const key = `${method} ${parsed.pathname}`;
+    // a route keyed with its query string wins over the bare path
+    const route = (parsed.search && routes[`${key}${parsed.search}`]) || routes[key];
     if (!route) {
       throw new Error(`unexpected request: ${key}`);
     }

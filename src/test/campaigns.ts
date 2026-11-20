@@ -2,6 +2,7 @@ import type {
   CampaignDetail,
   CampaignSettings,
   CampaignView,
+  CloudSenderView,
   RecipientView,
   SenderView,
 } from '@app/api/campaigns';
@@ -113,4 +114,21 @@ export function partJson(form: FormData, name: string): Promise<unknown> {
     reader.onerror = () => reject(reader.error);
     reader.readAsText(form.get(name) as Blob);
   });
+}
+
+/** A Cloud number as the campaign wizard lists it: ready, GREEN, 250 a day, nothing used. */
+export function cloudSender(over: Partial<CloudSenderView> = {}): CloudSenderView {
+  return {
+    phoneNumberId: 'cp1',
+    number: '919876543210',
+    label: 'Admissions',
+    wabaId: '222',
+    canSend: true,
+    qualityRating: 'GREEN',
+    messagingLimitTier: 'TIER_250',
+    dailyLimit: 250,
+    usedLast24h: 0,
+    heldUntil: null,
+    ...over,
+  };
 }

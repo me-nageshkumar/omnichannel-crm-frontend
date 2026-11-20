@@ -1,4 +1,5 @@
-import type { AudienceKind, CampaignRequest, CsvPreview } from '@app/api/campaigns';
+import type { AudienceKind, CampaignChannel, CampaignRequest, CloudSenderView, CsvPreview } from '@app/api/campaigns';
+import type { CloudTemplate } from '@app/api/cloudTemplates';
 import type { ContactAttribute } from '@app/api/contacts';
 import type { PlaceholderView, TemplateView } from '@app/api/templates';
 import { Mapping, MappingContext, distinctPlaceholders, mappingProblems, toPlaceholders } from '@app/Campaigns/mapping';
@@ -24,6 +25,13 @@ export interface Draft {
   templates: TemplateView[];
   mappings: Record<string, Mapping>;
   senderIds: string[];
+  /** The kind of number the campaign sends from; it decides what the Message step offers. */
+  channel: CampaignChannel;
+  /** The Meta template of a Cloud campaign. */
+  cloudTemplate: CloudTemplate | null;
+  /** The uploaded file of a Cloud template's media header, and its name for the step. */
+  headerMediaId: string | null;
+  headerFileName: string | null;
 }
 
 export const EMPTY_DRAFT: Draft = {
@@ -42,7 +50,33 @@ export const EMPTY_DRAFT: Draft = {
   templates: [],
   mappings: {},
   senderIds: [],
+  channel: 'WHATSAPP_WEB',
+  cloudTemplate: null,
+  headerMediaId: null,
+  headerFileName: null,
 };
+
+/** Changing the kind of number drops everything chosen for the other kind. */
+export function setChannel(d: Draft, channel: CampaignChannel): Partial<Draft> | null {
+  if (d.channel === channel) return null;
+  return {
+    channel,
+    senderIds: [],
+    templates: [],
+    cloudTemplate: null,
+    mappings: {},
+    headerMediaId: null,
+    headerFileName: null,
+  };
+}
+
+/** Why the chosen numbers cannot go on, or null when they can. */
+export function sendersReady(d: Draft, cloud: CloudSenderView[]): string | null {
+  if (d.senderIds.length === 0) return 'Choose at least one number';
+  if (d.channel !== 'WHATSAPP_CLOUD_API') return null;
+  const wabas = new Set(cloud.filter((s) => d.senderIds.includes(s.phoneNumberId)).map((s) => s.wabaId));
+  return wabas.size > 1 ? 'Choose numbers of one WhatsApp account' : null;
+}
 
 export const MAX_TEMPLATES = 5;
 

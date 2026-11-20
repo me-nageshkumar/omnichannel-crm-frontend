@@ -100,7 +100,6 @@ function routes(extra = {}, user = WORKSPACE_MANAGER) {
 type User = ReturnType<typeof renderApp>['user'];
 
 const next = () => screen.getByRole('button', { name: 'Next' });
-const back = () => screen.getByRole('button', { name: 'Back' });
 const csvFile = (name = 'people.csv') => new File(['phone,name\n919900000001,Asha\n'], name, { type: 'text/csv' });
 const fileInput = () => document.querySelector('input[type="file"]') as HTMLInputElement;
 
@@ -127,20 +126,28 @@ async function upload(user: User, file = csvFile()) {
   await screen.findByText(ROWS);
 }
 
-/** Through Audience with a saved filter, onto Message. */
+/** Through Senders with the first sender (Senders comes before Message), onto Message. */
+async function throughSenders(user: User) {
+  await user.click(await screen.findByRole('checkbox', { name: 'Select +919800000001' }));
+  await user.click(next());
+}
+
+/** Through Audience with a saved filter and Senders, onto Message. */
 async function filterToMessage(user: User) {
   await typeName(user);
   await chooseFilter(user);
   await screen.findByText('1,204 contacts');
   await user.click(next());
+  await throughSenders(user);
 }
 
-/** Through Audience with an uploaded CSV, onto Message. */
+/** Through Audience with an uploaded CSV and Senders, onto Message. */
 async function csvToMessage(user: User) {
   await typeName(user);
   await chooseCsv(user);
   await upload(user);
   await user.click(next());
+  await throughSenders(user);
 }
 
 async function pick(user: User, name: string) {
@@ -149,27 +156,27 @@ async function pick(user: User, name: string) {
 
 const source = (name: string) => screen.getByRole('combobox', { name: `Source for ${name}` });
 
-/** Through Audience and Message with the Welcome template (a saved filter, or with {@code csv} leads.csv), onto Senders. */
+/** Through Audience (a saved filter, or with {@code csv} leads.csv), onto Senders. */
 async function toSenders(user: User, csv = false) {
+  await typeName(user);
   if (csv) {
-    await typeName(user);
     await chooseCsv(user);
     await upload(user, csvFile('leads.csv'));
-    await user.click(next());
-    await pick(user, 'Welcome');
   } else {
-    await filterToMessage(user);
-    await pick(user, 'Welcome');
-    await user.type(screen.getByRole('textbox', { name: 'Fallback for contact.name' }), 'there');
+    await chooseFilter(user);
+    await screen.findByText('1,204 contacts');
   }
   await user.click(next());
   await screen.findByRole('checkbox', { name: 'Select +919800000001' });
 }
 
-/** Onto Review with the given senders checked. */
+/** Onto Review with the given senders checked and the Welcome template. */
 async function toReview(user: User, numbers = ['+919800000001'], csv = false) {
   await toSenders(user, csv);
   for (const n of numbers) await user.click(screen.getByRole('checkbox', { name: `Select ${n}` }));
+  await user.click(next());
+  await pick(user, 'Welcome');
+  if (!csv) await user.type(screen.getByRole('textbox', { name: 'Fallback for contact.name' }), 'there');
   await user.click(next());
   await screen.findByRole('button', { name: 'Start campaign' });
 }
@@ -457,6 +464,7 @@ describe('new campaign wizard', () => {
     await chooseCsv(user);
     expect(next()).toBeEnabled();
     await user.click(next());
+    await throughSenders(user);
     await pick(user, 'Welcome');
     expect(screen.getByText('Choose the CSV file in Audience to map its columns.')).toBeVisible();
     expect(screen.queryByRole('combobox', { name: 'Source for contact.name' })).not.toBeInTheDocument();
@@ -465,7 +473,7 @@ describe('new campaign wizard', () => {
     await waitFor(() => expect(clicked).toHaveLength(1));
     expect(clicked[0].download).toBe('Welcome sample.csv');
     expect(callsTo(fetch, SAMPLE)).toBe(1);
-    await user.click(back());
+    await user.click(screen.getByRole('button', { name: 'Audience' }));
     expect(await screen.findByText(NOTE)).toBeVisible();
     expect(screen.getByRole('button', { name: 'Download sample CSV' })).toBeVisible();
   });
@@ -493,9 +501,10 @@ describe('new campaign wizard', () => {
     await user.selectOptions(source('offer'), 'Offer');
     expect(source('offer')).toHaveValue('col:Offer');
     await user.type(screen.getByRole('textbox', { name: 'Fallback for contact.attributes.city' }), 'your city');
-    await user.click(back());
+    await user.click(screen.getByRole('button', { name: 'Audience' }));
     await user.upload(fileInput(), csvFile('second.csv'));
     expect(await screen.findByText('Columns: phone, name, City')).toBeVisible();
+    await user.click(next());
     await user.click(next());
     expect(await screen.findByRole('combobox', { name: 'Source for offer' })).toHaveValue('');
     expect(source('contact.attributes.city')).toHaveValue('col:City');
