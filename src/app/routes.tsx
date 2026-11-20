@@ -12,6 +12,7 @@ import { BrandsPage } from '@app/Brands/BrandsPage';
 import { UsersPage } from '@app/Users/UsersPage';
 import { TeamsPage } from '@app/Teams/TeamsPage';
 import { PhoneNumbersPage } from '@app/PhoneNumbers/PhoneNumbersPage';
+import { CloudTemplatesPage } from '@app/CloudTemplates/CloudTemplatesPage';
 import { AllPhoneNumbersPage } from '@app/PhoneNumbers/AllPhoneNumbersPage';
 import { ContactsPage } from '@app/Contacts/ContactsPage';
 import { ContactDetailPage } from '@app/Contacts/ContactDetailPage';
@@ -125,6 +126,11 @@ const NAV_SECTIONS: NavEntry[][] = [
       ],
     },
     { label: 'Templates', path: '/templates' },
+    {
+      label: 'WhatsApp templates',
+      path: '/whatsapp-templates',
+      requires: (a) => a.hasInWorkspace('phone-number:view'),
+    },
     { label: 'Phone numbers', path: '/phone-numbers' },
     { label: 'AI', path: '/ai' },
     {
@@ -316,6 +322,11 @@ const routes: IAppRoute[] = [
     element: <ChatbotsPage />,
     path: '/chatbots',
     requires: (a) => a.hasInWorkspace('chatbot:view'),
+  },
+  {
+    element: <CloudTemplatesPage />,
+    path: '/whatsapp-templates',
+    requires: (a) => a.hasInWorkspace('phone-number:view'),
   },
   {
     element: <TemplatesPage />,
