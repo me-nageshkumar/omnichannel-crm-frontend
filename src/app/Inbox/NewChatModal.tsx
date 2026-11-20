@@ -18,10 +18,11 @@ import {
 } from '@patternfly/react-core';
 import { ApiError } from '@app/api/client';
 import { MessageView, lookupNumber, startChat } from '@app/api/inbox';
-import { PhoneNumber, shown } from '@app/api/phoneNumbers';
+import { PhoneNumber, numberCanSend, shown } from '@app/api/phoneNumbers';
 import { messageFor } from '@app/api/messages';
 import { COUNTER_FROM, MAX_LENGTH } from '@app/Inbox/Composer';
 import { TemplatePickerModal } from '@app/Inbox/TemplatePickerModal';
+import { CloudTemplatePickerModal } from '@app/Inbox/CloudTemplatePickerModal';
 import { useSession } from '@app/session/SessionContext';
 
 const NOT_CONNECTED = 'WhatsApp is not connected on this number';
@@ -56,7 +57,10 @@ export const NewChatModal: React.FunctionComponent<{
     numbers.find((n) => n.id === initialNumberId)?.id ?? numbers[0]?.id ?? '',
   );
   const from = numbers.find((n) => n.id === phoneNumberId) ?? numbers[0];
-  const numberConnected = from?.status === 'CONNECTED';
+  const numberConnected = from ? numberCanSend(from) : false;
+  // a Cloud API number has no lookup and no free-form first message: Meta allows only a template
+  const cloud = Boolean(from?.cloud);
+  const [pickingCloud, setPickingCloud] = React.useState(false);
   const [phone, setPhone] = React.useState(initialPhone ?? '');
   const [touched, setTouched] = React.useState(false);
   const [text, setText] = React.useState('');
@@ -193,7 +197,7 @@ export const NewChatModal: React.FunctionComponent<{
                 }}
                 onBlur={() => {
                   setTouched(true);
-                  if (numberConnected && phoneValid && !current) void check(false);
+                  if (!cloud && numberConnected && phoneValid && !current) void check(false);
                 }}
                 onKeyDown={(e) => {
                   if (e.key !== 'Enter' || e.nativeEvent.isComposing) return;
@@ -224,50 +228,80 @@ export const NewChatModal: React.FunctionComponent<{
                 </HelperText>
               </FormHelperText>
             </FormGroup>
-            <FormGroup label="Message" fieldId="new-chat-text">
-              <TextArea
-                id="new-chat-text"
-                resizeOrientation="vertical"
-                rows={3}
-                maxLength={MAX_LENGTH}
-                value={text}
-                validated={textError ? 'error' : 'default'}
-                onChange={(_e, v) => {
-                  setText(v);
-                  setTextError(null);
-                }}
-              />
-              {(textError || text.length > COUNTER_FROM) && (
-                <FormHelperText>
-                  <HelperText>
-                    {textError && <HelperTextItem variant="error">{textError}</HelperTextItem>}
-                    {text.length > COUNTER_FROM && (
-                      <HelperTextItem>
-                        {text.length} / {MAX_LENGTH}
-                      </HelperTextItem>
-                    )}
-                  </HelperText>
-                </FormHelperText>
-              )}
-            </FormGroup>
+            {cloud && <p>A first message on a WhatsApp Cloud API number must be an approved WhatsApp template.</p>}
+            {!cloud && (
+              <FormGroup label="Message" fieldId="new-chat-text">
+                <TextArea
+                  id="new-chat-text"
+                  resizeOrientation="vertical"
+                  rows={3}
+                  maxLength={MAX_LENGTH}
+                  value={text}
+                  validated={textError ? 'error' : 'default'}
+                  onChange={(_e, v) => {
+                    setText(v);
+                    setTextError(null);
+                  }}
+                />
+                {(textError || text.length > COUNTER_FROM) && (
+                  <FormHelperText>
+                    <HelperText>
+                      {textError && <HelperTextItem variant="error">{textError}</HelperTextItem>}
+                      {text.length > COUNTER_FROM && (
+                        <HelperTextItem>
+                          {text.length} / {MAX_LENGTH}
+                        </HelperTextItem>
+                      )}
+                    </HelperText>
+                  </FormHelperText>
+                )}
+              </FormGroup>
+            )}
           </Form>
         </ModalBody>
         <ModalFooter>
-          <Button variant="primary" onClick={() => void send()} isDisabled={!canSend}>
-            Send
-          </Button>
-          <Button
-            variant="secondary"
-            onClick={() => void ensureChecked().then((ok) => ok && setPicking(true))}
-            isDisabled={!numberConnected || !phoneValid || sending || unregistered}
-          >
-            Template…
-          </Button>
+          {cloud ? (
+            <Button
+              variant="primary"
+              onClick={() => {
+                setTouched(true);
+                if (phoneValid) setPickingCloud(true);
+              }}
+              isDisabled={!numberConnected || sending}
+            >
+              WhatsApp template…
+            </Button>
+          ) : (
+            <>
+              <Button variant="primary" onClick={() => void send()} isDisabled={!canSend}>
+                Send
+              </Button>
+              <Button
+                variant="secondary"
+                onClick={() => void ensureChecked().then((ok) => ok && setPicking(true))}
+                isDisabled={!numberConnected || !phoneValid || sending || unregistered}
+              >
+                Template…
+              </Button>
+            </>
+          )}
           <Button variant="link" onClick={onClose} isDisabled={sending}>
             Cancel
           </Button>
         </ModalFooter>
       </Modal>
+      {pickingCloud && (
+        <CloudTemplatePickerModal
+          phoneNumberId={phoneNumberId}
+          contact={null}
+          send={(cloudTemplate) => startChat(token as string, ws, phoneNumberId, { phone: cleaned, cloudTemplate })}
+          onClose={() => setPickingCloud(false)}
+          onSent={(message) => {
+            setPickingCloud(false);
+            onStarted(message);
+          }}
+        />
+      )}
       {picking && (
         <TemplatePickerModal
           contactId={null}

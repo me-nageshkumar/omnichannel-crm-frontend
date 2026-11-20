@@ -26,6 +26,10 @@ const DEBOUNCE_MS = 300;
 
 const unavailable = (t: TemplateView) => (t.type === 'CONTACT_CARD' ? 'Not sendable from the inbox yet' : null);
 
+/** On a Cloud API number Meta has no polls; contact cards are not sendable from the inbox anywhere. */
+const unavailableOnCloud = (t: TemplateView) =>
+  t.type === 'POLL' ? 'Not available on Cloud API numbers' : unavailable(t);
+
 const labelOf = (p: PlaceholderView) => p.label || p.name;
 
 /**
@@ -34,10 +38,12 @@ const labelOf = (p: PlaceholderView) => p.label || p.name;
  */
 export const TemplatePickerModal: React.FunctionComponent<{
   contactId: string | null;
+  /** The chat is on a Cloud API number: polls cannot be sent there. */
+  cloud?: boolean;
   send(templateId: string, values: Record<string, string>): Promise<MessageView>;
   onClose(): void;
   onSent(message: MessageView): void;
-}> = ({ contactId, send: sendMessage, onClose, onSent }) => {
+}> = ({ contactId, cloud, send: sendMessage, onClose, onSent }) => {
   const { token, workspace } = useSession();
   const ws = workspace?.id ?? '';
   const t = token as string;
@@ -142,7 +148,7 @@ export const TemplatePickerModal: React.FunctionComponent<{
             <TemplateSearchList
               filters={{ status: 'ACTIVE' }}
               selectedIds={chosen ? [chosen.id] : []}
-              unavailable={unavailable}
+              unavailable={cloud ? unavailableOnCloud : unavailable}
               onPick={(tpl) => void choose(tpl.id)}
               onError={setListError}
             />

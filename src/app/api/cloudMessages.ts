@@ -120,10 +120,12 @@ export async function uploadCloudMedia(
   phoneNumberId: string,
   type: 'image' | 'video' | 'document',
   file: File,
+  /** The number's own product: `whatsapp` for a Cloud API number. */
+  product: 'whatsapp-web' | 'whatsapp' = 'whatsapp-web',
 ): Promise<{ id: string }> {
   const body = new FormData();
   body.append('file', file);
-  body.append('messaging_product', 'whatsapp-web');
+  body.append('messaging_product', product);
   body.append('type', type);
   const res = await apiFetchFile(`${account(workspaceId, phoneNumberId)}/media`, { token, body });
   return (await res.json()) as { id: string };

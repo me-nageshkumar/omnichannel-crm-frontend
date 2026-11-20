@@ -117,6 +117,13 @@ export const addNumber = (token: string, workspaceId: string, number: string, la
     body: { number, label: label.trim() || null },
   });
 
+/**
+ * Whether the number can send now: a WhatsApp Web number whose device is connected, or a Cloud API number Meta lets
+ * send (ready, or still waiting for its first webhook).
+ */
+export const numberCanSend = (n: Pick<PhoneNumber, 'status' | 'cloud'>): boolean =>
+  n.cloud ? n.cloud.state === 'READY' || n.cloud.state === 'WAITING_FOR_WEBHOOK' : n.status === 'CONNECTED';
+
 /** Adds a number that lives on the brand's own Meta app; its digits come from Meta. */
 export const addCloudNumber = (
   token: string,

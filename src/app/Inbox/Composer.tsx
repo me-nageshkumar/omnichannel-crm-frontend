@@ -2,10 +2,12 @@ import * as React from 'react';
 import { Link } from 'react-router-dom';
 import { Alert, Button, FormHelperText, HelperText, HelperTextItem, TextArea } from '@patternfly/react-core';
 import { ApiError } from '@app/api/client';
-import { ChatView, MessageView, sendTemplate, sendText } from '@app/api/inbox';
+import { ChatView, MessageView, sendCloudTemplate, sendTemplate, sendText } from '@app/api/inbox';
 import { messageFor } from '@app/api/messages';
 import { InteractiveComposer } from '@app/Inbox/InteractiveComposer';
 import { TemplatePickerModal } from '@app/Inbox/TemplatePickerModal';
+import { CloudTemplatePickerModal } from '@app/Inbox/CloudTemplatePickerModal';
+import { WindowLine, useMinuteClock, windowOpen } from '@app/Inbox/WindowLine';
 import { useSession } from '@app/session/SessionContext';
 import { useAccess } from '@app/session/useAccess';
 
@@ -52,6 +54,14 @@ export const Composer: React.FunctionComponent<{
     setTextError(null);
   }, [chat.id]);
 
+  const cloud = chat.channel === 'WHATSAPP_CLOUD';
+  const now = useMinuteClock(cloud);
+  // the server said the window closed (its clock or Meta's) even if ours thought it open
+  const [closedByServer, setClosedByServer] = React.useState(false);
+  React.useEffect(() => setClosedByServer(false), [chat.id, chat.window?.closesAt]);
+  const windowClosed = cloud && (closedByServer || !windowOpen(chat.window, now));
+  const [pickingCloud, setPickingCloud] = React.useState(false);
+
   const notice = archivedAt
     ? `This number moved to another brand on ${movedOn(archivedAt)}.`
     : chat.status === 'CLOSED'
@@ -60,7 +70,7 @@ export const Composer: React.FunctionComponent<{
         ? 'WhatsApp is not connected on this number'
         : null;
   const trimmed = text.trim();
-  const canSend = notice === null && !sending && trimmed.length > 0;
+  const canSend = notice === null && !windowClosed && !sending && trimmed.length > 0;
 
   const send = async () => {
     if (!canSend || inFlight.current) return;
@@ -81,6 +91,7 @@ export const Composer: React.FunctionComponent<{
       const field = e instanceof ApiError && e.code?.toUpperCase() === 'VALIDATION' ? e.fields?.text : undefined;
       if (field) setTextError(field);
       else if (e instanceof ApiError && e.code?.toUpperCase() === 'WALLET_EMPTY') setWalletEmpty(true);
+      else if (e instanceof ApiError && e.code?.toUpperCase() === 'WINDOW_CLOSED') setClosedByServer(true);
       else setError(messageFor(e));
     } finally {
       inFlight.current = false;
@@ -97,6 +108,9 @@ export const Composer: React.FunctionComponent<{
   return (
     <div style={{ display: 'flex', flexDirection: 'column', gap: 'var(--pf-t--global--spacer--sm)' }}>
       {notice && <Alert variant="info" isInline isPlain title={notice} />}
+      {cloud && notice === null && (
+        <WindowLine open={!windowClosed} closesAt={chat.window?.closesAt ?? null} now={now} />
+      )}
       {error && <Alert variant="danger" isInline isPlain title={error} />}
       {walletEmpty && (
         <Alert
@@ -124,7 +138,7 @@ export const Composer: React.FunctionComponent<{
         rows={2}
         maxLength={MAX_LENGTH}
         value={text}
-        isDisabled={notice !== null}
+        isDisabled={notice !== null || windowClosed}
         validated={textError ? 'error' : 'default'}
         onChange={(_e, v) => {
           setText(v);
@@ -150,15 +164,34 @@ export const Composer: React.FunctionComponent<{
         </FormHelperText>
       )}
       <div style={{ display: 'flex', gap: 'var(--pf-t--global--spacer--sm)', justifyContent: 'flex-end' }}>
-        <Button variant="secondary" onClick={() => setComposing(true)} isDisabled={notice !== null || sending}>
+        {cloud && (
+          <Button
+            variant={windowClosed ? 'primary' : 'secondary'}
+            onClick={() => setPickingCloud(true)}
+            isDisabled={notice !== null || sending}
+          >
+            WhatsApp template
+          </Button>
+        )}
+        <Button
+          variant="secondary"
+          onClick={() => setComposing(true)}
+          isDisabled={notice !== null || windowClosed || sending}
+        >
           Interactive
         </Button>
-        <Button variant="secondary" onClick={() => setPicking(true)} isDisabled={notice !== null || sending}>
+        <Button
+          variant="secondary"
+          onClick={() => setPicking(true)}
+          isDisabled={notice !== null || windowClosed || sending}
+        >
           Template
         </Button>
-        <Button variant="primary" onClick={() => void send()} isDisabled={!canSend}>
-          Send
-        </Button>
+        {!(cloud && windowClosed) && (
+          <Button variant="primary" onClick={() => void send()} isDisabled={!canSend}>
+            Send
+          </Button>
+        )}
       </div>
       {composing && (
         <InteractiveComposer
@@ -175,10 +208,25 @@ export const Composer: React.FunctionComponent<{
       {picking && (
         <TemplatePickerModal
           contactId={chat.contact.id}
+          cloud={cloud}
           send={(id, values) => sendTemplate(token as string, ws, chat.id, id, values)}
           onClose={() => setPicking(false)}
           onSent={(message) => {
             setPicking(false);
+            setError(null);
+            setWalletEmpty(false);
+            onSent(message);
+          }}
+        />
+      )}
+      {pickingCloud && (
+        <CloudTemplatePickerModal
+          phoneNumberId={chat.phoneNumberId}
+          contact={{ name: chat.contact.name, phone: chat.contact.phone }}
+          send={(body) => sendCloudTemplate(token as string, ws, chat.id, body)}
+          onClose={() => setPickingCloud(false)}
+          onSent={(message) => {
+            setPickingCloud(false);
             setError(null);
             setWalletEmpty(false);
             onSent(message);
