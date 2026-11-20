@@ -210,6 +210,11 @@ export const ACTIONS: { type: AutomationAction['type']; label: string; descripti
     label: 'Start chatbot',
     description: 'Starts a chatbot on the chat; skips or replaces one already running.',
   },
+  {
+    type: 'SEND_CLOUD_TEMPLATE',
+    label: 'Send WhatsApp template',
+    description: 'Sends an approved WhatsApp template on a Cloud API number, also after the 24-hour window.',
+  },
 ];
 
 export const OPERATOR_LABELS: Record<string, string> = {
