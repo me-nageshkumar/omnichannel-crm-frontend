@@ -4,6 +4,9 @@ import {
   Button,
   Form,
   FormGroup,
+  FormHelperText,
+  HelperText,
+  HelperTextItem,
   Modal,
   ModalBody,
   ModalFooter,
@@ -53,6 +56,13 @@ export const MetaConnectionModal: React.FunctionComponent<{
               validated={action.fieldErrors.name ? 'error' : 'default'}
               placeholder="e.g. Bimal Institute app"
             />
+            {action.fieldErrors.name && (
+              <FormHelperText>
+                <HelperText>
+                  <HelperTextItem variant="error">{action.fieldErrors.name}</HelperTextItem>
+                </HelperText>
+              </FormHelperText>
+            )}
           </FormGroup>
           <FormGroup label="App ID" fieldId="meta-connection-app-id" isRequired={!existing}>
             <TextInput
@@ -63,6 +73,13 @@ export const MetaConnectionModal: React.FunctionComponent<{
               validated={action.fieldErrors.appId ? 'error' : 'default'}
               placeholder="From the Meta app dashboard"
             />
+            {action.fieldErrors.appId && (
+              <FormHelperText>
+                <HelperText>
+                  <HelperTextItem variant="error">{action.fieldErrors.appId}</HelperTextItem>
+                </HelperText>
+              </FormHelperText>
+            )}
           </FormGroup>
           <SecretField
             id="meta-connection-app-secret"

@@ -8,6 +8,8 @@ const FIELD_LABELS: Record<string, string> = { username: 'Username', name: 'Name
 const DUPLICATE_MESSAGES: Record<string, string> = {
   number: 'This number is already onboarded.',
   phone: 'A contact with this number already exists.',
+  appId: 'This Meta app is connected to another brand',
+  cloud: 'This Meta number is already added.',
 };
 
 export interface Action {

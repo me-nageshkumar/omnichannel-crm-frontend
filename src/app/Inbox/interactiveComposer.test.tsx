@@ -44,19 +44,22 @@ const PREVIEW_OK = {
   headers: { 'Content-Type': 'text/html;charset=UTF-8' },
 };
 
-const Host: React.FunctionComponent<{ onClose(): void; onSent(id: string): void }> = (props) => {
+const Host: React.FunctionComponent<{ onClose(): void; onSent(id: string): void; chat?: ChatView }> = ({
+  chat,
+  ...props
+}) => {
   const { status } = useSession();
-  return status === 'signedIn' ? <InteractiveComposer chat={CHAT} {...props} /> : null;
+  return status === 'signedIn' ? <InteractiveComposer chat={chat ?? CHAT} {...props} /> : null;
 };
 
-function renderComposer() {
+function renderComposer(chat?: ChatView) {
   const onClose = vi.fn();
   const onSent = vi.fn();
   const user = userEvent.setup();
   render(
     <ThemeProvider>
       <SessionProvider>
-        <Host onClose={onClose} onSent={onSent} />
+        <Host onClose={onClose} onSent={onSent} chat={chat} />
       </SessionProvider>
     </ThemeProvider>,
   );
@@ -176,6 +179,23 @@ describe('interactive composer', () => {
     await screen.findByDisplayValue('a.png');
     await user.click(screen.getByRole('tab', { name: 'JSON' }));
     expect(jsonShown().interactive.header).toEqual({ type: 'image', image: { id: 'img1' } });
+  });
+
+  it('uploadsWithTheCloudProductOnACloudChat', async () => {
+    const fetch = mockFetch({
+      ...meAs(AGENT_IN_BRAND),
+      [PREVIEW]: PREVIEW_OK,
+      [MEDIA]: { status: 200, body: { id: 'img1' } },
+    });
+    const { user } = renderComposer({ ...CHAT, channel: 'WHATSAPP_CLOUD' });
+    await body();
+    await user.selectOptions(screen.getByRole('combobox', { name: 'Header' }), 'image');
+    const input = document.querySelector('input[type="file"]') as HTMLInputElement;
+    const file = new File([new Uint8Array([137, 80, 78, 71])], 'a.png', { type: 'image/png' });
+    fireEvent.drop(input.parentElement as HTMLElement, { dataTransfer: { files: [file], types: ['Files'] } });
+    await waitFor(() => expect(callsTo(fetch, MEDIA)).toBe(1));
+    const sent = fetch.mock.calls.find(([u]) => String(u).endsWith('/media'))?.[1]?.body as FormData;
+    expect(sent.get('messaging_product')).toBe('whatsapp');
   });
 
   it('switching kind to list changes the form and the JSON', async () => {

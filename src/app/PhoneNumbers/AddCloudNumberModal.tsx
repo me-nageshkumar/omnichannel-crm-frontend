@@ -4,8 +4,11 @@ import {
   Button,
   Form,
   FormGroup,
+  FormHelperText,
   FormSelect,
   FormSelectOption,
+  HelperText,
+  HelperTextItem,
   Modal,
   ModalBody,
   ModalFooter,
@@ -62,9 +65,12 @@ export const AddCloudNumberModal: React.FunctionComponent<{
   const checking = useAction(['wabaId']);
   const action = useAction(['cloud', 'label']);
 
+  /** A new connection starts over; a typed WABA look-up keeps the list it adds to, so a refusal leaves the form. */
   const runCheck = async (id: string, waba?: string) => {
-    setCheck(null);
-    setPicked(null);
+    if (!waba) {
+      setCheck(null);
+      setPicked(null);
+    }
     if (!id) return;
     const result = await checking.run(() => checkMetaConnection(t, ws, id, waba));
     if (result !== undefined) setCheck(result);
@@ -177,6 +183,13 @@ export const AddCloudNumberModal: React.FunctionComponent<{
                   >
                     Look up
                   </Button>
+                  {checking.fieldErrors.wabaId && (
+                    <FormHelperText>
+                      <HelperText>
+                        <HelperTextItem variant="error">{checking.fieldErrors.wabaId}</HelperTextItem>
+                      </HelperText>
+                    </FormHelperText>
+                  )}
                 </FormGroup>
                 <FormGroup label="Label" fieldId="cloud-number-label">
                   <TextInput
