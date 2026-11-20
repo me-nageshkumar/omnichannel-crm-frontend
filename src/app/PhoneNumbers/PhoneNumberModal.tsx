@@ -15,6 +15,7 @@ import {
 } from '@patternfly/react-core';
 import { NUMBER_PATTERN, PhoneNumber, normaliseNumber, shown } from '@app/api/phoneNumbers';
 import { useAction } from '@app/admin/useAction';
+import { NumberKindToggle } from '@app/PhoneNumbers/AddCloudNumberModal';
 
 const MAX_LABEL = 60;
 
@@ -24,7 +25,9 @@ export const PhoneNumberModal: React.FunctionComponent<{
   save(number: string, label: string): Promise<PhoneNumber>;
   onSaved(saved: PhoneNumber): void;
   onCancel(): void;
-}> = ({ existing, save, onSaved, onCancel }) => {
+  /** When adding: switches to the WhatsApp Cloud API form. */
+  onChooseCloud?(): void;
+}> = ({ existing, save, onSaved, onCancel, onChooseCloud }) => {
   const [number, setNumber] = React.useState(existing ? shown(existing.number) : '');
   const [label, setLabel] = React.useState(existing?.label ?? '');
   const [checked, setChecked] = React.useState(false);
@@ -49,6 +52,9 @@ export const PhoneNumberModal: React.FunctionComponent<{
     <Modal isOpen variant="small" onClose={onCancel} aria-labelledby="number-modal-title">
       <ModalHeader title={existing ? `Edit ${shown(existing.number)}` : 'Add number'} labelId="number-modal-title" />
       <ModalBody>
+        {!existing && onChooseCloud && (
+          <NumberKindToggle cloud={false} onChange={(cloud) => cloud && onChooseCloud()} />
+        )}
         {action.error && <Alert variant="danger" isInline isPlain title={action.error} />}
         <Form id="number-modal-form" onSubmit={onSubmit}>
           <FormGroup label="WhatsApp number" fieldId="number-modal-number" isRequired={!existing}>

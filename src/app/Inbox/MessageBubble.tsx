@@ -1,4 +1,5 @@
 import * as React from 'react';
+import { TemplateBubble } from '@app/Inbox/TemplateBubble';
 import type { AdClickView, MessageView } from '@app/api/inbox';
 import { STATUS_TICK, adLink } from '@app/Inbox/chatDisplay';
 import { ContactCardBody } from '@app/Inbox/ContactCardBody';
@@ -32,6 +33,7 @@ const tickColor = (status: MessageView['status']) =>
 function Content({ message, contact }: { message: MessageView; contact: string }) {
   const { type, body, location } = message;
   if (type === 'revoked') return <em>This message was deleted</em>;
+  if (message.template) return <TemplateBubble template={message.template} />;
   // a Cloud interactive message: what the customer did on its page, then the link that was sent
   if (message.messagePage) {
     return (
@@ -134,6 +136,14 @@ export const MessageBubble: React.FunctionComponent<MessageBubbleProps> = ({ mes
       >
         {message.adClick && <AdLine ad={message.adClick} />}
         <Content message={message} contact={contact} />
+        {message.failure && (
+          <div
+            role="alert"
+            style={{ color: 'var(--pf-t--global--color--status--danger--default)', whiteSpace: 'normal' }}
+          >
+            Not delivered: {message.failure.title ?? 'Meta could not deliver it'}
+          </div>
+        )}
         <div
           style={{
             display: 'flex',

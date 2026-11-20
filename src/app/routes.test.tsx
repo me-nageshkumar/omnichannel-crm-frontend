@@ -44,6 +44,7 @@ const BRAND_LINKS = [
   'Senders',
   'Settings',
   'Templates',
+  'WhatsApp templates',
   'Phone numbers',
   'AI',
   'Users',

@@ -21,6 +21,7 @@ import { AddToCrmFields, addToCrmShows } from '@app/Automations/AddToCrmFields';
 import { AssignChatModal } from '@app/Automations/AssignChatModal';
 import { SendTemplateFields, sendTemplateShows } from '@app/Automations/SendTemplateFields';
 import { StartChatbotFields, startChatbotShows } from '@app/Automations/StartChatbotFields';
+import { SendCloudTemplateFields, sendCloudTemplateShows } from '@app/Automations/SendCloudTemplateFields';
 
 const labelOf = (type: AutomationAction['type']) => ACTIONS.find((a) => a.type === type)?.label ?? type;
 
@@ -35,6 +36,8 @@ export function newAction(type: AutomationAction['type']): AutomationAction {
       return { type, pipelineId: null, stageId: null, dealTitle: null };
     case 'START_CHATBOT':
       return { type, chatbotId: null, ifRunning: 'SKIP' };
+    case 'SEND_CLOUD_TEMPLATE':
+      return { type, cloudTemplateId: null, values: {} };
   }
 }
 
@@ -42,6 +45,7 @@ const shownByFields = (type: AutomationAction['type'], key: string): boolean => 
   if (type === 'SEND_TEMPLATE') return sendTemplateShows(key);
   if (type === 'ADD_TO_CRM') return addToCrmShows(key);
   if (type === 'START_CHATBOT') return startChatbotShows(key);
+  if (type === 'SEND_CLOUD_TEMPLATE') return sendCloudTemplateShows(key);
   return false;
 };
 
@@ -70,13 +74,18 @@ const AssignChatBody: React.FunctionComponent<{
 const AddActionMenu: React.FunctionComponent<{
   event: EventKind;
   isDisabled: boolean;
+  /** The brand has approved WhatsApp templates (a Cloud API number): "Send WhatsApp template" is offered. */
+  cloudTemplates: boolean;
   onAdd(type: AutomationAction['type']): void;
-}> = ({ event, isDisabled, onAdd }) => {
+}> = ({ event, isDisabled, cloudTemplates, onAdd }) => {
   const [open, setOpen] = React.useState(false);
   // Assign chat is no longer offered (2026-11-18): chats reach people by the number's routing or a chatbot's hand-over;
   // a rule that has one still shows, edits and runs it
   const offered = ACTIONS.filter(
-    (a) => a.type !== 'ASSIGN_CHAT' && (a.type !== 'ADD_TO_CRM' || event === 'MESSAGE_RECEIVED'),
+    (a) =>
+      a.type !== 'ASSIGN_CHAT' &&
+      (a.type !== 'ADD_TO_CRM' || event === 'MESSAGE_RECEIVED') &&
+      (a.type !== 'SEND_CLOUD_TEMPLATE' || cloudTemplates),
   );
   return (
     <Dropdown
@@ -177,6 +186,7 @@ export const ActionList: React.FunctionComponent<{
                 {a.type === 'SEND_TEMPLATE' && <SendTemplateFields {...fieldProps} />}
                 {a.type === 'ADD_TO_CRM' && <AddToCrmFields {...fieldProps} />}
                 {a.type === 'START_CHATBOT' && <StartChatbotFields {...fieldProps} />}
+                {a.type === 'SEND_CLOUD_TEMPLATE' && <SendCloudTemplateFields {...fieldProps} />}
                 {a.type === 'ASSIGN_CHAT' && (
                   <AssignChatBody
                     action={a}
@@ -212,6 +222,7 @@ export const ActionList: React.FunctionComponent<{
         <AddActionMenu
           event={event}
           isDisabled={isDisabled}
+          cloudTemplates={(options.cloudTemplates ?? []).length > 0}
           onAdd={(type) => {
             onChange(actions.concat(newAction(type)));
             if (type === 'ASSIGN_CHAT') setDialog({ index: actions.length, fresh: true });

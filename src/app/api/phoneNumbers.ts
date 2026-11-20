@@ -20,7 +20,7 @@ export const STATUSES: PhoneNumberStatus[] = [
   'ARCHIVED',
 ];
 
-/** How the number reaches WhatsApp: WhatsApp Web through the extension today, Cloud API later. */
+/** How the number reaches WhatsApp: WhatsApp Web through the extension, or Meta's Cloud API on the brand's app. */
 export type ConnectionType = 'WHATSAPP_WEB' | 'WHATSAPP_CLOUD_API';
 
 export const CONNECTION_LABELS: Record<ConnectionType, string> = {
@@ -56,6 +56,32 @@ export interface PhoneNumber {
   archivedAt?: string | null;
   /** On the platform list: the number's last move has not finished. */
   moveUnfinished?: boolean | null;
+  /** A Cloud API number's Meta side; null for WhatsApp Web numbers. */
+  cloud?: CloudInfo | null;
+}
+
+/** What a Cloud number can do now: send, or what stops it. */
+export type CloudState = 'READY' | 'NOT_REGISTERED' | 'WAITING_FOR_WEBHOOK' | 'TOKEN_INVALID';
+
+export const CLOUD_STATE_LABELS: Record<CloudState, string> = {
+  READY: 'Ready',
+  NOT_REGISTERED: 'Not registered',
+  WAITING_FOR_WEBHOOK: 'Waiting for first webhook',
+  TOKEN_INVALID: 'Token invalid',
+};
+
+export interface CloudInfo {
+  connectionId: string;
+  connectionName: string | null;
+  wabaId: string;
+  metaPhoneNumberId: string;
+  verifiedName: string | null;
+  nameStatus: string | null;
+  qualityRating: string | null;
+  messagingLimitTier: string | null;
+  registered: boolean;
+  state: CloudState;
+  lastError: string | null;
 }
 
 export interface PhoneNumberPage {
@@ -89,6 +115,33 @@ export const addNumber = (token: string, workspaceId: string, number: string, la
     method: 'POST',
     token,
     body: { number, label: label.trim() || null },
+  });
+
+/**
+ * Whether the number can send now: a WhatsApp Web number whose device is connected, or a Cloud API number Meta lets
+ * send (ready, or still waiting for its first webhook).
+ */
+export const numberCanSend = (n: Pick<PhoneNumber, 'status' | 'cloud'>): boolean =>
+  n.cloud ? n.cloud.state === 'READY' || n.cloud.state === 'WAITING_FOR_WEBHOOK' : n.status === 'CONNECTED';
+
+/** Adds a number that lives on the brand's own Meta app; its digits come from Meta. */
+export const addCloudNumber = (
+  token: string,
+  workspaceId: string,
+  body: { label: string; cloud: { connectionId: string; wabaId: string; metaPhoneNumberId: string } },
+) =>
+  apiFetch<PhoneNumber>(base(workspaceId), {
+    method: 'POST',
+    token,
+    body: { label: body.label.trim() || null, connectionType: 'WHATSAPP_CLOUD_API', cloud: body.cloud },
+  });
+
+/** Registers a Cloud number with its 6-digit two-step PIN (never stored). */
+export const registerCloudNumber = (token: string, workspaceId: string, id: string, pin: string) =>
+  apiFetch<PhoneNumber>(`${base(workspaceId)}/${encodeURIComponent(id)}/cloud/register`, {
+    method: 'POST',
+    token,
+    body: { pin },
   });
 
 /** Sets (or clears, with null) the team that works the number. */

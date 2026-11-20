@@ -79,6 +79,16 @@ export interface ChatView {
   otherChats: OtherChat[];
   /** The chatbot run active on the chat, else null. */
   chatbot?: ActiveChatbot | null;
+  /** How the number reaches WhatsApp; absent from older servers (WhatsApp Web). */
+  channel?: 'WHATSAPP_WEB' | 'WHATSAPP_CLOUD';
+  /** Meta's 24-hour window, Cloud chats only. */
+  window?: ChatWindow | null;
+}
+
+/** Free-form replies are allowed until `closesAt` (null: the customer never wrote). */
+export interface ChatWindow {
+  open: boolean;
+  closesAt: string | null;
 }
 
 /** `waitingFor` is "WhatsApp reply", "form", "timer" or null while a node runs. */
@@ -156,6 +166,27 @@ export interface MessageView {
   messagePageId: string | null;
   /** What the customer did on that page, else null. */
   messagePage: MessagePageView | null;
+  /** Why Meta could not deliver it (Cloud numbers). */
+  failure?: { code: number | null; title: string | null; details: string | null } | null;
+  /** The WhatsApp template it sent, as the customer saw it. */
+  template?: TemplateSnapshot | null;
+}
+
+/** A sent WhatsApp template as the thread draws it. */
+export interface TemplateSnapshot {
+  name: string;
+  language: string;
+  header: { format: string; text: string | null; mediaId: string | null } | null;
+  body: string | null;
+  footer: string | null;
+  buttons: { type: string; text: string }[];
+}
+
+/** A WhatsApp template to send: its blanks' values, and our cloud media id for a media header. */
+export interface CloudTemplateSend {
+  cloudTemplateId: string;
+  values: Record<string, string>;
+  headerMediaId?: string;
 }
 
 /** Taps of one button, row or link; `replied` once the customer's WhatsApp reply was matched to it. */
@@ -300,7 +331,12 @@ export const sendTemplate = (
 
 export type NewChatBody =
   | { phone: string; text: string }
-  | { phone: string; templateId: string; values: Record<string, string> };
+  | { phone: string; templateId: string; values: Record<string, string> }
+  | { phone: string; cloudTemplate: CloudTemplateSend };
+
+/** Sends a WhatsApp (Meta) template to a Cloud API number's chat, inside or outside the 24-hour window. */
+export const sendCloudTemplate = (token: string, ws: string, chatId: string, body: CloudTemplateSend) =>
+  post<MessageView>(token, `${chatPath(ws, chatId)}/cloud-templates`, body);
 
 /** Starts a chat with a phone number by sending its first message (text, or a template). */
 export const startChat = (token: string, ws: string, pn: string, body: NewChatBody) =>

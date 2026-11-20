@@ -1,6 +1,6 @@
 import * as React from 'react';
 import { Label, Tooltip } from '@patternfly/react-core';
-import { PhoneNumber, PhoneNumberStatus, shown } from '@app/api/phoneNumbers';
+import { CLOUD_STATE_LABELS, CloudState, PhoneNumber, PhoneNumberStatus, shown } from '@app/api/phoneNumbers';
 import { disabledText } from '@app/api/enablement';
 
 const BECAUSE = { NUMBER: 'number', BRAND: 'brand', CUSTOMER: 'company' } as const;
@@ -32,7 +32,20 @@ export function relative(iso: string, now = Date.now()): string {
   return 'just now';
 }
 
+const CLOUD_COLORS: Record<CloudState, 'green' | 'blue' | 'orange' | 'red'> = {
+  READY: 'green',
+  WAITING_FOR_WEBHOOK: 'blue',
+  NOT_REGISTERED: 'orange',
+  TOKEN_INVALID: 'red',
+};
+
+/** A Cloud number shows Meta's side, unless it is disabled or archived. */
+const cloudState = (n: PhoneNumber): CloudState | null =>
+  n.cloud && n.status !== 'DISABLED' && n.status !== 'ARCHIVED' ? n.cloud.state : null;
+
 export function statusText(n: PhoneNumber): string {
+  const cloud = cloudState(n);
+  if (cloud) return CLOUD_STATE_LABELS[cloud];
   switch (n.status) {
     case 'DISABLED':
       return `Disabled (${BECAUSE[n.disabledBecause ?? 'NUMBER']})`;
@@ -53,7 +66,11 @@ export function statusText(n: PhoneNumber): string {
 
 /** The number's connection status; a number disabled itself names who did it on hover. */
 export const PhoneNumberStatusLabel: React.FunctionComponent<{ number: PhoneNumber }> = ({ number }) => {
-  const label = <Label color={COLORS[number.status]}>{statusText(number)}</Label>;
+  const cloud = cloudState(number);
+  const label = <Label color={cloud ? CLOUD_COLORS[cloud] : COLORS[number.status]}>{statusText(number)}</Label>;
+  if (cloud && number.cloud?.lastError) {
+    return <Tooltip content={number.cloud.lastError}>{React.cloneElement(label, { tabIndex: 0 })}</Tooltip>;
+  }
   if (number.status === 'DISABLED' && number.disabledBecause === 'NUMBER' && number.disabled) {
     return <Tooltip content={disabledText(number.disabled)}>{React.cloneElement(label, { tabIndex: 0 })}</Tooltip>;
   }

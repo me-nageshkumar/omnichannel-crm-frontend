@@ -26,7 +26,7 @@ export type ConditionGroup = Extract<ConditionNode, { rules: unknown }>;
 export type ConditionLeaf = Extract<ConditionNode, { field: string }>;
 
 export type AutomationAction = {
-  type: 'SEND_TEMPLATE' | 'ASSIGN_CHAT' | 'ADD_TO_CRM' | 'START_CHATBOT';
+  type: 'SEND_TEMPLATE' | 'ASSIGN_CHAT' | 'ADD_TO_CRM' | 'START_CHATBOT' | 'SEND_CLOUD_TEMPLATE';
   // SEND_TEMPLATE
   templateId?: string | null;
   values?: Record<string, string>;
@@ -43,6 +43,8 @@ export type AutomationAction = {
   // START_CHATBOT
   chatbotId?: string | null;
   ifRunning?: 'SKIP' | 'REPLACE' | null;
+  // SEND_CLOUD_TEMPLATE (values as for SEND_TEMPLATE, keyed by the template's blanks)
+  cloudTemplateId?: string | null;
 };
 
 export type TestStatus = 'WAITING' | 'CAPTURED' | 'ENDED';
@@ -114,6 +116,15 @@ export type AutomationOptions = {
     }[];
   };
   chatbots: { id: string; name: string; status: 'DRAFT' | 'PUBLISHED' }[];
+  /** Sendable WhatsApp templates and the Cloud numbers that can send each; absent from older servers. */
+  cloudTemplates?: {
+    id: string;
+    name: string;
+    language: string;
+    phoneNumberIds: string[];
+    variables: { key: string; component: string; index: number; example: string | null }[];
+    fills: Record<string, { kind: string; attributeKey?: string | null; fallback?: string | null }>;
+  }[];
 };
 
 export type EventData = {

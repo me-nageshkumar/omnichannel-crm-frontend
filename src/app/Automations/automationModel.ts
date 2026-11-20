@@ -210,6 +210,11 @@ export const ACTIONS: { type: AutomationAction['type']; label: string; descripti
     label: 'Start chatbot',
     description: 'Starts a chatbot on the chat; skips or replaces one already running.',
   },
+  {
+    type: 'SEND_CLOUD_TEMPLATE',
+    label: 'Send WhatsApp template',
+    description: 'Sends an approved WhatsApp template on a Cloud API number, also after the 24-hour window.',
+  },
 ];
 
 export const OPERATOR_LABELS: Record<string, string> = {
@@ -497,6 +502,10 @@ export function actionSummary(a: AutomationAction, o: AutomationOptions): string
       const name = pipeline?.name ?? a.pipelineId;
       return `Add to CRM (${a.stageId ? `${name} › ${lane?.name ?? a.stageId}` : name})`;
     }
+    case 'SEND_CLOUD_TEMPLATE':
+      return `Send WhatsApp template “${
+        o.cloudTemplates?.find((t) => t.id === a.cloudTemplateId)?.name ?? a.cloudTemplateId ?? '?'
+      }”`;
     case 'START_CHATBOT':
       return `Start “${o.chatbots.find((c) => c.id === a.chatbotId)?.name ?? a.chatbotId ?? '?'}”`;
   }

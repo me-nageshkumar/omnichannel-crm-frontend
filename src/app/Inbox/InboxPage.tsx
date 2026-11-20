@@ -1,4 +1,5 @@
 import * as React from 'react';
+import { numberCanSend } from '@app/api/phoneNumbers';
 import { Link, useLocation, useNavigate, useParams, useSearchParams } from 'react-router-dom';
 import {
   Alert,
@@ -236,7 +237,7 @@ export const InboxPage: React.FunctionComponent = () => {
   const open = chat && chat.id === chatId ? chat : null;
   const openNumber = open ? visible.find((n) => n.id === open.phoneNumberId) : undefined;
   // Until the numbers are known, do not tell the agent the number is down.
-  const numberConnected = openNumber ? openNumber.status === 'CONNECTED' : true;
+  const numberConnected = openNumber ? numberCanSend(openNumber) : true;
 
   const showPanel = crmOn && open !== null;
   const panelShown = showPanel && panelOpen;

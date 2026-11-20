@@ -185,7 +185,9 @@ export const InteractiveComposer: React.FunctionComponent<{
     setUploadProblem(null);
     setUploading(true);
     try {
-      const { id } = await uploadCloudMedia(t, ws, chat.phoneNumberId, type, file);
+      // the number's own product: a Cloud API number's upload is refused as whatsapp-web
+      const product = chat.channel === 'WHATSAPP_CLOUD' ? 'whatsapp' : 'whatsapp-web';
+      const { id } = await uploadCloudMedia(t, ws, chat.phoneNumberId, type, file, product);
       // the header this upload was for may be gone by now (kind or header type changed): then drop the result
       setDraft((d) =>
         d.header.type === type ? { ...d, header: { ...d.header, mediaId: id, fileName: file.name } } : d,
