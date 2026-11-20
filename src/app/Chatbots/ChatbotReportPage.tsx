@@ -25,6 +25,7 @@ import {
   rangeTooLong,
   runStatusLabel,
 } from '@app/Chatbots/chatbotDisplay';
+import { ReportRunsDrawer } from '@app/Chatbots/ReportRunsDrawer';
 import { useSession } from '@app/session/SessionContext';
 
 const DAY = /^\d{4}-\d{2}-\d{2}$/;
@@ -92,7 +93,7 @@ export const ChatbotReportPage: React.FunctionComponent = () => {
   const tooLong = rangeTooLong(from, to);
   const range = localDayRange(from, to);
   const [expanded, setExpanded] = React.useState<Set<string>>(new Set());
-  const [, setRuns] = React.useState<RunsLink | null>(null);
+  const [runs, setRuns] = React.useState<RunsLink | null>(null);
 
   const report = useLoad<ChatbotReport | null>(
     (tk) =>
@@ -292,6 +293,9 @@ export const ChatbotReportPage: React.FunctionComponent = () => {
         </ToolbarContent>
       </Toolbar>
       {body}
+      {runs && (
+        <ReportRunsDrawer chatbotId={chatbotId} query={runs.query} title={runs.title} onClose={() => setRuns(null)} />
+      )}
     </PageShell>
   );
 };
