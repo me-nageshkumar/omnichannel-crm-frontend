@@ -1,4 +1,4 @@
-import type { ChatbotStatus, RunStatus, Waiting } from '@app/api/chatbots';
+import type { ChatbotStatus, RunEnding, RunStatus, Waiting } from '@app/api/chatbots';
 
 export const statusLabel = (s: ChatbotStatus): string => (s === 'PUBLISHED' ? 'Published' : 'Draft');
 export const statusColor = (s: ChatbotStatus): 'green' | 'grey' => (s === 'PUBLISHED' ? 'green' : 'grey');
@@ -119,4 +119,32 @@ export function progressSummary(byCount: number[]): string {
 /** "name 29 · city 20": how many runs gave each detail, by its label or else its key. */
 export function fieldsSummary(fields: { key: string; label: string | null; given: number }[]): string {
   return fields.map((f) => `${f.label || f.key} ${f.given}`).join(' · ');
+}
+
+/** "Collected: name, city": the details an AI step has so far (keys with a value), or null when none. */
+export function collectedText(progress: Record<string, unknown> | null | undefined): string | null {
+  if (!progress) return null;
+  const keys = Object.keys(progress).filter((k) => {
+    const v = progress[k];
+    return v !== null && v !== undefined && v !== '';
+  });
+  return keys.length > 0 ? `Collected: ${keys.join(', ')}` : null;
+}
+
+const ENDING_LABELS: Record<RunEnding['chat'], string> = {
+  HANDED_OVER: 'Handed over',
+  ROUTED: 'Sent to the team',
+  CLOSED: 'Closed by the chatbot',
+  LEFT: 'Taken by someone else',
+};
+
+/** "Chat: Handed over · Asha": where a finished run's chat went, or null when not recorded. */
+export function endingText(e: RunEnding | null | undefined): string | null {
+  if (!e) return null;
+  let who = '';
+  if (e.chat === 'HANDED_OVER' || e.chat === 'ROUTED') {
+    if (e.agent?.name) who = ` · ${e.agent.name}`;
+    else if (e.team?.name) who = ` · waiting in ${e.team.name}`;
+  }
+  return `Chat: ${ENDING_LABELS[e.chat] ?? e.chat}${who}`;
 }

@@ -1,5 +1,12 @@
 import { describe, expect, it } from 'vitest';
-import { fieldsSummary, localDayRange, progressSummary, rangeTooLong } from '@app/Chatbots/chatbotDisplay';
+import {
+  collectedText,
+  endingText,
+  fieldsSummary,
+  localDayRange,
+  progressSummary,
+  rangeTooLong,
+} from '@app/Chatbots/chatbotDisplay';
 
 describe('report display helpers', () => {
   it('localDayRange spans whole local days', () => {
@@ -25,5 +32,24 @@ describe('report display helpers', () => {
         { key: 'city', label: null, given: 20 },
       ]),
     ).toBe('name 29 · city 20');
+  });
+
+  it('collectedText lists the keys with values', () => {
+    expect(collectedText({ name: 'Asha', city: '', course: null, mode: 'Online' })).toBe('Collected: name, mode');
+    expect(collectedText(null)).toBeNull();
+    expect(collectedText({})).toBeNull();
+  });
+
+  it('endingText says where the chat went', () => {
+    const at = '2026-11-20T10:00:00Z';
+    expect(endingText({ chat: 'HANDED_OVER', agent: { id: 'u1', name: 'Asha' }, team: null, at })).toBe(
+      'Chat: Handed over · Asha',
+    );
+    expect(endingText({ chat: 'ROUTED', agent: null, team: { id: 't1', name: 'Counsellors' }, at })).toBe(
+      'Chat: Sent to the team · waiting in Counsellors',
+    );
+    expect(endingText({ chat: 'CLOSED', agent: null, team: null, at })).toBe('Chat: Closed by the chatbot');
+    expect(endingText({ chat: 'LEFT', agent: null, team: null, at })).toBe('Chat: Taken by someone else');
+    expect(endingText(null)).toBeNull();
   });
 });

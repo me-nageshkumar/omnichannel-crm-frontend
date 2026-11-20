@@ -10,7 +10,15 @@ import {
   TimesIcon,
 } from '@patternfly/react-icons';
 import type { Run, RunStep, SavedFlow } from '@app/api/chatbots';
-import { AI_THINKING, aiStepDetail, runStatusColor, runStatusLabel, waitingLabel } from '@app/Chatbots/chatbotDisplay';
+import {
+  AI_THINKING,
+  aiStepDetail,
+  collectedText,
+  endingText,
+  runStatusColor,
+  runStatusLabel,
+  waitingLabel,
+} from '@app/Chatbots/chatbotDisplay';
 
 const time = (iso: string | null) => (iso ? new Date(iso).toLocaleTimeString() : '');
 
@@ -97,6 +105,7 @@ export const RunOverlayPanel: React.FunctionComponent<{
         </p>
       )}
       {run.endReason && <p className="pf-v6-u-color-200">{run.endReason}</p>}
+      {endingText(run.ending) && <p className="pf-v6-u-color-200">{endingText(run.ending)}</p>}
       {canvasHref && <Link to={canvasHref}>Show on canvas</Link>}
       {backHref && <Link to={backHref}>Back to rule test</Link>}
       <ol className="omni-run__steps" aria-label="Steps">
@@ -110,6 +119,9 @@ export const RunOverlayPanel: React.FunctionComponent<{
               <span className="omni-run__detail pf-v6-u-color-200">
                 {aiStepDetail(s.type, s.nodeName ? run.variables[s.nodeName] : null)}
               </span>
+            )}
+            {collectedText(s.progress) && (
+              <span className="omni-run__detail pf-v6-u-color-200">{collectedText(s.progress)}</span>
             )}
           </li>
         ))}

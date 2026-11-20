@@ -78,6 +78,29 @@ describe('run overlay', () => {
     expect(callsTo(f, `GET ${RUN}`)).toBe(2);
   });
 
+  it('waiting AI step shows Collected', () => {
+    openPanel({
+      ...RUN_AI_THINKING,
+      steps: RUN_AI_THINKING.steps.map((st) => ({ ...st, progress: { name: 'Asha', city: 'Indore', course: null } })),
+    });
+    const steps = within(screen.getByRole('list', { name: 'Steps' })).getAllByRole('listitem');
+    expect(steps[0]).toHaveTextContent('Collected: name, city');
+    expect(steps[0]).not.toHaveTextContent('course');
+  });
+
+  it('step without progress shows nothing extra', () => {
+    openPanel(RUN_WAITING);
+    expect(screen.queryByText(/Collected:/)).toBeNull();
+  });
+
+  it('finished run shows where the chat went', () => {
+    openPanel({
+      ...RUN_DONE,
+      ending: { chat: 'HANDED_OVER', agent: { id: 'u1', name: 'Asha' }, team: null, at: '2026-11-13T10:05:00Z' },
+    });
+    expect(screen.getByText('Chat: Handed over · Asha')).toBeVisible();
+  });
+
   it('showsStepsAndWaitingNode', () => {
     openPanel(RUN_WAITING);
     expect(screen.getByText(/waiting at AskBudget for a WhatsApp reply/)).toBeVisible();
