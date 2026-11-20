@@ -89,13 +89,24 @@ export function localDayRange(from: string, to: string): { from: string; to: str
   };
 }
 
-/** True when the two `YYYY-MM-DD` days are more than 92 days apart (the report's limit). */
+/** True for a real calendar day written `YYYY-MM-DD` (not `2026-13-01`, `2026-02-29` or a half-typed date). */
+export function validDay(v: string): boolean {
+  if (!/^\d{4}-\d{2}-\d{2}$/.test(v)) return false;
+  const [y, m, d] = v.split('-').map(Number);
+  const date = new Date(Date.UTC(y, m - 1, d));
+  return date.getUTCFullYear() === y && date.getUTCMonth() === m - 1 && date.getUTCDate() === d;
+}
+
+/**
+ * True when the `YYYY-MM-DD` days span more than 92 whole days. The server caps the span from the first day's
+ * start to the last day's end at 92 days, so 92 days apart (93 days inclusive) is already too long.
+ */
 export function rangeTooLong(from: string, to: string): boolean {
   const day = (v: string) => {
     const [y, m, d] = v.split('-').map(Number);
     return Date.UTC(y, m - 1, d);
   };
-  return (day(to) - day(from)) / 86_400_000 > 92;
+  return (day(to) - day(from)) / 86_400_000 >= 92;
 }
 
 /** The non-empty buckets of runs by how many details they gave: `count` details, `runs` runs, the words to show. */

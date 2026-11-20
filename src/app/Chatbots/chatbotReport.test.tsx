@@ -60,6 +60,33 @@ function open(path = '/chatbots/report?chatbot=c1', routes: Record<string, MockR
 }
 
 describe('chatbot report page', () => {
+  it('a mistyped date in the link falls back to the default', async () => {
+    const { f } = open('/chatbots/report?chatbot=c1&from=2026-13-01&to=2026-11-00');
+    expect(await screen.findByRole('region', { name: 'Totals' })).toHaveTextContent('Started 120');
+    const q = new URL(reportCalls(f)[0], 'http://localhost').searchParams;
+    expect(Number.isNaN(new Date(q.get('from') ?? '').getTime())).toBe(false);
+  });
+
+  it('typing over a chosen date does not snap back', async () => {
+    const { f, user } = open('/chatbots/report?chatbot=c1&from=2026-11-05&to=2026-11-20');
+    await screen.findByRole('region', { name: 'Totals' });
+    const fromBox = screen.getByRole('textbox', { name: 'From' });
+    await user.clear(fromBox);
+    await user.type(fromBox, '2026-11-10');
+    expect(fromBox).toHaveValue('2026-11-10');
+    const want = new Date('2026-11-10T00:00:00').toISOString();
+    await waitFor(() =>
+      expect(reportCalls(f).some((u) => new URL(u, 'http://localhost').searchParams.get('from') === want)).toBe(true),
+    );
+  });
+
+  it('counts have names that say what they count', async () => {
+    open();
+    const grid = await screen.findByRole('grid', { name: 'Steps' });
+    expect(within(grid).getByRole('button', { name: 'Reached Counsellor: 120 runs' })).toBeVisible();
+    expect(within(grid).getByRole('button', { name: 'Ended at Counsellor: 29 runs' })).toBeVisible();
+  });
+
   beforeEach(() => storeSession());
   afterEach(() => vi.unstubAllGlobals());
 
@@ -173,11 +200,6 @@ describe('chatbot report page', () => {
     await user.clear(toBox);
     await user.type(toBox, '2026-06-01');
     expect(await screen.findByText('Choose at most 92 days')).toBeVisible();
-    const spans = reportCalls(f).map((u) => {
-      const q = new URL(u, 'http://localhost').searchParams;
-      return (new Date(q.get('to') ?? '').getTime() - new Date(q.get('from') ?? '').getTime()) / 86_400_000;
-    });
-    expect(spans.length).toBeGreaterThanOrEqual(before);
-    spans.forEach((days) => expect(days).toBeLessThanOrEqual(93));
+    expect(reportCalls(f)).toHaveLength(before);
   });
 });

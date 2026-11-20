@@ -24,11 +24,10 @@ import {
   progressParts,
   rangeTooLong,
   runStatusLabel,
+  validDay,
 } from '@app/Chatbots/chatbotDisplay';
 import { ReportRunsDrawer } from '@app/Chatbots/ReportRunsDrawer';
 import { useSession } from '@app/session/SessionContext';
-
-const DAY = /^\d{4}-\d{2}-\d{2}$/;
 
 /** A local date as `YYYY-MM-DD`. */
 const isoDay = (d: Date): string =>
@@ -53,9 +52,11 @@ const Count: React.FunctionComponent<{
   value: number;
   link: RunsLink | null;
   onOpen(l: RunsLink): void;
-}> = ({ text, value, link, onOpen }) =>
+  /** The button's name when the text alone ("120") does not say what is counted. */
+  label?: string;
+}> = ({ text, value, link, onOpen, label }) =>
   link && value > 0 ? (
-    <Button variant="link" isInline onClick={() => onOpen(link)}>
+    <Button variant="link" isInline aria-label={label} onClick={() => onOpen(link)}>
       {text}
     </Button>
   ) : (
@@ -87,8 +88,11 @@ export const ChatbotReportPage: React.FunctionComponent = () => {
   const chatbots = useLoad((tk) => listChatbots(tk, ws), [ws]);
   const options = useLoad((tk) => getChatbotOptions(tk, ws), [ws]);
   const chatbotId = params.get('chatbot') || chatbots.data?.[0]?.id || '';
-  const from = DAY.test(params.get('from') ?? '') ? (params.get('from') as string) : defaults.from;
-  const to = DAY.test(params.get('to') ?? '') ? (params.get('to') as string) : defaults.to;
+  const from = validDay(params.get('from') ?? '') ? (params.get('from') as string) : defaults.from;
+  const to = validDay(params.get('to') ?? '') ? (params.get('to') as string) : defaults.to;
+  // what is typed in each date box; the link follows only once it is a real day, so a half-typed date stays put
+  const [fromText, setFromText] = React.useState(from);
+  const [toText, setToText] = React.useState(to);
   const number = params.get('number') ?? '';
   const tooLong = rangeTooLong(from, to);
   const range = localDayRange(from, to);
@@ -147,6 +151,7 @@ export const ChatbotReportPage: React.FunctionComponent = () => {
           <Count
             text={String(s.reached)}
             value={s.reached}
+            label={`Reached ${name}: ${s.reached} runs`}
             link={{ query: { nodeId: s.nodeId, reached: true }, title: `Reached ${name}` }}
             onOpen={open}
           />
@@ -157,6 +162,7 @@ export const ChatbotReportPage: React.FunctionComponent = () => {
               <Count
                 text={String(ended)}
                 value={ended}
+                label={`Ended at ${name}: ${ended} runs`}
                 link={{ query: { nodeId: s.nodeId }, title: `Ended at ${name}` }}
                 onOpen={open}
               />
@@ -178,6 +184,7 @@ export const ChatbotReportPage: React.FunctionComponent = () => {
                     key={p.count}
                     text={p.text}
                     value={p.runs}
+                    label={`${name}: ${p.text} runs`}
                     link={{ query: { nodeId: s.nodeId, given: p.count }, title: `${name}: ${p.text}` }}
                     onOpen={open}
                   />
@@ -277,10 +284,26 @@ export const ChatbotReportPage: React.FunctionComponent = () => {
             </FormSelect>
           </ToolbarItem>
           <ToolbarItem>
-            <DatePicker aria-label="From" placeholder="From" value={from} onChange={(_e, v) => set('from', v)} />
+            <DatePicker
+              aria-label="From"
+              placeholder="From"
+              value={fromText}
+              onChange={(_e, v) => {
+                setFromText(v);
+                if (validDay(v)) set('from', v);
+              }}
+            />
           </ToolbarItem>
           <ToolbarItem>
-            <DatePicker aria-label="To" placeholder="To" value={to} onChange={(_e, v) => set('to', v)} />
+            <DatePicker
+              aria-label="To"
+              placeholder="To"
+              value={toText}
+              onChange={(_e, v) => {
+                setToText(v);
+                if (validDay(v)) set('to', v);
+              }}
+            />
           </ToolbarItem>
           <ToolbarItem>
             <FormSelect aria-label="Number" value={number} onChange={(_e, v) => set('number', v)}>

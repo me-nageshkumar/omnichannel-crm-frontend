@@ -83,7 +83,7 @@ describe('report runs drawer', () => {
   it('lists the runs for the clicked number', async () => {
     const { f, user } = open(page([OWNED_NOBODY, NO_DEAL]));
     const steps = await screen.findByRole('grid', { name: 'Steps' });
-    await user.click(within(steps).getByRole('button', { name: '30' }));
+    await user.click(within(steps).getByRole('button', { name: 'Ended at Counsellor: 30 runs' }));
     const drawer = await screen.findByRole('dialog', { name: 'Ended at Counsellor' });
     await waitFor(() => expect(within(drawer).getAllByRole('row')).toHaveLength(3));
     const q = new URL(runsCalls(f)[0], 'http://localhost').searchParams;
@@ -102,7 +102,11 @@ describe('report runs drawer', () => {
 
   it('row links to chat, lead and run', async () => {
     const { user } = open(page([OWNED_NOBODY]));
-    await user.click(within(await screen.findByRole('grid', { name: 'Steps' })).getByRole('button', { name: '30' }));
+    await user.click(
+      within(await screen.findByRole('grid', { name: 'Steps' })).getByRole('button', {
+        name: 'Ended at Counsellor: 30 runs',
+      }),
+    );
     const row = within(await screen.findByRole('dialog', { name: 'Ended at Counsellor' })).getAllByRole('row')[1];
     await waitFor(() =>
       expect(within(row).getByRole('link', { name: 'Chat' })).toHaveAttribute('href', '/inbox/chats/ch1'),
@@ -113,14 +117,22 @@ describe('report runs drawer', () => {
 
   it('unowned lead shows No owner', async () => {
     const { user } = open(page([OWNED_NOBODY]));
-    await user.click(within(await screen.findByRole('grid', { name: 'Steps' })).getByRole('button', { name: '30' }));
+    await user.click(
+      within(await screen.findByRole('grid', { name: 'Steps' })).getByRole('button', {
+        name: 'Ended at Counsellor: 30 runs',
+      }),
+    );
     const drawer = await screen.findByRole('dialog', { name: 'Ended at Counsellor' });
     expect(await within(drawer).findByText('No owner')).toBeVisible();
   });
 
   it('noDealNoLeadLink', async () => {
     const { user } = open(page([NO_DEAL]));
-    await user.click(within(await screen.findByRole('grid', { name: 'Steps' })).getByRole('button', { name: '30' }));
+    await user.click(
+      within(await screen.findByRole('grid', { name: 'Steps' })).getByRole('button', {
+        name: 'Ended at Counsellor: 30 runs',
+      }),
+    );
     const drawer = await screen.findByRole('dialog', { name: 'Ended at Counsellor' });
     const row = (await within(drawer).findAllByRole('row'))[1];
     await waitFor(() => expect(row).toHaveTextContent('Ravi'));
@@ -130,7 +142,11 @@ describe('report runs drawer', () => {
 
   it('pages through results', async () => {
     const { f, user } = open(page([OWNED_NOBODY], 60));
-    await user.click(within(await screen.findByRole('grid', { name: 'Steps' })).getByRole('button', { name: '30' }));
+    await user.click(
+      within(await screen.findByRole('grid', { name: 'Steps' })).getByRole('button', {
+        name: 'Ended at Counsellor: 30 runs',
+      }),
+    );
     const drawer = await screen.findByRole('dialog', { name: 'Ended at Counsellor' });
     await user.click(await within(drawer).findByRole('button', { name: 'Older' }));
     await waitFor(() =>
