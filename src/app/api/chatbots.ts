@@ -300,6 +300,8 @@ export type ReportChat = 'TO_AGENT' | 'TO_QUEUE' | 'CLOSED' | 'LEFT' | 'NOT_RECO
 export interface ReportRunsQuery extends ReportQuery {
   nodeId?: string;
   reached?: boolean;
+  /** Runs still going (running or waiting); not with `status`. */
+  active?: boolean;
   status?: RunStatus;
   chat?: ReportChat;
   given?: number;
@@ -390,6 +392,7 @@ export const listReportRuns = (token: string, ws: string, id: string, q: ReportR
       phoneNumberId: q.phoneNumberId,
       nodeId: q.nodeId,
       reached: q.reached === undefined ? undefined : String(q.reached),
+      active: q.active === undefined ? undefined : String(q.active),
       status: q.status,
       chat: q.chat,
       given: q.given,

@@ -154,6 +154,21 @@ describe('report runs drawer', () => {
     );
   });
 
+  it('Running opens the active runs', async () => {
+    const f = mockFetch({
+      ...meAs(WORKSPACE_MANAGER),
+      ...chatbotRoutes({
+        [`GET ${REPORT_URL}`]: { status: 200, body: { ...REPORT, totals: { ...REPORT.totals, running: 2 } } },
+        [`GET ${RUNS_URL}`]: page([OWNED_NOBODY]),
+      }),
+    });
+    const { user } = renderApp('/chatbots/report?chatbot=c1');
+    const totals = await screen.findByRole('region', { name: 'Totals' });
+    await user.click(within(totals).getByRole('button', { name: 'Running 2' }));
+    await screen.findByRole('dialog', { name: 'Running' });
+    await waitFor(() => expect(new URL(runsCalls(f)[0], 'http://localhost').searchParams.get('active')).toBe('true'));
+  });
+
   it('a total opens the runs filtered by how the chat went', async () => {
     const { f, user } = open(page([OWNED_NOBODY]));
     const totals = await screen.findByRole('region', { name: 'Totals' });

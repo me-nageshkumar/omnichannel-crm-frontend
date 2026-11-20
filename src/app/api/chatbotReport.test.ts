@@ -54,6 +54,7 @@ describe('chatbot report api', () => {
       phoneNumberId: 'n1',
       nodeId: 'ai1',
       reached: true,
+      active: true,
       given: 2,
       chat: 'TO_QUEUE',
       page: 1,
@@ -62,9 +63,16 @@ describe('chatbot report api', () => {
     expect(page.total).toBe(0);
     const url = urlOf(fetch);
     expect(url).toContain('/api/workspaces/w1/chatbots/c1/report/runs?');
-    ['phoneNumberId=n1', 'nodeId=ai1', 'reached=true', 'given=2', 'chat=TO_QUEUE', 'page=1', 'size=25'].forEach((p) =>
-      expect(url).toContain(p),
-    );
+    [
+      'phoneNumberId=n1',
+      'nodeId=ai1',
+      'reached=true',
+      'active=true',
+      'given=2',
+      'chat=TO_QUEUE',
+      'page=1',
+      'size=25',
+    ].forEach((p) => expect(url).toContain(p));
     expect(url).not.toContain('status=');
     expect(requestTo(fetch, 'GET /api/workspaces/w1/chatbots/c1/report/runs')?.headers.get('Authorization')).toBe(
       'Bearer tok',

@@ -233,7 +233,13 @@ export const ChatbotReportPage: React.FunctionComponent = () => {
               status('HANDED_OVER', 'Handed over', t.handedOver),
               status('STOPPED', 'Stopped', t.stopped),
               status('FAILED', 'Failed', t.failed),
-              <span key="running">{`Running ${t.running}`}</span>,
+              <Count
+                key="running"
+                text={`Running ${t.running}`}
+                value={t.running}
+                link={{ query: { active: true }, title: 'Running' }}
+                onOpen={open}
+              />,
             ])}
           </p>
           <p>
