@@ -102,6 +102,7 @@ const NAV_SECTIONS: NavEntry[][] = [
       label: 'Chatbots',
       links: [
         { label: 'All chatbots', path: '/chatbots', requires: (a) => a.hasInWorkspace('chatbot:view') },
+        { label: 'Report', path: '/chatbots/report', requires: (a) => a.hasInWorkspace('chatbot:view') },
         { label: 'Settings', path: '/chatbots/settings', requires: (a) => a.hasInWorkspace('chatbot:view') },
       ],
     },

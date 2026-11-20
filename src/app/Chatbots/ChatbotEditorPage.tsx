@@ -193,6 +193,7 @@ const Editor: React.FunctionComponent<{
           }}
           onTest={() => setTesting(true)}
           onRuns={() => guard.leave(`/chatbots/${chatbot.id}/runs`)}
+          onReport={() => guard.leave(`/chatbots/report?chatbot=${encodeURIComponent(chatbot.id)}`)}
           onVersions={() => {
             select(null);
             setPalette(false);
