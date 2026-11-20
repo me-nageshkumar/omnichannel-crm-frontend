@@ -20,6 +20,7 @@ export const EditorHeader: React.FunctionComponent<{
   onAddNode(): void;
   onTest(): void;
   onRuns(): void;
+  onReport(): void;
   onVersions(): void;
   onSettings(): void;
   onPickProblem(nodeId: string | null): void;
@@ -38,6 +39,7 @@ export const EditorHeader: React.FunctionComponent<{
   onAddNode,
   onTest,
   onRuns,
+  onReport,
   onVersions,
   onSettings,
   onPickProblem,
@@ -141,6 +143,9 @@ export const EditorHeader: React.FunctionComponent<{
           )}
           <Button variant="link" onClick={onRuns}>
             Runs
+          </Button>
+          <Button variant="link" onClick={onReport}>
+            Report
           </Button>
           <Button variant="link" onClick={onVersions}>
             Versions

@@ -12,6 +12,10 @@ const ChatbotRunsPage = React.lazy(() =>
   import('@app/Chatbots/ChatbotRunsPage').then((m) => ({ default: m.ChatbotRunsPage })),
 );
 
+const ChatbotReportPage = React.lazy(() =>
+  import('@app/Chatbots/ChatbotReportPage').then((m) => ({ default: m.ChatbotReportPage })),
+);
+
 const lazyPage = (Page: React.LazyExoticComponent<React.FunctionComponent>): React.ReactElement => (
   <React.Suspense
     fallback={
@@ -31,6 +35,7 @@ export const chatbotRoutes: IAppRoute[] = [
     requires: (a) => a.has('chatbot-defaults:manage'),
     element: <ChatbotDefaultsPage />,
   },
+  { path: '/chatbots/report', requires: (a) => a.hasInWorkspace('chatbot:view'), element: lazyPage(ChatbotReportPage) },
   { path: '/chatbots/:id', requires: (a) => a.hasInWorkspace('chatbot:view'), element: lazyPage(ChatbotEditorPage) },
   { path: '/chatbots/:id/runs', requires: (a) => a.hasInWorkspace('chatbot:view'), element: lazyPage(ChatbotRunsPage) },
 ];

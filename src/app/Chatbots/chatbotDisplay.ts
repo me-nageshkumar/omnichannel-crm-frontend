@@ -78,3 +78,45 @@ export function aiStepDetail(type: string, vars: unknown): string | null {
   }
   return parts.length > 0 ? parts.join(' · ') : null;
 }
+
+// ---- chatbot report (spec 2026-11-20 §6.5) ----
+
+/** The local days typed as `YYYY-MM-DD`, as the instants the first one starts and the last one ends. */
+export function localDayRange(from: string, to: string): { from: string; to: string } {
+  return {
+    from: new Date(`${from}T00:00:00`).toISOString(),
+    to: new Date(`${to}T23:59:59.999`).toISOString(),
+  };
+}
+
+/** True when the two `YYYY-MM-DD` days are more than 92 days apart (the report's limit). */
+export function rangeTooLong(from: string, to: string): boolean {
+  const day = (v: string) => {
+    const [y, m, d] = v.split('-').map(Number);
+    return Date.UTC(y, m - 1, d);
+  };
+  return (day(to) - day(from)) / 86_400_000 > 92;
+}
+
+/** The non-empty buckets of runs by how many details they gave: `count` details, `runs` runs, the words to show. */
+export function progressParts(byCount: number[]): { count: number; runs: number; text: string }[] {
+  return byCount
+    .map((runs, count) => ({
+      count,
+      runs,
+      text: `${count === 0 ? 'gave nothing' : count === 1 ? '1 detail' : `${count} details`} ${runs}`,
+    }))
+    .filter((p) => p.runs > 0);
+}
+
+/** "gave nothing 12 · 1 detail 9 · 2 details 11": runs by how many details they gave, empty buckets left out. */
+export function progressSummary(byCount: number[]): string {
+  return progressParts(byCount)
+    .map((p) => p.text)
+    .join(' · ');
+}
+
+/** "name 29 · city 20": how many runs gave each detail, by its label or else its key. */
+export function fieldsSummary(fields: { key: string; label: string | null; given: number }[]): string {
+  return fields.map((f) => `${f.label || f.key} ${f.given}`).join(' · ');
+}

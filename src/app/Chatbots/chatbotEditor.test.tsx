@@ -24,6 +24,33 @@ describe('chatbot editor', () => {
   beforeEach(() => storeSession());
   afterEach(() => vi.unstubAllGlobals());
 
+  it('editor header links to the report', async () => {
+    const { user } = open('/chatbots/c1', {
+      [`GET ${CHATBOTS_BASE}/c1/report`]: {
+        status: 200,
+        body: {
+          totals: {
+            started: 0,
+            running: 0,
+            completed: 0,
+            wentSilent: 0,
+            stopped: 0,
+            failed: 0,
+            handedOver: 0,
+            jumped: 0,
+            chat: { toAgent: 0, toQueue: 0, closed: 0, left: 0, notRecorded: 0 },
+          },
+          steps: [],
+          progress: [],
+        },
+      },
+    });
+    expect(await screen.findByRole('heading', { name: 'Lead qualifier' })).toBeVisible();
+    await user.click(screen.getByRole('button', { name: 'Report' }));
+    await waitFor(() => expect(screen.getByRole('status', { name: 'Location' })).toHaveTextContent('/chatbots/report'));
+    expect(await screen.findByRole('combobox', { name: 'Chatbot' })).toHaveValue('c1');
+  });
+
   it('rendersNodesAndEntryTag', async () => {
     open('/chatbots/c1');
     expect(await screen.findByRole('heading', { name: 'Lead qualifier' })).toBeVisible();

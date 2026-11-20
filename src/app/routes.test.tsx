@@ -35,6 +35,7 @@ const BRAND_LINKS = [
   'History imports',
   'Automations',
   'All chatbots',
+  'Report',
   'Settings',
   'All contacts',
   'Saved filters',
