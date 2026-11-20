@@ -25,6 +25,7 @@ import {
 } from '@app/Campaigns/NewCampaign/draft';
 import { PlaceholderMapping } from '@app/Campaigns/NewCampaign/PlaceholderMapping';
 import { CloudTemplatePreview } from '@app/CloudTemplates/CloudTemplatePreview';
+import { messageFor } from '@app/api/messages';
 import { useSession } from '@app/session/SessionContext';
 
 /** Why a WhatsApp template cannot be chosen, or null. */
@@ -56,7 +57,13 @@ export const CloudMessageStep: React.FunctionComponent<StepProps & { attributes:
   const media = format && (MEDIA as readonly string[]).includes(format) ? (format as MediaFormat) : null;
   const problem = chosen ? cloudMessageProblem(draft) : null;
 
-  const choose = (t: CloudTemplate) => update({ cloudTemplate: t, headerMediaId: null, headerFileName: null });
+  // another template's blanks mean other things even under the same key: its mappings start over
+  const choose = (t: CloudTemplate) =>
+    update((d) =>
+      d.cloudTemplate?.id === t.id
+        ? null
+        : { cloudTemplate: t, mappings: {}, headerMediaId: null, headerFileName: null },
+    );
 
   const upload = async (file: File) => {
     if (!token || !media) return;
@@ -69,10 +76,11 @@ export const CloudMessageStep: React.FunctionComponent<StepProps & { attributes:
         numberId,
         media.toLowerCase() as 'image' | 'video' | 'document',
         file,
+        'whatsapp',
       );
       update({ headerMediaId: res.id, headerFileName: file.name });
     } catch (e) {
-      setUploadError(e instanceof Error ? e.message : 'The file could not be uploaded');
+      setUploadError(messageFor(e));
     } finally {
       setUploading(false);
     }

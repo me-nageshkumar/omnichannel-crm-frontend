@@ -8,6 +8,8 @@ import { content, placeholderView, template } from '../../test/templates';
 import { campaign, campaignDetail, campaignSettings, cloudSender, recipient, sender } from '../../test/campaigns';
 import { cloudTemplate } from '../../test/cloudTemplates';
 import { EMPTY_DRAFT, cloudPlaceholders, toRequest } from '@app/Campaigns/NewCampaign/draft';
+import { ApiError } from '@app/api/client';
+import { campaignActionMessage } from '@app/api/messages';
 
 const B = '/api/workspaces/w1';
 const C = `${B}/campaigns`;
@@ -60,6 +62,20 @@ export function cloudRoutes(extra = {}) {
           unsupportedReason: 'Carousel templates are not supported yet',
         }),
         BROCHURE,
+        cloudTemplate({
+          id: 'ct5',
+          name: 'fees_due',
+          components: [{ type: 'BODY', text: 'Your fees of {{1}} are due' }],
+          variables: [{ key: 'body:1', component: 'BODY', index: 0, example: '5000' }],
+        }),
+        cloudTemplate({
+          id: 'ct6',
+          name: 'city_welcome',
+          fills: {
+            'body:1': { kind: 'CONTACT_FIELD', attributeKey: 'name' },
+            'body:2': { kind: 'CONTACT_ATTRIBUTE', attributeKey: 'city' },
+          },
+        }),
       ],
     },
     [`POST ${B}/channel-accounts/cp1/media`]: { status: 200, body: { id: 'm1' } },
@@ -218,7 +234,40 @@ describe('new campaign wizard: the WhatsApp template of a Cloud campaign', () =>
     await user.upload(input, new File([new Uint8Array([1, 2, 3])], 'brochure.png', { type: 'image/png' }));
     expect(await screen.findByText('brochure.png')).toBeVisible();
     expect(next()).toBeEnabled();
-    expect(fetch.mock.calls.some(([u]) => String(u).includes('/channel-accounts/cp1/media'))).toBe(true);
+    const call = fetch.mock.calls.find(([u]) => String(u).includes('/channel-accounts/cp1/media'));
+    expect((call?.[1]?.body as FormData).get('messaging_product')).toBe('whatsapp');
+  });
+
+  it('switchingTemplateDropsItsMappings', async () => {
+    mockFetch(cloudRoutes());
+    const { user } = renderApp('/campaigns/new');
+    await toCloudMessage(user);
+    await user.click(await screen.findByRole('radio', { name: /course_follow_up/ }));
+    await user.selectOptions(screen.getByRole('combobox', { name: 'Source for body:1' }), 'Contact name');
+    await user.click(screen.getByRole('radio', { name: /fees_due/ }));
+    expect(await screen.findByRole('combobox', { name: 'Source for body:1' })).toHaveValue('');
+  });
+
+  it('savedFillsBecomeTheDefaults', async () => {
+    mockFetch(cloudRoutes());
+    const { user } = renderApp('/campaigns/new');
+    await toCloudMessage(user);
+    await user.click(await screen.findByRole('radio', { name: /city_welcome/ }));
+    expect(await screen.findByRole('combobox', { name: 'Source for body:1' })).toHaveValue('field:name');
+    expect(screen.getByRole('combobox', { name: 'Source for body:2' })).toHaveValue('attr:a1');
+  });
+
+  it('blockedResumeShowsTheServerReason', () => {
+    const e = new ApiError(
+      409,
+      'CAMPAIGN_BLOCKED',
+      undefined,
+      undefined,
+      undefined,
+      undefined,
+      'The WhatsApp template is not approved, or Meta paused it.',
+    );
+    expect(campaignActionMessage(e, 'resume')).toBe('The WhatsApp template is not approved, or Meta paused it.');
   });
 
   it('cloudRequestShape', () => {
@@ -268,7 +317,13 @@ const CLOUD_CAMPAIGN = campaignDetail({
   senders: [],
   templateIds: [],
   templateNames: [],
-  cloudTemplate: { cloudTemplateId: 'ct1', name: 'course_follow_up', language: 'en', status: 'APPROVED', headerMediaId: null },
+  cloudTemplate: {
+    cloudTemplateId: 'ct1',
+    name: 'course_follow_up',
+    language: 'en',
+    status: 'APPROVED',
+    headerMediaId: null,
+  },
   cloudSenders: [cloudSender({ usedLast24h: 120 })],
 });
 

@@ -44,7 +44,11 @@ function defaultSource(p: PlaceholderView, ctx: MappingContext): PlaceholderSour
   if (ctx.kind === 'FILTER') {
     if (p.name === 'contact.name') return { kind: 'CONTACT_FIELD', field: 'name' };
     if (p.name === 'contact.phone') return { kind: 'CONTACT_FIELD', field: 'phone' };
-    const id = p.attributeId;
+    // a Meta template's blank names its saved fill by key: a contact field, or an attribute's key
+    if (p.kind === 'CONTACT_FIELD' && (p.attributeKey === 'name' || p.attributeKey === 'phone')) {
+      return { kind: 'CONTACT_FIELD', field: p.attributeKey };
+    }
+    const id = p.attributeId ?? (p.missing ? null : (ctx.attributes.find((a) => a.key === p.attributeKey)?.id ?? null));
     if (p.kind === 'CONTACT_ATTRIBUTE' && id && ctx.attributes.some((a) => a.id === id)) {
       return { kind: 'CONTACT_ATTRIBUTE', attributeId: id };
     }
