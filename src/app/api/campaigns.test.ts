@@ -1,9 +1,11 @@
 import { afterEach, describe, expect, it, vi } from 'vitest';
 import {
   campaignAction,
+  channelOf,
   createCampaign,
   getCampaignSettings,
   listCampaigns,
+  listCloudSenders,
   listRecipients,
   listSenders,
   previewCsv,
@@ -11,7 +13,7 @@ import {
   updateCampaignSettings,
   updateSender,
 } from '@app/api/campaigns';
-import type { CampaignRequest } from '@app/api/campaigns';
+import type { CampaignRequest, CampaignView } from '@app/api/campaigns';
 import { urlsOf } from '../../test/admin';
 import { campaign, campaignSettings, partJson, sender } from '../../test/campaigns';
 import { callsTo, mockFetch, requestTo } from '../../test/fetchMock';
@@ -30,7 +32,9 @@ const filterReq: CampaignRequest = {
 
 describe('campaigns api', () => {
   it('listsWithPageAndStatus', async () => {
-    const fetch = mockFetch({ [`GET ${B}`]: { status: 200, body: { items: [], total: 0, page: 0, systemPaused: false } } });
+    const fetch = mockFetch({
+      [`GET ${B}`]: { status: 200, body: { items: [], total: 0, page: 0, systemPaused: false } },
+    });
     await listCampaigns('t', 'w1', { page: 0 });
     await listCampaigns('t', 'w1', { status: 'RUNNING', page: 2 });
     expect(urlsOf(fetch, `GET ${B}`)).toEqual([`${B}?page=0`, `${B}?status=RUNNING&page=2`]);
@@ -82,7 +86,11 @@ describe('campaigns api', () => {
 
   it('downloadsASampleCsv', async () => {
     mockFetch({
-      [`GET ${B}/templates/t1/sample-csv`]: { status: 200, text: 'phone,first_name\n', headers: { 'Content-Type': 'text/csv' } },
+      [`GET ${B}/templates/t1/sample-csv`]: {
+        status: 200,
+        text: 'phone,first_name\n',
+        headers: { 'Content-Type': 'text/csv' },
+      },
     });
     const blob = await sampleCsv('t', 'w1', 't1');
     expect(blob.size).toBeGreaterThan(0);
@@ -106,5 +114,37 @@ describe('campaigns api', () => {
     expect((await getCampaignSettings('t', 'w1')).hourlyCap).toBe(12);
     await updateCampaignSettings('t', 'w1', campaignSettings({ hourlyCap: 10 }));
     expect(requestTo(fetch, `PUT ${B}/settings`)?.body).toEqual(campaignSettings({ hourlyCap: 10 }));
+  });
+});
+
+describe('cloud campaigns api', () => {
+  it('listsCloudSendersWithTheChannel', async () => {
+    const fetch = mockFetch({
+      [`GET ${B}/senders`]: {
+        status: 200,
+        body: [
+          {
+            phoneNumberId: 'c1',
+            number: '919876543210',
+            label: 'Admissions',
+            wabaId: '222',
+            canSend: true,
+            qualityRating: 'GREEN',
+            messagingLimitTier: 'TIER_250',
+            dailyLimit: 250,
+            usedLast24h: 12,
+            heldUntil: null,
+          },
+        ],
+      },
+    });
+    const list = await listCloudSenders('t', 'w1');
+    expect(list[0].dailyLimit).toBe(250);
+    expect(String(fetch.mock.calls[0][0])).toContain('/senders?channel=WHATSAPP_CLOUD_API');
+  });
+
+  it('readsAMissingChannelAsWeb', () => {
+    expect(channelOf({} as CampaignView)).toBe('WHATSAPP_WEB');
+    expect(channelOf({ channel: 'WHATSAPP_CLOUD_API' } as CampaignView)).toBe('WHATSAPP_CLOUD_API');
   });
 });

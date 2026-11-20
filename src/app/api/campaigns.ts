@@ -81,12 +81,47 @@ export interface CampaignEstimate {
   finishBy: string | null;
 }
 
+/** The kind of number a campaign sends from; one kind per campaign. */
+export type CampaignChannel = 'WHATSAPP_WEB' | 'WHATSAPP_CLOUD_API';
+
+/** A Cloud number as the wizard and the detail show it; `dailyLimit` null means unlimited. */
+export interface CloudSenderView {
+  phoneNumberId: string;
+  number: string;
+  label: string | null;
+  wabaId: string | null;
+  canSend: boolean;
+  qualityRating: 'GREEN' | 'YELLOW' | 'RED' | 'UNKNOWN' | null;
+  messagingLimitTier: string | null;
+  dailyLimit: number | null;
+  usedLast24h: number;
+  /** Set while Meta asked the number (or its WhatsApp account) to wait. */
+  heldUntil: string | null;
+}
+
+/** The Meta template of a Cloud campaign, with its status at Meta now. */
+export interface CampaignCloudTemplate {
+  cloudTemplateId: string;
+  name: string;
+  language: string;
+  status: string;
+  headerMediaId: string | null;
+}
+
+export type CampaignPauseReason =
+  | 'TWO_LOGOUTS'
+  | 'SEND_REFUSED'
+  | 'WALLET_EMPTY'
+  | 'TEMPLATE_UNAVAILABLE'
+  | 'CLOUD_QUALITY_LOW'
+  | 'CLOUD_AUTH';
+
 export interface CampaignView {
   id: string;
   name: string;
   status: CampaignStatus;
   pausedBy: 'USER' | 'SYSTEM' | null;
-  pauseReason: 'TWO_LOGOUTS' | 'SEND_REFUSED' | 'WALLET_EMPTY' | null;
+  pauseReason: CampaignPauseReason | null;
   audience: CampaignAudience;
   templateIds: string[];
   templateNames: string[];
@@ -102,7 +137,15 @@ export interface CampaignView {
   /** Null in list items; set on every single-campaign reply. */
   estimate: CampaignEstimate | null;
   senders: SenderView[] | null;
+  /** Absent on replies from before Cloud campaigns: WhatsApp Web. */
+  channel?: CampaignChannel;
+  cloudTemplate?: CampaignCloudTemplate | null;
+  /** The Cloud numbers of a single Cloud campaign; null otherwise. */
+  cloudSenders?: CloudSenderView[] | null;
 }
+
+/** The campaign's kind of number; a reply without one is WhatsApp Web. */
+export const channelOf = (c: Pick<CampaignView, 'channel'>): CampaignChannel => c.channel ?? 'WHATSAPP_WEB';
 
 /** A single campaign: the estimate and the senders are always present. */
 export interface CampaignDetail extends CampaignView {
@@ -164,6 +207,8 @@ export interface CampaignRequest {
   templateIds: string[];
   placeholders: CampaignPlaceholder[];
   senderIds: string[];
+  channel?: CampaignChannel;
+  cloudTemplate?: { cloudTemplateId: string; headerMediaId: string | null } | null;
 }
 
 export interface CsvPreview {
@@ -276,6 +321,10 @@ export async function previewCsv(token: string, ws: string, file: File): Promise
 }
 
 export const listSenders = (token: string, ws: string) => apiFetch<SenderView[]>(`${base(ws)}/senders`, { token });
+
+/** The brand's Cloud numbers with Meta's daily limit and what is used of it. */
+export const listCloudSenders = (token: string, ws: string) =>
+  apiFetch<CloudSenderView[]>(`${base(ws)}/senders?channel=WHATSAPP_CLOUD_API`, { token });
 
 export const updateSender = (
   token: string,
