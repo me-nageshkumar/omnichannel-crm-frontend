@@ -167,6 +167,16 @@ export interface RunStep {
   error: string | null;
   result: Record<string, unknown> | null;
   waitedFor: Waiting | null;
+  /** What an AI conversation has collected on this step so far (null or absent when nothing). */
+  progress?: Record<string, unknown> | null;
+}
+
+/** Where a finished run's chat went (null on runs that ended before this was recorded). */
+export interface RunEnding {
+  chat: 'HANDED_OVER' | 'ROUTED' | 'CLOSED' | 'LEFT';
+  agent: Ref | null;
+  team: Ref | null;
+  at: string;
 }
 
 export interface StartedBy {
@@ -196,6 +206,7 @@ export interface Run {
   stoppedBy: Ref | null;
   createdAt: string;
   finishedAt: string | null;
+  ending?: RunEnding | null;
 }
 
 export interface RunPage {
@@ -235,6 +246,91 @@ export interface RunsQuery {
   to?: string;
   page?: number;
   size?: number;
+}
+
+export interface ReportChatTotals {
+  toAgent: number;
+  toQueue: number;
+  closed: number;
+  left: number;
+  notRecorded: number;
+}
+
+export interface ReportTotals {
+  started: number;
+  running: number;
+  completed: number;
+  wentSilent: number;
+  stopped: number;
+  failed: number;
+  handedOver: number;
+  jumped: number;
+  chat: ReportChatTotals;
+}
+
+export interface ReportStep {
+  nodeId: string;
+  name: string | null;
+  type: string | null;
+  removed: boolean;
+  reached: number;
+  endedHere: Partial<Record<RunStatus, number>>;
+}
+
+export interface ReportProgress {
+  nodeId: string;
+  fields: { key: string; label: string | null; given: number }[];
+  byCount: number[];
+}
+
+export interface ChatbotReport {
+  totals: ReportTotals;
+  steps: ReportStep[];
+  progress: ReportProgress[];
+}
+
+export interface ReportQuery {
+  from?: string;
+  to?: string;
+  phoneNumberId?: string;
+}
+
+export type ReportChat = 'TO_AGENT' | 'TO_QUEUE' | 'CLOSED' | 'LEFT' | 'NOT_RECORDED';
+
+export interface ReportRunsQuery extends ReportQuery {
+  nodeId?: string;
+  reached?: boolean;
+  status?: RunStatus;
+  chat?: ReportChat;
+  given?: number;
+  page?: number;
+  size?: number;
+}
+
+/** A run as the report's list shows it; `ending` is the stored record (ids), names come alongside. */
+export interface ReportRunRow {
+  runId: string;
+  contactName: string | null;
+  phone: string | null;
+  numberLabel: string | null;
+  startedAt: string;
+  finishedAt: string | null;
+  status: RunStatus;
+  ending: { chat: RunEnding['chat']; agentUserId: string | null; teamId: string | null; at: string } | null;
+  agentName: string | null;
+  teamName: string | null;
+  progress: Record<string, unknown> | null;
+  chatId: string | null;
+  dealId: string | null;
+  dealPipelineId: string | null;
+  leadOwnerName: string | null;
+}
+
+export interface ReportRunPage {
+  items: ReportRunRow[];
+  total: number;
+  page: number;
+  size: number;
 }
 
 export type ChatbotMediaType = 'image' | 'video' | 'audio' | 'document';
@@ -280,6 +376,27 @@ export const listRuns = (token: string, ws: string, id: string, q: RunsQuery = {
     {
       token,
     },
+  );
+export const getChatbotReport = (token: string, ws: string, id: string, q: ReportQuery = {}) =>
+  apiFetch<ChatbotReport>(
+    withQuery(`${one(ws, id)}/report`, { from: q.from, to: q.to, phoneNumberId: q.phoneNumberId }),
+    { token },
+  );
+export const listReportRuns = (token: string, ws: string, id: string, q: ReportRunsQuery = {}) =>
+  apiFetch<ReportRunPage>(
+    withQuery(`${one(ws, id)}/report/runs`, {
+      from: q.from,
+      to: q.to,
+      phoneNumberId: q.phoneNumberId,
+      nodeId: q.nodeId,
+      reached: q.reached === undefined ? undefined : String(q.reached),
+      status: q.status,
+      chat: q.chat,
+      given: q.given,
+      page: q.page,
+      size: q.size,
+    }),
+    { token },
   );
 export const getRun = (token: string, ws: string, id: string, runId: string) =>
   apiFetch<Run>(`${one(ws, id)}/runs/${encodeURIComponent(runId)}`, { token });
