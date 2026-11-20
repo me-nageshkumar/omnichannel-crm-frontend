@@ -7,6 +7,7 @@ import { attribute, contact, savedFilter } from '../../test/contacts';
 import { content, placeholderView, template } from '../../test/templates';
 import { cloudSender, sender } from '../../test/campaigns';
 import { cloudTemplate } from '../../test/cloudTemplates';
+import { EMPTY_DRAFT, cloudPlaceholders, toRequest } from '@app/Campaigns/NewCampaign/draft';
 
 const B = '/api/workspaces/w1';
 const C = `${B}/campaigns`;
@@ -22,6 +23,16 @@ const WELCOME = template({
 const P1 = sender({ phoneNumberId: 'p1', number: '919800000001', state: 'WARMING', capToday: 5 });
 const CP1 = cloudSender({ usedLast24h: 12 });
 const FOLLOW_UP = cloudTemplate({ id: 'ct1', name: 'course_follow_up' });
+const BROCHURE = cloudTemplate({
+  id: 'ct4',
+  name: 'brochure',
+  header: { format: 'IMAGE' },
+  components: [
+    { type: 'HEADER', format: 'IMAGE' },
+    { type: 'BODY', text: 'Our brochure' },
+  ],
+  variables: [],
+});
 
 export function cloudRoutes(extra = {}) {
   return {
@@ -36,7 +47,22 @@ export function cloudRoutes(extra = {}) {
     [`GET ${B}/templates`]: { status: 200, body: [WELCOME] },
     [SENDERS]: { status: 200, body: [P1] },
     [CLOUD_SENDERS]: { status: 200, body: [CP1] },
-    [`GET ${B}/cloud-templates`]: { status: 200, body: [FOLLOW_UP] },
+    [`GET ${B}/meta/templates`]: {
+      status: 200,
+      body: [
+        FOLLOW_UP,
+        cloudTemplate({ id: 'ct2', name: 'fees_reminder', status: 'PENDING', sendable: false }),
+        cloudTemplate({
+          id: 'ct3',
+          name: 'courses',
+          supported: false,
+          sendable: false,
+          unsupportedReason: 'Carousel templates are not supported yet',
+        }),
+        BROCHURE,
+      ],
+    },
+    [`POST ${B}/channel-accounts/cp1/media`]: { status: 200, body: { id: 'm1' } },
     ...extra,
   };
 }
@@ -139,5 +165,97 @@ describe('new campaign wizard: the kind of number', () => {
     await user.click(screen.getByRole('button', { name: 'WhatsApp Web numbers' }));
     expect(await screen.findByRole('checkbox', { name: 'Select +919800000001' })).not.toBeChecked();
     expect(next()).toBeDisabled();
+  });
+});
+
+async function toCloudMessage(user: User) {
+  await throughAudience(user);
+  await chooseCloud(user);
+  await user.click(await screen.findByRole('checkbox', { name: 'Select Admissions' }));
+  await user.click(next());
+}
+
+describe('new campaign wizard: the WhatsApp template of a Cloud campaign', () => {
+  beforeEach(() => {
+    localStorage.clear();
+    storeSession();
+  });
+  afterEach(() => {
+    vi.restoreAllMocks();
+    vi.unstubAllGlobals();
+  });
+
+  it('cloudShowsWhatsAppTemplates', async () => {
+    mockFetch(cloudRoutes());
+    const { user } = renderApp('/campaigns/new');
+    await toCloudMessage(user);
+    expect(await screen.findByRole('radio', { name: /course_follow_up/ })).toBeEnabled();
+    expect(screen.getByRole('radio', { name: /fees_reminder/ })).toBeDisabled();
+    expect(screen.getByText("Waiting for Meta's approval")).toBeVisible();
+    expect(screen.getByRole('radio', { name: /courses/ })).toBeDisabled();
+    expect(screen.getByText('Carousel templates are not supported yet')).toBeVisible();
+    expect(screen.queryByRole('menuitem', { name: /^Welcome/ })).not.toBeInTheDocument();
+  });
+
+  it('cloudVariablesAreMapped', async () => {
+    mockFetch(cloudRoutes());
+    const { user } = renderApp('/campaigns/new');
+    await toCloudMessage(user);
+    await user.click(await screen.findByRole('radio', { name: /course_follow_up/ }));
+    expect(await screen.findByRole('combobox', { name: 'Source for body:1' })).toBeVisible();
+    expect(screen.getByRole('combobox', { name: 'Source for body:2' })).toBeVisible();
+    expect(screen.getByLabelText('Preview of course_follow_up')).toBeVisible();
+  });
+
+  it('mediaHeaderNeedsAFile', async () => {
+    const fetch = mockFetch(cloudRoutes());
+    const { user } = renderApp('/campaigns/new');
+    await toCloudMessage(user);
+    await user.click(await screen.findByRole('radio', { name: /brochure/ }));
+    expect(screen.getByText('Choose the header image')).toBeVisible();
+    expect(next()).toBeDisabled();
+    const input = document.querySelector('input[type="file"]') as HTMLInputElement;
+    await user.upload(input, new File([new Uint8Array([1, 2, 3])], 'brochure.png', { type: 'image/png' }));
+    expect(await screen.findByText('brochure.png')).toBeVisible();
+    expect(next()).toBeEnabled();
+    expect(fetch.mock.calls.some(([u]) => String(u).includes('/channel-accounts/cp1/media'))).toBe(true);
+  });
+
+  it('cloudRequestShape', () => {
+    const d = {
+      ...EMPTY_DRAFT,
+      name: ' Spring ',
+      filterId: 'f1',
+      channel: 'WHATSAPP_CLOUD_API' as const,
+      senderIds: ['cp1'],
+      cloudTemplate: FOLLOW_UP,
+      mappings: {
+        'body:1': { source: { kind: 'CONTACT_FIELD' as const, field: 'name' as const }, fallback: 'there' },
+        'body:2': { source: { kind: 'FIXED' as const, text: 'BCA' }, fallback: '' },
+      },
+    };
+    expect(toRequest(d, cloudPlaceholders(FOLLOW_UP))).toEqual({
+      name: 'Spring',
+      audience: { kind: 'FILTER', filterId: 'f1' },
+      channel: 'WHATSAPP_CLOUD_API',
+      templateIds: [],
+      cloudTemplate: { cloudTemplateId: 'ct1', headerMediaId: null },
+      placeholders: [
+        { name: 'body:1', source: { kind: 'CONTACT_FIELD', field: 'name' }, fallback: 'there' },
+        { name: 'body:2', source: { kind: 'FIXED', text: 'BCA' }, fallback: '' },
+      ],
+      senderIds: ['cp1'],
+    });
+  });
+
+  it('webRequestUnchanged', () => {
+    const d = { ...EMPTY_DRAFT, name: 'Diwali', filterId: 'f1', templates: [WELCOME], senderIds: ['p1'] };
+    expect(toRequest(d, [])).toEqual({
+      name: 'Diwali',
+      audience: { kind: 'FILTER', filterId: 'f1' },
+      templateIds: ['t1'],
+      placeholders: [],
+      senderIds: ['p1'],
+    });
   });
 });

@@ -24,8 +24,8 @@ import { shown } from '@app/api/phoneNumbers';
 import { useAction } from '@app/admin/useAction';
 import { useLoad } from '@app/admin/useLoad';
 import { estimateText } from '@app/Campaigns/campaignDisplay';
-import { distinctPlaceholders, encodeSource, sourceOptions } from '@app/Campaigns/mapping';
-import { Draft, audienceSize, mappingContext, toRequest } from '@app/Campaigns/NewCampaign/draft';
+import { encodeSource, sourceOptions } from '@app/Campaigns/mapping';
+import { Draft, audienceSize, draftPlaceholders, mappingContext, toRequest } from '@app/Campaigns/NewCampaign/draft';
 import { capPerDay } from '@app/Campaigns/NewCampaign/SendersStep';
 import { countText } from '@app/Contacts/filterSpec';
 import { countsText } from '@app/Crm/segments/segmentModel';
@@ -65,7 +65,7 @@ export function useCreateCampaign(draft: Draft): CreateCampaign {
     setBusy(true);
     setErrorField(null);
     const tk = token as string;
-    const req = toRequest(draft, distinctPlaceholders(draft.templates));
+    const req = toRequest(draft, draftPlaceholders(draft));
     const file = draft.kind === 'CSV' ? (draft.file ?? undefined) : undefined;
     const created = await create.run(() =>
       createCampaign(tk, ws, req, file).catch((e: unknown) => {
@@ -163,7 +163,7 @@ export const ReviewStep: React.FunctionComponent<{
   const chosen = senders.filter((s) => draft.senderIds.includes(s.phoneNumberId));
   const perDay = capPerDay(chosen);
   const options = sourceOptions(mappingContext(draft, attributes));
-  const placeholders = distinctPlaceholders(draft.templates);
+  const placeholders = draftPlaceholders(draft);
   const { error, errorField, fieldErrors } = create;
   const errorsFor = (field: string) => [fieldErrors[field], errorField === field ? error : null];
   const banner = error && !(errorField && SHOWN_FIELDS.includes(errorField)) ? error : null;

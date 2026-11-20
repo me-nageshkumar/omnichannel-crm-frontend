@@ -6,13 +6,14 @@ import { listAttributes } from '@app/api/contacts';
 import { previewSavedSegment } from '@app/api/crm';
 import { PageShell } from '@app/admin/PageShell';
 import { useLoad } from '@app/admin/useLoad';
-import { distinctPlaceholders, mergeMappings } from '@app/Campaigns/mapping';
+import { mergeMappings } from '@app/Campaigns/mapping';
 import { AudienceStep } from '@app/Campaigns/NewCampaign/AudienceStep';
 import {
   Draft,
   DraftPatch,
   EMPTY_DRAFT,
   audienceReady,
+  draftPlaceholders,
   mappingContext,
   messageReady,
   sendersReady,
@@ -25,7 +26,7 @@ import { useSession } from '@app/session/SessionContext';
 import { useAccess } from '@app/session/useAccess';
 
 /** A change to any of these can make a placeholder's source invalid or give it a new default. */
-const MAPPING_INPUTS: (keyof Draft)[] = ['kind', 'preview', 'phoneColumn', 'nameColumn', 'templates'];
+const MAPPING_INPUTS: (keyof Draft)[] = ['kind', 'preview', 'phoneColumn', 'nameColumn', 'templates', 'cloudTemplate'];
 
 const NewCampaignWizard: React.FunctionComponent<{ ws: string }> = ({ ws }) => {
   const navigate = useNavigate();
@@ -68,7 +69,7 @@ const NewCampaignWizard: React.FunctionComponent<{ ws: string }> = ({ ws }) => {
         // A CSV being read has no columns yet; the mappings wait for them rather than lose their column choices.
         if (next.kind === 'CSV' && next.reading) return next;
         const ctx = mappingContext(next, attributes);
-        return { ...next, mappings: mergeMappings(next.mappings, distinctPlaceholders(next.templates), ctx) };
+        return { ...next, mappings: mergeMappings(next.mappings, draftPlaceholders(next), ctx) };
       }),
     [attributes],
   );

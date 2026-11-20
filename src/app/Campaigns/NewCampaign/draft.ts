@@ -102,7 +102,48 @@ export function audienceReady(d: Draft): boolean {
   return !d.reading && (d.file === null || d.phoneColumn !== null);
 }
 
+/** A Meta template's blanks as placeholders to map; a blank's own fill gives its default. */
+export function cloudPlaceholders(t: CloudTemplate | null): PlaceholderView[] {
+  if (!t) return [];
+  return t.variables.map((v) => {
+    const fill = t.fills?.[v.key];
+    const kind = fill?.kind === 'CONTACT_FIELD' || fill?.kind === 'CONTACT_ATTRIBUTE' ? fill.kind : 'AGENT';
+    return {
+      name: v.key,
+      kind,
+      attributeKey: fill?.attributeKey ?? null,
+      attributeId: null,
+      attributeName: null,
+      missing: false,
+      label: v.key,
+      example: v.example,
+      required: true,
+      fallback: fill?.fallback ?? null,
+    };
+  });
+}
+
+/** The placeholders the draft's message has: its saved templates', or its Meta template's blanks. */
+export function draftPlaceholders(d: Draft): PlaceholderView[] {
+  return d.channel === 'WHATSAPP_CLOUD_API' ? cloudPlaceholders(d.cloudTemplate) : distinctPlaceholders(d.templates);
+}
+
+/** Why the Cloud message cannot go on yet, or null. */
+export function cloudMessageProblem(d: Draft): string | null {
+  const t = d.cloudTemplate;
+  if (!t) return 'Choose a WhatsApp template';
+  if (!t.sendable) return 'This WhatsApp template cannot be sent';
+  if (['IMAGE', 'VIDEO', 'DOCUMENT'].includes(t.header.format) && !d.headerMediaId) {
+    return `Choose the header ${t.header.format.toLowerCase()}`;
+  }
+  const { unmapped, reused } = mappingProblems(cloudPlaceholders(t), d.mappings);
+  if (unmapped.length > 0) return 'Every blank needs a value';
+  if (reused.length > 0) return 'A CSV column can be used only once';
+  return d.kind !== 'CSV' || d.preview !== null ? null : 'Choose the CSV file in Audience to map its columns.';
+}
+
 export function messageReady(d: Draft): boolean {
+  if (d.channel === 'WHATSAPP_CLOUD_API') return cloudMessageProblem(d) === null;
   const n = d.templates.length;
   if (n < 1 || n > MAX_TEMPLATES) return false;
   const { unmapped, reused } = mappingProblems(distinctPlaceholders(d.templates), d.mappings);
@@ -131,7 +172,7 @@ export function audienceSize(d: Draft, filterCount: number | null, segmentTotal:
 
 /** The create request for a finished draft; a CSV audience's file goes alongside it. */
 export function toRequest(d: Draft, placeholders: PlaceholderView[]): CampaignRequest {
-  return {
+  const base: CampaignRequest = {
     name: d.name.trim(),
     audience:
       d.kind === 'FILTER'
@@ -142,5 +183,16 @@ export function toRequest(d: Draft, placeholders: PlaceholderView[]): CampaignRe
     templateIds: d.templates.map((t) => t.id),
     placeholders: toPlaceholders(placeholders, d.mappings),
     senderIds: d.senderIds,
+  };
+  // a WhatsApp Web request stays as it always was; the server reads a missing channel as WhatsApp Web
+  if (d.channel !== 'WHATSAPP_CLOUD_API') return base;
+  return {
+    name: base.name,
+    audience: base.audience,
+    channel: 'WHATSAPP_CLOUD_API',
+    templateIds: [],
+    cloudTemplate: d.cloudTemplate ? { cloudTemplateId: d.cloudTemplate.id, headerMediaId: d.headerMediaId } : null,
+    placeholders: base.placeholders,
+    senderIds: base.senderIds,
   };
 }
