@@ -497,6 +497,10 @@ export function actionSummary(a: AutomationAction, o: AutomationOptions): string
       const name = pipeline?.name ?? a.pipelineId;
       return `Add to CRM (${a.stageId ? `${name} › ${lane?.name ?? a.stageId}` : name})`;
     }
+    case 'SEND_CLOUD_TEMPLATE':
+      return `Send WhatsApp template “${
+        o.cloudTemplates?.find((t) => t.id === a.cloudTemplateId)?.name ?? a.cloudTemplateId ?? '?'
+      }”`;
     case 'START_CHATBOT':
       return `Start “${o.chatbots.find((c) => c.id === a.chatbotId)?.name ?? a.chatbotId ?? '?'}”`;
   }

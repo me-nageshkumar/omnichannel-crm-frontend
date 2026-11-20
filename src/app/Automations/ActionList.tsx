@@ -35,6 +35,8 @@ export function newAction(type: AutomationAction['type']): AutomationAction {
       return { type, pipelineId: null, stageId: null, dealTitle: null };
     case 'START_CHATBOT':
       return { type, chatbotId: null, ifRunning: 'SKIP' };
+    case 'SEND_CLOUD_TEMPLATE':
+      return { type, cloudTemplateId: null, values: {} };
   }
 }
 
