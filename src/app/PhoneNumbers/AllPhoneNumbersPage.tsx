@@ -128,7 +128,10 @@ export const AllPhoneNumbersPage: React.FunctionComponent = () => {
           { title: 'Retry move', onClick: () => onRetryMove(n) },
           { title: 'Cancel move', onClick: open({ kind: 'cancelMove', number: n }) },
         ]
-      : [{ title: 'Move to brand…', onClick: open({ kind: 'move', number: n }) }];
+      : // a Cloud API number's Meta connection belongs to its brand: it cannot move
+        n.connectionType === 'WHATSAPP_CLOUD_API'
+        ? []
+        : [{ title: 'Move to brand…', onClick: open({ kind: 'move', number: n }) }];
     return [
       { title: n.disabled ? 'Enable' : 'Disable', onClick: open({ kind: 'toggle', number: n }) },
       ...moving,

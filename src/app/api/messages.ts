@@ -64,6 +64,20 @@ export function messageFor(error: unknown): string {
   if (code === 'authority_in_use') {
     return `This authority is in a role: ${(error.roles ?? []).join(', ')}. Remove it from those roles first.`;
   }
+  // Cloud API numbers (spec 2026-11-20): the server words these for the person
+  if (
+    code === 'cloud_not_ready' ||
+    code === 'cloud_rate_limited' ||
+    code === 'cloud_send_refused' ||
+    code === 'cloud_send_failed' ||
+    code === 'cloud_number' ||
+    code === 'meta_connection_in_use'
+  ) {
+    return error.serverMessage ?? MESSAGES.generic;
+  }
+  if (code === 'window_closed') {
+    return '24-hour window closed — send a WhatsApp template';
+  }
   if (code === 'template_in_use') {
     return error.serverMessage ?? 'This template has been used; archive it instead';
   }

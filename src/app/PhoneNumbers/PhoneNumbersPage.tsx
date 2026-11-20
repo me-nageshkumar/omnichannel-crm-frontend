@@ -24,6 +24,10 @@ import { useAccess } from '@app/session/useAccess';
 import { ImportHistoryModal } from '@app/HistoryImports/ImportHistoryModal';
 import { ConnectCodeModal } from '@app/PhoneNumbers/ConnectCodeModal';
 import { PhoneNumberModal } from '@app/PhoneNumbers/PhoneNumberModal';
+import { AddCloudNumberModal } from '@app/PhoneNumbers/AddCloudNumberModal';
+import { MetaConnectionModal } from '@app/PhoneNumbers/MetaConnectionModal';
+import { MetaConnectionsSection } from '@app/PhoneNumbers/MetaConnectionsSection';
+import { RegisterNumberModal } from '@app/PhoneNumbers/RegisterNumberModal';
 import { PhoneNumberStatusLabel, relative } from '@app/PhoneNumbers/PhoneNumberStatusLabel';
 import { TeamSelectModal } from '@app/PhoneNumbers/TeamSelectModal';
 
@@ -32,6 +36,9 @@ export const POLL_MS = 10_000;
 
 type Dialog =
   | { kind: 'add' }
+  | { kind: 'cloud' }
+  | { kind: 'connection' }
+  | { kind: 'register'; number: PhoneNumber }
   | { kind: 'edit'; number: PhoneNumber }
   | { kind: 'team'; number: PhoneNumber }
   | { kind: 'code'; number: PhoneNumber }
@@ -52,6 +59,8 @@ export const PhoneNumbersPage: React.FunctionComponent = () => {
   const [dialog, setDialog] = React.useState<Dialog | null>(null);
   const confirm = useAction();
   const t = token as string;
+  const [connectionsKey, setConnectionsKey] = React.useState(0);
+  const hasCloud = (numbers.data ?? []).some((n) => n.connectionType === 'WHATSAPP_CLOUD_API');
 
   const { reload } = numbers;
   React.useEffect(() => {
@@ -81,11 +90,23 @@ export const PhoneNumbersPage: React.FunctionComponent = () => {
         { title: 'Delete', onClick: open({ kind: 'delete', number: n }) },
       ];
     }
+    // a Cloud API number has no WhatsApp Web device: no connect code, revoke or history import
+    if (n.connectionType === 'WHATSAPP_CLOUD_API') {
+      return [
+        { title: 'Edit label', onClick: open({ kind: 'edit', number: n }) },
+        { title: 'Set team', onClick: open({ kind: 'team', number: n }) },
+        ...(n.cloud && !n.cloud.registered
+          ? [{ title: 'Register', onClick: open({ kind: 'register', number: n }) }]
+          : []),
+        { title: n.disabled ? 'Enable' : 'Disable', onClick: open({ kind: 'toggle', number: n }) },
+        { title: 'Delete', onClick: open({ kind: 'delete', number: n }) },
+      ];
+    }
     return [
       { title: 'Edit label', onClick: open({ kind: 'edit', number: n }) },
       { title: 'Set team', onClick: open({ kind: 'team', number: n }) },
       { title: 'Get connect code', onClick: open({ kind: 'code', number: n }) },
-      ...(canImport && n.connectionType !== 'WHATSAPP_CLOUD_API'
+      ...(canImport
         ? [{ title: 'Import chat history…', onClick: open({ kind: 'history', number: n }) }]
         : []),
       ...(n.hasDevice ? [{ title: 'Revoke device', onClick: open({ kind: 'revoke', number: n }) }] : []),
@@ -140,11 +161,24 @@ export const PhoneNumbersPage: React.FunctionComponent = () => {
                     </>
                   )}
                 </Td>
-                <Td dataLabel="Type">{CONNECTION_LABELS[n.connectionType] ?? n.connectionType}</Td>
+                <Td dataLabel="Type">
+                  {CONNECTION_LABELS[n.connectionType] ?? n.connectionType}
+                  {n.cloud && (
+                    <div className="pf-v6-u-font-size-sm pf-v6-u-color-200">
+                      {[
+                        n.cloud.verifiedName,
+                        n.cloud.qualityRating && `quality ${n.cloud.qualityRating}`,
+                        n.cloud.messagingLimitTier,
+                      ]
+                        .filter(Boolean)
+                        .join(' · ')}
+                    </div>
+                  )}
+                </Td>
                 <Td dataLabel="Status">
                   <PhoneNumberStatusLabel number={n} />
                 </Td>
-                <Td dataLabel="Last seen">{n.lastSeenAt ? relative(n.lastSeenAt) : '—'}</Td>
+                <Td dataLabel="Last seen">{n.cloud ? '—' : n.lastSeenAt ? relative(n.lastSeenAt) : '—'}</Td>
                 <Td isActionCell>{canManage && <ActionsColumn items={actionsFor(n)} />}</Td>
               </Tr>
             ))}
@@ -152,8 +186,42 @@ export const PhoneNumbersPage: React.FunctionComponent = () => {
         </Table>
       )}
 
+      <MetaConnectionsSection canManage={canManage} expandedAtStart={hasCloud} reloadKey={connectionsKey} />
+
+      {dialog?.kind === 'cloud' && (
+        <AddCloudNumberModal
+          onChooseWeb={() => setDialog({ kind: 'add' })}
+          onAddConnection={() => setDialog({ kind: 'connection' })}
+          onSaved={(n) => {
+            put(n);
+            setConnectionsKey((k) => k + 1);
+            close();
+          }}
+          onCancel={close}
+        />
+      )}
+      {dialog?.kind === 'connection' && (
+        <MetaConnectionModal
+          onSaved={() => {
+            setConnectionsKey((k) => k + 1);
+            setDialog({ kind: 'cloud' });
+          }}
+          onCancel={() => setDialog({ kind: 'cloud' })}
+        />
+      )}
+      {dialog?.kind === 'register' && (
+        <RegisterNumberModal
+          number={dialog.number}
+          onSaved={(n) => {
+            put(n);
+            close();
+          }}
+          onCancel={close}
+        />
+      )}
       {dialog?.kind === 'add' && (
         <PhoneNumberModal
+          onChooseCloud={() => setDialog({ kind: 'cloud' })}
           save={(number, label) => addNumber(t, workspaceId, number, label)}
           onSaved={(n) => {
             put(n);
