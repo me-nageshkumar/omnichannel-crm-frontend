@@ -4,6 +4,7 @@ import {
   Alert,
   Button,
   Content,
+  Label,
   Pagination,
   Progress,
   Spinner,
@@ -12,7 +13,7 @@ import {
   ToolbarItem,
 } from '@patternfly/react-core';
 import { ActionsColumn, Table, Tbody, Td, Th, Thead, Tr } from '@patternfly/react-table';
-import { CAMPAIGN_PAGE_SIZE, CampaignView, listCampaigns } from '@app/api/campaigns';
+import { CAMPAIGN_PAGE_SIZE, CampaignView, channelOf, listCampaigns } from '@app/api/campaigns';
 import { PageShell } from '@app/admin/PageShell';
 import { useLoad } from '@app/admin/useLoad';
 import { CampaignStatusLabel } from '@app/Campaigns/CampaignStatusLabel';
@@ -29,8 +30,16 @@ const REFUSED_TEXT =
 
 const WALLET_TEXT = 'Paused: the wallet balance is too low. Top up the wallet, then resume.';
 
+/** Why the system paused a Cloud campaign, by its pause reason. */
+const CLOUD_PAUSE_TEXT: Record<string, string> = {
+  TEMPLATE_UNAVAILABLE: 'Meta paused or rejected the WhatsApp template',
+  CLOUD_QUALITY_LOW: "A number's quality rating is red",
+  CLOUD_AUTH: 'Meta refused the access token',
+};
+
 /** The sentence explaining why the system paused a campaign. */
 export function systemPauseText(reason: string | null): string {
+  if (reason && CLOUD_PAUSE_TEXT[reason]) return CLOUD_PAUSE_TEXT[reason];
   if (reason === 'WALLET_EMPTY') return WALLET_TEXT;
   return reason === 'SEND_REFUSED' ? REFUSED_TEXT : SYSTEM_PAUSE_TEXT;
 }
@@ -131,6 +140,11 @@ export const CampaignsPage: React.FunctionComponent = () => {
                   <Tr key={c.id}>
                     <Td dataLabel="Name">
                       <Link to={`/campaigns/${c.id}`}>{c.name}</Link>
+                      {channelOf(c) === 'WHATSAPP_CLOUD_API' && (
+                        <Label isCompact color="blue" style={{ marginInlineStart: 8 }}>
+                          Cloud API
+                        </Label>
+                      )}
                       <Content component="small" style={{ color: 'var(--pf-t--global--text--color--subtle)' }}>
                         {audienceText(c)}
                       </Content>

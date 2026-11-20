@@ -130,6 +130,7 @@ const NewCampaignWizard: React.FunctionComponent<{ ws: string }> = ({ ws }) => {
             draft={draft}
             attributes={attributes}
             senders={senders ?? []}
+            cloud={cloud ?? []}
             create={create}
             ready={ready}
             segment={segmentId ? { preview: segmentPreview.data ?? null, error: segmentPreview.error } : undefined}

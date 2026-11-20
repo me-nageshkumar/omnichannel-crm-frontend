@@ -15,7 +15,7 @@ import {
   WizardFooterWrapper,
   useWizardContext,
 } from '@patternfly/react-core';
-import { SenderView, campaignAction, createCampaign } from '@app/api/campaigns';
+import { CloudSenderView, SenderView, campaignAction, createCampaign } from '@app/api/campaigns';
 import { ApiError } from '@app/api/client';
 import { ContactAttribute, countContacts } from '@app/api/contacts';
 import { campaignActionMessage } from '@app/api/messages';
@@ -152,16 +152,21 @@ export const ReviewStep: React.FunctionComponent<{
   draft: Draft;
   attributes: ContactAttribute[];
   senders: SenderView[];
+  cloud?: CloudSenderView[];
   create: CreateCampaign;
   /** False when an earlier step no longer accepts the draft; the footer then cannot submit. */
   ready: boolean;
   /** The segment's live preview for the signed-in user (a SEGMENT audience), with its load state. */
   segment?: { preview: SegmentPreview | null; error: string | null };
-}> = ({ draft, attributes, senders, create, ready, segment }) => {
+}> = ({ draft, attributes, senders, cloud = [], create, ready, segment }) => {
   const filterCount = useFilterCount(draft);
   const size = audienceSize(draft, filterCount.count, segment?.preview?.total ?? null);
+  const isCloud = draft.channel === 'WHATSAPP_CLOUD_API';
   const chosen = senders.filter((s) => draft.senderIds.includes(s.phoneNumberId));
-  const perDay = capPerDay(chosen);
+  const chosenCloud = cloud.filter((s) => draft.senderIds.includes(s.phoneNumberId));
+  // the numbers of one WhatsApp account share its daily limit; no limit sends everyone in a day
+  const cloudLimit = chosenCloud.length === 0 ? 0 : chosenCloud[0].dailyLimit;
+  const perDay = isCloud ? (cloudLimit === null ? Math.max(size ?? 1, 1) : cloudLimit) : capPerDay(chosen);
   const options = sourceOptions(mappingContext(draft, attributes));
   const placeholders = draftPlaceholders(draft);
   const { error, errorField, fieldErrors } = create;
@@ -237,13 +242,25 @@ export const ReviewStep: React.FunctionComponent<{
             <Errors messages={errorsFor('audience.segmentId')} />
           </DescriptionListDescription>
         </DescriptionListGroup>
-        <DescriptionListGroup>
-          <DescriptionListTerm>Templates</DescriptionListTerm>
-          <DescriptionListDescription>
-            <div>{draft.templates.map((t) => t.name).join(', ')}</div>
-            <Errors messages={errorsFor('templateIds')} />
-          </DescriptionListDescription>
-        </DescriptionListGroup>
+        {isCloud ? (
+          <DescriptionListGroup>
+            <DescriptionListTerm>WhatsApp template</DescriptionListTerm>
+            <DescriptionListDescription>
+              <div>{draft.cloudTemplate ? `${draft.cloudTemplate.name} (${draft.cloudTemplate.language})` : '—'}</div>
+              {draft.headerFileName && <div>{`Header file ${draft.headerFileName}`}</div>}
+              <Errors messages={errorsFor('cloudTemplate.cloudTemplateId')} />
+              <Errors messages={errorsFor('cloudTemplate.headerMediaId')} />
+            </DescriptionListDescription>
+          </DescriptionListGroup>
+        ) : (
+          <DescriptionListGroup>
+            <DescriptionListTerm>Templates</DescriptionListTerm>
+            <DescriptionListDescription>
+              <div>{draft.templates.map((t) => t.name).join(', ')}</div>
+              <Errors messages={errorsFor('templateIds')} />
+            </DescriptionListDescription>
+          </DescriptionListGroup>
+        )}
         <DescriptionListGroup>
           <DescriptionListTerm>Placeholders</DescriptionListTerm>
           <DescriptionListDescription>
@@ -258,7 +275,11 @@ export const ReviewStep: React.FunctionComponent<{
         <DescriptionListGroup>
           <DescriptionListTerm>Senders</DescriptionListTerm>
           <DescriptionListDescription>
-            <div>{chosen.map((s) => shown(s.number)).join(', ')}</div>
+            <div>
+              {isCloud
+                ? chosenCloud.map((s) => s.label ?? shown(s.number)).join(', ')
+                : chosen.map((s) => shown(s.number)).join(', ')}
+            </div>
             <Errors messages={errorsFor('senderIds')} />
           </DescriptionListDescription>
         </DescriptionListGroup>
@@ -273,6 +294,14 @@ export const ReviewStep: React.FunctionComponent<{
           </DescriptionListDescription>
         </DescriptionListGroup>
       </DescriptionList>
+      {isCloud && (
+        <Alert
+          variant="info"
+          isInline
+          isPlain
+          title="Meta charges for every message sent, and may hold back marketing messages to people who received many recently."
+        />
+      )}
     </Stack>
   );
 };

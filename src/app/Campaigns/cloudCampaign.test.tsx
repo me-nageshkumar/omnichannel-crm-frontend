@@ -5,7 +5,7 @@ import { mockFetch } from '../../test/fetchMock';
 import { WORKSPACE_MANAGER, meAs, storeSession } from '../../test/session';
 import { attribute, contact, savedFilter } from '../../test/contacts';
 import { content, placeholderView, template } from '../../test/templates';
-import { cloudSender, sender } from '../../test/campaigns';
+import { campaign, campaignDetail, campaignSettings, cloudSender, recipient, sender } from '../../test/campaigns';
 import { cloudTemplate } from '../../test/cloudTemplates';
 import { EMPTY_DRAFT, cloudPlaceholders, toRequest } from '@app/Campaigns/NewCampaign/draft';
 
@@ -257,5 +257,124 @@ describe('new campaign wizard: the WhatsApp template of a Cloud campaign', () =>
       placeholders: [],
       senderIds: ['p1'],
     });
+  });
+});
+
+const CLOUD_CAMPAIGN = campaignDetail({
+  id: 'c1',
+  name: 'Spring intake',
+  channel: 'WHATSAPP_CLOUD_API',
+  senderIds: ['cp1'],
+  senders: [],
+  templateIds: [],
+  templateNames: [],
+  cloudTemplate: { cloudTemplateId: 'ct1', name: 'course_follow_up', language: 'en', status: 'APPROVED', headerMediaId: null },
+  cloudSenders: [cloudSender({ usedLast24h: 120 })],
+});
+
+describe('Cloud campaigns: review, list, detail and settings', () => {
+  beforeEach(() => {
+    localStorage.clear();
+    storeSession();
+  });
+  afterEach(() => {
+    vi.restoreAllMocks();
+    vi.unstubAllGlobals();
+  });
+
+  it('reviewShowsCloudNote', async () => {
+    mockFetch(cloudRoutes());
+    const { user } = renderApp('/campaigns/new');
+    await toCloudMessage(user);
+    await user.click(await screen.findByRole('radio', { name: /course_follow_up/ }));
+    await user.selectOptions(screen.getByRole('combobox', { name: 'Source for body:1' }), 'Contact name');
+    await user.selectOptions(screen.getByRole('combobox', { name: 'Source for body:2' }), 'Contact name');
+    await user.click(next());
+    expect(await screen.findByText('course_follow_up (en)')).toBeVisible();
+    expect(screen.getByText(/About 2 working days/)).toBeVisible();
+    expect(
+      screen.getByText(
+        'Meta charges for every message sent, and may hold back marketing messages to people who received many recently.',
+      ),
+    ).toBeVisible();
+  });
+
+  it('listShowsKindAndNewPauseReasons', async () => {
+    mockFetch({
+      ...meAs(WORKSPACE_MANAGER),
+      [`GET ${C}`]: {
+        status: 200,
+        body: {
+          items: [
+            campaign({
+              id: 'c1',
+              name: 'Spring intake',
+              channel: 'WHATSAPP_CLOUD_API',
+              status: 'PAUSED',
+              pausedBy: 'SYSTEM',
+              pauseReason: 'TEMPLATE_UNAVAILABLE',
+            }),
+          ],
+          total: 1,
+          page: 0,
+          systemPaused: true,
+        },
+      },
+    });
+    renderApp('/campaigns');
+    const row = await screen.findByRole('row', { name: /Spring intake/ });
+    expect(within(row).getByText('Cloud API')).toBeVisible();
+  });
+
+  it('detailShowsTemplateAndCloudNumbers', async () => {
+    mockFetch({
+      ...meAs(WORKSPACE_MANAGER),
+      [`GET ${C}/c1`]: {
+        status: 200,
+        body: {
+          ...CLOUD_CAMPAIGN,
+          status: 'PAUSED',
+          pausedBy: 'SYSTEM',
+          pauseReason: 'TEMPLATE_UNAVAILABLE',
+          cloudSenders: [cloudSender({ usedLast24h: 120, heldUntil: '2026-11-21T08:35:00Z' })],
+        },
+      },
+      [`GET ${C}/c1/recipients`]: {
+        status: 200,
+        body: { items: [recipient({ status: 'FAILED', error: '131026 Message undeliverable' })], total: 1, page: 0 },
+      },
+    });
+    renderApp('/campaigns/c1');
+    expect(await screen.findByText('WhatsApp template: course_follow_up (en)')).toBeVisible();
+    expect(screen.getByText('Meta paused or rejected the WhatsApp template')).toBeVisible();
+    const row = screen.getByRole('row', { name: /Admissions/ });
+    expect(within(row).getByText('used 120 of 250 in the last 24 hours')).toBeVisible();
+    expect(within(row).getByText(/^Waiting for Meta's daily limit until/)).toBeVisible();
+    expect(await screen.findByText('131026 Message undeliverable')).toBeVisible();
+    expect(screen.queryByLabelText('Senders today')).not.toBeInTheDocument();
+  });
+
+  it('missingChannelReadsAsWeb', async () => {
+    mockFetch({
+      ...meAs(WORKSPACE_MANAGER),
+      [`GET ${C}/c1`]: { status: 200, body: campaignDetail({ id: 'c1', name: 'Diwali' }) },
+      [`GET ${C}/c1/recipients`]: { status: 200, body: { items: [], total: 0, page: 0 } },
+    });
+    renderApp('/campaigns/c1');
+    expect(await screen.findByLabelText('Senders today')).toBeVisible();
+    expect(screen.queryByText(/^WhatsApp template:/)).not.toBeInTheDocument();
+  });
+
+  it('settingsSaysWhatAppliesToWhom', async () => {
+    mockFetch({
+      ...meAs(WORKSPACE_MANAGER),
+      [`GET ${C}/settings`]: { status: 200, body: campaignSettings() },
+    });
+    renderApp('/campaigns/settings');
+    expect(
+      await screen.findByText(
+        'Warm-up, gaps and caps apply to WhatsApp Web numbers. Working days and hours apply to both.',
+      ),
+    ).toBeVisible();
   });
 });
