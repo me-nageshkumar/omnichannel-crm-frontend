@@ -139,7 +139,8 @@ export interface CallDetail {
 /** A quoted message as the bubble shows it; `messageId` null when we do not have the original. */
 export interface QuotedView {
   messageId: string | null;
-  fromMe: boolean;
+  /** Null when it cannot be told whose message it was. */
+  fromMe: boolean | null;
   from: string | null;
   /** A template's text header. */
   title: string | null;

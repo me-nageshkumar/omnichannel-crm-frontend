@@ -62,6 +62,13 @@ describe('reply quotes', () => {
     expect(quoteLabel({ ...HELLO, title: null, text: 'Fees', type: 'image' })).toBe('📷 Fees');
   });
 
+  it('unknownSenderShowsNoName', () => {
+    render(<QuoteBlock quoted={{ ...HELLO, fromMe: null, title: null, text: 'Fees' }} contactName="Nagesh Kumar" />);
+    expect(screen.queryByText('Nagesh Kumar')).not.toBeInTheDocument();
+    expect(screen.queryByText('You')).not.toBeInTheDocument();
+    expect(screen.getByText('Fees')).toBeVisible();
+  });
+
   it('missingTextSaysEarlierMessage', () => {
     render(<QuoteBlock quoted={{ ...HELLO, fromMe: false, title: null, text: null, type: null }} contactName="" />);
     expect(screen.getByText('Replying to an earlier message')).toBeVisible();

@@ -40,13 +40,14 @@ export const QuoteBlock: React.FunctionComponent<{ quoted: QuotedView; contactNa
   quoted,
   contactName,
 }) => {
-  const sender = quoted.fromMe ? 'You' : contactName || (quoted.from ? `+${quoted.from}` : 'Contact');
+  // no name when it cannot be told whose message it was, rather than a wrong one
+  const sender = quoted.fromMe === true ? 'You' : quoted.fromMe === false ? contactName : null;
   const label = quoteLabel(quoted);
   return (
     <div
       role="button"
       tabIndex={0}
-      aria-label={`Quoted message from ${sender}`}
+      aria-label={sender ? `Quoted message from ${sender}` : 'Quoted message'}
       onClick={() => openQuoted(quoted.messageId)}
       onKeyDown={(e) => {
         if (e.key === 'Enter' || e.key === ' ') openQuoted(quoted.messageId);
@@ -63,15 +64,17 @@ export const QuoteBlock: React.FunctionComponent<{ quoted: QuotedView; contactNa
     >
       <div style={{ width: 4, flexShrink: 0, background: 'var(--pf-t--global--color--brand--default)' }} />
       <div style={{ padding: '4px 8px', minWidth: 0 }}>
-        <div
-          style={{
-            color: 'var(--pf-t--global--color--brand--default)',
-            fontWeight: 'var(--pf-t--global--font--weight--body--bold)',
-            fontSize: 'var(--pf-t--global--font--size--sm)',
-          }}
-        >
-          {sender}
-        </div>
+        {sender && (
+          <div
+            style={{
+              color: 'var(--pf-t--global--color--brand--default)',
+              fontWeight: 'var(--pf-t--global--font--weight--body--bold)',
+              fontSize: 'var(--pf-t--global--font--size--sm)',
+            }}
+          >
+            {sender}
+          </div>
+        )}
         {quoted.title && (
           <div style={{ fontSize: 'var(--pf-t--global--font--size--sm)' }}>
             <strong>{quoted.title}</strong>
