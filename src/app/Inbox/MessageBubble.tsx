@@ -13,6 +13,8 @@ const TICK_BLUE = 'var(--pf-t--global--icon--color--status--info--default)';
 const TICK_RED = 'var(--pf-t--global--icon--color--status--danger--default)';
 
 const MEDIA_TYPES = ['image', 'sticker', 'video', 'audio', 'ptt', 'document'];
+import { QuoteBlock } from '@app/Inbox/QuoteBlock';
+
 const TEXT_TYPES = ['text', 'chat'];
 /** Types WhatsApp Web itself does not show: the stored message holds nothing more than its type. */
 const ONLY_ON_PHONE: Record<string, string> = {
@@ -118,7 +120,10 @@ export const MessageBubble: React.FunctionComponent<MessageBubbleProps> = ({ mes
             ? (message.sentBy?.name ?? 'Chatbot')
             : 'WhatsApp Web';
   return (
-    <div style={{ display: 'flex', justifyContent: side === 'right' ? 'flex-end' : 'flex-start' }}>
+    <div
+      id={`message-${message.id}`}
+      style={{ display: 'flex', justifyContent: side === 'right' ? 'flex-end' : 'flex-start' }}
+    >
       <div
         data-side={side}
         style={{
@@ -135,6 +140,18 @@ export const MessageBubble: React.FunctionComponent<MessageBubbleProps> = ({ mes
         }}
       >
         {message.adClick && <AdLine ad={message.adClick} />}
+        {message.forwarded && (
+          <div
+            style={{
+              fontStyle: 'italic',
+              fontSize: 'var(--pf-t--global--font--size--sm)',
+              color: 'var(--pf-t--global--text--color--subtle)',
+            }}
+          >
+            Forwarded
+          </div>
+        )}
+        {message.quoted && <QuoteBlock quoted={message.quoted} contactName={contact} />}
         <Content message={message} contact={contact} />
         {message.failure && (
           <div

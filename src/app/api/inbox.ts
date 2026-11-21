@@ -136,6 +136,17 @@ export interface CallDetail {
   durationSeconds: number | null;
 }
 
+/** A quoted message as the bubble shows it; `messageId` null when we do not have the original. */
+export interface QuotedView {
+  messageId: string | null;
+  fromMe: boolean;
+  from: string | null;
+  /** A template's text header. */
+  title: string | null;
+  text: string | null;
+  type: string | null;
+}
+
 export interface MessageView {
   id: string;
   chatId: string;
@@ -170,6 +181,10 @@ export interface MessageView {
   failure?: { code: number | null; title: string | null; details: string | null } | null;
   /** The WhatsApp template it sent, as the customer saw it. */
   template?: TemplateSnapshot | null;
+  /** What this message quotes (a swipe-reply), as stored when it arrived. */
+  quoted?: QuotedView | null;
+  /** True when WhatsApp marks it forwarded. */
+  forwarded?: boolean | null;
 }
 
 /** A sent WhatsApp template as the thread draws it. */
