@@ -4,6 +4,7 @@ import { Contact, ContactAttribute, searchContacts } from '@app/api/contacts';
 import type { TemplateView } from '@app/api/templates';
 import { distinctPlaceholders, previewValues } from '@app/Campaigns/mapping';
 import { Draft, MAX_TEMPLATES, StepProps, hasLink, mappingContext } from '@app/Campaigns/NewCampaign/draft';
+import { CloudMessageStep } from '@app/Campaigns/NewCampaign/CloudMessageStep';
 import { PlaceholderMapping } from '@app/Campaigns/NewCampaign/PlaceholderMapping';
 import { SampleCsvLinks } from '@app/Campaigns/NewCampaign/SampleCsvLinks';
 import { useSession } from '@app/session/SessionContext';
@@ -38,7 +39,11 @@ function useSampleContact(draft: Draft): Contact | undefined {
 }
 
 /** Choose one to five text templates, map their placeholders, and preview what a recipient gets. */
-export const MessageStep: React.FunctionComponent<StepProps & { attributes: ContactAttribute[] }> = ({
+export const MessageStep: React.FunctionComponent<StepProps & { attributes: ContactAttribute[] }> = (props) =>
+  props.draft.channel === 'WHATSAPP_CLOUD_API' ? <CloudMessageStep {...props} /> : <WebMessageStep {...props} />;
+
+/** WhatsApp Web: saved text templates, as before Cloud campaigns. */
+const WebMessageStep: React.FunctionComponent<StepProps & { attributes: ContactAttribute[] }> = ({
   draft,
   update,
   attributes,

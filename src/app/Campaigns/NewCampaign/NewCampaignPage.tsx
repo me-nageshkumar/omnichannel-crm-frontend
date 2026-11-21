@@ -1,20 +1,22 @@
 import * as React from 'react';
 import { useNavigate } from 'react-router-dom';
 import { Alert, Wizard, WizardStep, WizardStepType } from '@patternfly/react-core';
-import { listSenders } from '@app/api/campaigns';
+import { listCloudSenders, listSenders } from '@app/api/campaigns';
 import { listAttributes } from '@app/api/contacts';
 import { previewSavedSegment } from '@app/api/crm';
 import { PageShell } from '@app/admin/PageShell';
 import { useLoad } from '@app/admin/useLoad';
-import { distinctPlaceholders, mergeMappings } from '@app/Campaigns/mapping';
+import { mergeMappings } from '@app/Campaigns/mapping';
 import { AudienceStep } from '@app/Campaigns/NewCampaign/AudienceStep';
 import {
   Draft,
   DraftPatch,
   EMPTY_DRAFT,
   audienceReady,
+  draftPlaceholders,
   mappingContext,
   messageReady,
+  sendersReady,
 } from '@app/Campaigns/NewCampaign/draft';
 import { MessageStep } from '@app/Campaigns/NewCampaign/MessageStep';
 import { ReviewFooter, ReviewStep, useCreateCampaign } from '@app/Campaigns/NewCampaign/ReviewStep';
@@ -24,7 +26,7 @@ import { useSession } from '@app/session/SessionContext';
 import { useAccess } from '@app/session/useAccess';
 
 /** A change to any of these can make a placeholder's source invalid or give it a new default. */
-const MAPPING_INPUTS: (keyof Draft)[] = ['kind', 'preview', 'phoneColumn', 'nameColumn', 'templates'];
+const MAPPING_INPUTS: (keyof Draft)[] = ['kind', 'preview', 'phoneColumn', 'nameColumn', 'templates', 'cloudTemplate'];
 
 const NewCampaignWizard: React.FunctionComponent<{ ws: string }> = ({ ws }) => {
   const navigate = useNavigate();
@@ -36,6 +38,13 @@ const NewCampaignWizard: React.FunctionComponent<{ ws: string }> = ({ ws }) => {
     [sendersLoad.data],
   );
   const [draft, setDraft] = React.useState<Draft>(EMPTY_DRAFT);
+  const cloudChosen = draft.channel === 'WHATSAPP_CLOUD_API';
+  // the Cloud numbers are read only once the kind is chosen
+  const cloudLoad = useLoad(
+    (tk) => (cloudChosen ? listCloudSenders(tk, ws) : Promise.resolve(null)),
+    [ws, cloudChosen],
+  );
+  const cloud = cloudLoad.data ?? undefined;
   // A segment audience is counted for the signed-in user here, so the footer can refuse a truncated one.
   const segmentId = draft.kind === 'SEGMENT' ? draft.segmentId : '';
   const segmentPreview = useLoad(
@@ -60,7 +69,7 @@ const NewCampaignWizard: React.FunctionComponent<{ ws: string }> = ({ ws }) => {
         // A CSV being read has no columns yet; the mappings wait for them rather than lose their column choices.
         if (next.kind === 'CSV' && next.reading) return next;
         const ctx = mappingContext(next, attributes);
-        return { ...next, mappings: mergeMappings(next.mappings, distinctPlaceholders(next.templates), ctx) };
+        return { ...next, mappings: mergeMappings(next.mappings, draftPlaceholders(next), ctx) };
       }),
     [attributes],
   );
@@ -69,7 +78,7 @@ const NewCampaignWizard: React.FunctionComponent<{ ws: string }> = ({ ws }) => {
   const stepReady = {
     audience: audienceReady(draft),
     message: messageReady(draft),
-    senders: draft.senderIds.length > 0,
+    senders: sendersReady(draft, cloud ?? []) === null,
   };
   const truncated = segmentId !== '' && segmentPreview.data?.truncated === true;
   const ready = stepReady.audience && stepReady.message && stepReady.senders && !truncated;
@@ -90,20 +99,27 @@ const NewCampaignWizard: React.FunctionComponent<{ ws: string }> = ({ ws }) => {
           <AudienceStep draft={draft} update={update} />
         </WizardStep>
         <WizardStep
+          name="Senders"
+          id="senders"
+          status={status('senders')}
+          footer={{ isNextDisabled: !stepReady.senders }}
+        >
+          <SendersStep
+            draft={draft}
+            update={update}
+            senders={senders}
+            error={sendersLoad.error}
+            cloud={cloud}
+            cloudError={cloudLoad.error}
+          />
+        </WizardStep>
+        <WizardStep
           name="Message"
           id="message"
           status={status('message')}
           footer={{ isNextDisabled: !stepReady.message }}
         >
           <MessageStep draft={draft} update={update} attributes={attributes} />
-        </WizardStep>
-        <WizardStep
-          name="Senders"
-          id="senders"
-          status={status('senders')}
-          footer={{ isNextDisabled: !stepReady.senders }}
-        >
-          <SendersStep draft={draft} update={update} senders={senders} error={sendersLoad.error} />
         </WizardStep>
         <WizardStep
           name="Review"
@@ -114,6 +130,7 @@ const NewCampaignWizard: React.FunctionComponent<{ ws: string }> = ({ ws }) => {
             draft={draft}
             attributes={attributes}
             senders={senders ?? []}
+            cloud={cloud ?? []}
             create={create}
             ready={ready}
             segment={segmentId ? { preview: segmentPreview.data ?? null, error: segmentPreview.error } : undefined}

@@ -24,7 +24,15 @@ import {
   Tooltip,
 } from '@patternfly/react-core';
 import { Table, Tbody, Td, Th, Thead, Tr } from '@patternfly/react-table';
-import { CAMPAIGN_PAGE_SIZE, CampaignCounts, RecipientStatus, SenderView, listRecipients } from '@app/api/campaigns';
+import {
+  CAMPAIGN_PAGE_SIZE,
+  CampaignCounts,
+  CloudSenderView,
+  RecipientStatus,
+  SenderView,
+  channelOf,
+  listRecipients,
+} from '@app/api/campaigns';
 import { shown } from '@app/api/phoneNumbers';
 import { PageShell } from '@app/admin/PageShell';
 import { useLoad } from '@app/admin/useLoad';
@@ -98,6 +106,42 @@ const Counts: React.FunctionComponent<{ counts: CampaignCounts }> = ({ counts })
       </DescriptionListGroup>
     ))}
   </DescriptionList>
+);
+
+/** A Cloud number's use of Meta's daily limit, and whether it waits for it. */
+const CloudNumbers: React.FunctionComponent<{ senders: CloudSenderView[] }> = ({ senders }) => (
+  <Table aria-label="Cloud API numbers" variant="compact">
+    <Thead>
+      <Tr>
+        <Th>Number</Th>
+        <Th>Quality</Th>
+        <Th>Daily limit</Th>
+        <Th>Waiting</Th>
+      </Tr>
+    </Thead>
+    <Tbody>
+      {senders.map((s) => {
+        const atLimit = s.dailyLimit !== null && s.usedLast24h >= s.dailyLimit;
+        const waiting = s.heldUntil
+          ? `Waiting for Meta's daily limit until ${new Date(s.heldUntil).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}`
+          : atLimit
+            ? "Waiting for Meta's daily limit"
+            : '—';
+        return (
+          <Tr key={s.phoneNumberId}>
+            <Td dataLabel="Number">{s.label ?? shown(s.number)}</Td>
+            <Td dataLabel="Quality">{s.qualityRating ?? '—'}</Td>
+            <Td dataLabel="Daily limit">
+              {s.dailyLimit === null
+                ? `${s.usedLast24h} used in the last 24 hours, no limit`
+                : `used ${s.usedLast24h} of ${s.dailyLimit} in the last 24 hours`}
+            </Td>
+            <Td dataLabel="Waiting">{waiting}</Td>
+          </Tr>
+        );
+      })}
+    </Tbody>
+  </Table>
 );
 
 const SendersToday: React.FunctionComponent<{ senders: SenderView[] }> = ({ senders }) => (
@@ -321,12 +365,24 @@ export const CampaignDetailPage: React.FunctionComponent = () => {
                 </FlexItem>
               </Flex>
             </StackItem>
-            <StackItem>
-              <Title headingLevel="h2" size="md">
-                Senders today
-              </Title>
-              <SendersToday senders={c.senders} />
-            </StackItem>
+            {channelOf(c) === 'WHATSAPP_CLOUD_API' ? (
+              <StackItem>
+                {c.cloudTemplate && (
+                  <Content component="p">{`WhatsApp template: ${c.cloudTemplate.name} (${c.cloudTemplate.language})`}</Content>
+                )}
+                <Title headingLevel="h2" size="md">
+                  Cloud API numbers
+                </Title>
+                <CloudNumbers senders={c.cloudSenders ?? []} />
+              </StackItem>
+            ) : (
+              <StackItem>
+                <Title headingLevel="h2" size="md">
+                  Senders today
+                </Title>
+                <SendersToday senders={c.senders} />
+              </StackItem>
+            )}
             <StackItem>
               <Recipients id={id} refreshedAt={progress.refreshedAt} />
             </StackItem>

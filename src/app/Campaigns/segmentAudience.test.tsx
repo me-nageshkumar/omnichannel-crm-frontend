@@ -70,10 +70,10 @@ async function toReview(user: User, senders = ['+919800000001']) {
   await user.type(name, 'Diwali');
   await chooseSegment(user);
   await user.click(next());
-  await user.click(await screen.findByRole('menuitem', { name: /^Reminder/ }));
-  await user.click(next());
   await screen.findByRole('checkbox', { name: 'Select +919800000001' });
   for (const n of senders) await user.click(screen.getByRole('checkbox', { name: `Select ${n}` }));
+  await user.click(next());
+  await user.click(await screen.findByRole('menuitem', { name: /^Reminder/ }));
   await user.click(next());
   await screen.findByRole('button', { name: 'Start campaign' });
 }
@@ -164,9 +164,9 @@ describe('campaign wizard with a CRM segment audience', () => {
     expect(next()).toBeEnabled();
     // straight through to Review without touching the select: the segment is named there
     await user.click(next());
-    await user.click(await screen.findByRole('menuitem', { name: /^Reminder/ }));
-    await user.click(next());
     await user.click(await screen.findByRole('checkbox', { name: 'Select +919800000001' }));
+    await user.click(next());
+    await user.click(await screen.findByRole('menuitem', { name: /^Reminder/ }));
     await user.click(next());
     expect(await screen.findByText(/^Segment Gold leads/)).toBeInTheDocument();
   });

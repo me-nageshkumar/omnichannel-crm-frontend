@@ -122,6 +122,10 @@ export function campaignActionMessage(error: unknown, action: CampaignAction): s
   if (error instanceof ApiError && error.code?.toLowerCase() === 'campaign_state') {
     return `This campaign cannot be ${DONE[action]} now.`;
   }
+  // a Cloud campaign Meta's side still stops: only the server knows why
+  if (error instanceof ApiError && error.code?.toLowerCase() === 'campaign_blocked') {
+    return error.serverMessage ?? MESSAGES.generic;
+  }
   return messageFor(error);
 }
 

@@ -4,6 +4,7 @@ import {
   Alert,
   Button,
   Checkbox,
+  Content,
   Form,
   FormGroup,
   FormHelperText,
@@ -200,6 +201,9 @@ const SettingsForm: React.FunctionComponent<{
       }}
     >
       {action.error && <Alert variant="danger" isInline title={action.error} />}
+      <Content component="p">
+        Warm-up, gaps and caps apply to WhatsApp Web numbers. Working days and hours apply to both.
+      </Content>
       {saved && <Alert variant="success" isInline title="Settings saved." />}
       <FormGroup label="Timezone" fieldId="timezone">
         <FormSelect id="timezone" value={draft.timezone} onChange={(_e, v) => change({ timezone: v })}>
